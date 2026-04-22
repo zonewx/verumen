@@ -509,7 +509,7 @@ export default function App() {
       <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
         <div className={`w-full max-w-sm mx-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl shadow-2xl overflow-hidden`}>
           {/* Header */}
-          <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-center">
+          <div className="bg-linear-to-br from-blue-600 to-blue-800 p-8 text-center">
             <div className="flex items-center justify-center gap-3 mb-2">
               <svg width="32" height="32" viewBox="0 0 28 28" fill="none">
                 <rect width="28" height="28" rx="6" fill="rgba(255,255,255,0.15)"/>
@@ -681,7 +681,7 @@ export default function App() {
                 `}
               >
                 {/* Card header */}
-                <div className={`bg-gradient-to-br ${app.color} p-6 flex items-start justify-between`}>
+                <div className={`bg-linear-to-br ${app.color} p-6 flex items-start justify-between`}>
                   <div>{app.icon}</div>
                   {app.badge && (
                     <span className="text-xs font-semibold bg-white/20 text-white px-2.5 py-1 rounded-full">{app.badge}</span>
