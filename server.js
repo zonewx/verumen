@@ -976,23 +976,44 @@ function fetchJSON(url) {
   });
 }
 
-// Get/set CS settings (steam id etc.)
-app.get('/api/cs/settings', (req, res) => {
+// ── sqlite3 promise helpers ────────────────────────────────────────────────
+function dbAll(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+  });
+}
+function dbGet(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => { if (err) reject(err); else resolve(row || null); });
+  });
+}
+function dbRun(db, sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) { if (err) reject(err); else resolve({ lastID: this.lastID, changes: this.changes }); });
+  });
+}
+
+// Get/set CS settings
+app.get('/api/cs/settings', async (req, res) => {
   const db = getDB();
   if (!db) return res.status(503).json({ error: 'Database not available' });
-  const rows = db.prepare('SELECT key, value FROM cs_settings').all();
-  const settings = {};
-  rows.forEach(r => { settings[r.key] = r.value; });
-  res.json(settings);
+  try {
+    const rows = await dbAll(db, 'SELECT key, value FROM cs_settings');
+    const settings = {};
+    rows.forEach(r => { settings[r.key] = r.value; });
+    res.json(settings);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/cs/settings', (req, res) => {
+app.post('/api/cs/settings', async (req, res) => {
   const db = getDB();
   if (!db) return res.status(503).json({ error: 'Database not available' });
   const { key, value } = req.body;
   if (!key) return res.status(400).json({ error: 'key required' });
-  db.prepare('INSERT OR REPLACE INTO cs_settings (key, value) VALUES (?, ?)').run(key, value);
-  res.json({ success: true });
+  try {
+    await dbRun(db, 'INSERT OR REPLACE INTO cs_settings (key, value) VALUES (?, ?)', [key, value]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Sync prices from csgotrader.app
@@ -1005,152 +1026,155 @@ app.post('/api/cs/prices/sync', async (req, res) => {
       fetchJSON('https://api.exchangerate-api.com/v4/latest/USD').catch(() => ({ rates: { SEK: 10.5 } }))
     ]);
     const sekRate = fxData?.rates?.SEK || 10.5;
-    const insert = db.prepare('INSERT OR REPLACE INTO cs_price_cache (skin_name, price_usd, price_sek, last_updated) VALUES (?, ?, ?, ?)');
-    const insertMany = db.transaction((entries) => {
-      for (const [name, data] of entries) {
-        const priceUSD = data?.steam?.last_24h || data?.steam?.last_7d || data?.steam?.last_30d || 0;
-        insert.run(name, priceUSD, priceUSD * sekRate, new Date().toISOString());
-      }
+    const now = new Date().toISOString();
+    const entries = Object.entries(prices);
+    // Insert in batches using serialized runs
+    await new Promise((resolve, reject) => {
+      db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+        const stmt = db.prepare('INSERT OR REPLACE INTO cs_price_cache (skin_name, price_usd, price_sek, last_updated) VALUES (?, ?, ?, ?)');
+        for (const [name, data] of entries) {
+          const priceUSD = data?.steam?.last_24h || data?.steam?.last_7d || data?.steam?.last_30d || 0;
+          stmt.run(name, priceUSD, priceUSD * sekRate, now);
+        }
+        stmt.finalize();
+        db.run('COMMIT', err => { if (err) reject(err); else resolve(); });
+      });
     });
-    insertMany(Object.entries(prices));
-    res.json({ success: true, count: Object.keys(prices).length, sekRate });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+    res.json({ success: true, count: entries.length, sekRate });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Get price for a specific skin
-app.get('/api/cs/prices/:name', (req, res) => {
+app.get('/api/cs/prices/:name', async (req, res) => {
   const db = getDB();
   if (!db) return res.status(503).json({ error: 'Database not available' });
-  const row = db.prepare('SELECT * FROM cs_price_cache WHERE skin_name = ?').get(req.params.name);
-  res.json(row || { price_usd: 0, price_sek: 0 });
+  try {
+    const row = await dbGet(db, 'SELECT * FROM cs_price_cache WHERE skin_name = ?', [req.params.name]);
+    res.json(row || { price_usd: 0, price_sek: 0 });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Search prices
-app.get('/api/cs/prices/search/:query', (req, res) => {
+app.get('/api/cs/prices/search/:query', async (req, res) => {
   const db = getDB();
   if (!db) return res.status(503).json({ error: 'Database not available' });
-  const rows = db.prepare('SELECT skin_name, price_usd, price_sek FROM cs_price_cache WHERE skin_name LIKE ? LIMIT 20').all(`%${req.params.query}%`);
-  res.json(rows);
+  try {
+    const rows = await dbAll(db, 'SELECT skin_name, price_usd, price_sek FROM cs_price_cache WHERE skin_name LIKE ? LIMIT 20', [`%${req.params.query}%`]);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Fetch Steam inventory (public)
 app.get('/api/cs/steam/inventory/:steamId', async (req, res) => {
   const { steamId } = req.params;
   try {
-    const data = await fetchJSON(
-      `https://steamcommunity.com/inventory/${steamId}/730/2?l=english&count=500`
-    );
+    const data = await fetchJSON(`https://steamcommunity.com/inventory/${steamId}/730/2?l=english&count=500`);
     if (!data || !data.assets) return res.status(404).json({ error: 'Inventory not found or private' });
-
     const db = getDB();
     const descMap = {};
     (data.descriptions || []).forEach(d => { descMap[`${d.classid}_${d.instanceid}`] = d; });
-
-    const items = (data.assets || []).map(asset => {
+    const itemsRaw = (data.assets || []).map(asset => {
       const desc = descMap[`${asset.classid}_${asset.instanceid}`];
-      const name = desc?.market_hash_name || desc?.name || 'Unknown';
-      const price = db ? (db.prepare('SELECT price_sek FROM cs_price_cache WHERE skin_name = ?').get(name) || {}) : {};
       return {
         assetId: asset.assetid,
-        name,
+        name: desc?.market_hash_name || desc?.name || 'Unknown',
         iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/128x128` : null,
         tradable: desc?.tradable === 1,
         marketable: desc?.marketable === 1,
         type: desc?.type || '',
-        priceSEK: price.price_sek || 0,
       };
     }).filter(i => i.name !== 'Unknown');
 
-    const totalValue = items.reduce((s, i) => s + (i.priceSEK || 0), 0);
+    // Enrich with prices if db available
+    const items = await Promise.all(itemsRaw.map(async item => {
+      let priceSEK = 0;
+      if (db) {
+        const price = await dbGet(db, 'SELECT price_sek FROM cs_price_cache WHERE skin_name = ?', [item.name]).catch(() => null);
+        priceSEK = price?.price_sek || 0;
+      }
+      return { ...item, priceSEK };
+    }));
+
+    const totalValue = items.reduce((s, i) => s + i.priceSEK, 0);
     res.json({ items, totalValue, count: items.length });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── CS Inventory (manual tracker) ──────────────────────────────────────────
 
-app.get('/api/cs/inventory', (req, res) => {
+app.get('/api/cs/inventory', async (req, res) => {
   const db = getDB();
   if (!db) return res.status(503).json({ error: 'Database not available' });
-  const items = db.prepare(`
-    SELECT i.*, 
-      s.id as sale_id, s.sale_price, s.sale_currency, s.sale_date, s.notes as sale_notes,
-      p.price_sek as current_price_sek, p.price_usd as current_price_usd, p.last_updated as price_updated
-    FROM cs_inventory i
-    LEFT JOIN cs_sales s ON s.inventory_id = i.id
-    LEFT JOIN cs_price_cache p ON p.skin_name = i.skin_name
-    ORDER BY i.purchase_date DESC
-  `).all();
-  res.json(items);
+  try {
+    const items = await dbAll(db, `
+      SELECT i.*,
+        s.id as sale_id, s.sale_price, s.sale_currency, s.sale_date, s.notes as sale_notes,
+        p.price_sek as current_price_sek, p.price_usd as current_price_usd, p.last_updated as price_updated
+      FROM cs_inventory i
+      LEFT JOIN cs_sales s ON s.inventory_id = i.id
+      LEFT JOIN cs_price_cache p ON p.skin_name = i.skin_name
+      ORDER BY i.purchase_date DESC
+    `);
+    res.json(items);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/cs/inventory', (req, res) => {
+app.post('/api/cs/inventory', async (req, res) => {
   const db = getDB();
   if (!db) return res.status(503).json({ error: 'Database not available' });
   const { skin_name, exterior, float_value, pattern, stickers, purchase_price, purchase_currency, purchase_date, notes, image_url } = req.body;
   if (!skin_name || !purchase_date) return res.status(400).json({ error: 'skin_name and purchase_date required' });
-  const result = db.prepare(`
-    INSERT INTO cs_inventory (skin_name, exterior, float_value, pattern, stickers, purchase_price, purchase_currency, purchase_date, notes, image_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(skin_name, exterior || null, float_value || null, pattern || null, stickers || null, purchase_price || 0, purchase_currency || 'SEK', purchase_date, notes || null, image_url || null);
-  res.json({ id: result.lastInsertRowid, success: true });
+  try {
+    const result = await dbRun(db,
+      `INSERT INTO cs_inventory (skin_name, exterior, float_value, pattern, stickers, purchase_price, purchase_currency, purchase_date, notes, image_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [skin_name, exterior || null, float_value || null, pattern || null, stickers || null, purchase_price || 0, purchase_currency || 'SEK', purchase_date, notes || null, image_url || null]
+    );
+    res.json({ id: result.lastID, success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/cs/inventory/:id', (req, res) => {
+app.delete('/api/cs/inventory/:id', async (req, res) => {
   const db = getDB();
   if (!db) return res.status(503).json({ error: 'Database not available' });
-  db.prepare('DELETE FROM cs_inventory WHERE id = ?').run(req.params.id);
-  res.json({ success: true });
+  try {
+    await dbRun(db, 'DELETE FROM cs_inventory WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Mark item as sold
-app.post('/api/cs/inventory/:id/sell', (req, res) => {
+app.post('/api/cs/inventory/:id/sell', async (req, res) => {
   const db = getDB();
   if (!db) return res.status(503).json({ error: 'Database not available' });
   const { sale_price, sale_currency, sale_date, notes } = req.body;
   if (!sale_price || !sale_date) return res.status(400).json({ error: 'sale_price and sale_date required' });
-  db.prepare('UPDATE cs_inventory SET sold = 1 WHERE id = ?').run(req.params.id);
-  const result = db.prepare(`
-    INSERT INTO cs_sales (inventory_id, sale_price, sale_currency, sale_date, notes)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(req.params.id, sale_price, sale_currency || 'SEK', sale_date, notes || null);
-  res.json({ id: result.lastInsertRowid, success: true });
+  try {
+    await dbRun(db, 'UPDATE cs_inventory SET sold = 1 WHERE id = ?', [req.params.id]);
+    const result = await dbRun(db,
+      'INSERT INTO cs_sales (inventory_id, sale_price, sale_currency, sale_date, notes) VALUES (?, ?, ?, ?, ?)',
+      [req.params.id, sale_price, sale_currency || 'SEK', sale_date, notes || null]
+    );
+    res.json({ id: result.lastID, success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // P&L summary
-app.get('/api/cs/pnl', (req, res) => {
+app.get('/api/cs/pnl', async (req, res) => {
   const db = getDB();
   if (!db) return res.status(503).json({ error: 'Database not available' });
-
-  const sold = db.prepare(`
-    SELECT i.purchase_price, i.purchase_currency, s.sale_price, s.sale_currency
-    FROM cs_inventory i JOIN cs_sales s ON s.inventory_id = i.id
-  `).all();
-
-  const holding = db.prepare(`
-    SELECT i.purchase_price, p.price_sek as current_price
-    FROM cs_inventory i
-    LEFT JOIN cs_price_cache p ON p.skin_name = i.skin_name
-    WHERE i.sold = 0
-  `).all();
-
-  const realised = sold.reduce((s, r) => s + (r.sale_price - r.purchase_price), 0);
-  const unrealised = holding.reduce((s, r) => s + ((r.current_price || 0) - r.purchase_price), 0);
-  const totalInvested = holding.reduce((s, r) => s + r.purchase_price, 0);
-  const currentValue = holding.reduce((s, r) => s + (r.current_price || 0), 0);
-
-  res.json({
-    realised,
-    unrealised,
-    totalInvested,
-    currentValue,
-    totalPnl: realised + unrealised,
-    soldCount: sold.length,
-    holdingCount: holding.length,
-  });
+  try {
+    const [sold, holding] = await Promise.all([
+      dbAll(db, `SELECT i.purchase_price, s.sale_price FROM cs_inventory i JOIN cs_sales s ON s.inventory_id = i.id`),
+      dbAll(db, `SELECT i.purchase_price, p.price_sek as current_price FROM cs_inventory i LEFT JOIN cs_price_cache p ON p.skin_name = i.skin_name WHERE i.sold = 0`)
+    ]);
+    const realised = sold.reduce((s, r) => s + (r.sale_price - r.purchase_price), 0);
+    const unrealised = holding.reduce((s, r) => s + ((r.current_price || 0) - r.purchase_price), 0);
+    const totalInvested = holding.reduce((s, r) => s + r.purchase_price, 0);
+    const currentValue = holding.reduce((s, r) => s + (r.current_price || 0), 0);
+    res.json({ realised, unrealised, totalInvested, currentValue, totalPnl: realised + unrealised, soldCount: sold.length, holdingCount: holding.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Catch-all: serve React app for any non-API route (supports React Router)

@@ -5,16 +5,14 @@ let db = null;
 
 function initDB(dataDir) {
   const dbPath = path.join(dataDir, 'skins.db');
-  
-  // Öppna databasen
+
   db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
-      console.error('[db] Kunde inte öppna skins.db:', err.message);
+      console.error('[db] Could not open skins.db:', err.message);
       return;
     }
     console.log('[db] SQLite database ready at', dbPath);
 
-    // Aktivera WAL-mode och kör tabellskapande
     db.serialize(() => {
       db.run('PRAGMA journal_mode = WAL');
 
@@ -58,11 +56,8 @@ function initDB(dataDir) {
           value TEXT
         );
       `, (err) => {
-        if (err) {
-          console.error('[db] Fel vid skapande av tabeller:', err.message);
-        } else {
-          console.log('[db] Alla tabeller är verifierade/skapade.');
-        }
+        if (err) console.error('[db] Error creating tables:', err.message);
+        else console.log('[db] All tables verified/created.');
       });
     });
   });
@@ -70,8 +65,8 @@ function initDB(dataDir) {
   return db;
 }
 
-function getDB() { 
-  return db; 
+function getDB() {
+  return db;
 }
 
 module.exports = { initDB, getDB };
