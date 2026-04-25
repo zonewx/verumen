@@ -1016,32 +1016,87 @@ app.post('/api/cs/settings', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Sync prices from csgotrader.app
+// Sync prices from Steam Community Market via ByMykel item list
 app.post('/api/cs/prices/sync', async (req, res) => {
   const db = getDB();
   if (!db) return res.status(503).json({ error: 'Database not available' });
   try {
-    const [prices, fxData] = await Promise.all([
-      fetchJSON('https://prices.csgotrader.app/latest/prices_v6.json'),
-      fetchJSON('https://api.exchangerate-api.com/v4/latest/USD').catch(() => ({ rates: { SEK: 10.5 } }))
-    ]);
-    const sekRate = fxData?.rates?.SEK || 10.5;
+    // Get full item list from ByMykel's free CS2 API (GitHub raw, always up to date)
+    const itemData = await fetchJSON('https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/en/all.json');
+
+    // Also try csgotrader for bulk prices (multiple URL fallbacks)
+    let prices = null;
+    const priceUrls = [
+      'https://prices.csgotrader.app/latest/prices_v6.json',
+      'https://api.csgotrader.app/prices',
+    ];
+    for (const url of priceUrls) {
+      try {
+        const data = await fetchJSON(url);
+        if (data && typeof data === 'object' && !data.error) { prices = data; break; }
+      } catch(e) { /* try next */ }
+    }
+
+    // Get SEK exchange rate
+    let sekRate = 10.5;
+    try {
+      const fx = await fetchJSON('https://api.exchangerate-api.com/v4/latest/USD');
+      sekRate = fx?.rates?.SEK || 10.5;
+    } catch(e) {}
+
     const now = new Date().toISOString();
-    const entries = Object.entries(prices);
-    // Insert in batches using serialized runs
-    await new Promise((resolve, reject) => {
-      db.serialize(() => {
-        db.run('BEGIN TRANSACTION');
-        const stmt = db.prepare('INSERT OR REPLACE INTO cs_price_cache (skin_name, price_usd, price_sek, last_updated) VALUES (?, ?, ?, ?)');
-        for (const [name, data] of entries) {
-          const priceUSD = data?.steam?.last_24h || data?.steam?.last_7d || data?.steam?.last_30d || 0;
-          stmt.run(name, priceUSD, priceUSD * sekRate, now);
-        }
-        stmt.finalize();
-        db.run('COMMIT', err => { if (err) reject(err); else resolve(); });
+
+    if (prices) {
+      // Bulk insert from csgotrader prices
+      const entries = Object.entries(prices);
+      await new Promise((resolve, reject) => {
+        db.serialize(() => {
+          db.run('BEGIN TRANSACTION');
+          const stmt = db.prepare('INSERT OR REPLACE INTO cs_price_cache (skin_name, price_usd, price_sek, last_updated) VALUES (?, ?, ?, ?)');
+          for (const [name, data] of entries) {
+            const priceUSD = data?.steam?.last_24h || data?.steam?.last_7d || data?.steam?.last_30d || 0;
+            stmt.run(name, priceUSD, priceUSD * sekRate, now);
+          }
+          stmt.finalize();
+          db.run('COMMIT', err => { if (err) reject(err); else resolve(); });
+        });
       });
-    });
-    res.json({ success: true, count: entries.length, sekRate });
+      res.json({ success: true, count: entries.length, sekRate, source: 'csgotrader' });
+    } else if (itemData) {
+      // Fallback: use ByMykel item list with Steam market prices for each item
+      // Extract all unique market_hash_names from the item data
+      const names = new Set();
+      const addNames = (arr) => { if (Array.isArray(arr)) arr.forEach(i => { if (i.market_hash_name) names.add(i.market_hash_name); }); };
+      if (Array.isArray(itemData)) addNames(itemData);
+      else Object.values(itemData).forEach(v => addNames(Array.isArray(v) ? v : [v]));
+
+      // Fetch Steam prices in small batches to avoid rate limits
+      let fetched = 0;
+      const nameArr = [...names].slice(0, 500); // limit for first sync
+      await new Promise((resolve, reject) => {
+        db.run('BEGIN TRANSACTION', async () => {
+          try {
+            for (const name of nameArr) {
+              try {
+                const url = `https://steamcommunity.com/market/priceoverview/?currency=1&appid=730&market_hash_name=${encodeURIComponent(name)}`;
+                const data = await fetchJSON(url);
+                if (data?.success && data?.lowest_price) {
+                  const priceUSD = parseFloat(data.lowest_price.replace(/[^0-9.]/g, '')) || 0;
+                  await new Promise(r => db.run('INSERT OR REPLACE INTO cs_price_cache (skin_name, price_usd, price_sek, last_updated) VALUES (?, ?, ?, ?)',
+                    [name, priceUSD, priceUSD * sekRate, now], r));
+                  fetched++;
+                }
+                await new Promise(r => setTimeout(r, 1500)); // respect Steam rate limits
+              } catch(e) {}
+            }
+            db.run('COMMIT', err => { if (err) reject(err); else resolve(); });
+          } catch(e) { db.run('ROLLBACK'); reject(e); }
+        });
+      });
+      res.json({ success: true, count: fetched, sekRate, source: 'steam', note: 'Limited to 500 items due to rate limits. Run sync again for more.' });
+    } else {
+      res.status(500).json({ error: 'Could not fetch prices from any source. Try again later.' });
+    }
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
