@@ -64,7 +64,7 @@ export default function CSSkins({ isDark, onBack, authUsername }) {
       const res = await fetch('/api/cs/prices/sync', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        setSyncStatus(`✓ Synced ${data.count.toLocaleString()} items at rate ${data.sekRate?.toFixed(2)} SEK/USD`);
+        setSyncStatus(`✓ Synced ${data.count.toLocaleString()} items (${data.source})${data.note ? ' — ' + data.note : ''} at ${data.sekRate?.toFixed(2)} SEK/USD`);
         setPricesReady(true);
         await fetchAll();
       } else setSyncStatus('Failed: ' + data.error);

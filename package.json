@@ -7,13 +7,11 @@
     "start": "node server.js",
     "dev": "concurrently \"node server.js\" \"cd frontend && npm run dev\""
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "better-sqlite3": "^9.4.3",
     "express": "^5.2.1",
-    "sqlite3": "^6.0.1",
+    "sqlite3": "^5.1.7",
     "yahoo-finance2": "^3.13.2"
   },
   "devDependencies": {
