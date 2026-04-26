@@ -1,21 +1,20 @@
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
-let db = null;
+const dbs = {}; // cache open db connections per user
 
-function initDB(dataDir) {
-  const dbPath = path.join(dataDir, 'skins.db');
+function getUserDB(username, userDir) {
+  if (dbs[username]) return dbs[username];
 
-  db = new sqlite3.Database(dbPath, (err) => {
+  const dbPath = path.join(userDir, 'skins.db');
+  const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
-      console.error('[db] Could not open skins.db:', err.message);
+      console.error(`[db] Could not open skins.db for ${username}:`, err.message);
       return;
     }
-    console.log('[db] SQLite database ready at', dbPath);
-
+    console.log(`[db] SQLite ready for ${username} at`, dbPath);
     db.serialize(() => {
       db.run('PRAGMA journal_mode = WAL');
-
       db.exec(`
         CREATE TABLE IF NOT EXISTS cs_inventory (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,7 +32,6 @@ function initDB(dataDir) {
           sold INTEGER NOT NULL DEFAULT 0,
           created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
-
         CREATE TABLE IF NOT EXISTS cs_sales (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           inventory_id INTEGER NOT NULL REFERENCES cs_inventory(id) ON DELETE CASCADE,
@@ -43,30 +41,31 @@ function initDB(dataDir) {
           notes TEXT,
           created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
-
         CREATE TABLE IF NOT EXISTS cs_price_cache (
           skin_name TEXT PRIMARY KEY,
           price_usd REAL,
           price_sek REAL,
           last_updated TEXT
         );
-
         CREATE TABLE IF NOT EXISTS cs_settings (
           key TEXT PRIMARY KEY,
           value TEXT
         );
       `, (err) => {
-        if (err) console.error('[db] Error creating tables:', err.message);
-        else console.log('[db] All tables verified/created.');
+        if (err) console.error(`[db] Error creating tables for ${username}:`, err.message);
+        else console.log(`[db] Tables ready for ${username}.`);
       });
     });
   });
 
+  dbs[username] = db;
   return db;
 }
 
-function getDB() {
-  return db;
+// Legacy initDB for backwards compatibility — now a no-op
+function initDB(dataDir) {
+  console.log('[db] Per-user databases enabled. initDB is a no-op.');
+  return null;
 }
 
-module.exports = { initDB, getDB };
+module.exports = { initDB, getUserDB };
