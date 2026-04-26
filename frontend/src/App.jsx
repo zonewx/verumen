@@ -279,12 +279,12 @@ export default function App() {
     return (
       <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
         <div className={`w-full max-w-sm mx-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl shadow-2xl overflow-hidden`}>
-          <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-center">
+          <div className="bg-linear-to-br from-blue-600 to-blue-800 p-8 text-center">
             <div className="flex items-center justify-center gap-3 mb-2">
               <svg width="32" height="32" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="rgba(255,255,255,0.15)"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18 10l2.5-2.5M20.5 7.5l-2 0M20.5 7.5l0 2" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
               <span className="text-2xl font-bold text-white tracking-tight">Statera</span>
             </div>
-            <p className="text-blue-200 text-sm">{isSignup ? 'Create your account' : 'Welcome back'}</p>
+            <p className="text-blue-200 text-sm">{isSignup ? 'Create your account' : 'Welcome back'} </p>
           </div>
           <div className="p-8">
             {authError && <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 mb-5 text-sm text-red-400">{authError}</div>}

@@ -69,7 +69,7 @@ export default function ProfilePage({ isDark, authUsername, onBack }) {
   );
 
   const Avatar = ({ username, size = 10 }) => (
-    <div className={`w-${size} h-${size} rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shrink-0`}>
+    <div className={`w-${size} h-${size} rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shrink-0`}>
       {username[0].toUpperCase()}
     </div>
   );
@@ -103,7 +103,7 @@ export default function ProfilePage({ isDark, authUsername, onBack }) {
               {/* Profile header */}
               <div className={`${card} p-6`}>
                 <div className="flex items-center gap-5 mb-6">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-3xl">
+                  <div className="w-20 h-20 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-3xl">
                     {authUsername[0].toUpperCase()}
                   </div>
                   <div>
@@ -169,7 +169,7 @@ export default function ProfilePage({ isDark, authUsername, onBack }) {
                 <div className={`${card} p-5`}>
                   <p className={`text-xs font-semibold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Profile preview — how others see you</p>
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
                       {authUsername[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -206,7 +206,7 @@ export default function ProfilePage({ isDark, authUsername, onBack }) {
               {viewingUser && (
                 <div className={`${card} p-5`}>
                   <div className="flex items-start gap-4 mb-5">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl shrink-0">
+                    <div className="w-14 h-14 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl shrink-0">
                       {viewingUser.username[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -270,7 +270,7 @@ export default function ProfilePage({ isDark, authUsername, onBack }) {
                 )}
                 {filtered.map(user => (
                   <div key={user.username} className={`${card} p-4 flex items-center gap-4 cursor-pointer hover:border-blue-500/50 transition`} onClick={() => viewUserInventory(user)}>
-                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                    <div className="w-11 h-11 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
                       {user.username[0].toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
