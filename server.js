@@ -171,7 +171,7 @@ app.get('/api/users/:username/profile', (req, res) => {
 });
 
 app.put('/api/users/:username/profile', requireUser, (req, res) => {
-  if (req.username !== req.params.username) return res.status(403).json({ error: 'Cannot edit another user\'s profile.' });
+  if (req.username !== req.params.username) return res.status(403).json({ error: "Cannot edit another user's profile." });
   const { bio, steamId, publicInventory, publicHoldings, avatarBase64 } = req.body;
   const current = loadProfile(req.username);
   const updated = { ...current, bio: bio ?? current.bio, steamId: steamId ?? current.steamId, publicInventory: publicInventory ?? current.publicInventory, publicHoldings: publicHoldings ?? current.publicHoldings, avatarBase64: avatarBase64 !== undefined ? avatarBase64 : current.avatarBase64 };
@@ -183,7 +183,7 @@ app.get('/api/users/:username/inventory', async (req, res) => {
   const user = findUser(req.params.username);
   if (!user) return res.status(404).json({ error: 'User not found' });
   const p = loadProfile(user.username);
-  if (!p.publicInventory || !p.steamId) return res.status(403).json({ error: 'This user\'s inventory is private.' });
+  if (!p.publicInventory || !p.steamId) return res.status(403).json({ error: "This user's inventory is private." });
   try {
     const data = await fetchJSON(`https://steamcommunity.com/inventory/${p.steamId}/730/2?l=english&count=500`);
     if (!data || !data.assets) return res.status(404).json({ error: 'Inventory not found or private on Steam' });
@@ -208,10 +208,7 @@ app.get('/api/users/:username/holdings', async (req, res) => {
   const user = findUser(req.params.username);
   if (!user) return res.status(404).json({ error: 'User not found' });
   const p = loadProfile(user.username);
-  
-  // FIXED: Changed ' to " or escaped the apostrophe
-  if (!p.publicHoldings) return res.status(403).json({ error: "This user's holdings are private." });
-
+  if (!p.publicHoldings) return res.status(403).json({ error: 'This user\'s holdings are private.' });
   // Return reconstructed portfolio for display (no prices, just tickers/quantities)
   const txs = loadTransactions(user.username);
   const normalised = txs.map(t => ({ ...t, ticker: (t.ticker || t.rawTicker || '').trim() }));
@@ -836,6 +833,214 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+
+// ── Admin middleware ───────────────────────────────────────────────────────
+function requireAdmin(req, res, next) {
+  const username = req.headers['x-user'];
+  if (!username || username.toLowerCase() !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required.' });
+  }
+  const user = findUser(username);
+  if (!user) return res.status(403).json({ error: 'Admin user not found.' });
+  req.username = user.username;
+  next();
+}
+
+// ── Announcements file ─────────────────────────────────────────────────────
+const ANNOUNCEMENTS_FILE = path.join(DATA_DIR, 'announcements.json');
+function loadAnnouncements() { return loadJSON(ANNOUNCEMENTS_FILE, []); }
+function saveAnnouncements(a) { saveJSON(ANNOUNCEMENTS_FILE, a); }
+
+// ── Admin: System stats ────────────────────────────────────────────────────
+app.get('/api/admin/stats', requireAdmin, (req, res) => {
+  const users = loadUsers();
+  const usersStats = users.map(u => {
+    const udir = getUserDir(u.username);
+    const txs = loadTransactions(u.username);
+    const profile = loadProfile(u.username);
+    // Get folder size
+    let folderSize = 0;
+    try {
+      const files = fs.readdirSync(udir);
+      files.forEach(f => {
+        try { folderSize += fs.statSync(path.join(udir, f)).size; } catch(e) {}
+      });
+    } catch(e) {}
+    return {
+      username: u.username,
+      createdAt: u.createdAt,
+      transactionCount: txs.length,
+      tradeCount: txs.filter(t => t.type === 'buy' || t.type === 'sell').length,
+      folderSizeKB: Math.round(folderSize / 1024),
+      publicInventory: profile.publicInventory,
+      publicHoldings: profile.publicHoldings,
+      hasSteam: !!profile.steamId,
+    };
+  });
+
+  // Total transactions
+  const totalTx = usersStats.reduce((s, u) => s + u.transactionCount, 0);
+  const totalTrades = usersStats.reduce((s, u) => s + u.tradeCount, 0);
+
+  // Ticker cache stats
+  let tickerStats = { total: 0, resolved: 0, failed: 0 };
+  users.forEach(u => {
+    const cache = loadTickerCache(u.username);
+    const vals = Object.values(cache);
+    tickerStats.total += vals.length;
+    tickerStats.resolved += vals.filter(v => v).length;
+    tickerStats.failed += vals.filter(v => !v).length;
+  });
+
+  // System info
+  const mem = process.memoryUsage();
+  res.json({
+    system: {
+      uptime: Math.floor(process.uptime()),
+      nodeVersion: process.version,
+      memoryMB: Math.round(mem.rss / 1024 / 1024),
+      heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+      platform: process.platform,
+    },
+    users: usersStats,
+    totals: { userCount: users.length, totalTx, totalTrades },
+    tickerCache: tickerStats,
+  });
+});
+
+// ── Admin: Delete user ─────────────────────────────────────────────────────
+app.delete('/api/admin/users/:username', requireAdmin, (req, res) => {
+  const { username } = req.params;
+  if (username.toLowerCase() === 'admin') return res.status(400).json({ error: 'Cannot delete admin account.' });
+  const users = loadUsers();
+  const idx = users.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
+  if (idx === -1) return res.status(404).json({ error: 'User not found.' });
+  // Remove user data directory
+  const udir = getUserDir(username);
+  try { fs.rmSync(udir, { recursive: true, force: true }); } catch(e) {}
+  users.splice(idx, 1);
+  saveUsers(users);
+  res.json({ success: true });
+});
+
+// ── Admin: Reset user password ─────────────────────────────────────────────
+app.post('/api/admin/users/:username/reset-password', requireAdmin, (req, res) => {
+  const { username } = req.params;
+  const { newPassword } = req.body;
+  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  const users = loadUsers();
+  const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const newSalt = crypto.randomBytes(32).toString('hex');
+  user.hash = hashPassword(newPassword, newSalt);
+  user.salt = newSalt;
+  saveUsers(users);
+  res.json({ success: true });
+});
+
+// ── Admin: Clear user bio ──────────────────────────────────────────────────
+app.post('/api/admin/users/:username/clear-bio', requireAdmin, (req, res) => {
+  const { username } = req.params;
+  const user = findUser(username);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const profile = loadProfile(username);
+  saveProfile(username, { ...profile, bio: '' });
+  res.json({ success: true });
+});
+
+// ── Admin: Set user privacy ────────────────────────────────────────────────
+app.post('/api/admin/users/:username/set-privacy', requireAdmin, (req, res) => {
+  const { username } = req.params;
+  const { publicInventory, publicHoldings } = req.body;
+  const user = findUser(username);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const profile = loadProfile(username);
+  saveProfile(username, { ...profile, publicInventory: publicInventory ?? profile.publicInventory, publicHoldings: publicHoldings ?? profile.publicHoldings });
+  res.json({ success: true });
+});
+
+// ── Admin: Clear ticker cache ──────────────────────────────────────────────
+app.post('/api/admin/cache/clear', requireAdmin, (req, res) => {
+  const { username } = req.body; // optional — if not provided, clear all
+  const users = username ? [findUser(username)].filter(Boolean) : loadUsers();
+  let cleared = 0;
+  users.forEach(u => {
+    const cacheFile = userFile(u.username, 'ticker_cache.json');
+    if (fs.existsSync(cacheFile)) { fs.unlinkSync(cacheFile); cleared++; }
+  });
+  res.json({ success: true, cleared });
+});
+
+// ── Admin: Re-resolve tickers for a user ──────────────────────────────────
+app.post('/api/admin/users/:username/resolve', requireAdmin, async (req, res) => {
+  const { username } = req.params;
+  const user = findUser(username);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const transactions = loadTransactions(username);
+  const unresolved = transactions.filter(t => (t.type === 'buy' || t.type === 'sell') && !t.ticker && (t.rawTicker || t.isin));
+  let resolved = 0;
+  for (const tx of unresolved) {
+    const ticker = await resolveSymbol(tx.rawTicker || null, tx.isin, tx.name, tx.currency, tx.broker, username);
+    if (ticker) { tx.ticker = ticker; resolved++; }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  saveTransactions(username, transactions);
+  res.json({ resolved, total: unresolved.length });
+});
+
+// ── Admin: Ticker failure stats ────────────────────────────────────────────
+app.get('/api/admin/ticker-failures', requireAdmin, (req, res) => {
+  const users = loadUsers();
+  const failures = [];
+  users.forEach(u => {
+    const txs = loadTransactions(u.username);
+    txs.filter(t => (t.type === 'buy' || t.type === 'sell') && !t.ticker && (t.rawTicker || t.isin)).forEach(tx => {
+      failures.push({ username: u.username, rawTicker: tx.rawTicker, isin: tx.isin, name: tx.name });
+    });
+  });
+  // Group by rawTicker
+  const grouped = {};
+  failures.forEach(f => {
+    const key = f.rawTicker || f.isin || f.name;
+    if (!grouped[key]) grouped[key] = { key, count: 0, users: new Set(), isin: f.isin, name: f.name };
+    grouped[key].count++;
+    grouped[key].users.add(f.username);
+  });
+  res.json(Object.values(grouped).map(g => ({ ...g, users: [...g.users] })).sort((a, b) => b.count - a.count).slice(0, 50));
+});
+
+// ── Admin: Export user data ────────────────────────────────────────────────
+app.get('/api/admin/users/:username/export', requireAdmin, (req, res) => {
+  const { username } = req.params;
+  const user = findUser(username);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const txs = loadTransactions(username);
+  const profile = loadProfile(username);
+  const overrides = loadOverrides(username);
+  res.json({ username, profile, transactions: txs, overrides, exportedAt: new Date().toISOString() });
+});
+
+// ── Admin: Announcements ───────────────────────────────────────────────────
+app.get('/api/announcements', (req, res) => {
+  res.json(loadAnnouncements());
+});
+
+app.post('/api/admin/announcements', requireAdmin, (req, res) => {
+  const { title, message, type } = req.body;
+  if (!title || !message) return res.status(400).json({ error: 'title and message required.' });
+  const announcements = loadAnnouncements();
+  const newAnn = { id: Date.now(), title, message, type: type || 'info', createdAt: new Date().toISOString() };
+  announcements.unshift(newAnn);
+  saveAnnouncements(announcements.slice(0, 10)); // keep last 10
+  res.json({ success: true, announcement: newAnn });
+});
+
+app.delete('/api/admin/announcements/:id', requireAdmin, (req, res) => {
+  const announcements = loadAnnouncements().filter(a => a.id !== parseInt(req.params.id));
+  saveAnnouncements(announcements);
+  res.json({ success: true });
+});
+
 // ── Catch-all ──────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) return next();
@@ -845,4 +1050,4 @@ app.use((req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Statera server running on http://localhost:${PORT}`))
+app.listen(PORT, () => console.log(`Statera server running on http://localhost:${PORT}`));

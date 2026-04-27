@@ -100,7 +100,7 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
   );
 
   const AvatarDisplay = ({ src, username, size = 'w-20 h-20', textSize = 'text-3xl' }) => (
-    <div className={`${size} rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold ${textSize} overflow-hidden shrink-0`}>
+    <div className={`${size} rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold ${textSize} overflow-hidden shrink-0`}>
       {src ? <img src={src} alt="avatar" className="w-full h-full object-cover" /> : username?.[0]?.toUpperCase()}
     </div>
   );

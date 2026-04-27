@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import CSSkins from './CSSkins';
 import ProfilePage from './ProfilePage';
 import GlobalBar from './GlobalBar';
+import AdminPanel from './AdminPanel';
 
 export default function App() {
   // ── Auth ───────────────────────────────────────────────────────────────────
@@ -14,6 +15,7 @@ export default function App() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [homeApp, setHomeApp] = useState(null);
   const [viewProfileUser, setViewProfileUser] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
 
   // ── Core state ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => JSON.parse(localStorage.getItem('portfolio')) || []);
@@ -68,6 +70,11 @@ export default function App() {
 
   // ── Theme ──────────────────────────────────────────────────────────────────
   useEffect(() => { localStorage.setItem('theme', isDark ? 'dark' : 'light'); }, [isDark]);
+
+  // ── Fetch announcements ────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/announcements').then(r => r.json()).then(setAnnouncements).catch(() => {});
+  }, []);
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -339,11 +346,22 @@ export default function App() {
     </div>
   );
 
+  if (homeApp === 'admin') return (
+    <div className={`flex flex-col h-screen pt-12 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} />
+      <div className={`px-8 py-3 border-b flex items-center gap-3 shrink-0 ${isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'}`}>
+        <h1 className="text-base font-bold">🛡️ Admin Panel</h1>
+      </div>
+      <AdminPanel isDark={isDark} authUsername={authUsername} />
+    </div>
+  );
+
   // ── Home screen ────────────────────────────────────────────────────────────
   if (!homeApp) {
     const apps = [
       { id: 'statera', name: 'Statera', desc: 'Portfolio tracker & analytics', color: 'from-blue-600 to-blue-800', icon: <svg width="44" height="44" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#1d4ed8"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>, stats: [{ label: 'Holdings', value: portfolio.length || '—' },{ label: 'Transactions', value: txCount.total || '—' },{ label: 'Dividends YTD', value: dividends?.totalThisYear > 0 ? `${Math.round(dividends.totalThisYear)} kr` : '—' }] },
       { id: 'skins', name: 'CS Skins', desc: 'Track CS inventory, P&L & Steam value', color: 'from-orange-500 to-orange-700', icon: <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-xl">CS</div>, stats: [] },
+      ...(authUsername === 'admin' ? [{ id: 'admin', name: 'Admin Panel', desc: 'Manage users, system & announcements', color: 'from-red-700 to-red-900', icon: <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-2xl">🛡️</div>, stats: [] }] : []),
 
     ];
     return (
@@ -362,11 +380,24 @@ export default function App() {
           </div>
         </div>
         <div className="max-w-4xl mx-auto px-8 py-16">
+          {announcements.length > 0 && (
+            <div className="flex flex-col gap-2 mb-6">
+              {announcements.map(a => {
+                const colors = { info: 'bg-blue-900/40 text-blue-300 border-blue-800', warning: 'bg-yellow-900/40 text-yellow-300 border-yellow-800', success: 'bg-green-900/40 text-green-300 border-green-800', error: 'bg-red-900/40 text-red-300 border-red-800' };
+                return (
+                  <div key={a.id} className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${colors[a.type] || colors.info}`}>
+                    <span className="shrink-0">{a.type === 'warning' ? '⚠️' : a.type === 'error' ? '🚨' : a.type === 'success' ? '✅' : 'ℹ️'}</span>
+                    <div><span className="font-semibold">{a.title}</span>{a.message && <span className="ml-2 opacity-80">{a.message}</span>}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="mb-12">
             <h1 className="text-3xl font-bold mb-2">Welcome back, {authUsername}</h1>
             <p className={`text-base ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Choose an app to open.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className={`grid gap-6 ${authUsername === 'admin' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
             {apps.map(app => (
               <button key={app.id} onClick={() => handleNavigate(app.id)} className={`text-left rounded-2xl overflow-hidden border transition-all duration-200 group hover:shadow-lg hover:-translate-y-0.5 cursor-pointer ${isDark ? 'bg-gray-800 border-gray-700 hover:border-gray-500' : 'bg-white border-gray-200 hover:border-gray-400'}`}>
                 <div className={`bg-linear-to-br ${app.color} p-6 flex items-start justify-between`}>
