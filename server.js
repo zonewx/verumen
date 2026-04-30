@@ -64,6 +64,11 @@ function loadUsers() {
 function saveUsers(users) { saveJSON(USERS_FILE, users); }
 function hashPassword(pw, salt) { return crypto.pbkdf2Sync(pw, salt, 100000, 64, 'sha512').toString('hex'); }
 function findUser(username) { return loadUsers().find(u => u.username.toLowerCase() === username.toLowerCase()); }
+function getUserRole(username) {
+  if (username.toLowerCase() === 'admin') return 'admin';
+  const user = findUser(username);
+  return user?.role || 'user';
+}
 
 // ── Per-user file helpers ──────────────────────────────────────────────────
 function loadTransactions(username) { return loadJSON(userFile(username, 'transactions.json'), []); }
@@ -77,6 +82,22 @@ function loadProfile(username) {
   return { ...def, ...loadJSON(userFile(username, 'profile.json'), {}) };
 }
 function saveProfile(username, data) { saveJSON(userFile(username, 'profile.json'), data); }
+function loadFriends(username) { return loadJSON(userFile(username, 'friends.json'), { friends: [], incoming: [], outgoing: [] }); }
+function saveFriends(username, data) { saveJSON(userFile(username, 'friends.json'), data); }
+function loadActivity(username) { return loadJSON(userFile(username, 'activity.json'), []); }
+function saveActivity(username, data) { saveJSON(userFile(username, 'activity.json'), data.slice(0, 100)); }
+function appendActivity(username, event) {
+  const activity = loadActivity(username);
+  activity.unshift({ ...event, id: Date.now() + Math.random(), createdAt: new Date().toISOString() });
+  saveActivity(username, activity);
+}
+const MOD_LOG_FILE = path.join(DATA_DIR, 'moderation_log.json');
+function loadModLog() { return loadJSON(MOD_LOG_FILE, []); }
+function appendModLog(moderator, action, targetUser, details = '') {
+  const log = loadModLog();
+  log.unshift({ moderator, action, targetUser, details, createdAt: new Date().toISOString() });
+  saveJSON(MOD_LOG_FILE, log.slice(0, 200));
+}
 
 // ── Auth middleware ────────────────────────────────────────────────────────
 function requireUser(req, res, next) {
@@ -86,6 +107,20 @@ function requireUser(req, res, next) {
   if (!user) return res.status(401).json({ error: 'User not found' });
   req.username = user.username;
   req.userDir = getUserDir(user.username);
+  req.role = getUserRole(user.username);
+  next();
+}
+
+function requireModerator(req, res, next) {
+  const username = req.headers['x-user'];
+  if (!username) return res.status(401).json({ error: 'Not authenticated' });
+  const user = findUser(username);
+  if (!user) return res.status(403).json({ error: 'Access denied' });
+  const role = getUserRole(user.username);
+  if (role !== 'admin' && role !== 'moderator') return res.status(403).json({ error: 'Moderator access required' });
+  req.username = user.username;
+  req.userDir = getUserDir(user.username);
+  req.role = role;
   next();
 }
 
@@ -122,7 +157,8 @@ app.post('/api/auth/register', (req, res) => {
   if (users.find(u => u.username.toLowerCase() === username.trim().toLowerCase())) return res.status(400).json({ error: 'Username already taken.' });
   const salt = crypto.randomBytes(32).toString('hex');
   const hash = hashPassword(password, salt);
-  const newUser = { username: username.trim(), hash, salt, createdAt: new Date().toISOString() };
+  const isAdmin = username.trim().toLowerCase() === 'admin';
+  const newUser = { username: username.trim(), hash, salt, role: isAdmin ? 'admin' : 'user', createdAt: new Date().toISOString() };
   users.push(newUser);
   saveUsers(users);
   getUserDir(newUser.username);
@@ -137,7 +173,7 @@ app.post('/api/auth/login', (req, res) => {
   if (!user) return res.status(401).json({ error: 'Invalid username or password.' });
   const hash = hashPassword(password, user.salt);
   if (hash !== user.hash) return res.status(401).json({ error: 'Invalid username or password.' });
-  res.json({ success: true, username: user.username });
+  res.json({ success: true, username: user.username, role: getUserRole(user.username) });
 });
 
 app.post('/api/auth/change-password', requireUser, (req, res) => {
@@ -159,7 +195,7 @@ app.get('/api/users', (req, res) => {
   const users = loadUsers();
   res.json(users.map(u => {
     const p = loadProfile(u.username);
-    return { username: u.username, bio: p.bio, publicInventory: p.publicInventory, publicHoldings: p.publicHoldings, steamId: p.publicInventory ? p.steamId : null, avatarBase64: p.avatarBase64 || null, createdAt: u.createdAt };
+    return { username: u.username, bio: p.bio, publicInventory: p.publicInventory, publicHoldings: p.publicHoldings, steamId: p.publicInventory ? p.steamId : null, avatarBase64: p.avatarBase64 || null, createdAt: u.createdAt, role: getUserRole(u.username) };
   }));
 });
 
@@ -167,7 +203,7 @@ app.get('/api/users/:username/profile', (req, res) => {
   const user = findUser(req.params.username);
   if (!user) return res.status(404).json({ error: 'User not found' });
   const p = loadProfile(user.username);
-  res.json({ username: user.username, bio: p.bio, publicInventory: p.publicInventory, publicHoldings: p.publicHoldings, steamId: p.publicInventory ? p.steamId : null, avatarBase64: p.avatarBase64 || null, createdAt: user.createdAt });
+  res.json({ username: user.username, bio: p.bio, publicInventory: p.publicInventory, publicHoldings: p.publicHoldings, steamId: p.publicInventory ? p.steamId : null, avatarBase64: p.avatarBase64 || null, createdAt: user.createdAt, role: getUserRole(user.username) });
 });
 
 app.put('/api/users/:username/profile', requireUser, (req, res) => {
@@ -208,7 +244,7 @@ app.get('/api/users/:username/holdings', async (req, res) => {
   const user = findUser(req.params.username);
   if (!user) return res.status(404).json({ error: 'User not found' });
   const p = loadProfile(user.username);
-  if (!p.publicHoldings) return res.status(403).json({ error: 'This user\'s holdings are private.' });
+if (!p.publicHoldings) return res.status(403).json({ error: "This user's holdings are private." });
   // Return reconstructed portfolio for display (no prices, just tickers/quantities)
   const txs = loadTransactions(user.username);
   const normalised = txs.map(t => ({ ...t, ticker: (t.ticker || t.rawTicker || '').trim() }));
@@ -490,7 +526,9 @@ app.get('/api/transactions/reconstruct', requireUser, (req, res) => {
       }
     }
   }
-  res.json(Object.values(holdings).filter(h => h.quantity > 0.001).map(h => ({ ticker: h.ticker, isin: h.isin || null, quantity: parseFloat(h.quantity.toFixed(6)), avgPrice: h.quantity > 0 ? parseFloat((h.totalCost / h.quantity).toFixed(4)) : 0 })));
+  const result = Object.values(holdings).filter(h => h.quantity > 0.001).map(h => ({ ticker: h.ticker, isin: h.isin || null, quantity: parseFloat(h.quantity.toFixed(6)), avgPrice: h.quantity > 0 ? parseFloat((h.totalCost / h.quantity).toFixed(4)) : 0 }));
+  if (result.length > 0) appendActivity(req.username, { type: 'holdings_update', holdingCount: result.length, tickers: result.slice(0, 5).map(h => h.ticker) });
+  res.json(result);
 });
 
 // ── Portfolio valuation ────────────────────────────────────────────────────
@@ -794,6 +832,7 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
   if (!skin_name || !purchase_date) return res.status(400).json({ error: 'skin_name and purchase_date required' });
   try {
     const result = await dbRun(db, `INSERT INTO cs_inventory (skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [skin_name, exterior || null, float_value || null, pattern || null, purchase_price || 0, purchase_currency || 'SEK', purchase_date, notes || null]);
+    appendActivity(req.username, { type: 'cs_trade', action: 'buy', skinName: skin_name, price: purchase_price, currency: purchase_currency, exterior: exterior || '' });
     res.json({ id: result.lastID, success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -813,6 +852,8 @@ app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
   try {
     await dbRun(db, 'UPDATE cs_inventory SET sold = 1 WHERE id = ?', [req.params.id]);
     const result = await dbRun(db, 'INSERT INTO cs_sales (inventory_id, sale_price, sale_currency, sale_date, notes) VALUES (?, ?, ?, ?, ?)', [req.params.id, sale_price, sale_currency || 'SEK', sale_date, notes || null]);
+    const soldSkin = await dbGet(db, 'SELECT skin_name, purchase_price FROM cs_inventory WHERE id = ?', [req.params.id]).catch(() => null);
+    if (soldSkin) appendActivity(req.username, { type: 'cs_trade', action: 'sell', skinName: soldSkin.skin_name, buyPrice: soldSkin.purchase_price, sellPrice: sale_price, currency: sale_currency });
     res.json({ id: result.lastID, success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -869,6 +910,7 @@ app.get('/api/admin/stats', requireAdmin, (req, res) => {
     return {
       username: u.username,
       createdAt: u.createdAt,
+      role: getUserRole(u.username),
       transactionCount: txs.length,
       tradeCount: txs.filter(t => t.type === 'buy' || t.type === 'sell').length,
       folderSizeKB: Math.round(folderSize / 1024),
@@ -915,11 +957,11 @@ app.delete('/api/admin/users/:username', requireAdmin, (req, res) => {
   const users = loadUsers();
   const idx = users.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
   if (idx === -1) return res.status(404).json({ error: 'User not found.' });
-  // Remove user data directory
   const udir = getUserDir(username);
   try { fs.rmSync(udir, { recursive: true, force: true }); } catch(e) {}
   users.splice(idx, 1);
   saveUsers(users);
+  appendModLog('admin', 'delete-user', username);
   res.json({ success: true });
 });
 
@@ -935,6 +977,7 @@ app.post('/api/admin/users/:username/reset-password', requireAdmin, (req, res) =
   user.hash = hashPassword(newPassword, newSalt);
   user.salt = newSalt;
   saveUsers(users);
+  appendModLog('admin', 'reset-password', username);
   res.json({ success: true });
 });
 
@@ -1041,6 +1084,214 @@ app.delete('/api/admin/announcements/:id', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
+
+// ── Role management (admin only) ───────────────────────────────────────────
+app.post('/api/admin/users/:username/set-role', requireAdmin, (req, res) => {
+  const { username } = req.params;
+  const { role } = req.body;
+  if (username.toLowerCase() === 'admin') return res.status(400).json({ error: 'Cannot change admin role.' });
+  if (!['user', 'moderator'].includes(role)) return res.status(400).json({ error: 'Invalid role. Must be user or moderator.' });
+  const users = loadUsers();
+  const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  user.role = role;
+  saveUsers(users);
+  appendModLog('admin', `set-role:${role}`, username);
+  res.json({ success: true, role });
+});
+
+// ── Moderation log (mod + admin) ───────────────────────────────────────────
+app.get('/api/mod/log', requireModerator, (req, res) => {
+  res.json(loadModLog());
+});
+
+// ── Moderator: user actions ────────────────────────────────────────────────
+app.post('/api/mod/users/:username/reset-password', requireModerator, (req, res) => {
+  const { username } = req.params;
+  const { newPassword } = req.body;
+  if (getUserRole(username) === 'admin') return res.status(403).json({ error: 'Cannot reset admin password.' });
+  if (getUserRole(username) === 'moderator' && req.role !== 'admin') return res.status(403).json({ error: 'Only admin can reset a moderator password.' });
+  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  const users = loadUsers();
+  const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const newSalt = crypto.randomBytes(32).toString('hex');
+  user.hash = hashPassword(newPassword, newSalt);
+  user.salt = newSalt;
+  saveUsers(users);
+  appendModLog(req.username, 'reset-password', username);
+  res.json({ success: true });
+});
+
+app.post('/api/mod/users/:username/clear-bio', requireModerator, (req, res) => {
+  const { username } = req.params;
+  if (getUserRole(username) === 'admin') return res.status(403).json({ error: 'Cannot modify admin.' });
+  const profile = loadProfile(username);
+  saveProfile(username, { ...profile, bio: '' });
+  appendModLog(req.username, 'clear-bio', username);
+  res.json({ success: true });
+});
+
+app.post('/api/mod/users/:username/set-privacy', requireModerator, (req, res) => {
+  const { username } = req.params;
+  const { publicInventory, publicHoldings } = req.body;
+  const profile = loadProfile(username);
+  saveProfile(username, { ...profile, publicInventory: publicInventory ?? profile.publicInventory, publicHoldings: publicHoldings ?? profile.publicHoldings });
+  appendModLog(req.username, 'set-privacy', username, JSON.stringify({ publicInventory, publicHoldings }));
+  res.json({ success: true });
+});
+
+app.post('/api/mod/users/:username/resolve', requireModerator, async (req, res) => {
+  const { username } = req.params;
+  const user = findUser(username);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const transactions = loadTransactions(username);
+  const unresolved = transactions.filter(t => (t.type === 'buy' || t.type === 'sell') && !t.ticker && (t.rawTicker || t.isin));
+  let resolved = 0;
+  for (const tx of unresolved) {
+    const ticker = await resolveSymbol(tx.rawTicker || null, tx.isin, tx.name, tx.currency, tx.broker, username);
+    if (ticker) { tx.ticker = ticker; resolved++; }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  saveTransactions(username, transactions);
+  appendModLog(req.username, 'resolve-tickers', username, `resolved ${resolved}`);
+  res.json({ resolved, total: unresolved.length });
+});
+
+// ── Mod announcements ──────────────────────────────────────────────────────
+app.post('/api/mod/announcements', requireModerator, (req, res) => {
+  const { title, message, type } = req.body;
+  if (!title || !message) return res.status(400).json({ error: 'title and message required.' });
+  const announcements = loadAnnouncements();
+  const newAnn = { id: Date.now(), title, message, type: type || 'info', createdAt: new Date().toISOString(), postedBy: req.username };
+  announcements.unshift(newAnn);
+  saveAnnouncements(announcements.slice(0, 10));
+  appendModLog(req.username, 'post-announcement', '-', title);
+  res.json({ success: true, announcement: newAnn });
+});
+
+app.delete('/api/mod/announcements/:id', requireModerator, (req, res) => {
+  const announcements = loadAnnouncements().filter(a => a.id !== parseInt(req.params.id));
+  saveAnnouncements(announcements);
+  appendModLog(req.username, 'delete-announcement', '-', req.params.id);
+  res.json({ success: true });
+});
+
+// ── Friends ────────────────────────────────────────────────────────────────
+app.get('/api/friends', requireUser, (req, res) => {
+  const data = loadFriends(req.username);
+  // Enrich with profiles
+  const enrich = (usernames) => usernames.map(u => {
+    const p = loadProfile(u);
+    return { username: u, avatarBase64: p.avatarBase64 || null, bio: p.bio || '', role: getUserRole(u) };
+  });
+  res.json({ friends: enrich(data.friends), incoming: enrich(data.incoming), outgoing: data.outgoing });
+});
+
+app.post('/api/friends/request/:username', requireUser, (req, res) => {
+  const target = req.params.username;
+  if (target === req.username) return res.status(400).json({ error: 'Cannot friend yourself.' });
+  if (!findUser(target)) return res.status(404).json({ error: 'User not found.' });
+  const myData = loadFriends(req.username);
+  const theirData = loadFriends(target);
+  if (myData.friends.includes(target)) return res.status(400).json({ error: 'Already friends.' });
+  if (myData.outgoing.includes(target)) return res.status(400).json({ error: 'Request already sent.' });
+  // If they already sent us a request, auto-accept
+  if (myData.incoming.includes(target)) {
+    myData.friends.push(target);
+    myData.incoming = myData.incoming.filter(u => u !== target);
+    theirData.friends.push(req.username);
+    theirData.outgoing = theirData.outgoing.filter(u => u !== req.username);
+    saveFriends(req.username, myData);
+    saveFriends(target, theirData);
+    appendActivity(req.username, { type: 'friend_added', targetUser: target });
+    appendActivity(target, { type: 'friend_added', targetUser: req.username });
+    return res.json({ success: true, status: 'accepted' });
+  }
+  myData.outgoing.push(target);
+  theirData.incoming.push(req.username);
+  saveFriends(req.username, myData);
+  saveFriends(target, theirData);
+  res.json({ success: true, status: 'requested' });
+});
+
+app.post('/api/friends/accept/:username', requireUser, (req, res) => {
+  const sender = req.params.username;
+  const myData = loadFriends(req.username);
+  const theirData = loadFriends(sender);
+  if (!myData.incoming.includes(sender)) return res.status(400).json({ error: 'No pending request from this user.' });
+  myData.friends.push(sender);
+  myData.incoming = myData.incoming.filter(u => u !== sender);
+  theirData.friends.push(req.username);
+  theirData.outgoing = theirData.outgoing.filter(u => u !== req.username);
+  saveFriends(req.username, myData);
+  saveFriends(sender, theirData);
+  appendActivity(req.username, { type: 'friend_added', targetUser: sender });
+  appendActivity(sender, { type: 'friend_added', targetUser: req.username });
+  res.json({ success: true });
+});
+
+app.post('/api/friends/decline/:username', requireUser, (req, res) => {
+  const sender = req.params.username;
+  const myData = loadFriends(req.username);
+  const theirData = loadFriends(sender);
+  myData.incoming = myData.incoming.filter(u => u !== sender);
+  theirData.outgoing = theirData.outgoing.filter(u => u !== req.username);
+  saveFriends(req.username, myData);
+  saveFriends(sender, theirData);
+  res.json({ success: true });
+});
+
+app.post('/api/friends/remove/:username', requireUser, (req, res) => {
+  const target = req.params.username;
+  const myData = loadFriends(req.username);
+  const theirData = loadFriends(target);
+  myData.friends = myData.friends.filter(u => u !== target);
+  theirData.friends = theirData.friends.filter(u => u !== req.username);
+  saveFriends(req.username, myData);
+  saveFriends(target, theirData);
+  res.json({ success: true });
+});
+
+// ── Activity feed ──────────────────────────────────────────────────────────
+app.get('/api/feed', requireUser, (req, res) => {
+  const friends = loadFriends(req.username).friends;
+  const allActivity = [];
+  // Include own activity too
+  [...friends, req.username].forEach(username => {
+    const activity = loadActivity(username);
+    const profile = loadProfile(username);
+    activity.forEach(a => {
+      allActivity.push({ ...a, username, avatarBase64: profile.avatarBase64 || null, role: getUserRole(username) });
+    });
+  });
+  allActivity.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  res.json(allActivity.slice(0, 50));
+});
+
+app.post('/api/activity/screenshot', requireUser, (req, res) => {
+  const { skinName, caption, imageBase64 } = req.body;
+  if (!imageBase64) return res.status(400).json({ error: 'imageBase64 required.' });
+  appendActivity(req.username, { type: 'skin_screenshot', skinName: skinName || 'Unknown skin', caption: caption || '', imageBase64 });
+  res.json({ success: true });
+});
+
+app.get('/api/activity/mine', requireUser, (req, res) => {
+  res.json(loadActivity(req.username));
+});
+
+app.delete('/api/activity/:id', requireUser, (req, res) => {
+  const activity = loadActivity(req.username).filter(a => String(a.id) !== String(req.params.id));
+  saveActivity(req.username, activity);
+  res.json({ success: true });
+});
+
+// ── Pending friend request count (for notification dot) ───────────────────
+app.get('/api/friends/pending-count', requireUser, (req, res) => {
+  const data = loadFriends(req.username);
+  res.json({ count: data.incoming.length });
+});
+
 // ── Catch-all ──────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) return next();
@@ -1050,4 +1301,5 @@ app.use((req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Statera server running on http://localhost:${PORT}`));
+// Adding '0.0.0.0' tells the server to listen to external requests
+app.listen(PORT, '0.0.0.0', () => console.log(`Statera server running on port ${PORT}`));

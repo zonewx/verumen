@@ -1,3 +1,5 @@
+# OUTDATED
+
 # Statera
 
 Portfolio tracker and CS skin inventory manager.

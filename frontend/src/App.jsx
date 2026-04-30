@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import CSSkins from './CSSkins';
+import PortfolioSidebar from './PortfolioSidebar';
 import ProfilePage from './ProfilePage';
 import GlobalBar from './GlobalBar';
 import AdminPanel from './AdminPanel';
+import ModeratorPanel from './ModeratorPanel';
+import SocialFeed from './SocialFeed';
 
 export default function App() {
   // ── Auth ───────────────────────────────────────────────────────────────────
@@ -16,6 +19,7 @@ export default function App() {
   const [homeApp, setHomeApp] = useState(null);
   const [viewProfileUser, setViewProfileUser] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
+  const [userRole, setUserRole] = useState('user');
 
   // ── Core state ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => JSON.parse(localStorage.getItem('portfolio')) || []);
@@ -58,7 +62,7 @@ export default function App() {
   const [txTypeFilter, setTxTypeFilter] = useState('all');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState({ import: false, manage: false, settings: false });
+  const globalSearchRef = useRef(null);
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback((url, opts = {}) => {
@@ -82,7 +86,7 @@ export default function App() {
       if (!d.hasUsers) { setAuthStatus('no-user'); setAuthMode('signup'); }
       else {
         const saved = sessionStorage.getItem('auth_user');
-        if (saved) { setAuthStatus('logged-in'); setAuthUsername(saved); }
+        if (saved) { setAuthStatus('logged-in'); setAuthUsername(saved); setUserRole(sessionStorage.getItem('auth_role') || 'user'); }
         else setAuthStatus('logged-out');
       }
     }).catch(() => setAuthStatus('logged-out'));
@@ -103,7 +107,9 @@ export default function App() {
         const data = await res.json();
         if (!res.ok) { setAuthError(data.error); setAuthLoading(false); return; }
         sessionStorage.setItem('auth_user', data.username);
+        sessionStorage.setItem('auth_role', data.role || 'user');
         setAuthUsername(data.username); setAuthStatus('logged-in');
+        setUserRole(data.role || 'user');
       }
     } catch { setAuthError('Connection error.'); }
     setAuthLoading(false);
@@ -113,7 +119,7 @@ export default function App() {
     sessionStorage.removeItem('auth_user');
     setAuthStatus('logged-out'); setAuthUsername('');
     setAuthForm({ username: '', password: '', confirmPassword: '', newPassword: '' });
-    setHomeApp(null); setViewProfileUser(null); setPortfolio([]); setDashboardData(null);
+    setHomeApp(null); setViewProfileUser(null); setPortfolio([]); setDashboardData(null); setUserRole('user'); sessionStorage.removeItem('auth_role');
   };
 
   const handleChangePassword = async () => {
@@ -169,9 +175,16 @@ export default function App() {
 
   useEffect(() => {
     const hkd = e => {
-      if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); setIsSidebarOpen(p => !p); }
+      if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'SELECT' && document.activeElement.tagName !== 'BUTTON') {
+        e.preventDefault();
+        if (globalSearchRef.current) { globalSearchRef.current.focus(); globalSearchRef.current.select(); }
+      }
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        if (globalSearchRef.current) { globalSearchRef.current.focus(); }
+      }
+      if (e.key === 'Escape') { setShowShortcuts(false); if (globalSearchRef.current) globalSearchRef.current.blur(); }
       if (e.key === '?' && document.activeElement.tagName !== 'INPUT') setShowShortcuts(p => !p);
-      if (e.key === 'Escape') setShowShortcuts(false);
     };
     document.addEventListener('keydown', hkd);
     return () => document.removeEventListener('keydown', hkd);
@@ -331,13 +344,13 @@ export default function App() {
   // ── App routing ────────────────────────────────────────────────────────────
   if (homeApp === 'skins') return (
     <div className={`flex flex-col h-screen pt-12 ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
-      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} />
+      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
       <CSSkins isDark={isDark} onBack={() => setHomeApp(null)} authUsername={authUsername} />
     </div>
   );
   if (homeApp === 'profile') return (
     <div className={`flex flex-col h-screen pt-12 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} />
+      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
       <div className={`px-8 py-3 border-b flex items-center gap-3 shrink-0 ${isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'}`}>
         {viewProfileUser && <button onClick={() => setViewProfileUser(null)} className={`text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'} transition`}>← Back</button>}
         <h1 className="text-base font-bold">{viewProfileUser ? viewProfileUser : 'My Profile'}</h1>
@@ -346,13 +359,33 @@ export default function App() {
     </div>
   );
 
+  if (homeApp === 'social') return (
+    <div className={`flex flex-col h-screen pt-12 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
+      <div className={`px-8 py-3 border-b flex items-center gap-3 shrink-0 ${isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'}`}>
+        <h1 className="text-base font-bold">Social Feed</h1>
+      </div>
+      <SocialFeed isDark={isDark} authUsername={authUsername} onViewProfile={u => handleNavigate('view-profile', u)} />
+    </div>
+  );
+
   if (homeApp === 'admin') return (
     <div className={`flex flex-col h-screen pt-12 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} />
+      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
       <div className={`px-8 py-3 border-b flex items-center gap-3 shrink-0 ${isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'}`}>
         <h1 className="text-base font-bold">🛡️ Admin Panel</h1>
       </div>
       <AdminPanel isDark={isDark} authUsername={authUsername} />
+    </div>
+  );
+
+  if (homeApp === 'moderator') return (
+    <div className={`flex flex-col h-screen pt-12 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
+      <div className={`px-8 py-3 border-b flex items-center gap-3 shrink-0 ${isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'}`}>
+        <h1 className="text-base font-bold">🛡 Moderator Panel</h1>
+      </div>
+      <ModeratorPanel isDark={isDark} authUsername={authUsername} userRole={userRole} />
     </div>
   );
 
@@ -361,7 +394,9 @@ export default function App() {
     const apps = [
       { id: 'statera', name: 'Statera', desc: 'Portfolio tracker & analytics', color: 'from-blue-600 to-blue-800', icon: <svg width="44" height="44" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#1d4ed8"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>, stats: [{ label: 'Holdings', value: portfolio.length || '—' },{ label: 'Transactions', value: txCount.total || '—' },{ label: 'Dividends YTD', value: dividends?.totalThisYear > 0 ? `${Math.round(dividends.totalThisYear)} kr` : '—' }] },
       { id: 'skins', name: 'CS Skins', desc: 'Track CS inventory, P&L & Steam value', color: 'from-orange-500 to-orange-700', icon: <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-xl">CS</div>, stats: [] },
+      { id: 'social', name: 'Social', desc: 'Feed, friends & skin screenshots', color: 'from-purple-600 to-purple-800', icon: <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-2xl">👥</div>, stats: [] },
       ...(authUsername === 'admin' ? [{ id: 'admin', name: 'Admin Panel', desc: 'Manage users, system & announcements', color: 'from-red-700 to-red-900', icon: <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-2xl">🛡️</div>, stats: [] }] : []),
+      ...(userRole === 'moderator' ? [{ id: 'moderator', name: 'Mod Panel', desc: 'Manage users & announcements', color: 'from-blue-700 to-blue-900', icon: <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-2xl">🛡</div>, stats: [] }] : []),
 
     ];
     return (
@@ -397,7 +432,7 @@ export default function App() {
             <h1 className="text-3xl font-bold mb-2">Welcome back, {authUsername}</h1>
             <p className={`text-base ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Choose an app to open.</p>
           </div>
-          <div className={`grid gap-6 ${authUsername === 'admin' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+          <div className={`grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`}>
             {apps.map(app => (
               <button key={app.id} onClick={() => handleNavigate(app.id)} className={`text-left rounded-2xl overflow-hidden border transition-all duration-200 group hover:shadow-lg hover:-translate-y-0.5 cursor-pointer ${isDark ? 'bg-gray-800 border-gray-700 hover:border-gray-500' : 'bg-white border-gray-200 hover:border-gray-400'}`}>
                 <div className={`bg-linear-to-br ${app.color} p-6 flex items-start justify-between`}>
@@ -442,7 +477,7 @@ export default function App() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShortcuts(false)}>
       <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5"><h3 className="text-base font-bold">Keyboard shortcuts</h3><button onClick={() => setShowShortcuts(false)} className="text-gray-500 hover:text-white text-lg">✕</button></div>
-        {[['Space','Toggle sidebar'],['?','Show shortcuts'],['Esc','Close modals']].map(([key, desc]) => (
+        {[['Space / /','Focus search'],['?','Show shortcuts'],['Esc','Close / unfocus']].map(([key, desc]) => (
           <div key={key} className={`flex items-center justify-between py-2 border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} last:border-0`}>
             <span className="text-sm text-gray-300">{desc}</span>
             <kbd className={`${isDark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-600'} text-xs font-mono px-2 py-1 rounded`}>{key}</kbd>
@@ -534,142 +569,71 @@ export default function App() {
   const getCurrencyData = () => { if (!dashboardData?.portfolio) return []; const m = {}; dashboardData.portfolio.forEach(s => { const cur = s.currency || baseCurrency; m[cur] = (m[cur] || 0) + s.currentValue; }); return Object.entries(m).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value); };
 
   // ── Main portfolio app ─────────────────────────────────────────────────────
-  const toggleSidebarSection = key => setSidebarCollapsed(p => ({ ...p, [key]: !p[key] }));
+
   const cardCls = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
 
   return (
     <div className={`flex h-screen overflow-hidden pt-12 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} />
+      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
       {showShortcuts && <ShortcutsModal />}
 
-      {/* SIDEBAR */}
-      <div className={`w-72 shrink-0 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-r transition-all duration-300 z-10 overflow-y-auto flex flex-col ${isSidebarOpen ? '' : '-ml-72'}`}>
-        <div className={`flex items-center gap-3 px-5 py-5 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} shrink-0`}>
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#0f1e3c"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18 10l2.5-2.5M20.5 7.5l-2 0M20.5 7.5l0 2" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          <div className="flex-1 min-w-0">
-            <span className="text-base font-bold block">Statera</span>
-            <span className={`text-xs truncate block ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{authUsername}</span>
-          </div>
-          <button onClick={() => setHomeApp(null)} title="Home" className={`shrink-0 p-1.5 rounded-lg ${isDark ? 'text-gray-500 hover:text-white hover:bg-gray-700' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'} transition`}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          </button>
-          <button onClick={handleLogout} title="Sign out" className={`shrink-0 p-1.5 rounded-lg ${isDark ? 'text-gray-500 hover:text-red-400 hover:bg-gray-700' : 'text-gray-400 hover:text-red-500 hover:bg-gray-100'} transition`}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-          </button>
-        </div>
 
-        <nav className={`flex flex-col gap-1 px-3 pt-4 pb-2 shrink-0 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-          {[
-            { key: 'import', label: 'Import CSV', icon: <><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12M8 12l4 4 4-4" strokeLinecap="round" strokeLinejoin="round"/></> },
-            { key: 'manage', label: 'Manage Portfolio', icon: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6" strokeLinecap="round"/></> },
-            { key: 'settings', label: 'Settings', icon: <><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></> },
-          ].map(({ key, label, icon }) => (
-            <div key={key}>
-              <button onClick={() => toggleSidebarSection(key)} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition text-left ${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}>
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0">{icon}</svg>
-                <span className="flex-1">{label}</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`shrink-0 transition-transform ${sidebarCollapsed[key] ? '-rotate-90' : ''}`}><path d="M6 9l6 6 6-6"/></svg>
-              </button>
-              <div className={`overflow-hidden transition-all duration-200 ${sidebarCollapsed[key] ? 'max-h-0' : 'max-h-screen'}`}>
-                <div className="px-3 pb-3 pt-1">
-                  {key === 'import' && (
-                    <div className="flex flex-col gap-2.5">
-                      <label className={`w-full flex items-center justify-center py-2.5 rounded-xl text-sm font-bold transition cursor-pointer ring-1 ring-blue-700 ${uploadLoading ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-blue-700 hover:bg-blue-600 text-white'}`}>
-                        {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
-                        <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { handleUpload(e.target.files); e.target.value = ''; }} />
-                      </label>
-                      <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Broker detected automatically.</p>
-                      {uploadStatus?.error && <p className="text-xs text-red-400">✗ {uploadStatus.error}</p>}
-                      {uploadStatus?.results && (
-                        <div className="flex flex-col gap-1.5">
-                          {uploadStatus.results.map((r, i) => (
-                            <div key={i} className={`${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg px-3 py-2 text-xs`}>
-                              {r.error ? <p className="text-red-400">✗ {r.file}: {r.error}</p> : <p className={isDark ? 'text-gray-300' : 'text-gray-600'}><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
-                            </div>
-                          ))}
-                          <p className="text-xs text-green-400 font-semibold">+{uploadStatus.newAdded} new · {uploadStatus.total} total</p>
-                        </div>
-                      )}
-                      {txCount.trades > 0 && <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg px-3 py-2`}><p className="text-sm font-bold text-green-400">{txCount.trades} trades</p><p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{txCount.total} total in history</p></div>}
-                      {txCount.trades > 0 && <button onClick={handleSyncPortfolio} disabled={syncLoading} className="w-full bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500 py-2 rounded-lg font-bold text-sm transition text-white">{syncLoading ? 'Syncing…' : 'Sync Portfolio'}</button>}
-                      {syncStatus && <p className={`text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-gray-400'}`}>{syncStatus}</p>}
-                      {txCount.trades > 0 && <button onClick={handleResolveTickers} disabled={resolveLoading} className={`w-full py-2 rounded-lg font-bold text-sm transition disabled:opacity-50 ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>{resolveLoading ? '⏳ Resolving...' : '🔍 Resolve Tickers'}</button>}
-                      {resolveStatus && <p className={`text-xs ${resolveStatus.startsWith('✓') ? 'text-green-400' : 'text-gray-400'}`}>{resolveStatus}</p>}
-                      {txCount.total > 0 && <button onClick={handleClearTransactions} className={`w-full ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} py-2 rounded-lg font-bold text-sm transition`}>Clear History</button>}
-                    </div>
-                  )}
-                  {key === 'manage' && (
-                    <div>
-                      <div className="flex flex-col gap-1 mb-3 max-h-48 overflow-y-auto">
-                        {portfolio.length === 0 ? <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Portfolio is empty.</p>
-                          : portfolio.map(s => (
-                            <label key={s.ticker} className={`flex items-center p-2 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} rounded cursor-pointer transition`}>
-                              <input type="checkbox" checked={selectedForRemoval.includes(s.ticker)} onChange={() => toggleRemoval(s.ticker)} className="mr-3" />{s.ticker}
-                            </label>
-                          ))}
-                      </div>
-                      <button onClick={handleRemoveSelected} className="w-full bg-red-600 hover:bg-red-500 p-2 rounded font-bold text-sm text-white transition mb-1.5">Remove Selected</button>
-                      <button onClick={() => setPortfolio([])} className={`w-full ${isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-100 hover:bg-gray-200'} p-2 rounded font-bold text-sm transition`}>Clear Portfolio</button>
-                    </div>
-                  )}
-                  {key === 'settings' && (
-                    <div className="flex flex-col gap-4">
-                      <div>
-                        <label className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider block mb-1.5`}>Currency</label>
-                        <select value={baseCurrency} onChange={e => setBaseCurrency(e.target.value)} className={`w-full p-2 ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded outline-none text-sm`}>
-                          <option>EUR</option><option>GBP</option><option>SEK</option><option>USD</option>
-                        </select>
-                      </div>
-                      <button onClick={() => setIsDark(p => !p)} className={`w-full py-2 ${isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} rounded text-sm font-medium transition flex items-center justify-center gap-2`}>
-                        <span>{isDark ? '☀️' : '🌙'}</span>{isDark ? 'Light Mode' : 'Dark Mode'}
-                      </button>
-                      {!showChangePassword ? (
-                        <button onClick={() => { setShowChangePassword(true); setAuthError(''); }} className={`w-full py-2 ${isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} rounded text-sm font-medium transition`}>🔑 Change Password</button>
-                      ) : (
-                        <div className="flex flex-col gap-2">
-                          <p className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Change Password</p>
-                          <input type="password" value={authForm.password} onChange={e => setAuthForm(f => ({ ...f, password: e.target.value }))} placeholder="Current password" className={`w-full px-3 py-2 rounded-lg border text-xs outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200'}`} />
-                          <input type="password" value={authForm.newPassword} onChange={e => setAuthForm(f => ({ ...f, newPassword: e.target.value }))} placeholder="New password (6+ chars)" className={`w-full px-3 py-2 rounded-lg border text-xs outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200'}`} />
-                          {authError && <p className="text-xs text-red-400">{authError}</p>}
-                          <div className="flex gap-2">
-                            <button onClick={handleChangePassword} disabled={authLoading} className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition disabled:opacity-50">Save</button>
-                            <button onClick={() => { setShowChangePassword(false); setAuthError(''); }} className={`flex-1 py-1.5 ${isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} rounded text-xs font-bold transition`}>Cancel</button>
-                          </div>
-                        </div>
-                      )}
-                      <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} pt-3`}>
-                        <h3 className={`text-xs font-bold ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider mb-2`}>Ticker Overrides</h3>
-                        <div className="flex gap-2 mb-2">
-                          <input type="text" value={overrideIsin} onChange={e => setOverrideIsin(e.target.value)} placeholder="ISIN" className={`flex-1 p-2 ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded text-xs outline-none`} />
-                          <input type="text" value={overrideTicker} onChange={e => setOverrideTicker(e.target.value)} placeholder="Ticker" className={`flex-1 p-2 ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded text-xs outline-none`} />
-                        </div>
-                        <button onClick={handleAddOverride} className="w-full bg-blue-600 hover:bg-blue-500 p-2 rounded font-bold text-sm text-white transition mb-2">Save Override</button>
-                        {overrideMsg && <p className="text-xs text-green-400 mb-2">{overrideMsg}</p>}
-                        {Object.entries(overrides).map(([isin, ticker]) => (
-                          <div key={isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded px-3 py-1.5 mb-1`}>
-                            <span className="text-xs">{isin} → <span className="font-bold">{ticker}</span></span>
-                            <button onClick={() => handleDeleteOverride(isin)} className="text-red-400 hover:text-red-300 text-xs ml-2">✕</button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </nav>
-      </div>
+      {/* SIDEBAR */}
+      <PortfolioSidebar
+        isDark={isDark}
+        isSidebarOpen={isSidebarOpen}
+        authUsername={authUsername}
+        portfolio={portfolio}
+        txCount={txCount}
+        uploadStatus={uploadStatus}
+        uploadLoading={uploadLoading}
+        syncStatus={syncStatus}
+        syncLoading={syncLoading}
+        resolveLoading={resolveLoading}
+        resolveStatus={resolveStatus}
+        selectedForRemoval={selectedForRemoval}
+        baseCurrency={baseCurrency}
+        overrides={overrides}
+        overrideMsg={overrideMsg}
+        overrideIsin={overrideIsin}
+        overrideTicker={overrideTicker}
+        showChangePassword={showChangePassword}
+        authForm={authForm}
+        authError={authError}
+        authLoading={authLoading}
+        onUpload={handleUpload}
+        onSync={handleSyncPortfolio}
+        onResolve={handleResolveTickers}
+        onClearTransactions={handleClearTransactions}
+        onToggleRemoval={toggleRemoval}
+        onRemoveSelected={handleRemoveSelected}
+        onClearPortfolio={() => setPortfolio([])}
+        onSetBaseCurrency={setBaseCurrency}
+        onToggleDark={() => setIsDark(p => !p)}
+        onShowChangePassword={() => { setShowChangePassword(true); setAuthError(''); }}
+        onHideChangePassword={() => { setShowChangePassword(false); setAuthError(''); }}
+        onChangePassword={handleChangePassword}
+        onAuthFormChange={(field, val) => setAuthForm(f => ({ ...f, [field]: val }))}
+        onAddOverride={handleAddOverride}
+        onDeleteOverride={handleDeleteOverride}
+        onNavigateHome={() => setHomeApp(null)}
+        onOverrideIsinChange={setOverrideIsin}
+        onOverrideTicerChange={setOverrideTicker}
+      />
 
       {/* MAIN */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto px-8 pt-8 pb-0">
-          <div className="flex items-center gap-3 mb-6">
-            <button onClick={() => setIsSidebarOpen(p => !p)} className={`p-2 rounded-lg ${isDark ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-200'} transition`}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        <div className="max-w-7xl mx-auto px-6 pt-6 pb-0">
+          <div className="flex items-center gap-3 mb-5">
+            <button onClick={() => setIsSidebarOpen(p => !p)} title="Toggle sidebar"
+              className={`p-2 rounded-lg ${isDark ? 'text-gray-500 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'} transition`}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
             </button>
-            <h1 className="text-2xl font-bold tracking-tight flex-1">Portfolio Tracker</h1>
-            <button onClick={() => setShowShortcuts(true)} className={`p-2 rounded-lg ${isDark ? 'text-gray-500 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-200'} transition text-sm font-mono`}>?</button>
+            <h1 className="text-xl font-bold tracking-tight flex-1">Portfolio Tracker</h1>
+            <button onClick={() => setShowShortcuts(true)} title="Keyboard shortcuts (?)"
+              className={`px-2 py-1 rounded-lg text-xs font-mono font-bold border ${isDark ? 'text-gray-600 border-gray-700 hover:text-white hover:border-gray-500' : 'text-gray-300 border-gray-200 hover:text-gray-900 hover:border-gray-400'} transition`}>?</button>
           </div>
           <div className={`flex gap-0 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} overflow-x-auto`}>
             {TABS.map(tab => (
@@ -685,7 +649,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-8 py-8">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           {isAppLoading ? (
             <div className="flex flex-col items-center justify-center mt-32 space-y-4">
               <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>

@@ -109,6 +109,13 @@ export default function AdminPanel({ isDark, authUsername }) {
     flash('✓ Announcement removed');
   };
 
+  const setRole = async (username, role) => {
+    const res = await fetch(`/api/admin/users/${username}/set-role`, { method: 'POST', headers: h, body: JSON.stringify({ role }) });
+    const data = await res.json();
+    if (data.success) { flash(`✓ ${username} is now ${role}`); fetchStats(); }
+    else flash('Error: ' + data.error);
+  };
+
   const formatUptime = (s) => {
     const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
     return [d && `${d}d`, h && `${h}h`, `${m}m`].filter(Boolean).join(' ');
@@ -117,6 +124,7 @@ export default function AdminPanel({ isDark, authUsername }) {
   const TABS = [
     { id: 'overview', label: 'Overview' },
     { id: 'users', label: 'Users' },
+    { id: 'roles', label: 'Roles' },
     { id: 'tickers', label: 'Ticker Failures' },
     { id: 'announcements', label: 'Announcements' },
   ];
@@ -331,6 +339,38 @@ export default function AdminPanel({ isDark, authUsername }) {
                     </table>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ROLES */}
+            {tab === 'roles' && stats && (
+              <div className="flex flex-col gap-4">
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Promote users to moderator or demote them back. Admin role is permanent.</p>
+                {stats.users.map(u => {
+                  const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800', user: `${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500'}` };
+                  return (
+                    <div key={u.username} className={`${card} p-4 flex items-center gap-4`}>
+                      <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0">
+                        {u.username[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold">{u.username}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadge[u.role || 'user']}`}>{u.role || 'user'}</span>
+                        </div>
+                        <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Joined {new Date(u.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      {u.username !== 'admin' && (
+                        <div className="flex gap-2 shrink-0">
+                          {(u.role || 'user') !== 'moderator'
+                            ? <button onClick={() => setRole(u.username, 'moderator')} className={btnBlue}>Promote to Mod</button>
+                            : <button onClick={() => setRole(u.username, 'user')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Demote to User</button>
+                          }
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
