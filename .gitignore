@@ -27,3 +27,8 @@ Thumbs.db
 
 # VS Code
 .vscode/
+
+# Environment variables — never commit these
+.env
+.env.local
+.env.production

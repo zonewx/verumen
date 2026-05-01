@@ -1,11 +1,12 @@
 {
   "name": "statera",
   "version": "1.0.0",
-  "description": "Statera — portfolio & CS skin tracker",
+  "description": "Statera \u2014 portfolio & CS skin tracker",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "concurrently \"node server.js\" \"cd frontend && npm run dev\""
+    "dev": "concurrently \"node server.js\" \"cd frontend && npm run dev\"",
+    "setup": "node setup.js"
   },
   "type": "commonjs",
   "dependencies": {
