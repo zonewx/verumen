@@ -491,10 +491,29 @@ app.post('/api/friends/remove/:username', requireUser, async (req, res) => {
 
 // ── Activity feed ───────────────────────────────────────────────────────────
 app.get('/api/feed', requireUser, async (req, res) => {
-  const { data: friendships } = await supabase.from('friendships').select('requester_id, addressee_id').or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`).eq('status', 'accepted');
-  const friendIds = (friendships||[]).map(f=>f.requester_id===req.user.id?f.addressee_id:f.requester_id);
-  const { data: activity } = await supabase.from('activity').select('*, profiles(username, avatar_base64, role)').in('user_id', [...friendIds, req.user.id]).order('created_at', { ascending:false }).limit(50);
-  res.json((activity||[]).map(a=>({ ...a.payload, id:a.id, type:a.type, createdAt:a.created_at, username:a.profiles?.username, avatarBase64:a.profiles?.avatar_base64, role:a.profiles?.role })));
+  try {
+    const { data: friendships } = await supabase.from('friendships').select('requester_id, addressee_id').or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`).eq('status', 'accepted');
+    const friendIds = (friendships||[]).map(f=>f.requester_id===req.user.id?f.addressee_id:f.requester_id);
+    const allIds = [...new Set([...friendIds, req.user.id])];
+
+    // Fetch activity and profiles separately — Supabase can't auto-join activity->profiles via auth.users
+    const [{ data: activity }, { data: profiles }] = await Promise.all([
+      supabase.from('activity').select('id, user_id, type, payload, created_at').in('user_id', allIds).order('created_at', { ascending:false }).limit(50),
+      supabase.from('profiles').select('id, username, avatar_base64, role').in('id', allIds),
+    ]);
+
+    const profileMap = {};
+    (profiles||[]).forEach(p => { profileMap[p.id] = p; });
+
+    res.json((activity||[]).map(a => {
+      const profile = profileMap[a.user_id] || {};
+      const payload = a.payload || {};
+      return { ...payload, id: a.id, type: a.type, createdAt: a.created_at, username: profile.username, avatarBase64: profile.avatar_base64, role: profile.role };
+    }));
+  } catch(e) {
+    console.error('[feed]', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/activity/mine', requireUser, async (req, res) => {
