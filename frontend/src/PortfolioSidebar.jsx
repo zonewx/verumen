@@ -47,7 +47,7 @@ export default function PortfolioSidebar({
             <path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           <div className="min-w-0">
-            <p className="text-sm font-bold leading-tight">Statera</p>
+            <p className="text-sm font-bold leading-tight">Verumen</p>
             <p className={`text-xs truncate ${sub}`}>{authUsername}</p>
           </div>
         </button>

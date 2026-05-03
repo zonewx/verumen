@@ -1,4 +1,4 @@
-# Statera
+# Verumen
 
 Portfolio tracker and CS skin inventory manager.
 

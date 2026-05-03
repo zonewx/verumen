@@ -340,17 +340,17 @@ export default function App() {
 
   // ── Page Title useEffect ────────────────────────────────────────────────────
   useEffect(() => {
-    if (authStatus !== 'logged-in') { document.title = 'Statera'; return; }
+    if (authStatus !== 'logged-in') { document.title = 'Verumen'; return; }
     const p = location.pathname;
-    if (p === '/') document.title = `Statera — ${authUsername}`;
-    else if (p === '/portfolio') document.title = 'Statera — Portfolio';
-    else if (p === '/skins') document.title = 'Statera — Skins';
-    else if (p === '/social') document.title = 'Statera — Social';
-    else if (p === '/profile') document.title = `Statera — @${authUsername}`;
-    else if (p.startsWith('/profile/@')) document.title = `Statera — ${p.slice('/profile/'.length)}`;
-    else if (p === '/admin') document.title = 'Statera — Admin';
-    else if (p === '/moderator') document.title = 'Statera — Moderator';
-    else document.title = 'Statera';
+    if (p === '/') document.title = `Verumen — ${authUsername}`;
+    else if (p === '/portfolio') document.title = 'Verumen — Portfolio';
+    else if (p === '/skins') document.title = 'Verumen — Skins';
+    else if (p === '/social') document.title = 'Verumen — Social';
+    else if (p === '/profile') document.title = `Verumen — @${authUsername}`;
+    else if (p.startsWith('/profile/@')) document.title = `Verumen — ${p.slice('/profile/'.length)}`;
+    else if (p === '/admin') document.title = 'Verumen — Admin';
+    else if (p === '/moderator') document.title = 'Verumen — Moderator';
+    else document.title = 'Verumen';
   }, [location.pathname, authStatus, authUsername]);
 
   // ── Sub-components ─────────────────────────────────────────────────────────
@@ -476,7 +476,7 @@ export default function App() {
 
   const HomeScreen = () => {
     const apps = [
-      { id: 'statera', name: 'Statera', desc: 'Portfolio tracker & analytics', color: 'from-blue-600 to-blue-800', icon: <svg width="44" height="44" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#1d4ed8"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>, stats: [{ label: 'Holdings', value: portfolio.length || '—' },{ label: 'Transactions', value: txCount.total || '—' },{ label: 'Dividends YTD', value: dividends?.totalThisYear > 0 ? `${Math.round(dividends.totalThisYear)} kr` : '—' }] },
+      { id: 'statera', name: 'Portfolio', desc: 'Portfolio tracker & analytics', color: 'from-blue-600 to-blue-800', icon: <svg width="44" height="44" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#1d4ed8"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>, stats: [{ label: 'Holdings', value: portfolio.length || '—' },{ label: 'Transactions', value: txCount.total || '—' },{ label: 'Dividends YTD', value: dividends?.totalThisYear > 0 ? `${Math.round(dividends.totalThisYear)} kr` : '—' }] },
       { id: 'skins', name: 'CS Skins', desc: 'Track CS inventory, P&L & Steam value', color: 'from-orange-500 to-orange-700', icon: <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-xl">CS</div>, stats: [] },
       { id: 'social', name: 'Social', desc: 'Feed, friends & skin screenshots', color: 'from-purple-600 to-purple-800', icon: <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-2xl">👥</div>, stats: [] },
       ...(authUsername === 'admin' ? [{ id: 'admin', name: 'Admin Panel', desc: 'Manage users, system & announcements', color: 'from-red-700 to-red-900', icon: <div className="w-11 h-11 rounded-lg bg-white/20 flex items-center justify-center text-white font-bold text-2xl">🛡️</div>, stats: [] }] : []),
@@ -488,7 +488,7 @@ export default function App() {
         <div className={`flex items-center justify-between px-8 py-4 border-b ${isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'}`}>
           <div className="flex items-center gap-3">
             <svg width="24" height="24" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#0f1e3c"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            <span className="font-bold tracking-tight">Statera</span>
+            <span className="font-bold tracking-tight">Verumen</span>
           </div>
           <div className="flex items-center gap-3">
             <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{authUsername}</span>
@@ -871,7 +871,7 @@ export default function App() {
           <div className="bg-linear-to-br from-blue-600 to-blue-800 p-8 text-center">
             <div className="flex items-center justify-center gap-3 mb-2">
               <svg width="32" height="32" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="rgba(255,255,255,0.15)"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <span className="text-2xl font-bold text-white tracking-tight">Statera</span>
+              <span className="text-2xl font-bold text-white tracking-tight">Verumen</span>
             </div>
             <p className="text-blue-200 text-sm">{isSignup ? 'Create your account' : 'Welcome back'}</p>
           </div>

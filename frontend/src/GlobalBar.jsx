@@ -71,7 +71,7 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
           <rect width="28" height="28" rx="6" fill="#0f1e3c"/>
           <path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-        <span className="text-sm font-bold hidden sm:block">Statera</span>
+        <span className="text-sm font-bold hidden sm:block">Verumen</span>
       </button>
 
       {/* Middle — Search */}
