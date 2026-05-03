@@ -32,6 +32,18 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
   useEffect(() => {
     fetchProfile();
     if (isViewing) { loadPublicInventory(); loadPublicHoldings(); }
+    // Handle Steam callback redirect
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('steam_success')) {
+      setSteamVerified(true);
+      const steamName = params.get('steam_name');
+      if (steamName) setSaveMsg(`✓ Steam verified as ${steamName}!`);
+      window.history.replaceState({}, '', window.location.pathname);
+      fetchProfile();
+    } else if (params.get('steam_error')) {
+      setSteamLookupError('Steam verification failed. Please try again.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, [targetUser]);
 
   async function fetchProfile() {
@@ -62,6 +74,18 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
       if (res.ok) setViewingHoldings(data);
     } catch(e) {}
     setLoadingHoldings(false);
+  }
+
+  async function handleSteamLogin() {
+    setSteamLookupLoading(true); setSteamLookupError('');
+    try {
+      const token = sessionStorage.getItem('auth_token');
+      const res = await fetch('/api/steam/auth', { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else setSteamLookupError('Failed to start Steam login');
+    } catch(e) { setSteamLookupError('Failed to start Steam login'); }
+    setSteamLookupLoading(false);
   }
 
   async function lookupSteam() {
@@ -294,9 +318,25 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
                   <p className={`text-xs mt-1 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>{editForm.bio.length}/200</p>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className={labelCls}>Steam ID</label>
-                  <input value={editForm.steamId} onChange={e => setEditForm(f => ({ ...f, steamId: e.target.value }))} placeholder="76561198xxxxxxxxx" className={inputCls} />
-                  <p className={`text-xs mt-1 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>Find at steamcommunity.com → your profile URL</p>
+                  <label className={labelCls}>Steam Account</label>
+                  {steamVerified && editForm.steamId ? (
+                    <div className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-green-900/20 border border-green-800/40' : 'bg-green-50 border border-green-200'}`}>
+                      <img src="https://store.steampowered.com/favicon.ico" alt="Steam" className="w-5 h-5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-green-400">✓ Steam linked & verified</p>
+                        <a href={`https://steamcommunity.com/profiles/${editForm.steamId}`} target="_blank" rel="noopener noreferrer" className={`text-xs hover:underline ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{editForm.steamId} ↗</a>
+                      </div>
+                      <button onClick={unlinkSteam} className={`text-xs px-2 py-1 rounded-lg transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>Unlink</button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <button onClick={handleSteamLogin} disabled={steamLookupLoading} className="self-start hover:opacity-90 transition disabled:opacity-50">
+                        <img src="https://community.cloudflare.steamstatic.com/public/images/signinthroughsteam/sits_01.png" alt="Sign in through Steam" className="h-10" />
+                      </button>
+                      <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>You'll be redirected to Steam to verify your account.</p>
+                      {steamLookupError && <p className="text-xs text-red-400">{steamLookupError}</p>}
+                    </div>
+                  )}
                 </div>
               </div>
 

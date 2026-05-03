@@ -790,7 +790,73 @@ app.delete('/api/mod/announcements/:id', requireModerator, async (req, res) => {
   res.json({ success:true });
 });
 
-// ── Steam verification ──────────────────────────────────────────────────────
+// ── Steam OpenID verification ───────────────────────────────────────────────
+const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
+const BASE_URL = process.env.BASE_URL || 'https://verumen.com';
+
+// Step 1: Redirect user to Steam login
+app.get('/api/steam/auth', requireUser, (req, res) => {
+  // Store user id in a temp token so we know who to link after callback
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const params = new URLSearchParams({
+    'openid.ns': 'http://specs.openid.net/auth/2.0',
+    'openid.mode': 'checkid_setup',
+    'openid.return_to': `${BASE_URL}/api/steam/callback?token=${encodeURIComponent(token)}`,
+    'openid.realm': BASE_URL,
+    'openid.identity': 'http://specs.openid.net/auth/2.0/identifier_select',
+    'openid.claimed_id': 'http://specs.openid.net/auth/2.0/identifier_select',
+  });
+  res.json({ url: `${STEAM_OPENID_URL}?${params.toString()}` });
+});
+
+// Step 2: Steam redirects back here after login
+app.get('/api/steam/callback', async (req, res) => {
+  const { token, ...openidParams } = req.query;
+
+  // Verify the OpenID response with Steam
+  try {
+    const verifyParams = new URLSearchParams({ ...openidParams, 'openid.mode': 'check_authentication' });
+    const verifyRes = await fetchJSON(`${STEAM_OPENID_URL}?${verifyParams.toString()}`).catch(() => null);
+
+    // Extract SteamID from claimed_id (format: https://steamcommunity.com/openid/id/STEAMID64)
+    const claimedId = openidParams['openid.claimed_id'] || '';
+    const steamIdMatch = claimedId.match(/\/id\/(\d+)$/);
+    if (!steamIdMatch) return res.redirect(`${BASE_URL}/profile?steam_error=invalid`);
+    const steamId = steamIdMatch[1];
+
+    // Verify the token and get user
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return res.redirect(`${BASE_URL}/profile?steam_error=session`);
+
+    // Get Steam profile info
+    const STEAM_KEY = process.env.STEAM_API_KEY;
+    let steamName = '', steamAvatar = '';
+    if (STEAM_KEY) {
+      try {
+        const data = await fetchJSON(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_KEY}&steamids=${steamId}`);
+        const player = data?.response?.players?.[0];
+        if (player) { steamName = player.personaname; steamAvatar = player.avatarmedium; }
+      } catch(e) {}
+    }
+
+    // Save verified Steam ID
+    await supabase.from('profiles').update({ steam_id: steamId, steam_verified: true }).eq('id', user.id);
+
+    // Redirect back to profile with success
+    res.redirect(`${BASE_URL}/profile?steam_success=1&steam_name=${encodeURIComponent(steamName)}`);
+  } catch(e) {
+    console.error('[steam/callback]', e.message);
+    res.redirect(`${BASE_URL}/profile?steam_error=failed`);
+  }
+});
+
+// Step 3: Unlink Steam
+app.delete('/api/steam/unlink', requireUser, async (req, res) => {
+  await supabase.from('profiles').update({ steam_id: '', steam_verified: false }).eq('id', req.user.id);
+  res.json({ success: true });
+});
+
+// Keep lookup for profile display
 app.get('/api/steam/lookup/:steamId', requireUser, async (req, res) => {
   const STEAM_KEY = process.env.STEAM_API_KEY;
   if (!STEAM_KEY) return res.status(500).json({ error: 'Steam API not configured.' });
@@ -825,28 +891,7 @@ app.get('/api/steam/lookup/:steamId', requireUser, async (req, res) => {
   } catch(e) { res.status(500).json({ error: 'Steam API error: ' + e.message }); }
 });
 
-app.post('/api/steam/verify', requireUser, async (req, res) => {
-  const { steamId } = req.body;
-  if (!steamId) return res.status(400).json({ error: 'steamId required.' });
-  const STEAM_KEY = process.env.STEAM_API_KEY;
-  if (!STEAM_KEY) return res.status(500).json({ error: 'Steam API not configured.' });
 
-  // Confirm profile exists
-  try {
-    const data = await fetchJSON(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_KEY}&steamids=${steamId}`);
-    const player = data?.response?.players?.[0];
-    if (!player) return res.status(404).json({ error: 'Steam profile not found.' });
-
-    // Save as verified
-    await supabase.from('profiles').update({ steam_id: steamId, steam_verified: true }).eq('id', req.user.id);
-    res.json({ success: true, name: player.personaname, avatar: player.avatarmedium, profileUrl: player.profileurl });
-  } catch(e) { res.status(500).json({ error: 'Steam verification failed: ' + e.message }); }
-});
-
-app.delete('/api/steam/unlink', requireUser, async (req, res) => {
-  await supabase.from('profiles').update({ steam_id: '', steam_verified: false }).eq('id', req.user.id);
-  res.json({ success: true });
-});
 
 // ── App settings ────────────────────────────────────────────────────────────
 app.get('/api/admin/settings', requireAdmin, async (req, res) => {
