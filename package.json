@@ -10,10 +10,10 @@
   },
   "type": "commonjs",
   "dependencies": {
-    "better-sqlite3": "^9.4.3",
     "express": "^5.2.1",
-    "sqlite3": "^5.1.7",
-    "yahoo-finance2": "^3.13.2"
+    "yahoo-finance2": "^3.13.2",
+    "@supabase/supabase-js": "^2.49.4",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

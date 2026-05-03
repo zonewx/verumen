@@ -127,7 +127,7 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
   const [uploadForm, setUploadForm] = useState({ skinName: '', caption: '', imageBase64: null });
   const [uploading, setUploading] = useState(false);
 
-  const h = { 'Content-Type': 'application/json', 'X-User': authUsername };
+  const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
   const card = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
   const btnPrimary = 'px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50';

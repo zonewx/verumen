@@ -68,11 +68,12 @@ export default function App() {
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback((url, opts = {}) => {
+    const token = sessionStorage.getItem('auth_token');
     return fetch(url, {
       ...opts,
-      headers: { 'Content-Type': 'application/json', 'X-User': authUsername, ...(opts.headers || {}) }
+      headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...(opts.headers || {}) }
     });
-  }, [authUsername]);
+  }, []);
 
   // ── Theme ──────────────────────────────────────────────────────────────────
   useEffect(() => { localStorage.setItem('theme', isDark ? 'dark' : 'light'); }, [isDark]);
@@ -88,7 +89,8 @@ export default function App() {
       if (!d.hasUsers) { setAuthStatus('no-user'); setAuthMode('signup'); }
       else {
         const saved = sessionStorage.getItem('auth_user');
-        if (saved) { setAuthStatus('logged-in'); setAuthUsername(saved); setUserRole(sessionStorage.getItem('auth_role') || 'user'); }
+        const savedToken = sessionStorage.getItem('auth_token');
+        if (saved && savedToken) { setAuthStatus('logged-in'); setAuthUsername(saved); setUserRole(sessionStorage.getItem('auth_role') || 'user'); }
         else setAuthStatus('logged-out');
       }
     }).catch(() => setAuthStatus('logged-out'));
@@ -110,6 +112,8 @@ export default function App() {
         if (!res.ok) { setAuthError(data.error); setAuthLoading(false); return; }
         sessionStorage.setItem('auth_user', data.username);
         sessionStorage.setItem('auth_role', data.role || 'user');
+        sessionStorage.setItem('auth_token', data.token);
+        if (data.refreshToken) sessionStorage.setItem('auth_refresh', data.refreshToken);
         setAuthUsername(data.username); setAuthStatus('logged-in');
         setUserRole(data.role || 'user');
       }
@@ -122,7 +126,8 @@ export default function App() {
     setAuthStatus('logged-out'); setAuthUsername('');
     setAuthForm({ username: '', password: '', confirmPassword: '', newPassword: '' });
     navigate('/');
-    setPortfolio([]); setDashboardData(null); setUserRole('user'); sessionStorage.removeItem('auth_role');
+    setPortfolio([]); setDashboardData(null); setUserRole('user');
+    sessionStorage.removeItem('auth_role'); sessionStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_refresh');
   };
 
   const handleChangePassword = async () => {

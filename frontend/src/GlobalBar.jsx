@@ -11,19 +11,19 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
   const inputRef = searchInputRef || useRef(null);
 
   useEffect(() => {
-    fetch(`/api/users/${authUsername}/profile`, { headers: { 'X-User': authUsername } })
+    fetch(`/api/users/${authUsername}/profile`, { headers: { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) } })
       .then(r => r.json()).then(setProfile).catch(() => {});
-    fetch('/api/friends/pending-count', { headers: { 'X-User': authUsername } })
+    fetch('/api/friends/pending-count', { headers: { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) } })
       .then(r => r.json()).then(d => setPendingCount(d.count || 0)).catch(() => {});
   }, [authUsername]);
 
   useEffect(() => {
     const handler = () => {
-      fetch(`/api/users/${authUsername}/profile`, { headers: { 'X-User': authUsername } })
+      fetch(`/api/users/${authUsername}/profile`, { headers: { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) } })
         .then(r => r.json()).then(setProfile).catch(() => {});
     };
     const friendHandler = () => {
-      fetch('/api/friends/pending-count', { headers: { 'X-User': authUsername } })
+      fetch('/api/friends/pending-count', { headers: { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) } })
         .then(r => r.json()).then(d => setPendingCount(d.count || 0)).catch(() => {});
     };
     window.addEventListener('profile-updated', handler);
@@ -39,7 +39,7 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
     setSearching(true);
     timerRef.current = setTimeout(async () => {
       try {
-        const users = await fetch('/api/users', { headers: { 'X-User': authUsername } }).then(r => r.json());
+        const users = await fetch('/api/users', { headers: { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) } }).then(r => r.json());
         setResults(users.filter(u => u.username.toLowerCase().includes(q.toLowerCase()) || (u.bio || '').toLowerCase().includes(q.toLowerCase())));
       } catch(e) {}
       setSearching(false);

@@ -20,7 +20,7 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
   const [inventoryError, setInventoryError] = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
 
-  const h = { 'Content-Type': 'application/json', 'X-User': authUsername };
+  const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
   const card = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
   const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
   const labelCls = `text-xs font-semibold uppercase tracking-wider block mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`;

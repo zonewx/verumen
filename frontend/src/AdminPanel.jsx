@@ -13,7 +13,7 @@ export default function AdminPanel({ isDark, authUsername }) {
   const [resetPw, setResetPw] = useState('');
   const [annForm, setAnnForm] = useState({ title: '', message: '', type: 'info' });
 
-  const h = { 'Content-Type': 'application/json', 'X-User': authUsername };
+  const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
   const card = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none transition ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
   const btnRed = 'px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition';
