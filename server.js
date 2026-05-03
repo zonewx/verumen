@@ -617,14 +617,35 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
 
 // ── Admin routes ─────────────────────────────────────────────────────────────
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
-  const { data: profiles } = await supabase.from('profiles').select('*');
-  const usersStats = await Promise.all((profiles||[]).map(async p => {
-    const { count } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', p.id);
-    return { username:p.username, role:p.role, createdAt:p.created_at, transactionCount:count||0, publicInventory:p.public_inventory, publicHoldings:p.public_holdings };
-  }));
-  const { count: totalTx } = await supabase.from('transactions').select('*', { count:'exact', head:true });
-  const mem = process.memoryUsage();
-  res.json({ system:{ uptime:Math.floor(process.uptime()), nodeVersion:process.version, memoryMB:Math.round(mem.rss/1024/1024), heapUsedMB:Math.round(mem.heapUsed/1024/1024), platform:process.platform }, users:usersStats, totals:{ userCount:(profiles||[]).length, totalTx:totalTx||0 }, tickerCache:{ total:0, resolved:0, failed:0 } });
+  try {
+    // Fetch profiles and transaction counts in parallel — no N+1
+    const [{ data: profiles }, { data: txCounts }, { count: totalTx }] = await Promise.all([
+      supabase.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings'),
+      supabase.from('transactions').select('user_id').then(r => r), // get all for grouping
+      supabase.from('transactions').select('*', { count:'exact', head:true }),
+    ]);
+
+    // Group transaction counts by user_id client-side
+    const txCountMap = {};
+    (txCounts || []).forEach(t => { txCountMap[t.user_id] = (txCountMap[t.user_id] || 0) + 1; });
+
+    const usersStats = (profiles || []).map(p => ({
+      username: p.username, role: p.role, createdAt: p.created_at,
+      transactionCount: txCountMap[p.id] || 0,
+      publicInventory: p.public_inventory, publicHoldings: p.public_holdings,
+    }));
+
+    const mem = process.memoryUsage();
+    res.json({
+      system: { uptime: Math.floor(process.uptime()), nodeVersion: process.version, memoryMB: Math.round(mem.rss/1024/1024), heapUsedMB: Math.round(mem.heapUsed/1024/1024), platform: process.platform },
+      users: usersStats,
+      totals: { userCount: (profiles||[]).length, totalTx: totalTx||0 },
+      tickerCache: { total: 0, resolved: 0, failed: 0 },
+    });
+  } catch(e) {
+    console.error('[admin/stats]', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {

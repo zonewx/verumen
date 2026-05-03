@@ -13,7 +13,8 @@ export default function AdminPanel({ isDark, authUsername }) {
   const [resetPw, setResetPw] = useState('');
   const [annForm, setAnnForm] = useState({ title: '', message: '', type: 'info' });
 
-  const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
+  const token = sessionStorage.getItem('auth_token');
+  const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
   const card = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none transition ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
   const btnRed = 'px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition';
@@ -25,13 +26,16 @@ export default function AdminPanel({ isDark, authUsername }) {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
+      const token = sessionStorage.getItem('auth_token');
+      const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
       const [statsRes, annRes] = await Promise.all([
-        fetch('/api/admin/stats', { headers: h }).then(r => r.json()),
-        fetch('/api/announcements', { headers: h }).then(r => r.json()),
+        fetch('/api/admin/stats', { headers }).then(r => r.json()),
+        fetch('/api/announcements', { headers }).then(r => r.json()),
       ]);
-      setStats(statsRes);
-      setAnnouncements(annRes);
-    } catch(e) { flash('Failed to load stats'); }
+      if (statsRes.error) { flash('Stats error: ' + statsRes.error); }
+      else { setStats(statsRes); }
+      if (Array.isArray(annRes)) setAnnouncements(annRes);
+    } catch(e) { flash('Failed to load stats: ' + e.message); }
     setLoading(false);
   }, []);
 
@@ -171,7 +175,15 @@ export default function AdminPanel({ isDark, authUsername }) {
         </div>
 
         {loading && tab === 'overview' ? (
-          <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin"/></div>
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin"/>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading admin data...</p>
+          </div>
+        ) : !stats && tab === 'overview' ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Failed to load stats.</p>
+            <button onClick={fetchStats} className={btnGhost}>↺ Try again</button>
+          </div>
         ) : (
           <>
             {/* OVERVIEW */}
