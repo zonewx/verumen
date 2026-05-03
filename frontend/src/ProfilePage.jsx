@@ -192,7 +192,12 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
                   <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Member since {formatDate(profile.createdAt)}</p>
                   {profile.bio && <p className={`text-sm mt-3 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{profile.bio}</p>}
                   <div className="flex flex-wrap gap-2 mt-3 justify-center">
-                    {profile.steamId && <span className="text-xs text-orange-400 bg-orange-900/30 px-2 py-0.5 rounded-full">Steam linked</span>}
+                    {profile.steamId && (
+                      <a href={`https://steamcommunity.com/profiles/${profile.steamId}`} target="_blank" rel="noopener noreferrer"
+                        className={`text-xs px-2 py-0.5 rounded-full hover:opacity-80 transition ${profile.steamVerified ? 'text-green-400 bg-green-900/30' : 'text-orange-400 bg-orange-900/30'}`}>
+                        {profile.steamVerified ? '✓ Steam verified ↗' : 'Steam linked ↗'}
+                      </a>
+                    )}
                     {profile.publicInventory && <span className="text-xs text-green-400 bg-green-900/30 px-2 py-0.5 rounded-full">Public CS inv.</span>}
                     {profile.publicHoldings && <span className="text-xs text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-full">Public portfolio</span>}
                   </div>
