@@ -25,11 +25,36 @@ const authRateLimit = rateLimit(10, 60 * 1000); // 10 attempts per minute
 const app = express();
 app.use(express.json({ limit: '20mb' }));
 
+// ── Structured logging ──────────────────────────────────────────────────────
+const log = {
+  info:  (msg, data = {}) => console.log(JSON.stringify({ level: 'info',  ts: new Date().toISOString(), msg, ...data })),
+  warn:  (msg, data = {}) => console.log(JSON.stringify({ level: 'warn',  ts: new Date().toISOString(), msg, ...data })),
+  error: (msg, data = {}) => console.log(JSON.stringify({ level: 'error', ts: new Date().toISOString(), msg, ...data })),
+};
+
+// Request logger middleware
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    const start = Date.now();
+    res.on('finish', () => {
+      if (res.statusCode >= 400) {
+        log.warn('request', { method: req.method, path: req.path, status: res.statusCode, ms: Date.now() - start });
+      }
+    });
+  }
+  next();
+});
+
 const FRONTEND_DIST = process.env.STATERA_FRONTEND || null;
 if (FRONTEND_DIST) {
   const fs = require('fs');
   if (fs.existsSync(FRONTEND_DIST)) app.use(express.static(FRONTEND_DIST));
 }
+
+// ── Health check ───────────────────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString() });
+});
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
 async function requireUser(req, res, next) {
@@ -383,7 +408,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice, currency=q.currency||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
       results.push({ ticker:h.ticker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker), flag:getFlag(h.ticker), currency, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType });
-    } catch(e) { console.error(`[portfolio] Failed ${h.ticker}:`, e.message); }
+    } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); }
   }
   const totalValue=results.reduce((s,r)=>s+r.currentValue,0), totalCost=results.reduce((s,r)=>s+fromSEK(toSEK((r.avgPrice||0)*r.quantity,r.currency)),0), totalProfit=totalValue-totalCost;
   res.json({ portfolio:results, totals:{ value:totalValue, cost:totalCost, profit:totalProfit, returnPct:totalCost>0?(totalProfit/totalCost)*100:0 } });
@@ -537,7 +562,7 @@ app.get('/api/feed', requireUser, async (req, res) => {
       return { ...payload, id: a.id, type: a.type, createdAt: a.created_at, username: profile.username, avatarBase64: profile.avatar_base64, role: profile.role };
     }));
   } catch(e) {
-    console.error('[feed]', e.message);
+    log.error('feed failed', { error: e.message });
     res.status(500).json({ error: e.message });
   }
 });
@@ -689,7 +714,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
       tickerCache: { total: 0, resolved: 0, failed: 0 },
     });
   } catch(e) {
-    console.error('[admin/stats]', e.message);
+    log.error('admin/stats failed', { error: e.message });
     res.status(500).json({ error: e.message });
   }
 });
@@ -792,7 +817,7 @@ app.delete('/api/mod/announcements/:id', requireModerator, async (req, res) => {
 
 // ── Steam OpenID verification ───────────────────────────────────────────────
 const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
-const BASE_URL = process.env.BASE_URL || 'https://verumen.com';
+const BASE_URL = process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://verumen.com' : 'http://localhost:5173');
 
 // Step 1: Redirect user to Steam login
 app.get('/api/steam/auth', requireUser, (req, res) => {
@@ -845,7 +870,7 @@ app.get('/api/steam/callback', async (req, res) => {
     // Redirect back to profile with success
     res.redirect(`${BASE_URL}/profile?steam_success=1&steam_name=${encodeURIComponent(steamName)}`);
   } catch(e) {
-    console.error('[steam/callback]', e.message);
+    log.error('steam/callback failed', { error: e.message });
     res.redirect(`${BASE_URL}/profile?steam_error=failed`);
   }
 });
