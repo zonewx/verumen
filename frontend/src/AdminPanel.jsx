@@ -12,6 +12,7 @@ export default function AdminPanel({ isDark, authUsername }) {
   const [resetModal, setResetModal] = useState(null); // { username }
   const [resetPw, setResetPw] = useState('');
   const [annForm, setAnnForm] = useState({ title: '', message: '', type: 'info' });
+  const [settings, setSettings] = useState({ allowRegistration: true });
 
   const token = sessionStorage.getItem('auth_token');
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
@@ -28,13 +29,15 @@ export default function AdminPanel({ isDark, authUsername }) {
     try {
       const token = sessionStorage.getItem('auth_token');
       const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
-      const [statsRes, annRes] = await Promise.all([
+      const [statsRes, annRes, settingsRes] = await Promise.all([
         fetch('/api/admin/stats', { headers }).then(r => r.json()),
         fetch('/api/announcements', { headers }).then(r => r.json()),
+        fetch('/api/admin/settings', { headers }).then(r => r.json()),
       ]);
       if (statsRes.error) { flash('Stats error: ' + statsRes.error); }
       else { setStats(statsRes); }
       if (Array.isArray(annRes)) setAnnouncements(annRes);
+      if (settingsRes && !settingsRes.error) setSettings({ allowRegistration: settingsRes.allowRegistration !== 'false' });
     } catch(e) { flash('Failed to load stats: ' + e.message); }
     setLoading(false);
   }, []);
@@ -111,6 +114,13 @@ export default function AdminPanel({ isDark, authUsername }) {
     await fetch(`/api/admin/announcements/${id}`, { method: 'DELETE', headers: h });
     setAnnouncements(a => a.filter(x => x.id !== id));
     flash('✓ Announcement removed');
+  };
+
+  const toggleRegistration = async () => {
+    const newVal = !settings.allowRegistration;
+    setSettings(s => ({ ...s, allowRegistration: newVal }));
+    await fetch('/api/admin/settings', { method: 'POST', headers: h, body: JSON.stringify({ key: 'allowRegistration', value: String(newVal) }) });
+    flash(`✓ Registration ${newVal ? 'enabled' : 'disabled'}`);
   };
 
   const setRole = async (username, role) => {
@@ -207,6 +217,22 @@ export default function AdminPanel({ isDark, authUsername }) {
                   </div>
                 </div>
 
+                {/* Registration toggle */}
+                <div className={`${card} p-5`}>
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Registration</h2>
+                  <div className={`flex items-center justify-between gap-4 p-4 rounded-xl ${isDark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                    <div>
+                      <p className="text-sm font-semibold">Allow new registrations</p>
+                      <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>When disabled, the sign up form is hidden and new accounts cannot be created.</p>
+                    </div>
+                    <button type="button" onClick={toggleRegistration}
+                      className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${settings.allowRegistration ? 'bg-blue-600' : isDark ? 'bg-gray-600' : 'bg-gray-300'}`}
+                      style={{ width: '44px' }}>
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${settings.allowRegistration ? 'translate-x-[20px]' : 'translate-x-0'}`}/>
+                    </button>
+                  </div>
+                </div>
+
                 {/* User totals */}
                 <div className={`${card} p-5`}>
                   <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Totals</h2>
@@ -274,8 +300,8 @@ export default function AdminPanel({ isDark, authUsername }) {
                 {stats.users.map(u => (
                   <div key={u.username} className={`${card} p-5`}>
                     <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0">
-                        {u.username[0].toUpperCase()}
+                      <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
+                        {u.avatarBase64 ? <img src={u.avatarBase64} className="w-full h-full object-cover" alt={u.username}/> : u.username[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center flex-wrap gap-2 mb-1">
@@ -285,11 +311,11 @@ export default function AdminPanel({ isDark, authUsername }) {
                           {u.publicInventory && <span className="text-xs text-green-400 bg-green-900/30 px-1.5 py-0.5 rounded-full">Pub. CS</span>}
                           {u.publicHoldings && <span className="text-xs text-blue-400 bg-blue-900/30 px-1.5 py-0.5 rounded-full">Pub. Stocks</span>}
                         </div>
-                        <div className="grid grid-cols-3 gap-3 mb-3 mt-2">
+                        <div className="grid grid-cols-2 gap-3 mb-3 mt-2">
                           {[
                             { label: 'Joined', value: new Date(u.createdAt).toLocaleDateString() },
                             { label: 'Transactions', value: u.transactionCount.toLocaleString() },
-                            { label: 'Data size', value: `${u.folderSizeKB} KB` },
+  
                           ].map(({ label, value }) => (
                             <div key={label}>
                               <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{label}</p>
@@ -362,8 +388,8 @@ export default function AdminPanel({ isDark, authUsername }) {
                   const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800', user: `${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500'}` };
                   return (
                     <div key={u.username} className={`${card} p-4 flex items-center gap-4`}>
-                      <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0">
-                        {u.username[0].toUpperCase()}
+                      <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
+                        {u.avatarBase64 ? <img src={u.avatarBase64} className="w-full h-full object-cover" alt={u.username}/> : u.username[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">

@@ -66,12 +66,16 @@ async function requireAdmin(req, res, next) {
 // ── Auth routes ─────────────────────────────────────────────────────────────
 app.get('/api/auth/status', async (req, res) => {
   const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-  res.json({ hasUsers: (count || 0) > 0, allowRegistration: true });
+  const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'allowRegistration').single();
+  const allowRegistration = setting ? setting.value === 'true' : true;
+  res.json({ hasUsers: (count || 0) > 0, allowRegistration });
 });
 
 app.post('/api/auth/register', authRateLimit, async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required.' });
+  const { data: regSetting } = await supabase.from('app_settings').select('value').eq('key', 'allowRegistration').single();
+  if (regSetting && regSetting.value === 'false') return res.status(403).json({ error: 'Registration is currently disabled.' });
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(username.trim())) return res.status(400).json({ error: 'Username must be 3-20 characters, letters/numbers/underscore only.' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
   const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.trim()).single();
@@ -128,7 +132,7 @@ app.get('/api/users', requireUser, async (req, res) => {
 app.get('/api/users/:username/profile', async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('*').eq('username', req.params.username).single();
   if (error || !data) return res.status(404).json({ error: 'User not found' });
-  res.json({ username: data.username, role: data.role, bio: data.bio, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, steamId: data.public_inventory ? data.steam_id : null, avatarBase64: data.avatar_base64, createdAt: data.created_at });
+  res.json({ username: data.username, role: data.role, bio: data.bio, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, steamId: data.steam_id || null, steamVerified: data.steam_verified || false, avatarBase64: data.avatar_base64, createdAt: data.created_at });
 });
 
 app.put('/api/users/:username/profile', requireUser, async (req, res) => {
@@ -136,7 +140,7 @@ app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   const { bio, steamId, publicInventory, publicHoldings, avatarBase64 } = req.body;
   const update = {};
   if (bio !== undefined) update.bio = bio;
-  if (steamId !== undefined) update.steam_id = steamId;
+  if (steamId !== undefined) { update.steam_id = steamId; if (steamId !== (await supabase.from('profiles').select('steam_id').eq('id', req.user.id).single()).data?.steam_id) update.steam_verified = false; }
   if (publicInventory !== undefined) update.public_inventory = publicInventory;
   if (publicHoldings !== undefined) update.public_holdings = publicHoldings;
   if (avatarBase64 !== undefined) update.avatar_base64 = avatarBase64;
@@ -784,6 +788,79 @@ app.delete('/api/mod/announcements/:id', requireModerator, async (req, res) => {
   await supabase.from('announcements').delete().eq('id', req.params.id);
   await appendModLog(req.username, 'delete-announcement', '-', req.params.id);
   res.json({ success:true });
+});
+
+// ── Steam verification ──────────────────────────────────────────────────────
+app.get('/api/steam/lookup/:steamId', requireUser, async (req, res) => {
+  const STEAM_KEY = process.env.STEAM_API_KEY;
+  if (!STEAM_KEY) return res.status(500).json({ error: 'Steam API not configured.' });
+  const { steamId } = req.params;
+
+  // Support both SteamID64 and vanity URLs
+  let resolvedId = steamId;
+
+  // If not a 17-digit number, try resolving as vanity URL
+  if (!/^\d{17}$/.test(steamId)) {
+    try {
+      const vanityRes = await fetchJSON(`https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key=${STEAM_KEY}&vanityurl=${encodeURIComponent(steamId)}`);
+      if (vanityRes?.response?.success === 1) {
+        resolvedId = vanityRes.response.steamid;
+      } else {
+        return res.status(404).json({ error: 'Steam profile not found. Try using your SteamID64 instead.' });
+      }
+    } catch(e) { return res.status(500).json({ error: 'Steam API error.' }); }
+  }
+
+  try {
+    const data = await fetchJSON(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_KEY}&steamids=${resolvedId}`);
+    const player = data?.response?.players?.[0];
+    if (!player) return res.status(404).json({ error: 'Steam profile not found.' });
+    res.json({
+      steamId: resolvedId,
+      name: player.personaname,
+      avatar: player.avatarmedium,
+      profileUrl: player.profileurl,
+      visibility: player.communityvisibilitystate === 3 ? 'public' : 'private',
+    });
+  } catch(e) { res.status(500).json({ error: 'Steam API error: ' + e.message }); }
+});
+
+app.post('/api/steam/verify', requireUser, async (req, res) => {
+  const { steamId } = req.body;
+  if (!steamId) return res.status(400).json({ error: 'steamId required.' });
+  const STEAM_KEY = process.env.STEAM_API_KEY;
+  if (!STEAM_KEY) return res.status(500).json({ error: 'Steam API not configured.' });
+
+  // Confirm profile exists
+  try {
+    const data = await fetchJSON(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_KEY}&steamids=${steamId}`);
+    const player = data?.response?.players?.[0];
+    if (!player) return res.status(404).json({ error: 'Steam profile not found.' });
+
+    // Save as verified
+    await supabase.from('profiles').update({ steam_id: steamId, steam_verified: true }).eq('id', req.user.id);
+    res.json({ success: true, name: player.personaname, avatar: player.avatarmedium, profileUrl: player.profileurl });
+  } catch(e) { res.status(500).json({ error: 'Steam verification failed: ' + e.message }); }
+});
+
+app.delete('/api/steam/unlink', requireUser, async (req, res) => {
+  await supabase.from('profiles').update({ steam_id: '', steam_verified: false }).eq('id', req.user.id);
+  res.json({ success: true });
+});
+
+// ── App settings ────────────────────────────────────────────────────────────
+app.get('/api/admin/settings', requireAdmin, async (req, res) => {
+  const { data } = await supabase.from('app_settings').select('key, value');
+  const settings = {};
+  (data || []).forEach(s => { settings[s.key] = s.value; });
+  res.json(settings);
+});
+
+app.post('/api/admin/settings', requireAdmin, async (req, res) => {
+  const { key, value } = req.body;
+  if (!key) return res.status(400).json({ error: 'key required' });
+  await supabase.from('app_settings').upsert({ key, value: String(value) }, { onConflict: 'key' });
+  res.json({ success: true });
 });
 
 // ── Catch-all ────────────────────────────────────────────────────────────────

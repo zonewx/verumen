@@ -11,6 +11,10 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
 
   const [profile, setProfile] = useState(null);
   const [editForm, setEditForm] = useState({ bio: '', steamId: '', publicInventory: false, publicHoldings: false, avatarBase64: null });
+  const [steamLookup, setSteamLookup] = useState(null);
+  const [steamLookupLoading, setSteamLookupLoading] = useState(false);
+  const [steamLookupError, setSteamLookupError] = useState('');
+  const [steamVerified, setSteamVerified] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [viewingInventory, setViewingInventory] = useState(null);
@@ -35,7 +39,7 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
       const res = await fetch(`/api/users/${targetUser}/profile`, { headers: h });
       const data = await res.json();
       setProfile(data);
-      if (!isViewing) setEditForm({ bio: data.bio || '', steamId: data.steamId || '', publicInventory: data.publicInventory || false, publicHoldings: data.publicHoldings || false, avatarBase64: data.avatarBase64 || null });
+      if (!isViewing) { setEditForm({ bio: data.bio || '', steamId: data.steamId || '', publicInventory: data.publicInventory || false, publicHoldings: data.publicHoldings || false, avatarBase64: data.avatarBase64 || null }); setSteamVerified(data.steamVerified || false); }
     } catch(e) {}
   }
 
@@ -58,6 +62,42 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
       if (res.ok) setViewingHoldings(data);
     } catch(e) {}
     setLoadingHoldings(false);
+  }
+
+  async function lookupSteam() {
+    if (!editForm.steamId.trim()) return;
+    setSteamLookupLoading(true); setSteamLookupError(''); setSteamLookup(null);
+    try {
+      const res = await fetch(`/api/steam/lookup/${encodeURIComponent(editForm.steamId.trim())}`, { headers: h });
+      const data = await res.json();
+      if (!res.ok) setSteamLookupError(data.error || 'Not found');
+      else setSteamLookup(data);
+    } catch(e) { setSteamLookupError('Lookup failed'); }
+    setSteamLookupLoading(false);
+  }
+
+  async function verifySteam() {
+    if (!steamLookup) return;
+    setSteamLookupLoading(true);
+    try {
+      const res = await fetch('/api/steam/verify', { method: 'POST', headers: h, body: JSON.stringify({ steamId: steamLookup.steamId }) });
+      const data = await res.json();
+      if (data.success) {
+        setSteamVerified(true);
+        setEditForm(f => ({ ...f, steamId: steamLookup.steamId }));
+        setSteamLookup(null);
+        window.dispatchEvent(new Event('profile-updated'));
+      }
+    } catch(e) {}
+    setSteamLookupLoading(false);
+  }
+
+  async function unlinkSteam() {
+    await fetch('/api/steam/unlink', { method: 'DELETE', headers: h });
+    setSteamVerified(false);
+    setEditForm(f => ({ ...f, steamId: '' }));
+    setSteamLookup(null);
+    window.dispatchEvent(new Event('profile-updated'));
   }
 
   async function saveProfile() {
@@ -287,7 +327,7 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
                     <p className={`text-sm italic mb-3 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No bio yet</p>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    {editForm.steamId && <span className="text-xs text-orange-400 bg-orange-900/30 px-2 py-0.5 rounded-full">Steam linked</span>}
+                    {editForm.steamId && <span className={`text-xs px-2 py-0.5 rounded-full ${steamVerified ? 'text-green-400 bg-green-900/30' : 'text-orange-400 bg-orange-900/30'}`}>{steamVerified ? '✓ Steam verified' : 'Steam (unverified)'}</span>}
                     {editForm.publicInventory && <span className="text-xs text-green-400 bg-green-900/30 px-2 py-0.5 rounded-full">Public CS inv.</span>}
                     {editForm.publicHoldings && <span className="text-xs text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-full">Public portfolio</span>}
                     {!editForm.steamId && !editForm.publicInventory && !editForm.publicHoldings && (
