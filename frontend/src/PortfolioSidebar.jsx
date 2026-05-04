@@ -6,7 +6,7 @@ export default function PortfolioSidebar({
   resolveLoading, resolveStatus, selectedForRemoval,
   baseCurrency, overrides, overrideMsg, showChangePassword,
   authForm, authError, authLoading,
-  onUpload, onSync, onResolve, onClearTransactions,
+  onUpload, onSync, onResolve, onForceResolve, onClearTransactions,
   onToggleRemoval, onRemoveSelected, onClearPortfolio,
   onSetBaseCurrency, onToggleDark, onShowChangePassword,
   onHideChangePassword, onChangePassword, onAuthFormChange,
@@ -162,6 +162,16 @@ export default function PortfolioSidebar({
                     Remove {selectedForRemoval.length} selected
                   </button>
                 )}
+                
+                {/* Force Re-Resolve All Tickers */}
+                <button 
+                  onClick={onForceResolve} 
+                  disabled={resolveLoading}
+                  className={`${actionBtn} ${isDark ? 'bg-purple-700 hover:bg-purple-600 text-white' : 'bg-purple-600 hover:bg-purple-500 text-white'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  title="Clear cache and re-resolve all tickers (fixes dual-listing issues)"
+                >
+                  {resolveLoading ? '⏳ Re-resolving...' : '🔄 Force Re-Resolve All'}
+                </button>
               </>
             )}
           </div>

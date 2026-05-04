@@ -320,6 +320,18 @@ export default function App() {
     setResolveLoading(false);
   };
 
+  const handleForceResolve = async () => {
+    setResolveLoading(true); setResolveStatus('Clearing cache and re-resolving all tickers...');
+    try {
+      const res = await apiFetch('/api/transactions/resolve', { method: 'POST', body: JSON.stringify({ force: true }) });
+      const data = await res.json();
+      setResolveStatus(`✓ Re-resolved ${data.resolved}/${data.total} tickers. Syncing...`);
+      await handleSyncPortfolio();
+      setTimeout(() => setResolveStatus(''), 4000);
+    } catch { setResolveStatus('Force re-resolve failed.'); }
+    setResolveLoading(false);
+  };
+
   const handleClearTransactions = async () => {
     await apiFetch('/api/transactions', { method: 'DELETE' });
     setTxCount({ total: 0, trades: 0 }); setPortfolio([]); setUploadStatus(null); setDividends(null); setSyncStatus('History cleared.');
@@ -592,6 +604,7 @@ export default function App() {
           onUpload={handleUpload}
           onSync={handleSyncPortfolio}
           onResolve={handleResolveTickers}
+          onForceResolve={handleForceResolve}
           onClearTransactions={handleClearTransactions}
           onToggleRemoval={toggleRemoval}
           onRemoveSelected={handleRemoveSelected}
