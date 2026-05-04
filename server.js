@@ -25,11 +25,36 @@ const authRateLimit = rateLimit(10, 60 * 1000); // 10 attempts per minute
 const app = express();
 app.use(express.json({ limit: '20mb' }));
 
+// ── Structured logging ──────────────────────────────────────────────────────
+const log = {
+  info:  (msg, data = {}) => console.log(JSON.stringify({ level: 'info',  ts: new Date().toISOString(), msg, ...data })),
+  warn:  (msg, data = {}) => console.log(JSON.stringify({ level: 'warn',  ts: new Date().toISOString(), msg, ...data })),
+  error: (msg, data = {}) => console.log(JSON.stringify({ level: 'error', ts: new Date().toISOString(), msg, ...data })),
+};
+
+// Request logger middleware
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    const start = Date.now();
+    res.on('finish', () => {
+      if (res.statusCode >= 400) {
+        log.warn('request', { method: req.method, path: req.path, status: res.statusCode, ms: Date.now() - start });
+      }
+    });
+  }
+  next();
+});
+
 const FRONTEND_DIST = process.env.STATERA_FRONTEND || null;
 if (FRONTEND_DIST) {
   const fs = require('fs');
   if (fs.existsSync(FRONTEND_DIST)) app.use(express.static(FRONTEND_DIST));
 }
+
+// ── Health check ───────────────────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString() });
+});
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
 async function requireUser(req, res, next) {
@@ -209,36 +234,172 @@ async function loadOverrides(userId) {
 const YahooFinance = require('yahoo-finance2').default;
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
 
-const CURRENCY_SUFFIX_MAP = { SEK: ['.ST','-B.ST','-A.ST','-C.ST','-D.ST','-PREF.ST'], NOK: ['.OL'], DKK: ['.CO'], EUR: ['.HE','.AS','.PA','.DE','.F','.MI','.MC'], GBP: ['.L','.IL'], CHF: ['.SW'], CAD: ['.TO','.V'], AUD: ['.AX'], HKD: ['.HK'], JPY: ['.T'] };
+// Currency suffix priority lists for Yahoo Finance
+const CURRENCY_SUFFIX_MAP = {
+  SEK: ['.ST', '-B.ST', '-A.ST', '-C.ST', '-D.ST', '-PREF.ST', '-BTF.ST'],
+  NOK: ['.OL'],
+  DKK: ['.CO'],
+  EUR: ['.HE', '.AS', '.PA', '.DE', '.F', '.MI', '.MC', '.BR', '.LS', '.VI', '.WA'],
+  GBP: ['.L', '.IL'],
+  CHF: ['.SW', '.VX'],
+  CAD: ['.TO', '.V', '.CN'],
+  AUD: ['.AX'],
+  HKD: ['.HK'],
+  JPY: ['.T'],
+  SGD: ['.SI'],
+};
+
+// ISIN country prefix → currency (expanded)
+const ISIN_CURRENCY_MAP = {
+  SE: 'SEK', NO: 'NOK', DK: 'DKK', FI: 'EUR', IS: 'EUR',
+  DE: 'EUR', FR: 'EUR', NL: 'EUR', BE: 'EUR', IT: 'EUR',
+  ES: 'EUR', PT: 'EUR', AT: 'EUR', IE: 'EUR', LU: 'EUR',
+  GB: 'GBP', CH: 'CHF', US: 'USD', CA: 'CAD', AU: 'AUD',
+  HK: 'HKD', JP: 'JPY', SG: 'SGD', CN: 'CNY',
+};
 
 function getEffectiveCurrency(currency, isin, broker) {
-  if (broker === 'montrose') { if (isin?.startsWith('SE')) return 'SEK'; if (isin?.startsWith('NO')) return 'NOK'; if (isin?.startsWith('DK')) return 'DKK'; if (isin?.startsWith('FI')) return 'EUR'; }
+  // Montrose stores settlement currency (SEK) in kursvaluta, not instrument currency
+  // So for Montrose, always derive from ISIN prefix
+  if (broker === 'montrose' && isin) {
+    const prefix = isin.substring(0, 2).toUpperCase();
+    return ISIN_CURRENCY_MAP[prefix] || 'SEK';
+  }
+  // For Avanza/Nordnet, the currency column IS the instrument currency — trust it
+  if (currency && currency !== 'SEK' && currency !== '-') return currency;
+  // Fall back to ISIN inference
+  if (isin) {
+    const prefix = isin.substring(0, 2).toUpperCase();
+    if (ISIN_CURRENCY_MAP[prefix]) return ISIN_CURRENCY_MAP[prefix];
+  }
   return currency || 'SEK';
 }
-function normalizeTicker(raw) { if (!raw) return null; return raw.trim().toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9\-\.]/g, ''); }
+
+function cleanRawTicker(raw) {
+  if (!raw) return null;
+  // Strip Montrose exchange suffixes (.N = NYSE, .O = NASDAQ, .ST = Stockholm etc)
+  let cleaned = raw.trim().toUpperCase();
+  // Remove trailing exchange codes like .N .O .ST .OL .CO
+  cleaned = cleaned.replace(/\.(?:N|O|NQ|NY)$/, '');
+  // Normalize remaining
+  cleaned = cleaned.replace(/\s+/g, '-').replace(/[^A-Z0-9\-\.]/g, '');
+  return cleaned || null;
+}
+
+// Batch resolver — loads cache/overrides once, resolves many tickers
+async function resolveSymbolBatch(transactions, userId) {
+  // Load cache and overrides once for the whole batch
+  const [cache, overrides] = await Promise.all([
+    loadTickerCache(userId),
+    loadOverrides(userId),
+  ]);
+
+  const results = {};
+  for (const tx of transactions) {
+    const key = tx.id;
+    const ticker = await resolveSymbolWithContext(
+      tx.raw_ticker || null, tx.isin, tx.name, tx.currency, tx.broker,
+      userId, cache, overrides
+    );
+    results[key] = ticker;
+    await new Promise(r => setTimeout(r, 120));
+  }
+  return results;
+}
 
 async function resolveSymbol(rawTicker, isin, name, currency, broker, userId) {
-  const overrides = await loadOverrides(userId);
+  const [cache, overrides] = await Promise.all([loadTickerCache(userId), loadOverrides(userId)]);
+  return resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides);
+}
+
+async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides) {
+  // 1. Manual override wins always
   const overrideKey = isin || rawTicker;
   if (overrideKey && overrides[overrideKey]) return overrides[overrideKey];
-  const cache = await loadTickerCache(userId);
-  const cacheKey = `${broker || ''}|${currency || ''}|${isin || rawTicker || name}`;
+
+  // 2. Cache hit
+  const cacheKey = `${broker || ''}|${isin || rawTicker || name}`;
   if (cache[cacheKey] !== undefined) return cache[cacheKey];
+
+  const save = async (symbol) => {
+    if (symbol) {
+      await saveTickerCacheEntry(userId, cacheKey, symbol);
+      cache[cacheKey] = symbol; // update local cache
+    }
+    return symbol;
+  };
+
   const effectiveCurrency = getEffectiveCurrency(currency, isin, broker);
-  const isinPrefix = isin ? isin.substring(0, 2) : null;
+  const isinPrefix = isin ? isin.substring(0, 2).toUpperCase() : null;
   const preferUSListing = effectiveCurrency === 'USD' || isinPrefix === 'US' || isinPrefix === 'CA';
   const preferredSuffixes = preferUSListing ? [] : (CURRENCY_SUFFIX_MAP[effectiveCurrency] || []);
-  const normalized = normalizeTicker(rawTicker);
-  const firstWord = rawTicker ? rawTicker.trim().split(/\s+/)[0].toUpperCase() : null;
-  const tickerVariants = [...new Set([normalized, firstWord].filter(Boolean))];
-  const verifyQuote = async (symbol) => { try { const q = await yahooFinance.quote(symbol); return q?.currency ? { symbol } : null; } catch(e) { return null; } };
-  const save = async (symbol) => { if (symbol) await saveTickerCacheEntry(userId, cacheKey, symbol); return symbol; };
-  if (!preferUSListing && tickerVariants.length && preferredSuffixes.length) {
-    for (const suffix of preferredSuffixes) for (const v of tickerVariants) { const r = await verifyQuote(`${v}${suffix}`); if (r) return save(`${v}${suffix}`); }
+
+  const cleaned = cleanRawTicker(rawTicker);
+  const firstWord = rawTicker ? rawTicker.trim().split(/\s+/)[0].toUpperCase().replace(/[^A-Z0-9]/g, '') : null;
+  const variants = [...new Set([cleaned, firstWord].filter(Boolean))];
+
+  const verifyQuote = async (symbol) => {
+    try {
+      const q = await yahooFinance.quote(symbol);
+      return q?.regularMarketPrice != null ? symbol : null;
+    } catch(e) { return null; }
+  };
+
+  // 3. Fast path: try ticker + preferred suffixes
+  if (!preferUSListing && variants.length && preferredSuffixes.length) {
+    for (const suffix of preferredSuffixes) {
+      for (const v of variants) {
+        const result = await verifyQuote(`${v}${suffix}`);
+        if (result) return save(result);
+      }
+    }
   }
-  if (isin) { try { const results = await yahooFinance.search(isin); const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION'); if (quotes.length) { const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s))); return save((preferred || quotes[0]).symbol); } } catch(e) {} }
-  if (name?.length > 2) { try { const results = await yahooFinance.search(name); const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION'); if (quotes.length) { const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s))); return save((preferred || quotes[0]).symbol); } } catch(e) {} }
-  return null;
+
+  // 4. For US listings, try direct ticker first
+  if (preferUSListing && variants.length) {
+    for (const v of variants) {
+      const result = await verifyQuote(v);
+      if (result) return save(result);
+    }
+  }
+
+  // 5. ISIN search — use Yahoo search and score results
+  if (isin) {
+    try {
+      const results = await yahooFinance.search(isin);
+      const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
+      if (quotes.length) {
+        // Score: prefer symbols matching preferred suffixes, then by exchange
+        const scored = quotes.map(q => {
+          let score = 0;
+          if (preferredSuffixes.some(s => q.symbol.endsWith(s))) score += 100;
+          if (preferUSListing && !q.symbol.includes('.')) score += 50;
+          return { symbol: q.symbol, score };
+        }).sort((a, b) => b.score - a.score);
+        return save(scored[0].symbol);
+      }
+    } catch(e) {}
+  }
+
+  // 6. Name-based search as last resort
+  if (name?.length > 2) {
+    try {
+      // Use first 3 words of name for better search results
+      const searchName = name.split(/\s+/).slice(0, 3).join(' ');
+      const results = await yahooFinance.search(searchName);
+      const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
+      if (quotes.length) {
+        const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
+        if (preferred) return save(preferred.symbol);
+        // Only use first result if it matches expected currency region
+        const first = quotes[0];
+        if (preferUSListing && !first.symbol.includes('.')) return save(first.symbol);
+        if (!preferUSListing && preferredSuffixes.some(s => first.symbol.endsWith(s))) return save(first.symbol);
+      }
+    } catch(e) {}
+  }
+
+  return save(null);
 }
 
 // ── CSV parsers ─────────────────────────────────────────────────────────────
@@ -253,7 +414,12 @@ function parseMontrose(content) {
   return lines.slice(1).filter(l => l.trim()).map(line => {
     const cols = line.split(',').map(c => c.trim().replace(/"/g, ''));
     if (!cols[iDatum]) return null;
-    return { broker:'montrose', date:cols[iDatum]?.trim()||'', type:TYPE_MAP[(cols[iTyp]||'').trim().toLowerCase()]||'other', name:cols[iNamn]?.trim()||'', isin:cols[iIsin]?.trim()||'', rawTicker:cols[iTicker]?.trim()||'', ticker:'', quantity:parseFloat(cols[iAntal])||0, price:parseFloat(cols[iKurs])||0, currency:cols[iKursvaluta]?.trim()||'SEK', totalSEK:parseFloat(cols[iTotalt])||0, account:cols[iKonto]?.trim()||'' };
+    const rawType = (cols[iTyp]||'').trim().toLowerCase();
+    const txType = TYPE_MAP[rawType] || 'other';
+    const rawQty = parseFloat((cols[iAntal]||'').replace(/\s/g,'').replace(',','.'));
+    const qty = isNaN(rawQty) ? 0 : Math.abs(rawQty); // always store positive; type determines direction
+    if (txType === 'other' && !cols[iIsin]?.trim()) return null; // skip empty rows
+    return { broker:'montrose', date:cols[iDatum]?.trim()||'', type:txType, name:cols[iNamn]?.trim()||'', isin:cols[iIsin]?.trim()||'', rawTicker:cols[iTicker]?.trim()||'', ticker:'', quantity:qty, price:parseFloat((cols[iKurs]||'0').replace(/\s/g,'').replace(',','.'))||0, currency:cols[iKursvaluta]?.trim()||'SEK', totalSEK:parseFloat((cols[iTotalt]||'0').replace(/\s/g,'').replace(',','.'))||0, account:cols[iKonto]?.trim()||'' };
   }).filter(Boolean);
 }
 
@@ -266,7 +432,10 @@ function parseAvanza(content) {
   return lines.slice(1).map(line => {
     const cols = line.split(';');
     if (cols.length < 4) return null;
-    return { broker:'avanza', date:col(cols,'datum'), type:TYPE_MAP[col(cols,'typ').toLowerCase()]||'other', name:col(cols,'värdepapper')||col(cols,'beskrivning'), isin:col(cols,'isin'), rawTicker:'', ticker:'', quantity:parseFloat(col(cols,'antal').replace(',','.').replace(/\s/g,''))||0, price:parseFloat(col(cols,'kurs').replace(',','.').replace(/\s/g,''))||0, currency:col(cols,'valuta')||'SEK', totalSEK:parseFloat(col(cols,'belopp').replace(',','.').replace(/\s/g,''))||0, account:col(cols,'konto') };
+    const txType = TYPE_MAP[col(cols,'typ').toLowerCase()] || 'other';
+    const rawQty = parseFloat(col(cols,'antal').replace(',','.').replace(/\s/g,''));
+    const qty = isNaN(rawQty) ? 0 : Math.abs(rawQty);
+    return { broker:'avanza', date:col(cols,'datum'), type:txType, name:col(cols,'värdepapper')||col(cols,'beskrivning'), isin:col(cols,'isin'), rawTicker:'', ticker:'', quantity:qty, price:parseFloat(col(cols,'kurs').replace(',','.').replace(/\s/g,''))||0, currency:col(cols,'valuta')||'SEK', totalSEK:parseFloat(col(cols,'belopp').replace(',','.').replace(/\s/g,''))||0, account:col(cols,'konto') };
   }).filter(Boolean);
 }
 
@@ -280,15 +449,62 @@ function parseNordnet(content) {
   return lines.slice(1).map(line => {
     const cols = line.split('\t');
     if (cols.length < 4) return null;
-    return { broker:'nordnet', date:col(cols,'afviklingsdato')||col(cols,'bokföringsdag'), type:TYPE_MAP[col(cols,'transaktionstype').toLowerCase()]||'other', name:col(cols,'värdepapper')||col(cols,'verdipapir'), isin:col(cols,'isin'), rawTicker:col(cols,'värdepappersbeteckning')||'', ticker:'', quantity:parseFloat(col(cols,'antal').replace(',','.').replace(/\s/g,''))||0, price:parseFloat(col(cols,'kurs').replace(',','.').replace(/\s/g,''))||0, currency:col(cols,'valuta')||'SEK', totalSEK:parseFloat((col(cols,'belopp')||col(cols,'totalt')).replace(',','.').replace(/\s/g,''))||0, account:col(cols,'depå')||col(cols,'depot') };
+    const txType = TYPE_MAP[col(cols,'transaktionstype').toLowerCase()] || 'other';
+    const rawQty = parseFloat(col(cols,'antal').replace(',','.').replace(/\s/g,''));
+    const qty = isNaN(rawQty) ? 0 : Math.abs(rawQty);
+    return { broker:'nordnet', date:col(cols,'afviklingsdato')||col(cols,'bokföringsdag'), type:txType, name:col(cols,'värdepapper')||col(cols,'verdipapir'), isin:col(cols,'isin'), rawTicker:col(cols,'värdepappersbeteckning')||'', ticker:'', quantity:qty, price:parseFloat(col(cols,'kurs').replace(',','.').replace(/\s/g,''))||0, currency:col(cols,'valuta')||'SEK', totalSEK:parseFloat((col(cols,'belopp')||col(cols,'totalt')).replace(',','.').replace(/\s/g,''))||0, account:col(cols,'depå')||col(cols,'depot') };
   }).filter(Boolean);
 }
 
 function detectBrokerAndParse(filename, content) {
   const lower = filename.toLowerCase();
-  if (lower.includes('montrose') || content.includes('kursvaluta')) return { broker:'montrose', rows:parseMontrose(content) };
-  if (content.includes('\t') || lower.includes('nordnet')) return { broker:'nordnet', rows:parseNordnet(content) };
-  return { broker:'avanza', rows:parseAvanza(content) };
+
+  // Step 1: Encoding check — Nordnet uses UTF-16 LE with BOM
+  const hasBOM = content.charCodeAt(0) === 0xFEFF;
+
+  // Step 2: Detect separator from first line
+  const firstLine = content.replace(/^﻿/, '').split('\n')[0] || '';
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+  const semicolonCount = (firstLine.match(/;/g) || []).length;
+  const commaCount = (firstLine.match(/,/g) || []).length;
+
+  // Step 3: Header-based detection (most reliable)
+  const headerLower = firstLine.toLowerCase();
+
+  // Nordnet: tab-separated, unique headers like 'transaktionstype', 'afviklingsdato', 'bokföringsdag'
+  const isNordnet = hasBOM || tabCount > 3 ||
+    headerLower.includes('transaktionstype') ||
+    headerLower.includes('afviklingsdato') ||
+    headerLower.includes('bokföringsdag') ||
+    lower.includes('nordnet');
+
+  // Montrose: comma-separated, unique header 'kursvaluta' or 'ticker'
+  const isMontrose = !isNordnet && (
+    headerLower.includes('kursvaluta') ||
+    (headerLower.includes('ticker') && commaCount > semicolonCount) ||
+    lower.includes('montrose')
+  );
+
+  // Avanza: semicolon-separated, headers like 'typ av transaktion', 'courtage'
+  const isAvanza = !isNordnet && !isMontrose && (
+    semicolonCount > commaCount ||
+    headerLower.includes('courtage') ||
+    headerLower.includes('typ av transaktion') ||
+    lower.includes('avanza')
+  );
+
+  if (isNordnet) return { broker:'nordnet', rows:parseNordnet(content) };
+  if (isMontrose) return { broker:'montrose', rows:parseMontrose(content) };
+  if (isAvanza) return { broker:'avanza', rows:parseAvanza(content) };
+
+  // Last resort: try each parser and return the one that produces the most valid rows
+  const attempts = [
+    { broker:'montrose', rows:parseMontrose(content) },
+    { broker:'avanza', rows:parseAvanza(content) },
+    { broker:'nordnet', rows:parseNordnet(content) },
+  ];
+  const best = attempts.reduce((a, b) => a.rows.length >= b.rows.length ? a : b);
+  return best.rows.length > 0 ? best : { broker:'unknown', rows:[] };
 }
 
 // ── Transactions ────────────────────────────────────────────────────────────
@@ -319,8 +535,9 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
     catch(e) { results.push({ file:name, error:e.message }); }
   }
   const { data: existing } = await supabase.from('transactions').select('broker, date, type, isin, quantity, price').eq('user_id', req.user.id);
-  const existingIds = new Set((existing||[]).map(t => `${t.broker}|${t.date}|${t.type}|${t.isin}|${t.quantity}|${t.price}`));
-  const newUnique = allNew.filter(t => !existingIds.has(`${t.broker}|${t.date}|${t.type}|${t.isin}|${t.quantity}|${t.price}`));
+  const dedupKey = t => `${t.broker||''}|${t.date||''}|${t.type||''}|${t.isin||''}|${Math.round((t.quantity||0)*10000)}|${Math.round((t.price||0)*10000)}`;
+  const existingIds = new Set((existing||[]).map(dedupKey));
+  const newUnique = allNew.filter(t => !existingIds.has(dedupKey(t)));
   for (const tx of newUnique) {
     if ((tx.type==='buy'||tx.type==='sell') && !tx.ticker && (tx.rawTicker||tx.isin)) {
       tx.ticker = await resolveSymbol(tx.rawTicker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id) || '';
@@ -348,18 +565,61 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
 });
 
 app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
-  const { data: txs } = await supabase.from('transactions').select('ticker, raw_ticker, quantity, price, isin, type').eq('user_id', req.user.id).in('type', ['buy','sell']).order('date');
-  const normalised = (txs||[]).map(t => ({ ...t, ticker:(t.ticker||t.raw_ticker||'').trim() })).filter(t => t.ticker);
+  const { data: txs } = await supabase.from('transactions')
+    .select('ticker, raw_ticker, quantity, price, isin, type, date, name')
+    .eq('user_id', req.user.id)
+    .in('type', ['buy', 'sell'])
+    .order('date', { ascending: true });
+
+  // Normalise: use ticker if resolved, else raw_ticker
+  // Group by ISIN when available (avoids duplicate holdings from re-resolves)
+  const normalised = (txs||[])
+    .map(t => ({ ...t, ticker: (t.ticker||t.raw_ticker||'').trim() }))
+    .filter(t => t.ticker && t.quantity > 0); // skip zero-quantity rows
+
+  // Build ISIN → best ticker mapping (prefer .ST, .OL etc over plain ticker)
+  const isinToTicker = {};
+  normalised.forEach(t => {
+    if (t.isin && t.ticker) {
+      if (!isinToTicker[t.isin] || t.ticker.includes('.')) {
+        isinToTicker[t.isin] = t.ticker;
+      }
+    }
+  });
+
   const holdings = {};
   for (const tx of normalised) {
-    if (!holdings[tx.ticker]) holdings[tx.ticker] = { ticker:tx.ticker, isin:tx.isin||null, quantity:0, totalCost:0 };
-    const h = holdings[tx.ticker];
+    // Use ISIN-canonical ticker when available to avoid splits
+    const canonicalTicker = (tx.isin && isinToTicker[tx.isin]) ? isinToTicker[tx.isin] : tx.ticker;
+
+    if (!holdings[canonicalTicker]) {
+      holdings[canonicalTicker] = { ticker: canonicalTicker, isin: tx.isin||null, quantity: 0, totalCost: 0, name: tx.name||'' };
+    }
+    const h = holdings[canonicalTicker];
     if (tx.isin && !h.isin) h.isin = tx.isin;
-    if (tx.quantity > 0) { h.totalCost += tx.quantity*(tx.price||0); h.quantity += tx.quantity; }
-    else { const avg = h.quantity>0 ? h.totalCost/h.quantity : 0; h.totalCost = Math.max(0, h.totalCost-Math.abs(tx.quantity)*avg); h.quantity -= Math.abs(tx.quantity); }
+
+    if (tx.type === 'buy') {
+      h.totalCost += tx.quantity * (tx.price || 0);
+      h.quantity += tx.quantity;
+    } else if (tx.type === 'sell') {
+      const avg = h.quantity > 0 ? h.totalCost / h.quantity : 0;
+      h.totalCost = Math.max(0, h.totalCost - tx.quantity * avg);
+      h.quantity -= tx.quantity;
+      // Clamp to zero if we sold more than we have (pre-history sells)
+      if (h.quantity < 0) { h.quantity = 0; h.totalCost = 0; }
+    }
   }
-  const result = Object.values(holdings).filter(h => h.quantity>0.001).map(h => ({ ticker:h.ticker, isin:h.isin||null, quantity:parseFloat(h.quantity.toFixed(6)), avgPrice:h.quantity>0?parseFloat((h.totalCost/h.quantity).toFixed(4)):0 }));
-  if (result.length > 0) await appendActivity(req.user.id, 'holdings_update', { holdingCount:result.length, tickers:result.slice(0,5).map(h=>h.ticker) });
+
+  const result = Object.values(holdings)
+    .filter(h => h.quantity > 0.001)
+    .map(h => ({
+      ticker: h.ticker,
+      isin: h.isin || null,
+      quantity: parseFloat(h.quantity.toFixed(6)),
+      avgPrice: h.quantity > 0 ? parseFloat((h.totalCost / h.quantity).toFixed(4)) : 0,
+    }));
+
+  if (result.length > 0) await appendActivity(req.user.id, 'holdings_update', { holdingCount: result.length, tickers: result.slice(0,5).map(h => h.ticker) });
   res.json(result);
 });
 
@@ -383,7 +643,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice, currency=q.currency||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
       results.push({ ticker:h.ticker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker), flag:getFlag(h.ticker), currency, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType });
-    } catch(e) { console.error(`[portfolio] Failed ${h.ticker}:`, e.message); }
+    } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); }
   }
   const totalValue=results.reduce((s,r)=>s+r.currentValue,0), totalCost=results.reduce((s,r)=>s+fromSEK(toSEK((r.avgPrice||0)*r.quantity,r.currency)),0), totalProfit=totalValue-totalCost;
   res.json({ portfolio:results, totals:{ value:totalValue, cost:totalCost, profit:totalProfit, returnPct:totalCost>0?(totalProfit/totalCost)*100:0 } });
@@ -537,7 +797,7 @@ app.get('/api/feed', requireUser, async (req, res) => {
       return { ...payload, id: a.id, type: a.type, createdAt: a.created_at, username: profile.username, avatarBase64: profile.avatar_base64, role: profile.role };
     }));
   } catch(e) {
-    console.error('[feed]', e.message);
+    log.error('feed failed', { error: e.message });
     res.status(500).json({ error: e.message });
   }
 });
@@ -689,7 +949,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
       tickerCache: { total: 0, resolved: 0, failed: 0 },
     });
   } catch(e) {
-    console.error('[admin/stats]', e.message);
+    log.error('admin/stats failed', { error: e.message });
     res.status(500).json({ error: e.message });
   }
 });
@@ -792,7 +1052,7 @@ app.delete('/api/mod/announcements/:id', requireModerator, async (req, res) => {
 
 // ── Steam OpenID verification ───────────────────────────────────────────────
 const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
-const BASE_URL = process.env.BASE_URL || 'https://verumen.com';
+const BASE_URL = process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://verumen.com' : 'http://localhost:5173');
 
 // Step 1: Redirect user to Steam login
 app.get('/api/steam/auth', requireUser, (req, res) => {
@@ -845,7 +1105,7 @@ app.get('/api/steam/callback', async (req, res) => {
     // Redirect back to profile with success
     res.redirect(`${BASE_URL}/profile?steam_success=1&steam_name=${encodeURIComponent(steamName)}`);
   } catch(e) {
-    console.error('[steam/callback]', e.message);
+    log.error('steam/callback failed', { error: e.message });
     res.redirect(`${BASE_URL}/profile?steam_error=failed`);
   }
 });
