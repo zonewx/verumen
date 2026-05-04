@@ -486,19 +486,7 @@ export default function App() {
 
     return (
       <div className={`min-h-screen pt-12 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-        <div className={`flex items-center justify-between px-8 py-4 border-b ${isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'}`}>
-          <div className="flex items-center gap-3">
-            <svg width="24" height="24" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#0f1e3c"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            <span className="font-bold tracking-tight">Verumen</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{authUsername}</span>
-            <button onClick={() => setIsDark(p => !p)} className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} transition text-sm`}>{isDark ? '☀️' : '🌙'}</button>
-            <button onClick={handleLogout} className={`p-1.5 rounded-lg ${isDark ? 'text-gray-400 hover:text-red-400 hover:bg-gray-800' : 'text-gray-400 hover:text-red-500 hover:bg-gray-100'} transition`} title="Sign out">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-            </button>
-          </div>
-        </div>
+        <GB />
         <div className="max-w-4xl mx-auto px-8 py-16">
           {announcements.length > 0 && (
             <div className="flex flex-col gap-2 mb-6">
@@ -564,6 +552,7 @@ export default function App() {
           txCount={txCount}
           uploadStatus={uploadStatus}
           uploadLoading={uploadLoading}
+          uploadProgress={uploadProgress}
           syncStatus={syncStatus}
           syncLoading={syncLoading}
           resolveLoading={resolveLoading}
