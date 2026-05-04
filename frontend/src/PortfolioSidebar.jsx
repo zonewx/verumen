@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 export default function PortfolioSidebar({
   isDark, isSidebarOpen, authUsername, portfolio, txCount,
-  uploadStatus, uploadLoading, syncStatus, syncLoading,
+  uploadStatus, uploadLoading, uploadProgress, syncStatus, syncLoading,
   resolveLoading, resolveStatus, selectedForRemoval,
   baseCurrency, overrides, overrideMsg, showChangePassword,
   authForm, authError, authLoading,
@@ -62,6 +62,7 @@ export default function PortfolioSidebar({
 
         {sections.import && (
           <div className="px-2 pb-3 pt-1 flex flex-col gap-3">
+            {/* Upload button */}
             <label className={`${actionBtn} cursor-pointer ring-1 ${uploadLoading ? `ring-gray-600 ${isDark ? 'bg-gray-700 text-gray-500' : 'bg-gray-100 text-gray-400'} cursor-not-allowed` : 'ring-blue-600 bg-blue-600 hover:bg-blue-500 text-white'}`}>
               {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
               <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { onUpload(e.target.files); e.target.value = ''; }} />
@@ -69,11 +70,26 @@ export default function PortfolioSidebar({
 
             <p className={`text-xs ${sub} px-1`}>Broker detected automatically. Supports Montrose, Avanza and Nordnet.</p>
 
-            {uploadStatus?.error && (
-              <div className={`rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400`}>✗ {uploadStatus.error}</div>
+            {/* Progress bar */}
+            {uploadProgress && (
+              <div className="flex flex-col gap-1.5">
+                <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${uploadProgress.phase === 'done' ? 'bg-green-500' : 'bg-blue-500'}`}
+                    style={{ width: `${uploadProgress.pct}%` }}
+                  />
+                </div>
+                <p className={`text-xs px-1 ${uploadProgress.phase === 'done' ? 'text-green-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {uploadProgress.label}
+                </p>
+              </div>
             )}
 
-            {uploadStatus?.results && (
+            {uploadStatus?.error && (
+              <div className="rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400">✗ {uploadStatus.error}</div>
+            )}
+
+            {!uploadProgress && uploadStatus?.results && (
               <div className="flex flex-col gap-1.5">
                 {uploadStatus.results.map((r, i) => (
                   <div key={i} className={`${isDark ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-lg px-3 py-2 text-xs`}>

@@ -43,6 +43,7 @@ export default function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null); // { phase, pct, label }
   const [syncStatus, setSyncStatus] = useState('');
   const [syncLoading, setSyncLoading] = useState(false);
   const [resolveLoading, setResolveLoading] = useState(false);
