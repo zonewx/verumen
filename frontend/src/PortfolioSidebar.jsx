@@ -72,16 +72,11 @@ export default function PortfolioSidebar({
 
             {/* Progress bar */}
             {uploadProgress && (
-              <div className="flex flex-col gap-1.5">
-                <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${uploadProgress.phase === 'done' ? 'bg-green-500' : 'bg-blue-500'} ${uploadProgress.phase === 'processing' || uploadProgress.phase === 'resolving' ? 'animate-pulse' : ''}`}
-                    style={{ width: `${uploadProgress.pct}%` }}
-                  />
+              <div className={`rounded-lg px-3 py-2.5 text-sm ${isDark ? 'bg-blue-900/20 border-blue-800/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'} border`}>
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin">⏳</div>
+                  <span className="font-medium">{uploadProgress.label}</span>
                 </div>
-                <p className={`text-xs px-1 ${uploadProgress.phase === 'done' ? 'text-green-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {uploadProgress.label}
-                </p>
               </div>
             )}
 

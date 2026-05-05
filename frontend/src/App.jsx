@@ -277,33 +277,27 @@ export default function App() {
     if (!files.length) return;
     setUploadLoading(true); setUploadStatus(null); setSyncStatus(''); setUploadProgress(null);
     
-    // Simulated progress updates for better UX
     const updateProgress = (phase, pct, label) => setUploadProgress({ phase, pct, label });
     
     try {
       updateProgress('parsing', 10, 'Reading CSV files...');
       const payloads = await Promise.all(Array.from(files).map(readFile));
       
-      updateProgress('uploading', 30, 'Detecting broker format...');
-      await new Promise(r => setTimeout(r, 300)); // Brief pause for visual feedback
+      // Count total transactions in CSV
+      let totalTxCount = 0;
+      payloads.forEach(p => {
+        const lines = p.content.split('\n').filter(l => l.trim());
+        totalTxCount += Math.max(0, lines.length - 1); // Exclude header
+      });
       
-      // Start pulsing animation during long processing phase
-      updateProgress('processing', 50, 'Processing transactions...');
+      updateProgress('uploading', 30, `Detecting broker format...`);
+      await new Promise(r => setTimeout(r, 300));
       
-      // Simulate gradual progress during API call to show activity
-      let currentPct = 50;
-      const progressInterval = setInterval(() => {
-        if (currentPct < 68) {
-          currentPct += 2;
-          updateProgress('processing', currentPct, 'Resolving tickers...');
-        }
-      }, 800);
-      
+      updateProgress('processing', 50, `Processing ${totalTxCount} transactions...`);
       const res = await apiFetch('/api/transactions/upload', { method: 'POST', body: JSON.stringify({ files: payloads }) });
-      clearInterval(progressInterval);
       const data = await res.json();
       
-      updateProgress('resolving', 70, 'Finalizing tickers...');
+      updateProgress('resolving', 70, `Resolved ${data.newAdded || 0} new transactions`);
       await new Promise(r => setTimeout(r, 200));
       
       setUploadStatus({ results: data.results, newAdded: data.newAdded ?? 0, total: data.total ?? 0 });
@@ -312,7 +306,7 @@ export default function App() {
       await handleSyncPortfolio();
       
       updateProgress('done', 100, `✓ Imported ${data.newAdded ?? 0} transactions`);
-      setTimeout(() => setUploadProgress(null), 3000); // Clear after 3s
+      setTimeout(() => setUploadProgress(null), 3000);
     } catch { 
       setUploadStatus({ error: 'Upload failed.' }); 
       setUploadProgress(null);
@@ -483,17 +477,21 @@ export default function App() {
     const sorted = [...data].sort((a, b) => sortMode === 'currency' ? b.todayGainBase - a.todayGainBase : b.todayChangePct - a.todayChangePct);
     const best = sorted.slice(0, 3), worst = [...sorted].reverse().slice(0, 3);
     const Card = ({ s }) => {
-      const pos = s.todayChangePct >= 0;
       const showPct = sortMode !== 'currency';
+      const pos = showPct ? s.todayChangePct >= 0 : s.todayGainBase >= 0;
       return (
         <div className={`bg-gray-900 rounded-xl p-4 border ${pos ? 'border-green-800' : 'border-red-800'} flex flex-col gap-2`}>
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-gray-400 font-bold uppercase truncate">{s.ticker}</span>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pos ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'}`}>{pos ? '+' : ''}{showPct ? `${s.todayChangePct.toFixed(2)}%` : fmtSym(s.todayGainBase)}</span>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pos ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'}`}>
+              {showPct ? `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%` : `${s.todayGainBase >= 0 ? '+' : ''}${fmtSym(s.todayGainBase)}`}
+            </span>
           </div>
           <div className="text-sm font-bold text-white truncate">{s.flag} {s.name}</div>
           <div className="text-xs text-gray-400">{fmt(s.nativePrice)} {s.currency}</div>
-          <div className={`text-xs ${showPct ? 'text-gray-500' : 'font-bold text-green-400'}`}>{showPct ? `${s.todayGainBase >= 0 ? '+' : ''}${fmtSym(s.todayGainBase)}` : `${pos ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</div>
+          <div className={`text-xs text-gray-500`}>
+            {showPct ? `${s.todayGainBase >= 0 ? '+' : ''}${fmtSym(s.todayGainBase)}` : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}
+          </div>
         </div>
       );
     };
