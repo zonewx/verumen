@@ -203,9 +203,16 @@ export default function App() {
   // Click away for cog
   useEffect(() => {
     if (!todayCogOpen) return;
-    const close = () => setTodayCogOpen(false);
-    document.addEventListener('click', close, { capture: true, once: true });
-    return () => document.removeEventListener('click', close, { capture: true });
+    const close = (e) => {
+      // Let clicks inside the dropdown bubble normally
+      if (e.target.closest('.today-cog-dropdown')) return;
+      setTodayCogOpen(false);
+    };
+    // Use timeout to avoid closing on the same click that opened it
+    setTimeout(() => {
+      document.addEventListener('click', close, { once: true });
+    }, 0);
+    return () => document.removeEventListener('click', close);
   }, [todayCogOpen]);
 
   // Shortcuts
@@ -547,7 +554,7 @@ export default function App() {
             </div>
           )}
           <div className="mb-12">
-            <h1 className="text-3xl font-bold mb-2">Welcome back, {authUsername}</h1>
+            <h1 className="text-3xl font-bold mb-2">{authUsername}</h1>
             <p className={`text-base ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Choose an app to open.</p>
           </div>
           <div className={`grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`}>
@@ -690,7 +697,7 @@ export default function App() {
                           <div className={`${cardCls} p-6`}>
                             <div className="flex items-center justify-between mb-6">
                               <h3 className={`text-sm font-bold ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Best &amp; Worst Today</h3>
-                              <div className="relative">
+                              <div className="relative today-cog-dropdown">
                                 <button onClick={() => setTodayCogOpen(o => !o)} className={`p-1.5 rounded-lg border ${isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700 border-gray-700' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100 border-gray-200'} transition`}>
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
                                 </button>
@@ -905,11 +912,10 @@ export default function App() {
       <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
         <div className={`w-full max-w-sm mx-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl shadow-2xl overflow-hidden`}>
           <div className="bg-linear-to-br from-blue-600 to-blue-800 p-8 text-center">
-            <div className="flex items-center justify-center gap-3 mb-2">
+            <div className="flex items-center justify-center gap-3 mb-6">
               <svg width="32" height="32" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="rgba(255,255,255,0.15)"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               <span className="text-2xl font-bold text-white tracking-tight">Verumen</span>
             </div>
-            <p className="text-blue-200 text-sm">{isSignup ? 'Create your account' : 'Welcome back'}</p>
           </div>
           <div className="p-8">
             {authError && <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 mb-5 text-sm text-red-400">{authError}</div>}
