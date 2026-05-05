@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import CSSkins from './CSSkins';
 import PortfolioSidebar from './PortfolioSidebar';
-import ProfilePage from './ProfilePage';
+import ProfilePageView from './ProfilePageView';
+import ProfileEditPage from './ProfileEditPage';
 import GlobalBar from './GlobalBar';
 import AdminPanel from './AdminPanel';
 import ModeratorPanel from './ModeratorPanel';
@@ -524,7 +525,7 @@ export default function App() {
   const ProfileRoute = () => {
     const { username } = useParams();
     const viewUser = username ? username.replace('@','') : null;
-    return <PageShell><ProfilePage isDark={isDark} authUsername={authUsername} viewUsername={viewUser}/></PageShell>;
+    return <PageShell><ProfilePageView isDark={isDark} authUsername={authUsername} viewUsername={viewUser}/></PageShell>;
   };
 
   const HomeScreen = () => {
@@ -912,7 +913,7 @@ export default function App() {
       <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
         <div className={`w-full max-w-sm mx-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl shadow-2xl overflow-hidden`}>
           <div className="bg-linear-to-br from-blue-600 to-blue-800 p-8 text-center">
-            <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="flex flex-col items-center justify-center gap-3">
               <svg width="32" height="32" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="rgba(255,255,255,0.15)"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               <span className="text-2xl font-bold text-white tracking-tight">Verumen</span>
             </div>
@@ -946,6 +947,7 @@ export default function App() {
       <Route path="/portfolio" element={<PortfolioView/>}/>
       <Route path="/skins" element={<PageShell><CSSkins isDark={isDark} onBack={()=>navigate('/')} authUsername={authUsername}/></PageShell>}/>
       <Route path="/social" element={<PageShell><SocialFeed isDark={isDark} authUsername={authUsername} onViewProfile={u=>navigate(`/profile/@${u}`)}/></PageShell>}/>
+      <Route path="/profile/edit" element={<PageShell><ProfileEditPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
       <Route path="/profile" element={<ProfileRoute/>}/>
       <Route path="/profile/:username" element={<ProfileRoute/>}/>
       <Route path="/admin" element={<PageShell title="🛡️ Admin Panel"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
