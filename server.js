@@ -677,7 +677,7 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
     .map(h => ({
       ticker: h.ticker,
       isin: h.isin || null,
-      quantity: parseFloat(h.quantity.toFixed(6)),
+      quantity: Math.floor(h.quantity), // Round down to whole shares
       avgPrice: h.quantity > 0 ? parseFloat((h.totalCost / h.quantity).toFixed(4)) : 0,
     }));
 
