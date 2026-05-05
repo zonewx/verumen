@@ -58,10 +58,32 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
   async function loadPublicHoldings() {
     setLoadingHoldings(true);
     try {
-      const res = await fetch(`/api/users/${targetUser}/holdings`, { headers: h });
-      const data = await res.json();
-      setViewingHoldings(data.holdings || []);
-    } catch {}
+      if (isOwnProfile) {
+        // For own profile, use the portfolio reconstruct endpoint which has all the data
+        const res = await fetch('/api/portfolio/reconstruct', { headers: h });
+        const data = await res.json();
+        
+        if (data && Array.isArray(data)) {
+          const totalValue = data.reduce((sum, h) => sum + (h.currentValueBase || 0), 0);
+          const holdingsWithWeights = data.map(h => ({
+            ticker: h.ticker,
+            name: h.name,
+            quantity: h.quantity,
+            value: Math.round(h.currentValueBase || 0),
+            weight: totalValue > 0 ? ((h.currentValueBase || 0) / totalValue) * 100 : 0
+          })).sort((a, b) => b.weight - a.weight);
+          
+          setViewingHoldings(holdingsWithWeights);
+        }
+      } else {
+        // For other users, use the public holdings endpoint
+        const res = await fetch(`/api/users/${targetUser}/holdings`, { headers: h });
+        const data = await res.json();
+        setViewingHoldings(data.holdings || []);
+      }
+    } catch(e) {
+      console.error('Failed to load holdings:', e);
+    }
     setLoadingHoldings(false);
   }
 
