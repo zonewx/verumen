@@ -335,6 +335,12 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
 
   const effectiveCurrency = getEffectiveCurrency(currency, isin, broker);
   const isinPrefix = isin ? isin.substring(0, 2).toUpperCase() : null;
+  
+  // Dual-listing detection: CA companies often dual-list on TSX and NYSE
+  // If trading in USD, strongly prefer US listing (no suffix) over .TO (Toronto)
+  const rawCurrency = (currency || 'SEK').toUpperCase();
+  const isCanadianInUS = (isinPrefix === 'CA' && rawCurrency === 'USD');
+  
   const preferUSListing = effectiveCurrency === 'USD' || isinPrefix === 'US' || isinPrefix === 'CA';
   const preferredSuffixes = preferUSListing ? [] : (CURRENCY_SUFFIX_MAP[effectiveCurrency] || []);
 
@@ -381,6 +387,10 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
           if (preferredSuffixes.some(s => q.symbol.endsWith(s))) score += 100;
           // +50 for US listings when appropriate
           if (preferUSListing && !q.symbol.includes('.')) score += 50;
+          // BOOST: +200 for CA companies trading in USD to prefer US over .TO
+          if (isCanadianInUS && !q.symbol.includes('.')) score += 200;
+          // PENALTY: -100 for .TO when trading CA company in USD
+          if (isCanadianInUS && q.symbol.endsWith('.TO')) score -= 100;
           return { symbol: q.symbol, score };
         }).sort((a, b) => b.score - a.score);
         return save(scored[0].symbol);
@@ -609,14 +619,8 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
     }))
     .filter(t => t.ticker && t.quantity > 0); // skip zero-quantity rows
   
-  // Sort same-day transactions: sells before buys (prevents incorrect quantity when buy+sell on same day)
-  normalised.sort((a, b) => {
-    if (a.date === b.date) {
-      const typeOrder = { sell: 1, withdrawal: 1, buy: 2, other: 3 };
-      return (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99);
-    }
-    return 0; // Already sorted by date from query
-  });
+  // CSV is already in chronological order - don't re-sort same-day transactions
+  // (previously sorted sells before buys, but this breaks intraday trades)
 
   // Build ISIN → best ticker mapping (prefer .ST, .OL etc over plain ticker)
   const isinToTicker = {};
