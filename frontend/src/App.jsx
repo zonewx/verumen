@@ -287,11 +287,23 @@ export default function App() {
       updateProgress('uploading', 30, 'Detecting broker format...');
       await new Promise(r => setTimeout(r, 300)); // Brief pause for visual feedback
       
+      // Start pulsing animation during long processing phase
       updateProgress('processing', 50, 'Processing transactions...');
+      
+      // Simulate gradual progress during API call to show activity
+      let currentPct = 50;
+      const progressInterval = setInterval(() => {
+        if (currentPct < 68) {
+          currentPct += 2;
+          updateProgress('processing', currentPct, 'Resolving tickers...');
+        }
+      }, 800);
+      
       const res = await apiFetch('/api/transactions/upload', { method: 'POST', body: JSON.stringify({ files: payloads }) });
+      clearInterval(progressInterval);
       const data = await res.json();
       
-      updateProgress('resolving', 70, 'Resolving tickers...');
+      updateProgress('resolving', 70, 'Finalizing tickers...');
       await new Promise(r => setTimeout(r, 200));
       
       setUploadStatus({ results: data.results, newAdded: data.newAdded ?? 0, total: data.total ?? 0 });

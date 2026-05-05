@@ -75,7 +75,7 @@ export default function PortfolioSidebar({
               <div className="flex flex-col gap-1.5">
                 <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${uploadProgress.phase === 'done' ? 'bg-green-500' : 'bg-blue-500'}`}
+                    className={`h-full rounded-full transition-all duration-500 ${uploadProgress.phase === 'done' ? 'bg-green-500' : 'bg-blue-500'} ${uploadProgress.phase === 'processing' || uploadProgress.phase === 'resolving' ? 'animate-pulse' : ''}`}
                     style={{ width: `${uploadProgress.pct}%` }}
                   />
                 </div>
