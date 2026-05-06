@@ -59,8 +59,8 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
     setLoadingHoldings(true);
     try {
       if (isOwnProfile) {
-        // For own profile, use the portfolio reconstruct endpoint which has all the data
-        const res = await fetch('/api/portfolio/reconstruct', { headers: h });
+        // For own profile, use the transactions reconstruct endpoint which has all the data
+        const res = await fetch('/api/transactions/reconstruct', { headers: h });
         
         if (!res.ok) {
           console.error('Portfolio API failed:', res.status);
