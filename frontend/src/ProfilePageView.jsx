@@ -9,61 +9,43 @@ const ROLE_BADGE = {
 function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl' }) {
   if (src) return <img src={src} alt={username} className={`${size} rounded-full object-cover border-4 border-gray-700`} />;
   const initial = username?.[0]?.toUpperCase() || '?';
-  return <div className={`${size} rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center ${textSize} font-bold text-white border-4 border-gray-700`}>{initial}</div>;
+  return <div className={`${size} rounded-full bg-linear-to-br from-blue-600 to-blue-800 flex items-center justify-center ${textSize} font-bold text-white border-4 border-gray-700`}>{initial}</div>;
 }
 
-// Company ticker to domain mapping for logo fetching
-function getCompanyDomain(ticker, name) {
-  const domainMap = {
-    'GOOGL': 'google.com', 'GOOG': 'google.com',
-    'MSFT': 'microsoft.com',
-    'AAPL': 'apple.com',
-    'AMZN': 'amazon.com',
-    'META': 'meta.com',
-    'TSLA': 'tesla.com',
-    'NVDA': 'nvidia.com',
-    'BRK.B': 'berkshirehathaway.com', 'BRK.A': 'berkshirehathaway.com',
-    'JPM': 'jpmorganchase.com',
-    'V': 'visa.com',
-    'MA': 'mastercard.com',
-    'BN': 'brookfield.com',
-    'BAM': 'brookfield.com',
+// Get country flag emoji based on exchange suffix
+function getExchangeFlag(ticker) {
+  const flags = {
+    'ST': '🇸🇪',   // Sweden
+    'OL': '🇳🇴',   // Norway
+    'CO': '🇩🇰',   // Denmark
+    'HE': '🇫🇮',   // Finland
+    'AS': '🇳🇱',   // Netherlands
+    'PA': '🇫🇷',   // France
+    'DE': '🇩🇪',   // Germany
+    'L': '🇬🇧',    // London
+    'MI': '🇮🇹',   // Italy
+    'MC': '🇪🇸',   // Spain
+    'SW': '🇨🇭',   // Switzerland
+    'TO': '🇨🇦',   // Canada
+    'AX': '🇦🇺',   // Australia
+    'HK': '🇭🇰',   // Hong Kong
+    'T': '🇯🇵',    // Japan
   };
   
-  if (domainMap[ticker]) return domainMap[ticker];
-  
-  // Try to derive from company name
-  if (name) {
-    const cleaned = name.toLowerCase()
-      .replace(/\b(ab|publ|asa|as|a\/s|se|inc\.|inc|corp\.|corporation|ltd\.|limited|plc|n\.v\.|s\.a\.|gmbh|ag|group|holding|holdings)\b/gi, '')
-      .replace(/[^a-z0-9]/g, '')
-      .trim();
-    if (cleaned) return `${cleaned}.com`;
+  const parts = ticker.split('.');
+  if (parts.length > 1) {
+    const suffix = parts[parts.length - 1];
+    return flags[suffix] || '🇺🇸';
   }
-  
-  return null;
+  return '🇺🇸'; // Default to US for no suffix
 }
 
-function CompanyLogo({ ticker, name, size = 'w-10 h-10' }) {
-  const domain = getCompanyDomain(ticker, name);
-  const initial = ticker?.[0] || '?';
-  const [logoError, setLogoError] = useState(false);
-  
-  if (!domain || logoError) {
-    return (
-      <div className={`${size} rounded-full flex items-center justify-center font-bold text-sm shrink-0 bg-gray-600 text-gray-300`}>
-        {initial}
-      </div>
-    );
-  }
-  
+function FlagIcon({ ticker, size = 'w-10 h-10' }) {
+  const flag = getExchangeFlag(ticker);
   return (
-    <img 
-      src={`https://logo.clearbit.com/${domain}`}
-      alt={name || ticker}
-      className={`${size} rounded-lg object-contain shrink-0 bg-white p-1`}
-      onError={() => setLogoError(true)}
-    />
+    <div className={`${size} rounded-full flex items-center justify-center text-2xl shrink-0 bg-gray-700 border-2 border-gray-600`}>
+      {flag}
+    </div>
   );
 }
 
@@ -276,16 +258,24 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                 <>
                   <div className="flex flex-col gap-2">
                     {viewingHoldings.slice(0, showAllHoldings ? undefined : 10).map((h, i) => {
-                      // Clean company name by removing common suffixes
+                      // Clean company name by removing common suffixes (including variants with periods/parentheses)
                       const cleanCompanyName = (h.name || h.ticker)
-                        .replace(/\s*\(publ\)/gi, '')
-                        .replace(/\b(AB|ASA|AS|A\/S|SE|Inc\.|Inc|Corp\.|Corporation|Ltd\.|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
+                        .replace(/\s*\(publ\.?\)/gi, '')  // (publ) or (publ.)
+                        .replace(/\s*\(AB\)/gi, '')       // (AB)
+                        .replace(/\bAB\b(?!\w)/gi, '')    // AB at end of name
+                        .replace(/\bpubl\.?\b/gi, '')     // publ or publ.
+                        .replace(/\b(ASA|AS|A\/S|SE|Inc\.|Inc|Corp\.|Corporation|Ltd\.|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
+                        .replace(/\s+/g, ' ')             // Normalize whitespace
                         .trim();
+                      
+                      // Calculate relative bar width (largest holding = 100% width)
+                      const maxWeight = Math.max(...viewingHoldings.map(holding => holding.weight || 0));
+                      const relativeWidth = maxWeight > 0 ? ((h.weight || 0) / maxWeight) * 100 : 0;
                       
                       return (
                         <div key={h.ticker} className={`flex flex-col gap-1.5 p-3 rounded-lg ${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} transition`}>
                           <div className="flex items-center gap-3">
-                            <CompanyLogo ticker={h.ticker} name={h.name} size="w-10 h-10" />
+                            <FlagIcon ticker={h.ticker} size="w-10 h-10" />
                             {/* Name & Ticker */}
                             <div className="flex-1 min-w-0">
                               <p className="font-semibold text-sm truncate">{cleanCompanyName}</p>
@@ -299,11 +289,11 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                               )}
                             </div>
                           </div>
-                          {/* Weight visualization bar */}
+                          {/* Weight visualization bar - scaled relative to largest holding */}
                           <div className={`h-0.5 rounded-full ${isDark ? 'bg-gray-600' : 'bg-gray-200'} overflow-hidden`}>
                             <div 
-                              className="h-full bg-gradient-to-r from-red-500 to-pink-500"
-                              style={{ width: `${Math.min(h.weight || 0, 100)}%` }}
+                              className="h-full bg-linear-to-r from-red-500 to-pink-500"
+                              style={{ width: `${relativeWidth}%` }}
                             />
                           </div>
                         </div>
