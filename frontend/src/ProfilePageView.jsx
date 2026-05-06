@@ -237,24 +237,27 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
             </div>
 
             {/* Right Side: Level Badge + Edit Button */}
-            <div className="flex flex-col items-end gap-4 shrink-0">
-              {/* Steam Level Badge */}
+            <div className="flex flex-col items-end gap-3 shrink-0">
+              {/* Steam Level Badge - Steam-style design */}
               {profile.steamLevel > 0 && (
-                <div className="flex items-center gap-3">
-                  <span className={`text-sm font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Level</span>
+                <div className="flex items-center gap-2.5">
+                  <span className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Level</span>
                   <div className="relative">
-                    <div className="w-16 h-16 rounded-full bg-linear-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-xl border-4 border-blue-400 shadow-lg">
-                      {profile.steamLevel}
+                    {/* Glow effect */}
+                    <div className="absolute inset-0 rounded-full bg-blue-500/30 blur-md"></div>
+                    {/* Badge */}
+                    <div className="relative w-14 h-14 rounded-full bg-linear-to-br from-blue-500 via-blue-600 to-blue-700 flex items-center justify-center border-2 border-blue-400/50 shadow-lg">
+                      <span className="text-white font-bold text-lg">{profile.steamLevel}</span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Edit Profile Button */}
+              {/* Edit Profile Button - Smaller, more refined */}
               {isOwnProfile && (
                 <button
                   onClick={() => navigate('/profile/edit')}
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition shadow-md"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md font-medium transition shadow-sm"
                 >
                   Edit Profile
                 </button>
