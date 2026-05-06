@@ -14,33 +14,21 @@ function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl
 
 // Get Steam level badge colors based on level tier
 function getSteamLevelColors(level) {
+  // Calculate tier based on tens digit: level 550 = tier 5 (blue), level 15 = tier 1 (red)
   const tier = Math.floor(level / 10) % 10;
   
   const colorMap = {
-    0: { from: '#5e5e5e', to: '#434343' },     // 0-9: Gray
-    1: { from: '#c23030', to: '#8b2222' },     // 10-19: Red
-    2: { from: '#d97a2b', to: '#b85a1f' },     // 20-29: Orange
-    3: { from: '#d5b62b', to: '#a38d1f' },     // 30-39: Yellow
-    4: { from: '#5ea832', to: '#3d7a1f' },     // 40-49: Green
-    5: { from: '#5c7e9e', to: '#3d5875' },     // 50-59: Blue
-    6: { from: '#8b5fa8', to: '#65437a' },     // 60-69: Purple
-    7: { from: '#a854a8', to: '#7a3d7a' },     // 70-79: Magenta
-    8: { from: '#d65c9e', to: '#a34375' },     // 80-89: Pink
-    9: { from: '#a0826d', to: '#6b5744' },     // 90-99: Brown
+    0: { from: '#5e5e5e', to: '#434343' },     // 0-9, 100s: Gray
+    1: { from: '#c23030', to: '#8b2222' },     // 10s: Red
+    2: { from: '#d97a2b', to: '#b85a1f' },     // 20s: Orange
+    3: { from: '#d5b62b', to: '#a38d1f' },     // 30s: Yellow
+    4: { from: '#5ea832', to: '#3d7a1f' },     // 40s: Green
+    5: { from: '#5c7e9e', to: '#3d5875' },     // 50s: Blue
+    6: { from: '#8b5fa8', to: '#65437a' },     // 60s: Purple
+    7: { from: '#d65c9e', to: '#a34375' },     // 70s: Pink
+    8: { from: '#8b2e3a', to: '#5c1f27' },     // 80s: Dark wine-red
+    9: { from: '#a0826d', to: '#6b5744' },     // 90s: Brown
   };
-  
-  // For levels 100+, cycle through colors
-  if (level >= 100) {
-    const cycleColors = [
-      { from: '#8b5fa8', to: '#65437a' },     // Purple
-      { from: '#d65c9e', to: '#a34375' },     // Pink
-      { from: '#5c7e9e', to: '#3d5875' },     // Blue
-      { from: '#5ea832', to: '#3d7a1f' },     // Green
-      { from: '#d5b62b', to: '#a38d1f' },     // Yellow
-    ];
-    const index = Math.floor(level / 100) % cycleColors.length;
-    return cycleColors[index];
-  }
   
   return colorMap[tier] || colorMap[0];
 }
