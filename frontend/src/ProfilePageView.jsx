@@ -59,36 +59,51 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
     setLoadingHoldings(true);
     try {
       if (isOwnProfile) {
-        // For own profile, use the transactions reconstruct endpoint which has all the data
-        const res = await fetch('/api/transactions/reconstruct', { headers: h });
+        // Step 1: Get holdings from reconstruct endpoint
+        const reconstructRes = await fetch('/api/transactions/reconstruct', { headers: h });
+        if (!reconstructRes.ok) {
+          console.error('Reconstruct API failed:', reconstructRes.status);
+          setLoadingHoldings(false);
+          return;
+        }
+        const holdings = await reconstructRes.json();
         
-        if (!res.ok) {
-          console.error('Portfolio API failed:', res.status);
+        if (!holdings || !Array.isArray(holdings) || holdings.length === 0) {
+          setViewingHoldings([]);
           setLoadingHoldings(false);
           return;
         }
         
-        const data = await res.json();
-        console.log('Portfolio data:', data); // Debug
+        // Step 2: Get current values from portfolio endpoint
+        const portfolioRes = await fetch('/api/portfolio', { 
+          method: 'POST',
+          headers: h, 
+          body: JSON.stringify({ portfolio: holdings, baseCurrency: 'SEK' })
+        });
         
-        if (data && Array.isArray(data)) {
-          const totalValue = data.reduce((sum, h) => sum + (h.currentValueBase || 0), 0);
-          const holdingsWithWeights = data
-            .filter(h => h.quantity > 0) // Only show holdings with quantity
-            .map(h => ({
-              ticker: h.ticker,
-              name: h.name,
-              quantity: h.quantity,
-              value: Math.round(h.currentValueBase || 0),
-              weight: totalValue > 0 ? ((h.currentValueBase || 0) / totalValue) * 100 : 0
-            }))
-            .sort((a, b) => b.weight - a.weight);
-          
-          console.log('Holdings with weights:', holdingsWithWeights); // Debug
-          setViewingHoldings(holdingsWithWeights);
-        } else {
-          console.error('Unexpected data format:', data);
+        if (!portfolioRes.ok) {
+          console.error('Portfolio API failed:', portfolioRes.status);
+          setLoadingHoldings(false);
+          return;
         }
+        
+        const portfolioData = await portfolioRes.json();
+        const portfolio = portfolioData.portfolio || [];
+        
+        // Calculate weights
+        const totalValue = portfolio.reduce((sum, h) => sum + (h.currentValue || 0), 0);
+        const holdingsWithWeights = portfolio
+          .filter(h => h.quantity > 0)
+          .map(h => ({
+            ticker: h.ticker,
+            name: h.name || h.cleanName,
+            quantity: h.quantity,
+            value: Math.round(h.currentValue || 0),
+            weight: totalValue > 0 ? ((h.currentValue || 0) / totalValue) * 100 : 0
+          }))
+          .sort((a, b) => b.weight - a.weight);
+        
+        setViewingHoldings(holdingsWithWeights);
       } else {
         // For other users, use the public holdings endpoint
         const res = await fetch(`/api/users/${targetUser}/holdings`, { headers: h });
