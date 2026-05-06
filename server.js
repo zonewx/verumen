@@ -151,18 +151,18 @@ app.post('/api/auth/change-password', requireUser, async (req, res) => {
 app.get('/api/users', requireUser, async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('username, role, bio, public_inventory, public_holdings, avatar_base64, created_at, steam_id');
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data.map(p => ({ username: p.username, role: p.role, bio: p.bio, publicInventory: p.public_inventory, publicHoldings: p.public_holdings, steamId: p.public_inventory ? p.steam_id : null, avatarBase64: p.avatar_base64 || null, createdAt: p.created_at })));
+  res.json(data.map(p => ({ username: p.username, role: p.role, bio: p.bio, publicInventory: p.public_inventory, publicHoldings: p.public_holdings, steamId: p.public_inventory ? p.steam_id : null, steamLevel: p.public_inventory ? (p.steam_level || 0) : null, showcaseItems: p.public_inventory ? (p.showcase_items || []) : [], avatarBase64: p.avatar_base64 || null, createdAt: p.created_at })));
 });
 
 app.get('/api/users/:username/profile', async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('*').eq('username', req.params.username).single();
   if (error || !data) return res.status(404).json({ error: 'User not found' });
-  res.json({ username: data.username, role: data.role, bio: data.bio, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_id || null, steamVerified: data.steam_verified || false, avatarBase64: data.avatar_base64, createdAt: data.created_at });
+  res.json({ username: data.username, role: data.role, bio: data.bio, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_id || null, steamVerified: data.steam_verified || false, steamLevel: data.steam_level || 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
 });
 
 app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   if (req.username !== req.params.username) return res.status(403).json({ error: "Cannot edit another user's profile." });
-  const { bio, steamId, publicInventory, publicHoldings, showPortfolioValue, avatarBase64 } = req.body;
+  const { bio, steamId, publicInventory, publicHoldings, showPortfolioValue, avatarBase64, showcaseItems } = req.body;
   const update = {};
   if (bio !== undefined) update.bio = bio;
   if (steamId !== undefined) { update.steam_id = steamId; if (steamId !== (await supabase.from('profiles').select('steam_id').eq('id', req.user.id).single()).data?.steam_id) update.steam_verified = false; }
@@ -170,9 +170,14 @@ app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   if (publicHoldings !== undefined) update.public_holdings = publicHoldings;
   if (showPortfolioValue !== undefined) update.show_portfolio_value = showPortfolioValue;
   if (avatarBase64 !== undefined) update.avatar_base64 = avatarBase64;
+  if (showcaseItems !== undefined) {
+    // Limit to 10 items
+    const items = Array.isArray(showcaseItems) ? showcaseItems.slice(0, 10) : [];
+    update.showcase_items = items;
+  }
   const { data, error } = await supabase.from('profiles').update(update).eq('id', req.user.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true, profile: { username: data.username, bio: data.bio, steamId: data.steam_id, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, showPortfolioValue: data.show_portfolio_value, avatarBase64: data.avatar_base64 } });
+  res.json({ success: true, profile: { username: data.username, bio: data.bio, steamId: data.steam_id, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, showPortfolioValue: data.show_portfolio_value, avatarBase64: data.avatar_base64, showcaseItems: data.showcase_items, steamLevel: data.steam_level } });
 });
 
 app.get('/api/users/:username/holdings', async (req, res) => {
@@ -1181,19 +1186,30 @@ app.get('/api/steam/callback', async (req, res) => {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) return res.redirect(`${BASE_URL}/profile?steam_error=session`);
 
-    // Get Steam profile info
+    // Get Steam profile info and level
     const STEAM_KEY = process.env.STEAM_API_KEY;
-    let steamName = '', steamAvatar = '';
+    let steamName = '', steamAvatar = '', steamLevel = 0;
     if (STEAM_KEY) {
       try {
+        // Fetch player summary
         const data = await fetchJSON(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_KEY}&steamids=${steamId}`);
         const player = data?.response?.players?.[0];
         if (player) { steamName = player.personaname; steamAvatar = player.avatarmedium; }
-      } catch(e) {}
+        
+        // Fetch Steam level
+        const levelData = await fetchJSON(`https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/?key=${STEAM_KEY}&steamid=${steamId}`);
+        steamLevel = levelData?.response?.player_level || 0;
+      } catch(e) {
+        log.error('Steam API fetch failed', { error: e.message });
+      }
     }
 
-    // Save verified Steam ID
-    await supabase.from('profiles').update({ steam_id: steamId, steam_verified: true }).eq('id', user.id);
+    // Save verified Steam ID and level
+    await supabase.from('profiles').update({ 
+      steam_id: steamId, 
+      steam_verified: true,
+      steam_level: steamLevel 
+    }).eq('id', user.id);
 
     // Redirect back to profile with success
     res.redirect(`${BASE_URL}/profile?steam_success=1&steam_name=${encodeURIComponent(steamName)}`);

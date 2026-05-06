@@ -22,13 +22,18 @@ const Toggle = ({ value, onChange }) => (
 export default function ProfileEditPage({ isDark, authUsername }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const [editForm, setEditForm] = useState({ bio: '', steamId: '', publicInventory: false, publicHoldings: false, showPortfolioValue: false, avatarBase64: null });
+  const [editForm, setEditForm] = useState({ bio: '', steamId: '', publicInventory: false, publicHoldings: false, showPortfolioValue: false, avatarBase64: null, showcaseItems: [] });
   const [steamVerified, setSteamVerified] = useState(false);
   const [steamLookupError, setSteamLookupError] = useState('');
   const [steamLookupLoading, setSteamLookupLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
+  
+  // Showcase items state
+  const [inventory, setInventory] = useState([]);
+  const [loadingInventory, setLoadingInventory] = useState(false);
+  const [selectedShowcaseItems, setSelectedShowcaseItems] = useState([]);
 
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
   const card = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
@@ -56,9 +61,50 @@ export default function ProfileEditPage({ isDark, authUsername }) {
       const res = await fetch(`/api/users/${authUsername}/profile`, { headers: h });
       const data = await res.json();
       setProfile(data);
-      setEditForm({ bio: data.bio || '', steamId: data.steamId || '', publicInventory: data.publicInventory || false, publicHoldings: data.publicHoldings || false, showPortfolioValue: data.showPortfolioValue || false, avatarBase64: data.avatarBase64 || null });
+      setEditForm({ 
+        bio: data.bio || '', 
+        steamId: data.steamId || '', 
+        publicInventory: data.publicInventory || false, 
+        publicHoldings: data.publicHoldings || false, 
+        showPortfolioValue: data.showPortfolioValue || false, 
+        avatarBase64: data.avatarBase64 || null,
+        showcaseItems: data.showcaseItems || []
+      });
+      setSelectedShowcaseItems(data.showcaseItems || []);
       setSteamVerified(data.steamVerified || false);
-    } catch(e) {}
+      
+      // Load inventory if Steam is linked
+      if (data.steamId) {
+        loadInventory(data.steamId);
+      }
+    } catch(e) {
+      console.error('Failed to fetch profile:', e);
+    }
+  }
+
+  async function loadInventory(steamId) {
+    setLoadingInventory(true);
+    try {
+      const res = await fetch(`/api/cs/steam/inventory/${steamId}`, { headers: h });
+      const data = await res.json();
+      setInventory(data.items || []);
+    } catch(e) {
+      console.error('Failed to load inventory:', e);
+    }
+    setLoadingInventory(false);
+  }
+
+  function toggleShowcaseItem(assetId) {
+    setSelectedShowcaseItems(prev => {
+      if (prev.includes(assetId)) {
+        // Remove from selection
+        return prev.filter(id => id !== assetId);
+      } else if (prev.length < 10) {
+        // Add to selection (max 10)
+        return [...prev, assetId];
+      }
+      return prev; // Already at max
+    });
   }
 
   async function handleSteamLogin() {
@@ -83,7 +129,8 @@ export default function ProfileEditPage({ isDark, authUsername }) {
   async function saveProfile() {
     setSaving(true); setSaveMsg('');
     try {
-      const res = await fetch(`/api/users/${authUsername}/profile`, { method: 'PUT', headers: h, body: JSON.stringify(editForm) });
+      const payload = { ...editForm, showcaseItems: selectedShowcaseItems };
+      const res = await fetch(`/api/users/${authUsername}/profile`, { method: 'PUT', headers: h, body: JSON.stringify(payload) });
       const data = await res.json();
       if (data.success) {
         setProfile(data.profile);
@@ -223,6 +270,76 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                 </div>
               )}
             </div>
+
+            {/* Item Showcase Selector */}
+            {steamVerified && editForm.steamId && (
+              <div className={`${card} p-6`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <label className={labelCls}>Item Showcase</label>
+                    <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                      Select up to 10 items from your CS inventory to display on your profile
+                    </p>
+                  </div>
+                  <span className={`text-sm font-semibold ${selectedShowcaseItems.length >= 10 ? 'text-red-400' : 'text-blue-400'}`}>
+                    {selectedShowcaseItems.length}/10
+                  </span>
+                </div>
+
+                {loadingInventory ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                  </div>
+                ) : inventory.length > 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-96 overflow-y-auto p-2 rounded-lg" style={{ scrollbarWidth: 'thin' }}>
+                    {inventory.map(item => {
+                      const isSelected = selectedShowcaseItems.includes(item.assetid);
+                      return (
+                        <button
+                          key={item.assetid}
+                          onClick={() => toggleShowcaseItem(item.assetid)}
+                          className={`relative p-2 rounded-lg transition border-2 ${
+                            isSelected 
+                              ? 'border-blue-500 bg-blue-500/20' 
+                              : isDark 
+                                ? 'border-gray-600 bg-gray-700/50 hover:bg-gray-700 hover:border-gray-500' 
+                                : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300'
+                          }`}
+                          disabled={!isSelected && selectedShowcaseItems.length >= 10}
+                        >
+                          <img 
+                            src={`https://community.cloudflare.steamstatic.com/economy/image/${item.icon_url}`} 
+                            alt={item.market_hash_name}
+                            className="w-full aspect-square object-contain mb-1"
+                          />
+                          <p className={`text-xs text-center truncate ${isSelected ? 'font-semibold text-blue-400' : isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {item.market_hash_name}
+                          </p>
+                          {isSelected && (
+                            <div className="absolute top-1 right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                              ✓
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className={`text-center py-8 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    No CS items found in your inventory
+                  </p>
+                )}
+
+                {selectedShowcaseItems.length > 0 && (
+                  <button
+                    onClick={() => setSelectedShowcaseItems([])}
+                    className={`mt-3 text-xs px-3 py-1.5 rounded-lg transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
+                  >
+                    Clear Selection
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Preview */}
             <div className={`${card} p-6`}>
