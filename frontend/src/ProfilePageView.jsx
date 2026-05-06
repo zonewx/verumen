@@ -12,6 +12,39 @@ function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl
   return <div className={`${size} rounded-full bg-linear-to-br from-blue-600 to-blue-800 flex items-center justify-center ${textSize} font-bold text-white border-4 border-gray-700`}>{initial}</div>;
 }
 
+// Get Steam level badge colors based on level tier
+function getSteamLevelColors(level) {
+  const tier = Math.floor(level / 10) % 10;
+  
+  const colorMap = {
+    0: { from: '#5e5e5e', to: '#434343' },     // 0-9: Gray
+    1: { from: '#c23030', to: '#8b2222' },     // 10-19: Red
+    2: { from: '#d97a2b', to: '#b85a1f' },     // 20-29: Orange
+    3: { from: '#d5b62b', to: '#a38d1f' },     // 30-39: Yellow
+    4: { from: '#5ea832', to: '#3d7a1f' },     // 40-49: Green
+    5: { from: '#5c7e9e', to: '#3d5875' },     // 50-59: Blue
+    6: { from: '#8b5fa8', to: '#65437a' },     // 60-69: Purple
+    7: { from: '#a854a8', to: '#7a3d7a' },     // 70-79: Magenta
+    8: { from: '#d65c9e', to: '#a34375' },     // 80-89: Pink
+    9: { from: '#a0826d', to: '#6b5744' },     // 90-99: Brown
+  };
+  
+  // For levels 100+, cycle through colors
+  if (level >= 100) {
+    const cycleColors = [
+      { from: '#8b5fa8', to: '#65437a' },     // Purple
+      { from: '#d65c9e', to: '#a34375' },     // Pink
+      { from: '#5c7e9e', to: '#3d5875' },     // Blue
+      { from: '#5ea832', to: '#3d7a1f' },     // Green
+      { from: '#d5b62b', to: '#a38d1f' },     // Yellow
+    ];
+    const index = Math.floor(level / 100) % cycleColors.length;
+    return cycleColors[index];
+  }
+  
+  return colorMap[tier] || colorMap[0];
+}
+
 // Get country flag emoji based on exchange suffix
 function getExchangeFlag(ticker) {
   const flags = {
@@ -238,20 +271,28 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
 
             {/* Right Side: Level Badge + Edit Button */}
             <div className="flex flex-col items-end gap-6 shrink-0">
-              {/* Steam Level Badge - Clean Steam-accurate design */}
-              {profile.steamLevel > 0 && (
-                <div className="flex items-center gap-3">
-                  <span className={`text-sm font-normal ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Level</span>
-                  <div className="relative">
-                    {/* Simple shadow for depth */}
-                    <div className="absolute inset-0 rounded-full bg-black/20 blur-sm translate-y-0.5"></div>
-                    {/* Clean badge - simple gradient like Steam */}
-                    <div className="relative w-15 h-15 rounded-full bg-linear-to-b from-[#5c7e9e] to-[#3d5875] flex items-center justify-center shadow-md">
-                      <span className="text-white font-bold text-[22px] drop-shadow-md">{profile.steamLevel}</span>
+              {/* Steam Level Badge - Dynamic colors based on level tier */}
+              {profile.steamLevel > 0 && (() => {
+                const colors = getSteamLevelColors(profile.steamLevel);
+                return (
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-normal ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Level</span>
+                    <div className="relative">
+                      {/* Simple shadow for depth */}
+                      <div className="absolute inset-0 rounded-full bg-black/20 blur-sm translate-y-0.5"></div>
+                      {/* Badge with dynamic colors */}
+                      <div 
+                        className="relative w-[60px] h-[60px] rounded-full flex items-center justify-center shadow-md"
+                        style={{
+                          background: `linear-gradient(to bottom, ${colors.from}, ${colors.to})`
+                        }}
+                      >
+                        <span className="text-white font-bold text-[22px] drop-shadow-md">{profile.steamLevel}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Edit Profile Button */}
               {isOwnProfile && (
