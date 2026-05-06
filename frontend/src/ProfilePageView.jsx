@@ -238,22 +238,22 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
 
             {/* Right Side: Level Badge + Edit Button */}
             <div className="flex flex-col items-end gap-6 shrink-0">
-              {/* Steam Level Badge - Steam-style design */}
+              {/* Steam Level Badge - Clean Steam-accurate design */}
               {profile.steamLevel > 0 && (
                 <div className="flex items-center gap-3">
-                  <span className={`text-base font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Level</span>
+                  <span className={`text-sm font-normal ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Level</span>
                   <div className="relative">
-                    {/* Glow effect */}
-                    <div className="absolute inset-0 rounded-full bg-blue-500/30 blur-md"></div>
-                    {/* Badge */}
-                    <div className="relative w-16 h-16 rounded-full bg-linear-to-br from-blue-500 via-blue-600 to-blue-700 flex items-center justify-center border-2 border-blue-400/50 shadow-lg">
-                      <span className="text-white font-bold text-xl">{profile.steamLevel}</span>
+                    {/* Simple shadow for depth */}
+                    <div className="absolute inset-0 rounded-full bg-black/20 blur-sm translate-y-0.5"></div>
+                    {/* Clean badge - simple gradient like Steam */}
+                    <div className="relative w-15 h-15 rounded-full bg-linear-to-b from-[#5c7e9e] to-[#3d5875] flex items-center justify-center shadow-md">
+                      <span className="text-white font-bold text-[22px] drop-shadow-md">{profile.steamLevel}</span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Edit Profile Button - Smaller, more refined */}
+              {/* Edit Profile Button */}
               {isOwnProfile && (
                 <button
                   onClick={() => navigate('/profile/edit')}
