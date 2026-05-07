@@ -7,6 +7,7 @@ import GlobalBar from './GlobalBar';
 import AdminPanel from './AdminPanel';
 import ModeratorPanel from './ModeratorPanel';
 import SocialFeed from './SocialFeed';
+import FriendsPage from './FriendsPage';
 import Sidebar from './Sidebar';
 
 export default function App() {
@@ -171,7 +172,7 @@ export default function App() {
   };
 
   const handleNavigate = (dest, param = null) => {
-    const map = { home:'/', portfolio:'/portfolio', skins:'/skins', social:'/social', profile:'/profile', admin:'/admin', moderator:'/moderator' };
+    const map = { home:'/', portfolio:'/portfolio', skins:'/skins', social:'/social', friends:'/friends', profile:'/profile', admin:'/admin', moderator:'/moderator' };
     if (dest === 'view-profile' && param) navigate(`/profile/@${param}`);
     else navigate(map[dest] || '/');
   };
@@ -843,6 +844,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/social" replace/>}/>
           <Route path="/social" element={<PageShell><SocialFeed isDark={isDark} authUsername={authUsername} onViewProfile={u=>navigate(`/profile/@${u}`)}/></PageShell>}/>
+          <Route path="/friends" element={<PageShell><FriendsPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           
           {/* Portfolio routes */}
           <Route path="/portfolio" element={<PortfolioView/>}/>

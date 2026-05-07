@@ -322,7 +322,14 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
           {/* Right: Friends sidebar */}
           <div className="w-72 shrink-0">
             <div className={`${card} p-4 sticky top-0`}>
-              <h3 className="font-bold text-sm mb-3">Friends {friends.friends?.length > 0 && <span className={`ml-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({friends.friends.length})</span>}</h3>
+              <button 
+                onClick={() => window.location.href = '/friends'}
+                className="w-full text-left mb-3 hover:opacity-80 transition"
+              >
+                <h3 className="font-bold text-sm">
+                  Friends {friends.friends?.length > 0 && <span className={`ml-1 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({friends.friends.length})</span>}
+                </h3>
+              </button>
 
               {/* Search to add */}
               <div className="relative mb-4">
