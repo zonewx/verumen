@@ -82,6 +82,8 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
   const [viewingHoldings, setViewingHoldings] = useState(null);
   const [loadingHoldings, setLoadingHoldings] = useState(false);
   const [showAllHoldings, setShowAllHoldings] = useState(false);
+  const [dividends, setDividends] = useState(null);
+  const [loadingDividends, setLoadingDividends] = useState(false);
 
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
 
@@ -95,6 +97,10 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
     }
     if (profile?.publicHoldings) {
       loadPublicHoldings();
+    }
+    // Load dividends if own profile OR if viewing someone else's public dividends
+    if (isOwnProfile || profile?.publicDividends) {
+      loadDividends();
     }
   }, [profile]);
 
@@ -200,6 +206,24 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
       console.error('Failed to load holdings:', e);
     }
     setLoadingHoldings(false);
+  }
+
+  async function loadDividends() {
+    setLoadingDividends(true);
+    try {
+      const endpoint = isOwnProfile ? '/api/dividends' : `/api/users/${targetUser}/dividends`;
+      const res = await fetch(endpoint, { headers: h });
+      if (res.ok) {
+        const data = await res.json();
+        setDividends(data);
+      } else if (res.status === 403) {
+        // Dividends are private
+        setDividends(null);
+      }
+    } catch(e) {
+      console.error('Failed to load dividends:', e);
+    }
+    setLoadingDividends(false);
   }
 
   function formatDate(d) {
@@ -333,87 +357,143 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
           </div>
         )}
 
-        {/* Portfolio Section */}
+        {/* Portfolio & Dividends - Two Column Layout */}
         {profile.publicHoldings && (
-          <div className={`${card} p-2.5`}>
-            <div className="flex items-center justify-between mb-1.5">
-              <h3 className={`text-[10px] font-semibold uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                Portfolio
-              </h3>
-              {viewingHoldings && (
-                <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                  {viewingHoldings.length} holdings
-                </span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            
+            {/* Portfolio - Left Column */}
+            <div className={`${card} p-2.5`}>
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className={`text-[10px] font-semibold uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Portfolio
+                </h3>
+                {viewingHoldings && (
+                  <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    {viewingHoldings.length} holdings
+                  </span>
+                )}
+              </div>
+
+              {loadingHoldings ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                </div>
+              ) : viewingHoldings && viewingHoldings.length > 0 ? (
+                <>
+                  <div className="flex flex-col gap-2">
+                    {viewingHoldings.slice(0, showAllHoldings ? undefined : 10).map((h, i) => {
+                      // Clean company name
+                      const cleanCompanyName = (h.name || h.ticker)
+                        .replace(/\s*\(publ\.?\)/gi, '')
+                        .replace(/\s*\(AB\)/gi, '')
+                        .replace(/\bAB\b(?!\w)/gi, '')
+                        .replace(/\bpubl\.?\b/gi, '')
+                        .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Inc|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
+                        .replace(/\s*[.,;]\s*$/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                      
+                      const maxWeight = Math.max(...viewingHoldings.map(holding => holding.weight || 0));
+                      const relativeWidth = maxWeight > 0 ? ((h.weight || 0) / maxWeight) * 100 : 0;
+                      
+                      return (
+                        <div key={h.ticker} className={`flex flex-col gap-1 p-2 rounded ${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} transition`}>
+                          <div className="flex items-center gap-2">
+                            <FlagIcon ticker={h.ticker} size="w-6 h-4.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-xs truncate">{cleanCompanyName}</p>
+                              <p className={`text-[10px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{h.ticker}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-xs">{h.weight?.toFixed(2) || '0.00'}%</p>
+                              {profile.showPortfolioValue && h.value && (
+                                <p className={`text-[10px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{h.value.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className={`h-0.5 rounded-full ${isDark ? 'bg-gray-600' : 'bg-gray-200'} overflow-hidden`}>
+                            <div className="h-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${relativeWidth}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {viewingHoldings.length > 10 && (
+                    <button
+                      onClick={() => setShowAllHoldings(!showAllHoldings)}
+                      className={`w-full mt-3 py-2.5 rounded-lg font-semibold transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                    >
+                      {showAllHoldings ? 'Show Less' : `View All (${viewingHoldings.length})`}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <p className={`text-center py-8 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  No holdings to display
+                </p>
               )}
             </div>
 
-            {loadingHoldings ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+            {/* Dividends - Right Column */}
+            <div className={`${card} p-2.5`}>
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className={`text-[10px] font-semibold uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Dividends
+                </h3>
               </div>
-            ) : viewingHoldings && viewingHoldings.length > 0 ? (
-              <>
-                <div className="flex flex-col gap-2">
-                  {viewingHoldings.slice(0, showAllHoldings ? undefined : 10).map((h, i) => {
-                    // Clean company name by removing common suffixes (keep 'Corporation' spelled out)
-                    const cleanCompanyName = (h.name || h.ticker)
-                      .replace(/\s*\(publ\.?\)/gi, '')  // (publ) or (publ.)
-                      .replace(/\s*\(AB\)/gi, '')       // (AB)
-                      .replace(/\bAB\b(?!\w)/gi, '')    // AB at end of name
-                      .replace(/\bpubl\.?\b/gi, '')     // publ or publ.
-                      .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Inc|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
-                      .replace(/\s*[.,;]\s*$/g, '')     // Remove trailing punctuation
-                      .replace(/\s+/g, ' ')             // Normalize whitespace
-                      .trim();
-                    
-                    // Calculate relative bar width (largest holding = 100% width)
-                    const maxWeight = Math.max(...viewingHoldings.map(holding => holding.weight || 0));
-                    const relativeWidth = maxWeight > 0 ? ((h.weight || 0) / maxWeight) * 100 : 0;
-                    
-                    return (
-                      <div key={h.ticker} className={`flex flex-col gap-1 p-2 rounded ${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} transition`}>
-                        <div className="flex items-center gap-2">
-                          <FlagIcon ticker={h.ticker} size="w-6 h-4.5" />
-                          {/* Name & Ticker */}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-xs truncate">{cleanCompanyName}</p>
-                            <p className={`text-[10px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{h.ticker}</p>
-                          </div>
-                          {/* Weight & Value */}
-                          <div className="text-right">
-                            <p className="font-bold text-xs">{h.weight?.toFixed(2) || '0.00'}%</p>
-                            {profile.showPortfolioValue && h.value && (
-                              <p className={`text-[10px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{h.value.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>
-                            )}
-                          </div>
-                        </div>
-                        {/* Weight visualization bar - scaled relative to largest holding */}
-                        <div className={`h-0.5 rounded-full ${isDark ? 'bg-gray-600' : 'bg-gray-200'} overflow-hidden`}>
-                          <div 
-                            className="h-full bg-linear-to-r from-red-500 to-pink-500"
-                            style={{ width: `${relativeWidth}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
 
-                {/* View All Button */}
-                {viewingHoldings.length > 10 && (
-                  <button
-                    onClick={() => setShowAllHoldings(!showAllHoldings)}
-                    className={`w-full mt-3 py-2.5 rounded-lg font-semibold transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
-                  >
-                    {showAllHoldings ? 'Show Less' : `View All (${viewingHoldings.length})`}
-                  </button>
-                )}
-              </>
-            ) : (
-              <p className={`text-center py-8 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                No holdings to display
-              </p>
-            )}
+              {/* Show privacy message if not own profile and dividends are private */}
+              {!isOwnProfile && !profile.publicDividends ? (
+                <p className={`text-center py-8 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Dividends are currently private
+                </p>
+              ) : loadingDividends ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                </div>
+              ) : dividends && dividends.byYear?.length > 0 ? (
+                <>
+                  {/* Total All Time */}
+                  <div className="text-center mb-4">
+                    <p className={`text-[10px] uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Total Received</p>
+                    <p className="text-2xl font-bold">{dividends.totalAllTime.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}</p>
+                    <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>SEK</p>
+                  </div>
+
+                  {/* Bar Chart by Year */}
+                  <div className="flex items-end justify-between gap-1 h-40">
+                    {dividends.byYear.slice().reverse().slice(-8).map(yearData => {
+                      const maxTotal = Math.max(...dividends.byYear.map(y => y.total));
+                      const height = maxTotal > 0 ? (yearData.total / maxTotal) * 100 : 0;
+                      const currentYear = new Date().getFullYear();
+                      const isFuture = parseInt(yearData.year) > currentYear;
+                      
+                      return (
+                        <div key={yearData.year} className="flex-1 flex flex-col items-center gap-1">
+                          <div className="w-full flex items-end h-32">
+                            <div 
+                              className={`w-full rounded-t transition-all ${isFuture ? 'bg-linear-to-t from-pink-500/50 to-pink-400/50 bg-[length:4px_4px] bg-repeat' : 'bg-linear-to-t from-pink-500 to-pink-400'}`}
+                              style={{ 
+                                height: `${height}%`,
+                                backgroundImage: isFuture ? 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)' : undefined
+                              }}
+                              title={`${yearData.year}: ${yearData.total.toLocaleString('sv-SE')} SEK`}
+                            />
+                          </div>
+                          <p className={`text-[9px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{yearData.year.slice(-2)}{isFuture ? 'e' : ''}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <p className={`text-center py-8 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  No dividend data
+                </p>
+              )}
+            </div>
+
           </div>
         )}
 

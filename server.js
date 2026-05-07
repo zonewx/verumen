@@ -149,25 +149,26 @@ app.post('/api/auth/change-password', requireUser, async (req, res) => {
 
 // ── Profile routes ──────────────────────────────────────────────────────────
 app.get('/api/users', requireUser, async (req, res) => {
-  const { data, error } = await supabase.from('profiles').select('username, role, bio, public_inventory, public_holdings, avatar_base64, created_at, steam_id');
+  const { data, error } = await supabase.from('profiles').select('username, role, bio, public_inventory, public_holdings, public_dividends, avatar_base64, created_at, steam_id');
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data.map(p => ({ username: p.username, role: p.role, bio: p.bio, publicInventory: p.public_inventory, publicHoldings: p.public_holdings, steamId: p.public_inventory ? p.steam_id : null, steamLevel: p.public_inventory ? (p.steam_level || 0) : null, showcaseItems: p.public_inventory ? (p.showcase_items || []) : [], avatarBase64: p.avatar_base64 || null, createdAt: p.created_at })));
+  res.json(data.map(p => ({ username: p.username, role: p.role, bio: p.bio, publicInventory: p.public_inventory, publicHoldings: p.public_holdings, publicDividends: p.public_dividends, steamId: p.public_inventory ? p.steam_id : null, steamLevel: p.public_inventory ? (p.steam_level || 0) : null, showcaseItems: p.public_inventory ? (p.showcase_items || []) : [], avatarBase64: p.avatar_base64 || null, createdAt: p.created_at })));
 });
 
 app.get('/api/users/:username/profile', async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('*').eq('username', req.params.username).single();
   if (error || !data) return res.status(404).json({ error: 'User not found' });
-  res.json({ username: data.username, role: data.role, bio: data.bio, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_id || null, steamVerified: data.steam_verified || false, steamLevel: data.steam_level || 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
+  res.json({ username: data.username, role: data.role, bio: data.bio, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_id || null, steamVerified: data.steam_verified || false, steamLevel: data.steam_level || 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
 });
 
 app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   if (req.username !== req.params.username) return res.status(403).json({ error: "Cannot edit another user's profile." });
-  const { bio, steamId, publicInventory, publicHoldings, showPortfolioValue, avatarBase64, showcaseItems } = req.body;
+  const { bio, steamId, publicInventory, publicHoldings, publicDividends, showPortfolioValue, avatarBase64, showcaseItems } = req.body;
   const update = {};
   if (bio !== undefined) update.bio = bio;
   if (steamId !== undefined) { update.steam_id = steamId; if (steamId !== (await supabase.from('profiles').select('steam_id').eq('id', req.user.id).single()).data?.steam_id) update.steam_verified = false; }
   if (publicInventory !== undefined) update.public_inventory = publicInventory;
   if (publicHoldings !== undefined) update.public_holdings = publicHoldings;
+  if (publicDividends !== undefined) update.public_dividends = publicDividends;
   if (showPortfolioValue !== undefined) update.show_portfolio_value = showPortfolioValue;
   if (avatarBase64 !== undefined) update.avatar_base64 = avatarBase64;
   if (showcaseItems !== undefined) {
@@ -177,7 +178,7 @@ app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   }
   const { data, error } = await supabase.from('profiles').update(update).eq('id', req.user.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true, profile: { username: data.username, bio: data.bio, steamId: data.steam_id, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, showPortfolioValue: data.show_portfolio_value, avatarBase64: data.avatar_base64, showcaseItems: data.showcase_items, steamLevel: data.steam_level } });
+  res.json({ success: true, profile: { username: data.username, bio: data.bio, steamId: data.steam_id, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, avatarBase64: data.avatar_base64, showcaseItems: data.showcase_items, steamLevel: data.steam_level } });
 });
 
 app.get('/api/users/:username/holdings', async (req, res) => {
@@ -765,6 +766,25 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
 // ── Dividends ───────────────────────────────────────────────────────────────
 app.get('/api/dividends', requireUser, async (req, res) => {
   const { data: txs } = await supabase.from('transactions').select('date, name, total_sek').eq('user_id', req.user.id).eq('type', 'dividend');
+  const divs = (txs||[]).filter(t => t.total_sek);
+  const thisYear = new Date().getFullYear().toString();
+  const totalAllTime = divs.reduce((s,t)=>s+Math.abs(t.total_sek),0);
+  const totalThisYear = divs.filter(t=>t.date?.startsWith(thisYear)).reduce((s,t)=>s+Math.abs(t.total_sek),0);
+  const byYear = {};
+  divs.forEach(t => { const y=t.date?.substring(0,4); if(!y) return; if(!byYear[y]) byYear[y]={year:y,total:0,stocks:{}}; byYear[y].total+=Math.abs(t.total_sek); const n=t.name||'Unknown'; byYear[y].stocks[n]=(byYear[y].stocks[n]||0)+Math.abs(t.total_sek); });
+  const byYearArr = Object.values(byYear).sort((a,b)=>b.year.localeCompare(a.year)).map(y=>({...y,stocks:Object.entries(y.stocks).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total)}));
+  const byStock = {};
+  divs.forEach(t => { const n=t.name||'Unknown'; byStock[n]=(byStock[n]||0)+Math.abs(t.total_sek); });
+  res.json({ totalAllTime, totalThisYear, byYear:byYearArr, byStock:Object.entries(byStock).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total) });
+});
+
+// Public dividends endpoint
+app.get('/api/users/:username/dividends', async (req, res) => {
+  const { data: profile } = await supabase.from('profiles').select('id, public_dividends').eq('username', req.params.username).single();
+  if (!profile) return res.status(404).json({ error: 'User not found' });
+  if (!profile.public_dividends) return res.status(403).json({ error: "This user's dividends are private." });
+  
+  const { data: txs } = await supabase.from('transactions').select('date, name, total_sek').eq('user_id', profile.id).eq('type', 'dividend');
   const divs = (txs||[]).filter(t => t.total_sek);
   const thisYear = new Date().getFullYear().toString();
   const totalAllTime = divs.reduce((s,t)=>s+Math.abs(t.total_sek),0);

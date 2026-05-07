@@ -22,7 +22,7 @@ const Toggle = ({ value, onChange }) => (
 export default function ProfileEditPage({ isDark, authUsername }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const [editForm, setEditForm] = useState({ bio: '', steamId: '', publicInventory: false, publicHoldings: false, showPortfolioValue: false, avatarBase64: null, showcaseItems: [] });
+  const [editForm, setEditForm] = useState({ bio: '', steamId: '', publicInventory: false, publicHoldings: false, publicDividends: false, showPortfolioValue: false, avatarBase64: null, showcaseItems: [] });
   const [steamVerified, setSteamVerified] = useState(false);
   const [steamLookupError, setSteamLookupError] = useState('');
   const [steamLookupLoading, setSteamLookupLoading] = useState(false);
@@ -66,6 +66,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
         steamId: data.steamId || '', 
         publicInventory: data.publicInventory || false, 
         publicHoldings: data.publicHoldings || false, 
+        publicDividends: data.publicDividends || false,
         showPortfolioValue: data.showPortfolioValue || false, 
         avatarBase64: data.avatarBase64 || null,
         showcaseItems: data.showcaseItems || []
@@ -225,6 +226,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                 {[
                   { key: 'publicInventory', title: 'Public CS Inventory', desc: 'Show Steam CS inventory on profile' },
                   { key: 'publicHoldings', title: 'Public Portfolio', desc: 'Show stock holdings on profile' },
+                  { key: 'publicDividends', title: 'Public Dividends', desc: 'Show dividend data on profile' },
                   { key: 'showPortfolioValue', title: 'Show Portfolio Value', desc: 'Display currency values of holdings' },
                 ].map(({ key, title, desc }) => (
                   <div key={key} className={`flex items-center justify-between gap-3 p-3 rounded-xl ${isDark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
