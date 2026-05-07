@@ -118,8 +118,8 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
 
       {/* Right */}
       <div className="flex items-center gap-1 shrink-0">
-        {/* Social feed with notification dot */}
-        <button onClick={() => onNavigate('social')} title="Social feed" className={`relative p-1.5 rounded-lg ${isDark ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'} transition`}>
+        {/* Friends/Social with notification dot */}
+        <button onClick={() => onNavigate('social')} title="Friends" className={`relative p-1.5 rounded-lg ${isDark ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'} transition`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
           </svg>
@@ -128,17 +128,6 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
               {pendingCount > 9 ? '9+' : pendingCount}
             </span>
           )}
-        </button>
-
-        {/* Profile avatar */}
-        <button onClick={() => onNavigate('profile')} className="flex items-center gap-2 hover:opacity-80 transition ml-1" title="My Profile">
-          <div className={`w-7 h-7 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white overflow-hidden`}>
-            {avatarContent}
-          </div>
-          <div className="hidden sm:flex flex-col items-start">
-            <span className={`text-xs font-semibold leading-tight ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{authUsername}</span>
-            {userRole && userRole !== 'user' && <span className={`text-xs leading-tight ${roleBadgeColor[userRole] || ''}`}>{userRole}</span>}
-          </div>
         </button>
 
         {/* Logout */}

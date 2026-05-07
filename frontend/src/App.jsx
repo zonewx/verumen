@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import CSSkins from './CSSkins';
-import PortfolioSidebar from './PortfolioSidebar';
 import ProfilePageView from './ProfilePageView';
 import ProfileEditPage from './ProfileEditPage';
 import GlobalBar from './GlobalBar';
@@ -516,7 +515,7 @@ export default function App() {
   const GB = () => <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef}/>;
 
   const PageShell = ({ children, title }) => (
-    <div className={`flex flex-col h-screen ${isDark?'bg-gray-900 text-white':'bg-gray-100 text-gray-900'}`}>
+    <div className={`flex flex-col h-screen pt-12 ${isDark?'bg-gray-900 text-white':'bg-gray-100 text-gray-900'}`}>
       <GB/>
       {title&&<div className={`px-8 py-3 border-b shrink-0 ${isDark?'border-gray-800 bg-gray-900':'border-gray-200 bg-white'}`}><h1 className="text-base font-bold">{title}</h1></div>}
       {children}
@@ -533,63 +532,13 @@ export default function App() {
     const cardCls = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
     
     return (
-      <div className={`flex h-screen overflow-hidden pt-12 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+      <div className={`flex flex-col h-screen pt-12 overflow-hidden ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
         <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
         {showShortcuts && <ShortcutsModal />}
-        
-        <PortfolioSidebar
-          isDark={isDark}
-          isSidebarOpen={isSidebarOpen}
-          authUsername={authUsername}
-          portfolio={portfolio}
-          txCount={txCount}
-          uploadStatus={uploadStatus}
-          uploadLoading={uploadLoading}
-          uploadProgress={uploadProgress}
-          syncStatus={syncStatus}
-          syncLoading={syncLoading}
-          resolveLoading={resolveLoading}
-          resolveStatus={resolveStatus}
-          selectedForRemoval={selectedForRemoval}
-          baseCurrency={baseCurrency}
-          overrides={overrides}
-          overrideMsg={overrideMsg}
-          overrideIsin={overrideIsin}
-          overrideTicker={overrideTicker}
-          showChangePassword={showChangePassword}
-          authForm={authForm}
-          authError={authError}
-          authLoading={authLoading}
-          onUpload={handleUpload}
-          onSync={handleSyncPortfolio}
-          onResolve={handleResolveTickers}
-          onForceResolve={handleForceResolve}
-          onClearTransactions={handleClearTransactions}
-          onToggleRemoval={toggleRemoval}
-          onRemoveSelected={handleRemoveSelected}
-          onClearPortfolio={() => setPortfolio([])}
-          onSetBaseCurrency={setBaseCurrency}
-          onToggleDark={() => setIsDark(p => !p)}
-          onShowChangePassword={() => { setShowChangePassword(true); setAuthError(''); }}
-          onHideChangePassword={() => { setShowChangePassword(false); setAuthError(''); }}
-          onChangePassword={handleChangePassword}
-          onAuthFormChange={(field, val) => setAuthForm(f => ({ ...f, [field]: val }))}
-          onAddOverride={handleAddOverride}
-          onDeleteOverride={handleDeleteOverride}
-          onNavigateHome={() => navigate('/')}
-          onOverrideIsinChange={setOverrideIsin}
-          onOverrideTicerChange={setOverrideTicker}
-        />
 
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-6 pt-6 pb-0">
             <div className="flex items-center gap-3 mb-5">
-              <button onClick={() => setIsSidebarOpen(p => !p)} title="Toggle sidebar"
-                className={`p-2 rounded-lg ${isDark ? 'text-gray-500 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'} transition`}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
-              </button>
               <h1 className="text-xl font-bold tracking-tight flex-1">Portfolio Tracker</h1>
               <button onClick={() => setShowShortcuts(true)} title="Keyboard shortcuts (?)"
                 className={`px-2 py-1 rounded-lg text-xs font-mono font-bold border ${isDark ? 'text-gray-600 border-gray-700 hover:text-white hover:border-gray-500' : 'text-gray-300 border-gray-200 hover:text-gray-900 hover:border-gray-400'} transition`}>?</button>
