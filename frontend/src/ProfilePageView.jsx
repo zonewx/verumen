@@ -291,9 +291,9 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
 
         {/* Item Showcase Section */}
         {showcaseItems && showcaseItems.length > 0 && (
-          <div className={`${card} p-4 mb-3`}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+          <div className={`${card} p-3 mb-2`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className={`text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Item Showcase
               </h3>
               <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -301,15 +301,15 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
               </span>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
               {showcaseItems.map(item => (
-                <div key={item.assetId} className={`${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} rounded-lg p-2 transition cursor-pointer border ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+                <div key={item.assetId} className={`${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} rounded p-1.5 transition cursor-pointer border ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
                   <img 
                     src={item.iconUrl} 
                     alt={item.name}
                     className="w-full aspect-square object-contain mb-1"
                   />
-                  <p className="text-xs text-center truncate font-medium">{item.name}</p>
+                  <p className="text-[10px] text-center truncate">{item.name}</p>
                 </div>
               ))}
             </div>
@@ -318,9 +318,9 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
 
         {/* Portfolio Section */}
         {profile.publicHoldings && (
-          <div className={`${card} p-4`}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+          <div className={`${card} p-3`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className={`text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Portfolio
               </h3>
               {viewingHoldings && (

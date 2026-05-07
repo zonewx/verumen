@@ -600,6 +600,11 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
   if (newUnique.length > 0) {
     const rows = newUnique.map(t => ({ user_id:req.user.id, broker:t.broker, date:t.date, type:t.type, name:t.name, isin:t.isin, raw_ticker:t.rawTicker, ticker:t.ticker, quantity:t.quantity, price:t.price, currency:t.currency, total_sek:t.totalSEK, account:t.account }));
     await supabase.from('transactions').insert(rows);
+    
+    // Log activity only when new transactions are added
+    const { data: holdingsData } = await supabase.from('transactions').select('ticker').eq('user_id', req.user.id).not('ticker', 'is', null);
+    const uniqueTickers = [...new Set((holdingsData || []).map(h => h.ticker))];
+    await appendActivity(req.user.id, 'holdings_update', { holdingCount: uniqueTickers.length, tickers: uniqueTickers.slice(0, 5) });
   }
   const { count: total } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id);
   res.json({ results, newAdded:newUnique.length, total:total||0 });
@@ -717,7 +722,6 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
       avgPrice: h.quantity > 0 ? parseFloat((h.totalCost / h.quantity).toFixed(4)) : 0,
     }));
 
-  if (result.length > 0) await appendActivity(req.user.id, 'holdings_update', { holdingCount: result.length, tickers: result.slice(0,5).map(h => h.ticker) });
   res.json(result);
 });
 
