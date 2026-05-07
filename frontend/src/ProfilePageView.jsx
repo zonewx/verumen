@@ -205,18 +205,18 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
       <div className="max-w-6xl mx-auto px-6 py-6">
         
         {/* Profile Header - Horizontal Steam-Style Layout */}
-        <div className={`${card} p-6 mb-6`}>
-          <div className="flex items-start gap-6">
+        <div className={`${card} p-8 mb-4`}>
+          <div className="flex items-start gap-8">
             {/* Avatar */}
             <div className="shrink-0">
-              <AvatarDisplay src={profile.avatarBase64} username={targetUser} size="w-32 h-32" textSize="text-5xl" />
+              <AvatarDisplay src={profile.avatarBase64} username={targetUser} size="w-40 h-40" textSize="text-6xl" />
             </div>
 
             {/* User Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-3xl font-bold">{targetUser}</h2>
-                <span className="text-2xl">🇸🇪</span>
+                <span className="text-3xl">🇸🇪</span>
+                <h2 className="text-4xl font-bold">{targetUser}</h2>
                 {profile.role && ROLE_BADGE[profile.role] && (
                   <span className={`text-xs px-2.5 py-1 rounded-full ${ROLE_BADGE[profile.role].cls}`}>
                     {ROLE_BADGE[profile.role].label}
@@ -224,37 +224,31 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                 )}
               </div>
               
-              <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Member since {formatDate(profile.createdAt)}
               </p>
 
               {profile.bio && (
-                <p className={`text-sm mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{profile.bio}</p>
+                <p className={`text-base mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{profile.bio}</p>
               )}
 
-              {/* Verification Badges */}
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                {profile.steamVerified && (
-                  <a href={`https://steamcommunity.com/profiles/${profile.steamId}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-green-400 hover:text-green-300 transition">
-                    <span>✓</span>
-                    <span>Steam verified</span>
-                    <span>↗</span>
-                  </a>
-                )}
-                {profile.publicInventory && (
-                  <div className={`flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    <span>✓</span>
-                    <span>Public CS inv.</span>
-                  </div>
-                )}
-                {profile.publicHoldings && (
-                  <div className={`flex items-center gap-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    <span>✓</span>
-                    <span>Public portfolio</span>
-                  </div>
-                )}
-              </div>
+              {/* Steam Verified Badge */}
+              {profile.steamVerified && (
+                <a 
+                  href={`https://steamcommunity.com/profiles/${profile.steamId}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition ${isDark ? 'bg-green-900/30 text-green-400 hover:bg-green-900/40 border border-green-800' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'}`}
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                  </svg>
+                  <span>Steam verified</span>
+                  <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                  </svg>
+                </a>
+              )}
             </div>
 
             {/* Right Side: Level Badge + Edit Button */}
@@ -297,8 +291,8 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
 
         {/* Item Showcase Section */}
         {showcaseItems && showcaseItems.length > 0 && (
-          <div className={`${card} p-5 mb-6`}>
-            <div className="flex items-center justify-between mb-4">
+          <div className={`${card} p-4 mb-3`}>
+            <div className="flex items-center justify-between mb-3">
               <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Item Showcase
               </h3>
@@ -307,13 +301,13 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
               </span>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
               {showcaseItems.map(item => (
-                <div key={item.assetId} className={`${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} rounded-lg p-3 transition cursor-pointer border ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+                <div key={item.assetId} className={`${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} rounded-lg p-2 transition cursor-pointer border ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
                   <img 
                     src={item.iconUrl} 
                     alt={item.name}
-                    className="w-full aspect-square object-contain mb-2"
+                    className="w-full aspect-square object-contain mb-1"
                   />
                   <p className="text-xs text-center truncate font-medium">{item.name}</p>
                 </div>
@@ -324,8 +318,8 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
 
         {/* Portfolio Section */}
         {profile.publicHoldings && (
-          <div className={`${card} p-5`}>
-            <div className="flex items-center justify-between mb-4">
+          <div className={`${card} p-4`}>
+            <div className="flex items-center justify-between mb-3">
               <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Portfolio
               </h3>
