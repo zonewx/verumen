@@ -308,8 +308,6 @@ export default function AdminPanel({ isDark, authUsername }) {
                           <span className="font-bold">{u.username}</span>
                           {u.username === 'admin' && <span className="text-xs bg-red-900/40 text-red-400 border border-red-800 px-2 py-0.5 rounded-full">admin</span>}
                           {u.hasSteam && <span className="text-xs text-orange-400 bg-orange-900/30 px-1.5 py-0.5 rounded-full">Steam</span>}
-                          {u.publicInventory && <span className="text-xs text-green-400 bg-green-900/30 px-1.5 py-0.5 rounded-full">Pub. CS</span>}
-                          {u.publicHoldings && <span className="text-xs text-blue-400 bg-blue-900/30 px-1.5 py-0.5 rounded-full">Pub. Stocks</span>}
                         </div>
                         <div className="grid grid-cols-2 gap-3 mb-3 mt-2">
                           {[
