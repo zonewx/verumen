@@ -23,7 +23,7 @@ function getSteamLevelColors(level) {
     2: { from: '#d97a2b', to: '#b85a1f' },     // 20s: Orange
     3: { from: '#d5b62b', to: '#a38d1f' },     // 30s: Yellow
     4: { from: '#5ea832', to: '#3d7a1f' },     // 40s: Green
-    5: { from: '#5c7e9e', to: '#3d5875' },     // 50s: Blue
+    5: { from: '#3b82f6', to: '#2563eb' },     // 50s: Blue (brighter)
     6: { from: '#8b5fa8', to: '#65437a' },     // 60s: Purple
     7: { from: '#d65c9e', to: '#a34375' },     // 70s: Pink
     8: { from: '#8b2e3a', to: '#5c1f27' },     // 80s: Dark wine-red
@@ -115,7 +115,7 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
       
       // Filter inventory to only include showcase items
       const showcase = data.items
-        ?.filter(item => profile.showcaseItems.includes(item.assetid))
+        ?.filter(item => profile.showcaseItems.includes(item.assetId))
         .slice(0, 10); // Safety limit
       
       setShowcaseItems(showcase || []);
@@ -270,7 +270,7 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                       <div className="absolute inset-0 rounded-full bg-black/20 blur-sm translate-y-0.5"></div>
                       {/* Badge with dynamic colors */}
                       <div 
-                        className="relative w-15 h-15 rounded-full flex items-center justify-center shadow-md"
+                        className="relative w-[60px] h-[60px] rounded-full flex items-center justify-center shadow-md"
                         style={{
                           background: `linear-gradient(to bottom, ${colors.from}, ${colors.to})`
                         }}
@@ -309,13 +309,13 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
             
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {showcaseItems.map(item => (
-                <div key={item.assetid} className={`${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} rounded-lg p-3 transition cursor-pointer border ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+                <div key={item.assetId} className={`${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} rounded-lg p-3 transition cursor-pointer border ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
                   <img 
-                    src={`https://community.cloudflare.steamstatic.com/economy/image/${item.icon_url}`} 
-                    alt={item.market_hash_name}
+                    src={item.iconUrl} 
+                    alt={item.name}
                     className="w-full aspect-square object-contain mb-2"
                   />
-                  <p className="text-xs text-center truncate font-medium">{item.market_hash_name}</p>
+                  <p className="text-xs text-center truncate font-medium">{item.name}</p>
                 </div>
               ))}
             </div>

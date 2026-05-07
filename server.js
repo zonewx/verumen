@@ -732,7 +732,18 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   const fromSEK=(amount)=>{ if(BC==='SEK') return amount; return fxRates[`${BC}SEK=X`]?amount/fxRates[`${BC}SEK=X`]:amount; };
   const FLAGS={ST:'🇸🇪',OL:'🇳🇴',CO:'🇩🇰',HE:'🇫🇮',AS:'🇳🇱',PA:'🇫🇷',DE:'🇩🇪',L:'🇬🇧',MI:'🇮🇹',MC:'🇪🇸',SW:'🇨🇭',TO:'🇨🇦',AX:'🇦🇺',HK:'🇭🇰',T:'🇯🇵'};
   const getFlag=(t)=>{ const p=t.split('.'); return p.length>1?(FLAGS[p[p.length-1]]||'🇺🇸'):'🇺🇸'; };
-  const cleanName=(name)=>name?.replace(/\b(AB|ASA|AS|A\/S|SE|Inc\.|Corp\.|Ltd\.|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi,'').trim()||name;
+  const cleanName=(name)=>{
+    if (!name) return name;
+    return name
+      .replace(/\s*\(publ\.?\)/gi, '')  // (publ) or (publ.)
+      .replace(/\s*\(AB\)/gi, '')       // (AB)
+      .replace(/\bAB\b(?!\w)/gi, '')    // AB at end of name
+      .replace(/\bpubl\.?\b/gi, '')     // publ or publ.
+      .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Inc|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
+      .replace(/\s*[.,;]\s*$/g, '')     // Remove trailing punctuation
+      .replace(/\s+/g, ' ')             // Normalize whitespace
+      .trim();
+  };
   const results=[];
   for (const h of portfolio) {
     try {

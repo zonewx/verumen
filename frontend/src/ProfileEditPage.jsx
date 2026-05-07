@@ -9,7 +9,7 @@ const ROLE_BADGE = {
 function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl' }) {
   if (src) return <img src={src} alt={username} className={`${size} rounded-full object-cover border-4 border-gray-700`} />;
   const initial = username?.[0]?.toUpperCase() || '?';
-  return <div className={`${size} rounded-full bg-linear-to-br from-blue-600 to-blue-800 flex items-center justify-center ${textSize} font-bold text-white border-4 border-gray-700`}>{initial}</div>;
+  return <div className={`${size} rounded-full bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center ${textSize} font-bold text-white border-4 border-gray-700`}>{initial}</div>;
 }
 
 const Toggle = ({ value, onChange }) => (
@@ -293,11 +293,11 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                 ) : inventory.length > 0 ? (
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-96 overflow-y-auto p-2 rounded-lg" style={{ scrollbarWidth: 'thin' }}>
                     {inventory.map(item => {
-                      const isSelected = selectedShowcaseItems.includes(item.assetid);
+                      const isSelected = selectedShowcaseItems.includes(item.assetId);
                       return (
                         <button
-                          key={item.assetid}
-                          onClick={() => toggleShowcaseItem(item.assetid)}
+                          key={item.assetId}
+                          onClick={() => toggleShowcaseItem(item.assetId)}
                           className={`relative p-2 rounded-lg transition border-2 ${
                             isSelected 
                               ? 'border-blue-500 bg-blue-500/20' 
@@ -308,12 +308,12 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                           disabled={!isSelected && selectedShowcaseItems.length >= 10}
                         >
                           <img 
-                            src={`https://community.cloudflare.steamstatic.com/economy/image/${item.icon_url}`} 
-                            alt={item.market_hash_name}
+                            src={item.iconUrl} 
+                            alt={item.name}
                             className="w-full aspect-square object-contain mb-1"
                           />
                           <p className={`text-xs text-center truncate ${isSelected ? 'font-semibold text-blue-400' : isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {item.market_hash_name}
+                            {item.name}
                           </p>
                           {isSelected && (
                             <div className="absolute top-1 right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
