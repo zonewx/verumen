@@ -61,7 +61,7 @@ function getExchangeFlag(ticker) {
   return 'us'; // Default to US for no suffix
 }
 
-function FlagIcon({ ticker, size = 'w-10 h-10' }) {
+function FlagIcon({ ticker, size = 'w-8 h-6' }) {
   const countryCode = getExchangeFlag(ticker);
   return (
     <img 
@@ -373,7 +373,7 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                     return (
                       <div key={h.ticker} className={`flex flex-col gap-1.5 p-3 rounded-lg ${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} transition`}>
                         <div className="flex items-center gap-3">
-                          <FlagIcon ticker={h.ticker} size="w-10 h-10" />
+                          <FlagIcon ticker={h.ticker} />
                           {/* Name & Ticker */}
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm truncate">{cleanCompanyName}</p>
