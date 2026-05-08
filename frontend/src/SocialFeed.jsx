@@ -261,34 +261,34 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
           {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg}</div>}
         </div>
 
-        {/* Announcements */}
-        {announcements.length > 0 && (
-          <div className="flex flex-col gap-2 mb-6">
-            {announcements.map(a => {
-              const styles = {
-                info:    'bg-blue-900/30 border-blue-800 text-blue-300',
-                warning: 'bg-yellow-900/30 border-yellow-800 text-yellow-300',
-                success: 'bg-green-900/30 border-green-800 text-green-300',
-                error:   'bg-red-900/30 border-red-800 text-red-300',
-              };
-              const icons = { info: 'ℹ️', warning: '⚠️', success: '✅', error: '🚨' };
-              return (
-                <div key={a.id} className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${styles[a.type] || styles.info}`}>
-                  <span className="shrink-0 mt-0.5">{icons[a.type] || 'ℹ️'}</span>
-                  <div className="flex-1 min-w-0">
-                    <span className="font-semibold">{a.title}</span>
-                    {a.message && <span className="ml-2 opacity-80">{a.message}</span>}
-                  </div>
-                  <span className="text-xs opacity-50 shrink-0">by {a.posted_by}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         <div className="flex gap-6">
           {/* Left: Feed */}
           <div className="flex-1 min-w-0">
+
+            {/* Announcements */}
+            {announcements.length > 0 && (
+              <div className="flex flex-col gap-2 mb-4">
+                {announcements.map(a => {
+                  const styles = {
+                    info:    'bg-blue-900/30 border-blue-800 text-blue-300',
+                    warning: 'bg-yellow-900/30 border-yellow-800 text-yellow-300',
+                    success: 'bg-green-900/30 border-green-800 text-green-300',
+                    error:   'bg-red-900/30 border-red-800 text-red-300',
+                  };
+                  const icons = { info: 'ℹ️', warning: '⚠️', success: '✅', error: '🚨' };
+                  return (
+                    <div key={a.id} className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${styles[a.type] || styles.info}`}>
+                      <span className="shrink-0 mt-0.5">{icons[a.type] || 'ℹ️'}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold">{a.title}</span>
+                        {a.message && <span className="ml-2 opacity-80">{a.message}</span>}
+                      </div>
+                      <span className="text-xs opacity-50 shrink-0">by {a.posted_by}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="flex items-center justify-between mb-4">
               <div className={`flex gap-0 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                 {[['feed','Feed'],['mine','My Posts']].map(([id, label]) => (

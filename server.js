@@ -925,11 +925,19 @@ app.post('/api/friends/remove/:username', requireUser, async (req, res) => {
 // ── Activity feed ───────────────────────────────────────────────────────────
 app.get('/api/feed', requireUser, async (req, res) => {
   try {
-    const { data: friendships } = await supabase.from('friendships').select('requester_id, addressee_id').or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`).eq('status', 'accepted');
-    const friendIds = (friendships||[]).map(f=>f.requester_id===req.user.id?f.addressee_id:f.requester_id);
+    // Fetch all friendships involving this user, filter accepted in JS
+    // (chaining .or() + .eq() in Supabase can produce unexpected results)
+    const { data: friendships } = await supabase
+      .from('friendships')
+      .select('requester_id, addressee_id, status')
+      .or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`);
+
+    const friendIds = (friendships||[])
+      .filter(f => f.status === 'accepted')
+      .map(f => f.requester_id === req.user.id ? f.addressee_id : f.requester_id);
+
     const allIds = [...new Set([...friendIds, req.user.id])];
 
-    // Fetch activity and profiles separately — Supabase can't auto-join activity->profiles via auth.users
     const [{ data: activity }, { data: profiles }] = await Promise.all([
       supabase.from('activity').select('id, user_id, type, payload, created_at').in('user_id', allIds).order('created_at', { ascending:false }).limit(50),
       supabase.from('profiles').select('id, username, avatar_base64, role').in('id', allIds),
