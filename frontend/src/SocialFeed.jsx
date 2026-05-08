@@ -196,8 +196,19 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
   };
 
   const deleteActivity = async (id) => {
-    await fetch(`/api/activity/${id}`, { method: 'DELETE', headers: h });
+    // Optimistic update — remove immediately
     setFeed(f => f.filter(item => String(item.id) !== String(id)));
+    try {
+      const authHeader = sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {};
+      const res = await fetch(`/api/activity/${id}`, { method: 'DELETE', headers: authHeader });
+      if (!res.ok) {
+        console.error('Delete failed:', res.status);
+        fetchFeed();
+      }
+    } catch(e) {
+      console.error('Delete error:', e);
+      fetchFeed();
+    }
   };
 
   const handleImageUpload = (file) => {
