@@ -150,7 +150,7 @@ export default function Sidebar({ currentUser, onLogout }) {
   });
 
   return (
-    <div className={`${sidebarWidth} ${bg} border-r transition-all duration-300 flex flex-col h-screen sticky top-0`}>
+    <div className={`${sidebarWidth} ${bg} border-r transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
       {/* Header with hamburger */}
       <div className="p-4 border-b border-gray-800 flex items-center justify-between">
         <button
