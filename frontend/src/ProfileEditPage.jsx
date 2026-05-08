@@ -28,6 +28,9 @@ export default function ProfileEditPage({ isDark, authUsername }) {
   const [steamLookupLoading, setSteamLookupLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [usernameMsg, setUsernameMsg] = useState('');
+  const [usernameLoading, setUsernameLoading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   
   // Showcase items state
@@ -146,6 +149,29 @@ export default function ProfileEditPage({ isDark, authUsername }) {
     setSaving(false);
   }
 
+  async function handleUsernameChange() {
+    if (!newUsername.trim()) return;
+    if (newUsername.trim() === authUsername) { setUsernameMsg('That is already your username.'); return; }
+    setUsernameLoading(true); setUsernameMsg('');
+    try {
+      const res = await fetch(`/api/users/${authUsername}/username`, {
+        method: 'PUT',
+        headers: { ...h, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newUsername: newUsername.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        sessionStorage.setItem('auth_username', data.username);
+        setUsernameMsg('✓ Username changed! Redirecting...');
+        window.dispatchEvent(new Event('profile-updated'));
+        setTimeout(() => { window.location.href = '/profile'; }, 1500);
+      } else {
+        setUsernameMsg(data.error || 'Failed to change username.');
+      }
+    } catch(e) { setUsernameMsg('Error changing username.'); }
+    setUsernameLoading(false);
+  }
+
   function handleAvatarUpload(file) {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { alert('Image must be under 2 MB'); return; }
@@ -243,6 +269,37 @@ export default function ProfileEditPage({ isDark, authUsername }) {
 
           {/* Right: Edit Fields */}
           <div className="lg:col-span-2 flex flex-col gap-4">
+
+            {/* Username */}
+            <div className={`${card} p-6`}>
+              <label className={labelCls}>Username</label>
+              <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                Current: <span className="font-semibold text-white">{authUsername}</span>
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={newUsername}
+                  onChange={e => { setNewUsername(e.target.value); setUsernameMsg(''); }}
+                  placeholder="New username..."
+                  maxLength={20}
+                  className={`${inputCls} flex-1`}
+                />
+                <button
+                  onClick={handleUsernameChange}
+                  disabled={usernameLoading || !newUsername.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition shrink-0"
+                >
+                  {usernameLoading ? 'Saving...' : 'Change'}
+                </button>
+              </div>
+              <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>3–20 characters, letters, numbers and underscores only.</p>
+              {usernameMsg && (
+                <p className={`text-xs mt-2 font-medium ${usernameMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
+                  {usernameMsg}
+                </p>
+              )}
+            </div>
+
             {/* Bio */}
             <div className={`${card} p-6`}>
               <label className={labelCls}>Bio</label>

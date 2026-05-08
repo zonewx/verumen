@@ -172,13 +172,27 @@ app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   if (showPortfolioValue !== undefined) update.show_portfolio_value = showPortfolioValue;
   if (avatarBase64 !== undefined) update.avatar_base64 = avatarBase64;
   if (showcaseItems !== undefined) {
-    // Limit to 10 items
     const items = Array.isArray(showcaseItems) ? showcaseItems.slice(0, 10) : [];
     update.showcase_items = items;
   }
   const { data, error } = await supabase.from('profiles').update(update).eq('id', req.user.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, profile: { username: data.username, bio: data.bio, steamId: data.steam_id, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, avatarBase64: data.avatar_base64, showcaseItems: data.showcase_items, steamLevel: data.steam_level } });
+});
+
+// Change username
+app.put('/api/users/:username/username', requireUser, async (req, res) => {
+  if (req.username !== req.params.username) return res.status(403).json({ error: "Cannot edit another user's profile." });
+  const { newUsername } = req.body;
+  if (!newUsername) return res.status(400).json({ error: 'Username is required.' });
+  // Validate format: 3-20 chars, letters/numbers/underscores only
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(newUsername)) return res.status(400).json({ error: 'Username must be 3-20 characters and contain only letters, numbers, and underscores.' });
+  // Check uniqueness (case-insensitive)
+  const { data: existing } = await supabase.from('profiles').select('id').ilike('username', newUsername).single();
+  if (existing && existing.id !== req.user.id) return res.status(409).json({ error: 'Username is already taken.' });
+  const { data, error } = await supabase.from('profiles').update({ username: newUsername }).eq('id', req.user.id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true, username: data.username });
 });
 
 app.get('/api/users/:username/holdings', async (req, res) => {
