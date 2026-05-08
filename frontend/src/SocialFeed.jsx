@@ -142,17 +142,14 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
       const token = sessionStorage.getItem('auth_token');
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const res = await fetch('/api/feed', { headers });
-      if (!res.ok) {
-        console.error('Feed API error:', res.status, await res.text());
+      if (res.status === 401) {
+        window.dispatchEvent(new Event('session-expired'));
         setFeedLoading(false);
         return;
       }
+      if (!res.ok) { setFeedLoading(false); return; }
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setFeed(data);
-      } else {
-        console.error('Feed returned non-array:', data);
-      }
+      if (Array.isArray(data)) setFeed(data);
     } catch(e) {
       console.error('Feed fetch error:', e);
     }

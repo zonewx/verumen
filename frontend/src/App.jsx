@@ -22,6 +22,7 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
   const [announcements, setAnnouncements] = useState([]);
   const [userRole, setUserRole] = useState('user');
   const [allowRegistration, setAllowRegistration] = useState(true);
@@ -71,15 +72,25 @@ export default function App() {
   const globalSearchRef = useRef(null);
 
   // ── API helper ─────────────────────────────────────────────────────────────
-  const apiFetch = useCallback((url, opts = {}) => {
+  const apiFetch = useCallback(async (url, opts = {}) => {
     const token = sessionStorage.getItem('auth_token');
-    return fetch(url, {
+    const res = await fetch(url, {
       ...opts,
       headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...(opts.headers || {}) }
     });
+    if (res.status === 401) {
+      handleLogout('Your session has expired. Please sign in again.');
+    }
+    return res;
   }, []);
 
   // ── Token refresh ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = () => handleLogout('Your session has expired. Please sign in again.');
+    window.addEventListener('session-expired', handler);
+    return () => window.removeEventListener('session-expired', handler);
+  }, []);
+
   useEffect(() => {
     if (authStatus !== 'logged-in') return;
     // Refresh token every 45 minutes (tokens expire after 60 min)
@@ -152,13 +163,14 @@ export default function App() {
     setAuthLoading(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = (msg = '') => {
     sessionStorage.removeItem('auth_user');
     setAuthStatus('logged-out'); setAuthUsername('');
     setAuthForm({ username: '', password: '', confirmPassword: '', newPassword: '' });
     navigate('/');
     setPortfolio([]); setDashboardData(null); setUserRole('user');
     sessionStorage.removeItem('auth_role'); sessionStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_refresh');
+    if (msg) setSessionExpiredMsg(msg);
   };
 
   const handleChangePassword = async () => {
@@ -809,6 +821,12 @@ export default function App() {
             </div>
           </div>
           <div className="p-8">
+            {sessionExpiredMsg && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 mb-5 text-sm text-blue-400 flex items-start gap-2">
+                <span className="shrink-0">ℹ️</span>
+                <span>{sessionExpiredMsg}</span>
+              </div>
+            )}
             {authError && <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 mb-5 text-sm text-red-400">{authError}</div>}
             <div className="flex flex-col gap-4">
               {['username','password',...(isSignup?['confirmPassword']:[])].map(field => (
