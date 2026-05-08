@@ -94,6 +94,14 @@ export default function Sidebar({ currentUser, onLogout }) {
       subItems: null
     },
     {
+      id: 'moderator',
+      label: 'Moderator',
+      icon: Shield,
+      path: '/moderator',
+      subItems: null,
+      moderatorOnly: true
+    },
+    {
       id: 'admin',
       label: 'Admin',
       icon: Shield,
@@ -144,7 +152,10 @@ export default function Sidebar({ currentUser, onLogout }) {
   // Filter menu items based on user role
   const visibleMenuItems = menuItems.filter(item => {
     if (item.adminOnly) {
-      return currentUser?.role === 'admin' || currentUser?.role === 'moderator';
+      return currentUser?.role === 'admin';
+    }
+    if (item.moderatorOnly) {
+      return currentUser?.role === 'moderator';
     }
     return true;
   });
@@ -155,14 +166,16 @@ export default function Sidebar({ currentUser, onLogout }) {
       <div className="p-4 border-b border-gray-800 flex items-center justify-between">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className={`p-2 rounded-lg ${hoverBg} transition-colors`}
+          className={`p-2 rounded-lg ${hoverBg} transition-colors shrink-0`}
           title={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           <Menu size={20} className={textPrimary} />
         </button>
         {isExpanded && (
-          <h1 className={`text-lg font-bold ${textPrimary}`}>Verumen</h1>
+          <h1 className={`text-lg font-bold ${textPrimary} flex-1 text-center`}>Verumen</h1>
         )}
+        {/* Spacer to keep text centered when expanded */}
+        {isExpanded && <div className="w-9 shrink-0" />}
       </div>
 
       {/* Navigation */}

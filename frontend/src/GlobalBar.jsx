@@ -65,18 +65,13 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
 
   return (
     <div className={`fixed top-0 left-0 right-0 z-50 h-12 flex items-center px-4 gap-3 border-b ${isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
-      {/* Left — Logo */}
-      <button onClick={() => onNavigate('home')} className="flex items-center gap-2 shrink-0 hover:opacity-80 transition">
-        <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
-          <rect width="28" height="28" rx="6" fill="#0f1e3c"/>
-          <path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-        <span className="text-sm font-bold hidden sm:block">Verumen</span>
-      </button>
-
-      {/* Middle — Search */}
+      {/* Middle — Logo + Search */}
       <div ref={searchRef} className="flex-1 max-w-md mx-auto relative">
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+          <svg width="16" height="16" viewBox="0 0 28 28" fill="none" className="shrink-0">
+            <rect width="28" height="28" rx="6" fill="#0f1e3c"/>
+            <path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isDark ? 'text-gray-500' : 'text-gray-400'}>
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
