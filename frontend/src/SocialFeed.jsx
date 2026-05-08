@@ -232,7 +232,7 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
   };
 
   const postScreenshot = async () => {
-    if (!uploadForm.imageBase64) { flash('Select an image first'); return; }
+    if (!uploadForm.skinName.trim()) { flash('Enter a skin name first'); return; }
     setUploading(true);
     try {
       const res = await fetch('/api/activity/screenshot', { method: 'POST', headers: h, body: JSON.stringify(uploadForm) });
@@ -326,7 +326,7 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
                     <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e.target.files[0])} />
                   </label>
                   <div className="flex gap-2">
-                    <button onClick={postScreenshot} disabled={uploading || !uploadForm.imageBase64} className={btnPrimary}>{uploading ? 'Posting...' : 'Post'}</button>
+                    <button onClick={postScreenshot} disabled={uploading || !uploadForm.skinName.trim()} className={btnPrimary}>{uploading ? 'Posting...' : 'Post'}</button>
                     <button onClick={() => { setShowUpload(false); setUploadForm({ skinName: '', caption: '', imageBase64: null }); }} className={btnGhost}>Cancel</button>
                   </div>
                 </div>
