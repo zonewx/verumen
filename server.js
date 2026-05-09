@@ -611,12 +611,10 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
   };
   const existingIds = new Set((existing||[]).map(dedupKey));
   const newUnique = allNew.filter(t => !existingIds.has(dedupKey(t)));
-  for (const tx of newUnique) {
-    if ((tx.type==='buy'||tx.type==='sell'||tx.type==='other'||tx.type==='withdrawal') && !tx.ticker && (tx.rawTicker||tx.isin)) {
-      tx.ticker = await resolveSymbol(tx.rawTicker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id) || '';
-      await new Promise(r => setTimeout(r, 150));
-    }
-  }
+  
+  // Skip ticker resolution during upload to prevent timeouts with large CSVs
+  // User will resolve tickers afterward using the "Resolve Tickers" button
+  
   if (newUnique.length > 0) {
     const rows = newUnique.map(t => ({ user_id:req.user.id, broker:t.broker, date:t.date, type:t.type, name:t.name, isin:t.isin, raw_ticker:t.rawTicker, ticker:t.ticker, quantity:t.quantity, price:t.price, currency:t.currency, total_sek:t.totalSEK, account:t.account }));
     await supabase.from('transactions').insert(rows);
@@ -631,35 +629,62 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
 });
 
 app.post('/api/transactions/resolve', requireUser, async (req, res) => {
-  const { force } = req.body; // New: force re-resolve all tickers
+  const { force, limit } = req.body; // limit for chunked processing
   
   if (force) {
     // Clear all ticker cache entries for this user
     await supabase.from('ticker_cache').delete().eq('user_id', req.user.id);
-    // Get ALL transactions with tickers to re-resolve
-    const { data: allTxs } = await supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker').eq('user_id', req.user.id).in('type', ['buy','sell','other','withdrawal']);
-    let resolved = 0;
-    for (const tx of (allTxs||[])) {
-      const ticker = await resolveSymbol(tx.raw_ticker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id);
-      if (ticker && ticker !== tx.ticker) { 
-        await supabase.from('transactions').update({ ticker }).eq('id', tx.id); 
-        resolved++; 
-      }
-      await new Promise(r => setTimeout(r, 150));
-    }
-    return res.json({ resolved, total:(allTxs||[]).length, forced: true });
   }
   
-  // Normal mode: only resolve unresolved transactions
-  const { data: unresolved } = await supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker').eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
-  await supabase.from('ticker_cache').delete().eq('user_id', req.user.id).is('ticker', null);
-  let resolved = 0;
-  for (const tx of (unresolved||[])) {
-    const ticker = await resolveSymbol(tx.raw_ticker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id);
-    if (ticker) { await supabase.from('transactions').update({ ticker }).eq('id', tx.id); resolved++; }
-    await new Promise(r => setTimeout(r, 150));
+  // Get unresolved transactions (or all if force=true)
+  let query = supabase
+    .from('transactions')
+    .select('id, raw_ticker, isin, name, currency, broker, ticker')
+    .eq('user_id', req.user.id)
+    .in('type', ['buy','sell','other','withdrawal']);
+  
+  if (!force) {
+    query.or('ticker.is.null,ticker.eq.');
   }
-  res.json({ resolved, total:(unresolved||[]).length });
+  
+  // Apply limit for chunked processing (default: resolve all)
+  if (limit && limit > 0) {
+    query.limit(limit);
+  }
+  
+  const { data: unresolvedTxs } = await query;
+  
+  // Get total count of remaining unresolved
+  const { count: totalUnresolved } = await supabase
+    .from('transactions')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', req.user.id)
+    .in('type', ['buy','sell','other','withdrawal'])
+    .or('ticker.is.null,ticker.eq.');
+  
+  if (!unresolvedTxs || unresolvedTxs.length === 0) {
+    return res.json({ resolved: 0, total: 0, remaining: 0, forced: !!force });
+  }
+  
+  // Use batch resolution for better performance
+  const tickerResults = await resolveSymbolBatch(unresolvedTxs, req.user.id);
+  
+  // Update resolved tickers in database
+  let resolved = 0;
+  for (const tx of unresolvedTxs) {
+    const ticker = tickerResults[tx.id];
+    if (ticker && ticker !== tx.ticker) {
+      await supabase.from('transactions').update({ ticker }).eq('id', tx.id);
+      resolved++;
+    }
+  }
+  
+  res.json({ 
+    resolved, 
+    total: unresolvedTxs.length, 
+    remaining: Math.max(0, (totalUnresolved || 0) - unresolvedTxs.length),
+    forced: !!force 
+  });
 });
 
 app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {

@@ -294,46 +294,80 @@ export default function App() {
     setSyncLoading(false);
   };
 
-  const handleUpload = async (files) => {
-    if (!files.length) return;
-    setUploadLoading(true); setUploadStatus(null); setSyncStatus(''); setUploadProgress(null);
+  // Replace your existing handleUpload function in App.jsx with this:
+
+const handleUpload = async (files) => {
+  if (!files.length) return;
+  setUploadLoading(true); setUploadStatus(null); setSyncStatus(''); setUploadProgress(null);
+  
+  const updateProgress = (phase, pct, label) => setUploadProgress({ phase, pct, label });
+  
+  try {
+    updateProgress('parsing', 10, 'Reading CSV files...');
+    const payloads = await Promise.all(Array.from(files).map(readFile));
     
-    const updateProgress = (phase, pct, label) => setUploadProgress({ phase, pct, label });
+    // Count total transactions in CSV
+    let totalTxCount = 0;
+    payloads.forEach(p => {
+      const lines = p.content.split('\n').filter(l => l.trim());
+      totalTxCount += Math.max(0, lines.length - 1);
+    });
     
-    try {
-      updateProgress('parsing', 10, 'Reading CSV files...');
-      const payloads = await Promise.all(Array.from(files).map(readFile));
-      
-      // Count total transactions in CSV
-      let totalTxCount = 0;
-      payloads.forEach(p => {
-        const lines = p.content.split('\n').filter(l => l.trim());
-        totalTxCount += Math.max(0, lines.length - 1); // Exclude header
-      });
-      
-      updateProgress('uploading', 30, `Detecting broker format...`);
-      await new Promise(r => setTimeout(r, 300));
-      
-      updateProgress('processing', 50, `Processing ${totalTxCount} transactions...`);
-      const res = await apiFetch('/api/transactions/upload', { method: 'POST', body: JSON.stringify({ files: payloads }) });
-      const data = await res.json();
-      
-      updateProgress('resolving', 70, `Resolved ${data.newAdded || 0} new transactions`);
-      await new Promise(r => setTimeout(r, 200));
-      
-      setUploadStatus({ results: data.results, newAdded: data.newAdded ?? 0, total: data.total ?? 0 });
-      
-      updateProgress('syncing', 85, 'Building portfolio...');
-      await handleSyncPortfolio();
-      
-      updateProgress('done', 100, `✓ Imported ${data.newAdded ?? 0} transactions`);
+    updateProgress('uploading', 30, `Processing ${totalTxCount} transactions...`);
+    const res = await apiFetch('/api/transactions/upload', { method: 'POST', body: JSON.stringify({ files: payloads }) });
+    const data = await res.json();
+    
+    setUploadStatus({ results: data.results, newAdded: data.newAdded ?? 0, total: data.total ?? 0 });
+    
+    if (data.newAdded === 0) {
+      updateProgress('done', 100, '✓ No new transactions (all duplicates)');
       setTimeout(() => setUploadProgress(null), 3000);
-    } catch { 
-      setUploadStatus({ error: 'Upload failed.' }); 
-      setUploadProgress(null);
+      setUploadLoading(false);
+      return;
     }
-    setUploadLoading(false);
-  };
+    
+    // Auto-resolve tickers in chunks
+    updateProgress('resolving', 40, 'Resolving tickers...');
+    let totalResolved = 0;
+    let remaining = data.newAdded;
+    const CHUNK_SIZE = 50; // Resolve 50 at a time to avoid timeout
+    
+    while (remaining > 0) {
+      const chunkRes = await apiFetch('/api/transactions/resolve', { 
+        method: 'POST', 
+        body: JSON.stringify({ limit: CHUNK_SIZE }) 
+      });
+      const chunkData = await chunkRes.json();
+      
+      totalResolved += chunkData.resolved || 0;
+      remaining = chunkData.remaining || 0;
+      
+      const progress = 40 + Math.floor(((totalResolved / data.newAdded) * 40));
+      updateProgress('resolving', progress, `Resolved ${totalResolved}/${data.newAdded} tickers...`);
+      
+      if (remaining === 0) break;
+      await new Promise(r => setTimeout(r, 100)); // Small delay between chunks
+    }
+    
+    // Auto-sync portfolio
+    updateProgress('syncing', 85, 'Building portfolio...');
+    const syncRes = await apiFetch('/api/transactions/reconstruct');
+    const reconstructed = await syncRes.json();
+    
+    if (reconstructed.length > 0) {
+      setPortfolio(reconstructed);
+      updateProgress('done', 100, `✓ Imported ${data.newAdded} transactions, ${reconstructed.length} holdings`);
+    } else {
+      updateProgress('done', 100, `✓ Imported ${data.newAdded} transactions`);
+    }
+    
+    setTimeout(() => setUploadProgress(null), 4000);
+  } catch (err) { 
+    setUploadStatus({ error: 'Upload failed: ' + err.message }); 
+    setUploadProgress(null);
+  }
+  setUploadLoading(false);
+};
 
   const handleResolveTickers = async () => {
     setResolveLoading(true); setResolveStatus('Resolving tickers...');
