@@ -603,8 +603,12 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
     try { const { broker, rows } = detectBrokerAndParse(name, content); results.push({ file:name, broker, count:rows.length }); allNew = allNew.concat(rows); }
     catch(e) { results.push({ file:name, error:e.message }); }
   }
-  const { data: existing } = await supabase.from('transactions').select('broker, date, type, isin, quantity, price').eq('user_id', req.user.id);
-  const dedupKey = t => `${t.broker||''}|${t.date||''}|${t.type||''}|${t.isin||''}|${Math.round((t.quantity||0)*10000)}|${Math.round((t.price||0)*10000)}`;
+  const { data: existing } = await supabase.from('transactions').select('broker, date, type, isin, raw_ticker, name, quantity, price').eq('user_id', req.user.id);
+  const dedupKey = t => {
+    // Use ISIN as primary identifier, fall back to raw_ticker, then name
+    const identifier = (t.isin || t.raw_ticker || t.rawTicker || t.name || '').trim().toUpperCase();
+    return `${t.broker||''}|${t.date||''}|${t.type||''}|${identifier}|${Math.round((t.quantity||0)*10000)}|${Math.round((t.price||0)*10000)}`;
+  };
   const existingIds = new Set((existing||[]).map(dedupKey));
   const newUnique = allNew.filter(t => !existingIds.has(dedupKey(t)));
   for (const tx of newUnique) {
