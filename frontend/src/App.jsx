@@ -34,7 +34,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedForRemoval, setSelectedForRemoval] = useState([]);
-  const [txCount, setTxCount] = useState({ total: 0, trades: 0 });
   const [dividends, setDividends] = useState(null);
   const [overrides, setOverrides] = useState({});
   const [overrideIsin, setOverrideIsin] = useState('');
