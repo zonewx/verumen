@@ -315,7 +315,13 @@ const handleUpload = async (files) => {
     });
     
     updateProgress('uploading', 30, `Processing ${totalTxCount} transactions...`);
-    const res = await apiFetch('/api/transactions/upload', { method: 'POST', body: JSON.stringify({ files: payloads }) });
+    const res = await apiFetch('/api/transactions/upload', { 
+      method: 'POST', 
+      body: JSON.stringify({ 
+        files: payloads,
+        forceBroker: selectedBroker !== 'auto' ? selectedBroker : null 
+      }) 
+    });
     const data = await res.json();
     
     setUploadStatus({ results: data.results, newAdded: data.newAdded ?? 0, total: data.total ?? 0 });
@@ -1118,33 +1124,36 @@ const handleUpload = async (files) => {
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <Sidebar 
-        currentUser={{ username: authUsername, role: userRole }}
-        onLogout={handleLogout}
-        isDark={isDark}
-        portfolioActions={{
-          txCount, uploadLoading, uploadStatus, uploadProgress,
-          syncLoading, syncStatus, resolveLoading, resolveStatus,
-          onUpload: handleUpload,
-          onSync: handleSyncPortfolio,
-          onResolve: handleResolveTickers,
-          portfolio, selectedForRemoval,
-          onToggleRemoval: toggleRemoval,
-          onRemoveSelected: handleRemoveSelected,
-          onForceResolve: handleForceResolve,
-          baseCurrency, onSetBaseCurrency: setBaseCurrency,
-          overrideIsin, overrideTicker, overrides, overrideMsg,
-          onOverrideIsinChange: setOverrideIsin,
-          onOverrideTickerChange: setOverrideTicker,
-          onAddOverride: handleAddOverride,
-          onDeleteOverride: handleDeleteOverride,
-          authForm, authError, authLoading,
-          onAuthFormChange: (field, val) => setAuthForm(f => ({ ...f, [field]: val })),
-          onChangePassword: handleChangePassword,
-          onClearPortfolio: () => setPortfolio([]),
-          onClearTransactions: handleClearTransactions,
-          onClearAll: handleClearAll,
-        }}
-      />
+      currentUser={{ username: authUsername, role: userRole }}
+      onLogout={handleLogout}
+      isDark={isDark}
+      selectedBroker={selectedBroker}
+      onBrokerChange={setSelectedBroker}
+      portfolioActions={{
+        txCount, uploadLoading, uploadStatus, uploadProgress,
+        syncLoading, syncStatus, resolveLoading, resolveStatus,
+        onUpload: handleUpload,
+        onSync: handleSyncPortfolio,
+        onResolve: handleResolveTickers,
+        portfolio, selectedForRemoval,
+        onToggleRemoval: toggleRemoval,
+        onRemoveSelected: handleRemoveSelected,
+        onForceResolve: handleForceResolve,
+        baseCurrency, onSetBaseCurrency: setBaseCurrency,
+        overrideIsin, overrideTicker, overrides, overrideMsg,
+        onOverrideIsinChange: setOverrideIsin,
+        onOverrideTickerChange: setOverrideTicker,
+        onAddOverride: handleAddOverride,
+        onDeleteOverride: handleDeleteOverride,
+        authForm, authError, authLoading,
+        onAuthFormChange: (field, val) => setAuthForm(f => ({ ...f, [field]: val })),
+        onChangePassword: handleChangePassword,
+        onClearPortfolio: () => setPortfolio([]),
+        onClearTransactions: handleClearTransactions,
+        onClearAll: handleClearAll,
+        onClearBroker: handleClearBroker,
+      }}
+    />
       
       {/* Main content area */}
       <div className="flex-1 overflow-hidden">
