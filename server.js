@@ -586,21 +586,44 @@ app.get('/api/transactions', requireUser, async (req, res) => {
 app.get('/api/transactions/count', requireUser, async (req, res) => {
   const { count: total } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id);
   const { count: trades } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id).in('type', ['buy','sell']);
-  res.json({ total: total||0, trades: trades||0 });
+  
+  // Get counts by broker
+  const { data: brokerData } = await supabase.from('transactions').select('broker').eq('user_id', req.user.id);
+  const byBroker = {};
+  (brokerData || []).forEach(t => {
+    const b = t.broker || 'unknown';
+    byBroker[b] = (byBroker[b] || 0) + 1;
+  });
+  
+  res.json({ total: total||0, trades: trades||0, byBroker });
 });
 
 app.delete('/api/transactions', requireUser, async (req, res) => {
-  await supabase.from('transactions').delete().eq('user_id', req.user.id);
-  res.json({ success: true });
+  const { broker } = req.query; // Optional: delete only specific broker
+  
+  if (broker) {
+    await supabase.from('transactions').delete().eq('user_id', req.user.id).eq('broker', broker);
+    res.json({ success: true, broker });
+  } else {
+    await supabase.from('transactions').delete().eq('user_id', req.user.id);
+    res.json({ success: true });
+  }
 });
 
 app.post('/api/transactions/upload', requireUser, async (req, res) => {
-  const { files } = req.body;
+  const { files, forceBroker } = req.body; // Add forceBroker parameter
   if (!files?.length) return res.status(400).json({ error: 'No files provided' });
   const results = [];
   let allNew = [];
   for (const { name, content } of files) {
-    try { const { broker, rows } = detectBrokerAndParse(name, content); results.push({ file:name, broker, count:rows.length }); allNew = allNew.concat(rows); }
+    try { 
+      const { broker, rows } = detectBrokerAndParse(name, content); 
+      const finalBroker = forceBroker || broker; // Use forced broker if provided
+      results.push({ file:name, broker: finalBroker, count:rows.length }); 
+      // Override broker in all rows
+      const updatedRows = rows.map(r => ({ ...r, broker: finalBroker }));
+      allNew = allNew.concat(updatedRows); 
+    }
     catch(e) { results.push({ file:name, error:e.message }); }
   }
   const { data: existing } = await supabase.from('transactions').select('broker, date, type, isin, raw_ticker, name, quantity, price').eq('user_id', req.user.id);

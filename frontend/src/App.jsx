@@ -70,6 +70,8 @@ export default function App() {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') !== 'light');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const globalSearchRef = useRef(null);
+  const [selectedBroker, setSelectedBroker] = useState('auto');
+  const [txCount, setTxCount] = useState({ total: 0, trades: 0, byBroker: {} });
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -428,6 +430,21 @@ const handleUpload = async (files) => {
     await apiFetch('/api/transactions', { method: 'DELETE' });
     setTxCount({ total: 0, trades: 0 }); setPortfolio([]); setUploadStatus(null); setDividends(null); setSyncStatus('History cleared.');
   };
+
+  const handleClearBroker = async (broker) => {
+  if (!confirm(`Delete all ${broker} transactions? This cannot be undone.`)) return;
+  
+  try {
+    await apiFetch(`/api/transactions?broker=${broker}`, { method: 'DELETE' });
+    const res = await apiFetch('/api/transactions/count');
+    setTxCount(await res.json());
+    setPortfolio([]);
+    setSyncStatus(`${broker} transactions cleared. Upload new CSV or sync remaining data.`);
+    setTimeout(() => setSyncStatus(''), 5000);
+  } catch (err) {
+    setSyncStatus('Error clearing transactions: ' + err.message);
+  }
+};
 
   const handleClearAll = async () => {
     if (!confirm('This will permanently delete all portfolio holdings and transaction history. This cannot be undone. Continue?')) return;
