@@ -996,6 +996,29 @@ export default function App() {
       <Sidebar 
         currentUser={{ username: authUsername, role: userRole }}
         onLogout={handleLogout}
+        isDark={isDark}
+        portfolioActions={{
+          txCount, uploadLoading, uploadStatus, uploadProgress,
+          syncLoading, syncStatus, resolveLoading, resolveStatus,
+          onUpload: handleUpload,
+          onSync: handleSyncPortfolio,
+          onResolve: handleResolveTickers,
+          portfolio, selectedForRemoval,
+          onToggleRemoval: toggleRemoval,
+          onRemoveSelected: handleRemoveSelected,
+          onForceResolve: handleForceResolve,
+          baseCurrency, onSetBaseCurrency: setBaseCurrency,
+          overrideIsin, overrideTicker, overrides, overrideMsg,
+          onOverrideIsinChange: setOverrideIsin,
+          onOverrideTickerChange: setOverrideTicker,
+          onAddOverride: handleAddOverride,
+          onDeleteOverride: handleDeleteOverride,
+          authForm, authError, authLoading,
+          onAuthFormChange: (field, val) => setAuthForm(f => ({ ...f, [field]: val })),
+          onChangePassword: handleChangePassword,
+          onClearPortfolio: () => setPortfolio([]),
+          onClearTransactions: handleClearTransactions,
+        }}
       />
       
       {/* Main content area */}
