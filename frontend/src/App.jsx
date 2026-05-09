@@ -542,34 +542,34 @@ export default function App() {
   };
 
   const PortfolioView = () => {
+    const location = useLocation();
     const cardCls = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
-    
+
+    const pathToTab = {
+      '/portfolio':              'overview',
+      '/portfolio/holdings':     'holdings',
+      '/portfolio/transactions': 'history',
+      '/portfolio/dividends':    'overview',
+      '/portfolio/ownership':    'ownership',
+      '/portfolio/import':       'import',
+      '/portfolio/manage':       'manage',
+      '/portfolio/settings':     'settings',
+      '/portfolio/danger':       'danger',
+    };
+    const currentTab = pathToTab[location.pathname] || 'overview';
+
+    useEffect(() => {
+      if (currentTab === 'ownership' && dashboardData && Object.keys(ownershipData).length === 0 && !ownershipLoading) fetchOwnership(dashboardData.portfolio);
+      if (currentTab === 'performance') fetchPerfData(perfPeriod);
+      if (currentTab === 'history') fetchTxHistory();
+    }, [currentTab]);
+
     return (
       <div className={`flex flex-col h-screen pt-12 overflow-hidden ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
         <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
         {showShortcuts && <ShortcutsModal />}
 
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-6 pt-6 pb-0">
-            <div className="flex items-center gap-3 mb-5">
-              <h1 className="text-xl font-bold tracking-tight flex-1">Portfolio Tracker</h1>
-              <button onClick={() => setShowShortcuts(true)} title="Keyboard shortcuts (?)"
-                className={`px-2 py-1 rounded-lg text-xs font-mono font-bold border ${isDark ? 'text-gray-600 border-gray-700 hover:text-white hover:border-gray-500' : 'text-gray-300 border-gray-200 hover:text-gray-900 hover:border-gray-400'} transition`}>?</button>
-            </div>
-            <div className={`flex gap-0 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} overflow-x-auto`}>
-              {TABS.map(tab => (
-                <button key={tab.id} onClick={() => {
-                  setActiveTab(tab.id);
-                  if (tab.id === 'ownership' && dashboardData && Object.keys(ownershipData).length === 0 && !ownershipLoading) fetchOwnership(dashboardData.portfolio);
-                  if (tab.id === 'performance') fetchPerfData(perfPeriod);
-                  if (tab.id === 'history') fetchTxHistory();
-                }} className={`px-5 py-2.5 text-sm font-semibold transition border-b-2 -mb-px whitespace-nowrap ${activeTab === tab.id ? 'border-blue-500 text-white' : `border-transparent ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}`}>
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="max-w-7xl mx-auto px-6 py-6">
             {isAppLoading ? (
               <div className="flex flex-col items-center justify-center mt-32 space-y-4">
@@ -578,7 +578,148 @@ export default function App() {
               </div>
             ) : (
               <>
-                {activeTab === 'overview' && (
+                {currentTab === 'import' && (
+                  <div className="max-w-xl flex flex-col gap-5">
+                    <h2 className="text-xl font-bold">Import CSV</h2>
+                    <div className={`${cardCls} p-5 flex flex-col gap-4`}>
+                      <label className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl cursor-pointer font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                        {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
+                        <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { handleUpload(e.target.files); e.target.value = ''; }} />
+                      </label>
+                      <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Broker detected automatically. Supports Montrose, Avanza and Nordnet.</p>
+                      {uploadProgress && (
+                        <div className={`rounded-lg px-3 py-2.5 text-sm border ${isDark ? 'bg-blue-900/20 border-blue-800/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                          <div className="flex items-center gap-2"><div className="animate-spin">⏳</div><span className="font-medium">{uploadProgress.label}</span></div>
+                        </div>
+                      )}
+                      {uploadStatus?.error && <div className="rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400">✗ {uploadStatus.error}</div>}
+                      {!uploadProgress && uploadStatus?.results && (
+                        <div className="flex flex-col gap-1.5">
+                          {uploadStatus.results.map((r, i) => (
+                            <div key={i} className={`${isDark ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-lg px-3 py-2 text-xs`}>
+                              {r.error ? <p className="text-red-400">✗ {r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
+                            </div>
+                          ))}
+                          <p className="text-xs text-green-400 font-semibold">+{uploadStatus.newAdded} new · {uploadStatus.total} total</p>
+                        </div>
+                      )}
+                      {txCount.total > 0 && (
+                        <div className={`${isDark ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-xl px-3 py-2.5 flex items-center justify-between`}>
+                          <div><p className="text-sm font-bold text-green-400">{txCount.trades} trades</p><p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{txCount.total} total in history</p></div>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-green-400"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                      )}
+                      {txCount.trades > 0 && (
+                        <>
+                          <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
+                            {syncLoading ? '⏳ Syncing…' : '⟳ Sync Portfolio'}
+                          </button>
+                          {syncStatus && <p className={`text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>{syncStatus}</p>}
+                          <button onClick={handleResolveTickers} disabled={resolveLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} disabled:opacity-50`}>
+                            {resolveLoading ? '⏳ Resolving...' : '🔍 Resolve Tickers'}
+                          </button>
+                          {resolveStatus && <p className={`text-xs ${resolveStatus.startsWith('✓') ? 'text-green-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>{resolveStatus}</p>}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {currentTab === 'manage' && (
+                  <div className="max-w-xl flex flex-col gap-5">
+                    <h2 className="text-xl font-bold">Manage Holdings</h2>
+                    <div className={`${cardCls} p-5 flex flex-col gap-4`}>
+                      {portfolio.length === 0 ? (
+                        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No holdings synced yet.</p>
+                      ) : (
+                        <>
+                          <div className={`${isDark ? 'bg-gray-700/40' : 'bg-gray-50'} rounded-xl overflow-hidden max-h-96 overflow-y-auto`}>
+                            {portfolio.map(s => (
+                              <label key={s.ticker} className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} border-b ${isDark ? 'border-gray-700/50' : 'border-gray-100'} last:border-0`}>
+                                <input type="checkbox" checked={selectedForRemoval.includes(s.ticker)} onChange={() => toggleRemoval(s.ticker)} className="accent-blue-500" />
+                                <span className="text-sm font-medium">{s.ticker}</span>
+                                <span className={`text-xs ml-auto ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{s.quantity} shares</span>
+                              </label>
+                            ))}
+                          </div>
+                          {selectedForRemoval.length > 0 && (
+                            <button onClick={handleRemoveSelected} className="py-2.5 rounded-xl font-semibold text-sm bg-orange-600 hover:bg-orange-500 text-white transition">
+                              Remove {selectedForRemoval.length} selected
+                            </button>
+                          )}
+                          <button onClick={handleForceResolve} disabled={resolveLoading} className="py-2.5 rounded-xl font-semibold text-sm bg-purple-700 hover:bg-purple-600 text-white transition disabled:opacity-50">
+                            {resolveLoading ? '⏳ Re-resolving...' : '🔄 Force Re-Resolve All Tickers'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {currentTab === 'settings' && (
+                  <div className="max-w-xl flex flex-col gap-5">
+                    <h2 className="text-xl font-bold">Settings</h2>
+                    <div className={`${cardCls} p-5 flex flex-col gap-5`}>
+                      <div>
+                        <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Base Currency</label>
+                        <select value={baseCurrency} onChange={e => setBaseCurrency(e.target.value)}
+                          className={`w-full px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}>
+                          <option>EUR</option><option>GBP</option><option>SEK</option><option>USD</option>
+                        </select>
+                      </div>
+                      <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-100'} pt-4`}>
+                        <label className={`text-xs font-semibold uppercase tracking-wider mb-3 block ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Ticker Overrides</label>
+                        <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Pin an ISIN to a specific Yahoo ticker. Takes effect on next upload.</p>
+                        <div className="flex gap-2 mb-2">
+                          <input value={overrideIsin} onChange={e => setOverrideIsin(e.target.value)} placeholder="ISIN" className={`flex-1 px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                          <input value={overrideTicker} onChange={e => setOverrideTicker(e.target.value)} placeholder="Ticker" className={`flex-1 px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                        </div>
+                        <button onClick={handleAddOverride} className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition mb-2">Save Override</button>
+                        {overrideMsg && <p className="text-xs text-green-400 mb-2">{overrideMsg}</p>}
+                        {Object.entries(overrides).length > 0 && (
+                          <div className="flex flex-col gap-1">
+                            {Object.entries(overrides).map(([isin, ticker]) => (
+                              <div key={isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-lg px-3 py-2`}>
+                                <span className="text-xs">{isin} → <span className="font-bold">{ticker}</span></span>
+                                <button onClick={() => handleDeleteOverride(isin)} className="text-red-400 hover:text-red-300 text-xs ml-2 transition">✕</button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-100'} pt-4`}>
+                        <label className={`text-xs font-semibold uppercase tracking-wider mb-3 block ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Change Password</label>
+                        <div className="flex flex-col gap-2">
+                          <input type="password" value={authForm.password} onChange={e => setAuthForm(f => ({ ...f, password: e.target.value }))} placeholder="Current password" className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                          <input type="password" value={authForm.newPassword} onChange={e => setAuthForm(f => ({ ...f, newPassword: e.target.value }))} placeholder="New password (6+ chars)" className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                          {authError && <p className="text-xs text-red-400">{authError}</p>}
+                          <button onClick={handleChangePassword} disabled={authLoading} className="py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50">
+                            {authLoading ? 'Saving...' : 'Update Password'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {currentTab === 'danger' && (
+                  <div className="max-w-xl flex flex-col gap-5">
+                    <h2 className="text-xl font-bold">Danger Zone</h2>
+                    <div className={`${cardCls} p-5 flex flex-col gap-4`}>
+                      <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>These actions cannot be undone.</p>
+                      <button onClick={() => setPortfolio([])} className={`py-2.5 rounded-xl font-semibold text-sm border transition ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
+                        Clear Portfolio
+                      </button>
+                      {txCount.total > 0 && (
+                        <button onClick={handleClearTransactions} className={`py-2.5 rounded-xl font-semibold text-sm border transition ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
+                          Clear Transaction History
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {currentTab === 'overview' && (
                   <div className="flex flex-col gap-6">
                     {!dashboardData || portfolio.length === 0 ? (
                       <EmptyState icon="📊" title="No portfolio data" desc="Upload a CSV from your broker to get started." action={{ label: 'Upload CSV', fn: () => { setIsSidebarOpen(true); } }} />
@@ -656,7 +797,7 @@ export default function App() {
                   </div>
                 )}
 
-                {activeTab === 'holdings' && (() => {
+                {currentTab === 'holdings' && (() => {
                   const COLS = [
                     { key: 'name', label: 'Name', sortFn: (a, b) => a.name.localeCompare(b.name) },
                     { key: 'ticker', label: 'Ticker', sortFn: (a, b) => a.ticker.localeCompare(b.ticker) },
@@ -698,7 +839,7 @@ export default function App() {
                   );
                 })()}
 
-                {activeTab === 'performance' && (
+                {currentTab === 'performance' && (
                   <div className="flex flex-col gap-6">
                     {!portfolio.length ? <EmptyState icon="📈" title="No performance data" desc="Upload and sync a portfolio first." /> : (
                       <>
@@ -718,7 +859,7 @@ export default function App() {
                   </div>
                 )}
 
-                {activeTab === 'insights' && (
+                {currentTab === 'insights' && (
                   <div className="flex flex-col gap-8">
                     {!dashboardData || portfolio.length === 0 ? <EmptyState icon="💡" title="No insights" desc="Upload and sync a portfolio first." /> : (
                       <>
@@ -736,7 +877,7 @@ export default function App() {
                   </div>
                 )}
 
-                {activeTab === 'ownership' && (() => {
+                {currentTab === 'ownership' && (() => {
                   const allHoldings = dashboardData ? dashboardData.portfolio.filter(h => !h.quoteType || h.quoteType === 'EQUITY') : [];
                   const OwnershipCard = ({ ticker, name, isExtra = false }) => {
                     const data = isExtra ? ownershipExtra[ticker] : ownershipData[ticker];
@@ -766,7 +907,7 @@ export default function App() {
                   );
                 })()}
 
-                {activeTab === 'history' && (
+                {currentTab === 'history' && (
                   <div className="flex flex-col gap-4">
                     {txHistory.length === 0 && !txHistoryLoading ? <EmptyState icon="📝" title="No transactions" desc="Upload a CSV to populate history." /> : (
                       <div className={`${cardCls} overflow-hidden`}>
