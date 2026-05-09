@@ -106,15 +106,10 @@ function ActionContent({ id, pa, isDark }) {
 
   if (id === 'danger') return (
     <div className="flex flex-col gap-2">
-      <p className={`text-[10px] ${sub}`}>Cannot be undone.</p>
-      <button onClick={pa.onClearPortfolio} className={`${btn} border ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
-        Clear Portfolio
+      <p className={`text-[10px] ${sub}`}>Clears portfolio holdings and all transaction history. Cannot be undone.</p>
+      <button onClick={pa.onClearAll} className={`${btn} border ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
+        Clear All Data
       </button>
-      {pa.txCount?.total > 0 && (
-        <button onClick={pa.onClearTransactions} className={`${btn} border ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
-          Clear Transactions
-        </button>
-      )}
     </div>
   );
 

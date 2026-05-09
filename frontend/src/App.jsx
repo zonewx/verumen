@@ -364,6 +364,27 @@ export default function App() {
     setTxCount({ total: 0, trades: 0 }); setPortfolio([]); setUploadStatus(null); setDividends(null); setSyncStatus('History cleared.');
   };
 
+  const handleClearAll = async () => {
+    if (!confirm('This will permanently delete all portfolio holdings and transaction history. This cannot be undone. Continue?')) return;
+    
+    try {
+      // Clear transactions via API
+      await apiFetch('/api/transactions', { method: 'DELETE' });
+      
+      // Reset all local state
+      setPortfolio([]);
+      setTxCount({ total: 0, trades: 0 });
+      setUploadStatus(null);
+      setDividends(null);
+      setSyncStatus('All data cleared successfully.');
+      
+      // Clear after 4 seconds
+      setTimeout(() => setSyncStatus(''), 4000);
+    } catch (err) {
+      setSyncStatus('Error clearing data: ' + err.message);
+    }
+  };
+
   const toggleRemoval = t => setSelectedForRemoval(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
   const handleRemoveSelected = () => { setPortfolio(p => p.filter(s => !selectedForRemoval.includes(s.ticker))); setSelectedForRemoval([]); };
 
@@ -1040,6 +1061,7 @@ export default function App() {
           onChangePassword: handleChangePassword,
           onClearPortfolio: () => setPortfolio([]),
           onClearTransactions: handleClearTransactions,
+          onClearAll: handleClearAll,
         }}
       />
       
