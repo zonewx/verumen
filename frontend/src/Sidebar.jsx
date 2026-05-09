@@ -120,6 +120,7 @@ function ActionContent({ id, pa, isDark }) {
 
   return null;
 }
+
 const TrendingUp = ({ size = 20, className }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
@@ -171,10 +172,12 @@ const Cog = ({ size = 20, className }) => (
     <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
   </svg>
 );
+
+const ChevronLeft = ({ size = 20, className }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <polyline points="15 18 9 12 15 6"/>
   </svg>
-  
+);
 
 export default function Sidebar({ currentUser, onLogout, isDark, portfolioActions = {} }) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -244,11 +247,9 @@ export default function Sidebar({ currentUser, onLogout, isDark, portfolioAction
 
   const handleItemClick = (item) => {
     if (item.subItems) {
-      // Has sub-menu, expand it
       setActiveSubMenu(item.id);
-      if (!isExpanded) setIsExpanded(true); // Auto-expand when opening sub-menu
+      if (!isExpanded) setIsExpanded(true);
     } else {
-      // Direct navigation
       navigate(item.path);
       setActiveSubMenu(null);
     }
@@ -274,7 +275,6 @@ export default function Sidebar({ currentUser, onLogout, isDark, portfolioAction
   const hoverBg = isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-100';
   const activeBg = isDark ? 'bg-gray-800' : 'bg-gray-100';
 
-  // Filter menu items based on user role
   const visibleMenuItems = menuItems.filter(item => {
     if (item.adminOnly) {
       return currentUser?.role === 'admin';
@@ -287,7 +287,6 @@ export default function Sidebar({ currentUser, onLogout, isDark, portfolioAction
 
   return (
     <div className={`${sidebarWidth} ${bg} border-r transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
-      {/* Header with hamburger */}
       <div className="p-4 border-b border-gray-800 flex items-center justify-between">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -299,16 +298,12 @@ export default function Sidebar({ currentUser, onLogout, isDark, portfolioAction
         {isExpanded && (
           <h1 className={`text-lg font-bold ${textPrimary} flex-1 text-center`}>Verumen</h1>
         )}
-        {/* Spacer to keep text centered when expanded */}
         {isExpanded && <div className="w-9 shrink-0" />}
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-2">
         {activeSubMenu ? (
-          // Sub-menu view
           <div className="space-y-1">
-            {/* Back button */}
             <button
               onClick={handleBack}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${hoverBg} transition-colors ${textSecondary}`}
@@ -317,14 +312,12 @@ export default function Sidebar({ currentUser, onLogout, isDark, portfolioAction
               {isExpanded && <span className="text-sm font-medium">Back</span>}
             </button>
 
-            {/* Sub-menu title */}
             {isExpanded && (
               <div className={`px-3 py-2 ${textPrimary} font-semibold text-sm uppercase tracking-wide`}>
                 {menuItems.find(m => m.id === activeSubMenu)?.label}
               </div>
             )}
 
-            {/* Sub-menu items */}
             {menuItems.find(m => m.id === activeSubMenu)?.subItems.map(subItem => {
               if (subItem.isDivider) {
                 return isExpanded ? (
@@ -332,7 +325,6 @@ export default function Sidebar({ currentUser, onLogout, isDark, portfolioAction
                 ) : null;
               }
 
-              // Action items — accordion toggle
               if (subItem.isAction) {
                 const isOpen = expandedSection === subItem.id;
                 return (
@@ -358,7 +350,6 @@ export default function Sidebar({ currentUser, onLogout, isDark, portfolioAction
                 );
               }
 
-              // Regular nav items
               return (
                 <button
                   key={subItem.id}
@@ -374,7 +365,6 @@ export default function Sidebar({ currentUser, onLogout, isDark, portfolioAction
             })}
           </div>
         ) : (
-          // Main menu view
           <div className="space-y-1">
             {visibleMenuItems.map(item => {
               const Icon = item.icon;
@@ -403,7 +393,6 @@ export default function Sidebar({ currentUser, onLogout, isDark, portfolioAction
         )}
       </nav>
 
-      {/* Footer - User profile */}
       <div className="border-t border-gray-800 p-2">
         <div className="flex items-center gap-1">
           <button
