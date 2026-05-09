@@ -38,8 +38,17 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
       {!pa.uploadProgress && pa.uploadStatus?.results && (
         <div className="flex flex-col gap-1">
           {pa.uploadStatus.results.map((r,i) => (
-            <p key={i} className={`text-[10px] ${r.error ? 'text-red-400' : sub}`}>{r.error ? `✗ ${r.file}` : `${r.broker} — ${r.count} rows`}</p>
-          ))}
+            <div key={i} className={`text-[10px] ${r.error ? 'text-red-400' : sub}`}>
+              {r.error ? (
+                <>
+                  <p className="font-semibold">✗ {r.file}</p>
+                  <p className="opacity-90">{r.error}</p>
+                </>
+              ) : (
+              <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>
+            )}
+          </div>
+        ))}
           <p className="text-[10px] text-green-400 font-semibold">+{pa.uploadStatus.newAdded} new</p>
         </div>
       )}
