@@ -620,7 +620,16 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
   let allNew = [];
   for (const { name, content } of files) {
     try { 
-      const { broker, rows } = detectBrokerAndParse(name, content); 
+      const { broker, rows } = detectBrokerAndParse(name, content);
+      if (forceBroker && forceBroker !== 'auto' && broker !== forceBroker) {
+        results.push({ 
+        file: name, 
+        error: `Broker mismatch: You selected "${forceBroker}" but this CSV is from "${broker}". Please use Auto-detect or select the correct broker.`,
+        broker, 
+        count: 0 
+      });
+  continue; // Skip this file
+} 
       const finalBroker = forceBroker || broker; // Use forced broker if provided
       results.push({ file:name, broker: finalBroker, count:rows.length }); 
       // Override broker in all rows
