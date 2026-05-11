@@ -1182,7 +1182,10 @@ const handleUpload = async (files) => {
           <Route path="/portfolio/settings" element={<PortfolioView/>}/>
           <Route path="/portfolio/danger" element={<PortfolioView/>}/>
           
-          <Route path="/cs-skins" element={<PageShell><CSSkins isDark={isDark} onBack={()=>navigate('/social')} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/cs-skins" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/cs-skins/inventory" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/cs-skins/tracker" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/cs-skins/settings" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           <Route path="/profile/edit" element={<PageShell><ProfileEditPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           <Route path="/profile" element={<ProfileRoute/>}/>
           <Route path="/profile/:username" element={<ProfileRoute/>}/>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const EXTERIORS = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
 const CURRENCIES = ['SEK', 'USD', 'EUR'];
@@ -6,8 +7,14 @@ const CURRENCIES = ['SEK', 'USD', 'EUR'];
 function fmt(n) { return (n || 0).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmtSEK(n) { return `${fmt(n)} kr`; }
 
-export default function CSSkins({ isDark, onBack, authUsername }) {
-  const [tab, setTab] = useState('overview');
+export default function CSSkins({ isDark, authUsername }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tab = location.pathname === '/cs-skins/inventory' ? 'inventory'
+    : location.pathname === '/cs-skins/tracker' ? 'tracker'
+    : location.pathname === '/cs-skins/settings' ? 'settings'
+    : 'overview';
+  const setTab = (t) => navigate(t === 'overview' ? '/cs-skins' : `/cs-skins/${t}`);
   const [settings, setSettings] = useState({});
   const [steamId, setSteamId] = useState('');
   const [steamInventory, setSteamInventory] = useState(null);
@@ -128,13 +135,6 @@ export default function CSSkins({ isDark, onBack, authUsername }) {
     return true;
   });
 
-  const TABS = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'inventory', label: 'My Inventory' },
-    { id: 'tracker', label: 'Skin Tracker' },
-    { id: 'settings', label: 'Settings' },
-  ];
-
   const PnlCard = ({ label, value, positive, sub }) => (
     <div className={`${card} p-5`}>
       <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{label}</p>
@@ -145,31 +145,6 @@ export default function CSSkins({ isDark, onBack, authUsername }) {
 
   return (
     <div className={`flex flex-col h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-      {/* Header */}
-      <div className={`flex items-center gap-4 px-8 py-4 border-b ${isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'} shrink-0`}>
-        <button onClick={onBack} className={`p-1.5 rounded-lg ${isDark ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'} transition`} title="Back to home">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        </button>
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center text-white text-sm font-bold">CS</div>
-          <span className="text-lg font-bold tracking-tight">CS Skins</span>
-        </div>
-        <div className={`flex gap-0 border-b-0 ml-6`}>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`px-4 py-2 text-sm font-semibold transition border-b-2 ${tab === t.id ? 'border-orange-500 text-orange-400' : `border-transparent ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        {!pricesReady && (
-          <button onClick={syncPrices} disabled={syncingPrices} className={`ml-auto text-xs px-3 py-1.5 rounded-lg font-semibold transition ${syncingPrices ? 'opacity-50 cursor-not-allowed bg-orange-900 text-orange-300' : 'bg-orange-600 hover:bg-orange-500 text-white'}`}>
-            {syncingPrices ? '⏳ Syncing prices...' : '⚡ Sync CS Prices'}
-          </button>
-        )}
-        {syncStatus && <p className={`ml-auto text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{syncStatus}</p>}
-      </div>
-
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto px-8 py-8">
@@ -239,13 +214,6 @@ export default function CSSkins({ isDark, onBack, authUsername }) {
                 </div>
               )}
 
-              {!settings.steam_id && (
-                <div className={`${card} p-5`}>
-                  <p className="font-semibold mb-1">Connect your Steam account</p>
-                  <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Add your Steam ID in Settings to automatically fetch your CS inventory value.</p>
-                  <button onClick={() => setTab('settings')} className={btnGhost}>Go to Settings →</button>
-                </div>
-              )}
             </div>
           )}
 

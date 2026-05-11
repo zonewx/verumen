@@ -97,7 +97,7 @@ app.get('/api/auth/status', async (req, res) => {
 });
 
 app.post('/api/auth/register', authRateLimit, async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, country } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required.' });
   const { data: regSetting } = await supabase.from('app_settings').select('value').eq('key', 'allowRegistration').single();
   if (regSetting && regSetting.value === 'false') return res.status(403).json({ error: 'Registration is currently disabled.' });
@@ -111,7 +111,7 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
   if (authError) return res.status(400).json({ error: authError.message });
   const role = username.trim().toLowerCase() === 'admin' ? 'admin' : 'user';
-  const { error: profileError } = await supabase.from('profiles').insert({ id: authData.user.id, username: username.trim(), role, bio: '', steam_id: '', public_inventory: false, public_holdings: false });
+  const { error: profileError } = await supabase.from('profiles').insert({ id: authData.user.id, username: username.trim(), role, bio: '', steam_id: '', public_inventory: false, public_holdings: false, country: country || 'se' });
   if (profileError) return res.status(500).json({ error: profileError.message });
   const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
   if (signInError) return res.status(500).json({ error: signInError.message });
@@ -157,14 +157,15 @@ app.get('/api/users', requireUser, async (req, res) => {
 app.get('/api/users/:username/profile', async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('*').eq('username', req.params.username).single();
   if (error || !data) return res.status(404).json({ error: 'User not found' });
-  res.json({ username: data.username, role: data.role, bio: data.bio, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_id || null, steamVerified: data.steam_verified || false, steamLevel: data.steam_level || 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
+  res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_id || null, steamVerified: data.steam_verified || false, steamLevel: data.steam_level || 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
 });
 
 app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   if (req.username !== req.params.username) return res.status(403).json({ error: "Cannot edit another user's profile." });
-  const { bio, steamId, publicInventory, publicHoldings, publicDividends, showPortfolioValue, avatarBase64, showcaseItems } = req.body;
+  const { bio, steamId, publicInventory, publicHoldings, publicDividends, showPortfolioValue, avatarBase64, showcaseItems, country } = req.body;
   const update = {};
   if (bio !== undefined) update.bio = bio;
+  if (country !== undefined) update.country = country;
   if (steamId !== undefined) { update.steam_id = steamId; if (steamId !== (await supabase.from('profiles').select('steam_id').eq('id', req.user.id).single()).data?.steam_id) update.steam_verified = false; }
   if (publicInventory !== undefined) update.public_inventory = publicInventory;
   if (publicHoldings !== undefined) update.public_holdings = publicHoldings;
@@ -177,7 +178,7 @@ app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   }
   const { data, error } = await supabase.from('profiles').update(update).eq('id', req.user.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true, profile: { username: data.username, bio: data.bio, steamId: data.steam_id, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, avatarBase64: data.avatar_base64, showcaseItems: data.showcase_items, steamLevel: data.steam_level } });
+  res.json({ success: true, profile: { username: data.username, bio: data.bio, country: data.country, steamId: data.steam_id, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, avatarBase64: data.avatar_base64, showcaseItems: data.showcase_items, steamLevel: data.steam_level } });
 });
 
 // Change username
@@ -284,10 +285,7 @@ async function loadOverrides(userId) {
 
 // ── Ticker resolution ───────────────────────────────────────────────────────
 const YahooFinance = require('yahoo-finance2').default;
-const yahooFinance = new YahooFinance({ 
-  suppressNotices: ['yahooSurvey', 'ripHistorical']
-  // REMOVE validateResult: false
-});
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
 
 // Currency suffix priority lists for Yahoo Finance
 const CURRENCY_SUFFIX_MAP = {
@@ -361,7 +359,7 @@ async function resolveSymbolBatch(transactions, userId) {
       userId, cache, overrides
     );
     results[key] = ticker;
-    await new Promise(r => setTimeout(r, 80)); // Reduced from 120ms - smaller chunks need less delay
+    await new Promise(r => setTimeout(r, 120));
   }
   return results;
 }
@@ -589,67 +587,33 @@ app.get('/api/transactions', requireUser, async (req, res) => {
 app.get('/api/transactions/count', requireUser, async (req, res) => {
   const { count: total } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id);
   const { count: trades } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id).in('type', ['buy','sell']);
-  
-  // Get counts by broker
-  const { data: brokerData } = await supabase.from('transactions').select('broker').eq('user_id', req.user.id);
-  const byBroker = {};
-  (brokerData || []).forEach(t => {
-    const b = t.broker || 'unknown';
-    byBroker[b] = (byBroker[b] || 0) + 1;
-  });
-  
-  res.json({ total: total||0, trades: trades||0, byBroker });
+  res.json({ total: total||0, trades: trades||0 });
 });
 
 app.delete('/api/transactions', requireUser, async (req, res) => {
-  const { broker } = req.query; // Optional: delete only specific broker
-  
-  if (broker) {
-    await supabase.from('transactions').delete().eq('user_id', req.user.id).eq('broker', broker);
-    res.json({ success: true, broker });
-  } else {
-    await supabase.from('transactions').delete().eq('user_id', req.user.id);
-    res.json({ success: true });
-  }
+  await supabase.from('transactions').delete().eq('user_id', req.user.id);
+  res.json({ success: true });
 });
 
 app.post('/api/transactions/upload', requireUser, async (req, res) => {
-  const { files, forceBroker } = req.body; // Add forceBroker parameter
+  const { files } = req.body;
   if (!files?.length) return res.status(400).json({ error: 'No files provided' });
   const results = [];
   let allNew = [];
   for (const { name, content } of files) {
-    try { 
-      const { broker, rows } = detectBrokerAndParse(name, content);
-      if (forceBroker && forceBroker !== 'auto' && broker !== forceBroker) {
-        results.push({ 
-        file: name, 
-        error: `Broker mismatch: You selected "${forceBroker}" but this CSV is from "${broker}". Please use Auto-detect or select the correct broker.`,
-        broker, 
-        count: 0 
-      });
-  continue; // Skip this file
-} 
-      const finalBroker = forceBroker || broker; // Use forced broker if provided
-      results.push({ file:name, broker: finalBroker, count:rows.length }); 
-      // Override broker in all rows
-      const updatedRows = rows.map(r => ({ ...r, broker: finalBroker }));
-      allNew = allNew.concat(updatedRows); 
-    }
+    try { const { broker, rows } = detectBrokerAndParse(name, content); results.push({ file:name, broker, count:rows.length }); allNew = allNew.concat(rows); }
     catch(e) { results.push({ file:name, error:e.message }); }
   }
-  const { data: existing } = await supabase.from('transactions').select('broker, date, type, isin, raw_ticker, name, quantity, price').eq('user_id', req.user.id);
-  const dedupKey = t => {
-    // Use ISIN as primary identifier, fall back to raw_ticker, then name
-    const identifier = (t.isin || t.raw_ticker || t.rawTicker || t.name || '').trim().toUpperCase();
-    return `${t.broker||''}|${t.date||''}|${t.type||''}|${identifier}|${Math.round((t.quantity||0)*10000)}|${Math.round((t.price||0)*10000)}`;
-  };
+  const { data: existing } = await supabase.from('transactions').select('broker, date, type, isin, quantity, price').eq('user_id', req.user.id);
+  const dedupKey = t => `${t.broker||''}|${t.date||''}|${t.type||''}|${t.isin||''}|${Math.round((t.quantity||0)*10000)}|${Math.round((t.price||0)*10000)}`;
   const existingIds = new Set((existing||[]).map(dedupKey));
   const newUnique = allNew.filter(t => !existingIds.has(dedupKey(t)));
-  
-  // Skip ticker resolution during upload to prevent timeouts with large CSVs
-  // User will resolve tickers afterward using the "Resolve Tickers" button
-  
+  for (const tx of newUnique) {
+    if ((tx.type==='buy'||tx.type==='sell'||tx.type==='other'||tx.type==='withdrawal') && !tx.ticker && (tx.rawTicker||tx.isin)) {
+      tx.ticker = await resolveSymbol(tx.rawTicker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id) || '';
+      await new Promise(r => setTimeout(r, 150));
+    }
+  }
   if (newUnique.length > 0) {
     const rows = newUnique.map(t => ({ user_id:req.user.id, broker:t.broker, date:t.date, type:t.type, name:t.name, isin:t.isin, raw_ticker:t.rawTicker, ticker:t.ticker, quantity:t.quantity, price:t.price, currency:t.currency, total_sek:t.totalSEK, account:t.account }));
     await supabase.from('transactions').insert(rows);
@@ -664,62 +628,35 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
 });
 
 app.post('/api/transactions/resolve', requireUser, async (req, res) => {
-  const { force, limit } = req.body; // limit for chunked processing
+  const { force } = req.body; // New: force re-resolve all tickers
   
   if (force) {
     // Clear all ticker cache entries for this user
     await supabase.from('ticker_cache').delete().eq('user_id', req.user.id);
-  }
-  
-  // Get unresolved transactions (or all if force=true)
-  let query = supabase
-    .from('transactions')
-    .select('id, raw_ticker, isin, name, currency, broker, ticker')
-    .eq('user_id', req.user.id)
-    .in('type', ['buy','sell','other','withdrawal']);
-  
-  if (!force) {
-    query.or('ticker.is.null,ticker.eq.');
-  }
-  
-  // Apply limit for chunked processing (default: resolve all)
-  if (limit && limit > 0) {
-    query.limit(limit);
-  }
-  
-  const { data: unresolvedTxs } = await query;
-  
-  // Get total count of remaining unresolved
-  const { count: totalUnresolved } = await supabase
-    .from('transactions')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', req.user.id)
-    .in('type', ['buy','sell','other','withdrawal'])
-    .or('ticker.is.null,ticker.eq.');
-  
-  if (!unresolvedTxs || unresolvedTxs.length === 0) {
-    return res.json({ resolved: 0, total: 0, remaining: 0, forced: !!force });
-  }
-  
-  // Use batch resolution for better performance
-  const tickerResults = await resolveSymbolBatch(unresolvedTxs, req.user.id);
-  
-  // Update resolved tickers in database
-  let resolved = 0;
-  for (const tx of unresolvedTxs) {
-    const ticker = tickerResults[tx.id];
-    if (ticker && ticker !== tx.ticker) {
-      await supabase.from('transactions').update({ ticker }).eq('id', tx.id);
-      resolved++;
+    // Get ALL transactions with tickers to re-resolve
+    const { data: allTxs } = await supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker').eq('user_id', req.user.id).in('type', ['buy','sell','other','withdrawal']);
+    let resolved = 0;
+    for (const tx of (allTxs||[])) {
+      const ticker = await resolveSymbol(tx.raw_ticker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id);
+      if (ticker && ticker !== tx.ticker) { 
+        await supabase.from('transactions').update({ ticker }).eq('id', tx.id); 
+        resolved++; 
+      }
+      await new Promise(r => setTimeout(r, 150));
     }
+    return res.json({ resolved, total:(allTxs||[]).length, forced: true });
   }
   
-  res.json({ 
-    resolved, 
-    total: unresolvedTxs.length, 
-    remaining: Math.max(0, (totalUnresolved || 0) - unresolvedTxs.length),
-    forced: !!force 
-  });
+  // Normal mode: only resolve unresolved transactions
+  const { data: unresolved } = await supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker').eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
+  await supabase.from('ticker_cache').delete().eq('user_id', req.user.id).is('ticker', null);
+  let resolved = 0;
+  for (const tx of (unresolved||[])) {
+    const ticker = await resolveSymbol(tx.raw_ticker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id);
+    if (ticker) { await supabase.from('transactions').update({ ticker }).eq('id', tx.id); resolved++; }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  res.json({ resolved, total:(unresolved||[]).length });
 });
 
 app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
@@ -831,9 +768,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   const results=[];
   for (const h of portfolio) {
     try {
-      const q = await yahooFinance.quote(h.ticker, {}, { 
-        fetchOptions: { timeout: 10000 }
-    });
+      const q = await yahooFinance.quote(h.ticker);
       if (!q) continue;
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice, currency=q.currency||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;

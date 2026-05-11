@@ -253,7 +253,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
     },
     {
       id: 'portfolio',
-      label: 'Portfolio',
+      label: 'Stock Portfolio',
       icon: TrendingUp,
       path: null,
       subItems: [
@@ -271,14 +271,19 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
     },
     {
       id: 'cs-skins',
-      label: 'CS Skins',
+      label: 'Skins',
       icon: Package,
-      path: '/cs-skins',
-      subItems: null
+      path: null,
+      subItems: [
+        { id: 'cs-overview',   label: 'Overview',      path: '/cs-skins' },
+        { id: 'cs-inventory',  label: 'My Inventory',  path: '/cs-skins/inventory' },
+        { id: 'cs-tracker',    label: 'Skin Tracker',  path: '/cs-skins/tracker' },
+        { id: 'cs-settings',   label: 'Settings',      path: '/cs-skins/settings' },
+      ]
     },
     {
       id: 'moderator',
-      label: 'Moderator',
+      label: 'Moderator Panel',
       icon: Shield,
       path: '/moderator',
       subItems: null,
@@ -286,7 +291,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
     },
     {
       id: 'admin',
-      label: 'Admin',
+      label: 'Admin Panel',
       icon: Shield,
       path: null,
       subItems: [
