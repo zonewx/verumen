@@ -9,6 +9,7 @@ import ModeratorPanel from './ModeratorPanel';
 import SocialFeed from './SocialFeed';
 import FriendsPage from './FriendsPage';
 import Sidebar from './Sidebar';
+import SettingsPage from './SettingsPage';
 
 export default function App() {
   const navigate = useNavigate();
@@ -777,13 +778,6 @@ const handleUpload = async (files) => {
                     <h2 className="text-xl font-bold">Settings</h2>
                     <div className={`${cardCls} p-5 flex flex-col gap-5`}>
                       <div>
-                        <label className={`text-xs font-semibold uppercase tracking-wider mb-2 block ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Base Currency</label>
-                        <select value={baseCurrency} onChange={e => setBaseCurrency(e.target.value)}
-                          className={`w-full px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}>
-                          <option>EUR</option><option>GBP</option><option>SEK</option><option>USD</option>
-                        </select>
-                      </div>
-                      <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-100'} pt-4`}>
                         <label className={`text-xs font-semibold uppercase tracking-wider mb-3 block ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Ticker Overrides</label>
                         <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Pin an ISIN to a specific Yahoo ticker. Takes effect on next upload.</p>
                         <div className="flex gap-2 mb-2">
@@ -802,17 +796,6 @@ const handleUpload = async (files) => {
                             ))}
                           </div>
                         )}
-                      </div>
-                      <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-100'} pt-4`}>
-                        <label className={`text-xs font-semibold uppercase tracking-wider mb-3 block ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Change Password</label>
-                        <div className="flex flex-col gap-2">
-                          <input type="password" value={authForm.password} onChange={e => setAuthForm(f => ({ ...f, password: e.target.value }))} placeholder="Current password" className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
-                          <input type="password" value={authForm.newPassword} onChange={e => setAuthForm(f => ({ ...f, newPassword: e.target.value }))} placeholder="New password (6+ chars)" className={`px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
-                          {authError && <p className="text-xs text-red-400">{authError}</p>}
-                          <button onClick={handleChangePassword} disabled={authLoading} className="py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition disabled:opacity-50">
-                            {authLoading ? 'Saving...' : 'Update Password'}
-                          </button>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -1182,10 +1165,11 @@ const handleUpload = async (files) => {
           <Route path="/portfolio/settings" element={<PortfolioView/>}/>
           <Route path="/portfolio/danger" element={<PortfolioView/>}/>
           
-          <Route path="/cs-skins" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/cs-skins/inventory" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/cs-skins/tracker" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/cs-skins/settings" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/cs-skins" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/cs-skins/inventory" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/cs-skins/tracker" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/cs-skins/settings" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/settings" element={<PageShell><SettingsPage isDark={isDark} baseCurrency={baseCurrency} onSetBaseCurrency={setBaseCurrency}/></PageShell>}/>
           <Route path="/profile/edit" element={<PageShell><ProfileEditPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           <Route path="/profile" element={<ProfileRoute/>}/>
           <Route path="/profile/:username" element={<ProfileRoute/>}/>

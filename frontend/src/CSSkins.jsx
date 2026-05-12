@@ -59,7 +59,7 @@ function authHeaders(extra = {}) {
   return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extra };
 }
 
-export default function CSSkins({ isDark, authUsername }) {
+export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) {
   const location = useLocation();
   const navigate = useNavigate();
   const tab = location.pathname === '/cs-skins/inventory' ? 'inventory'
@@ -133,6 +133,13 @@ export default function CSSkins({ isDark, authUsername }) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  // Auto-load Steam inventory when on the inventory tab and Steam ID is known
+  useEffect(() => {
+    if (tab === 'inventory' && settings.steam_id && !steamInventory) {
+      fetchSteamInventory();
+    }
+  }, [tab, settings.steam_id]);
+
   const syncPrices = async () => {
     setSyncingPrices(true);
     setSyncStatus('Downloading CS item prices (~30 sec)...');
@@ -148,15 +155,29 @@ export default function CSSkins({ isDark, authUsername }) {
     setSyncingPrices(false);
   };
 
-  const fetchSteamInventory = async () => {
+  const INVENTORY_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+  const fetchSteamInventory = async (force = false) => {
     const id = settings.steam_id;
     if (!id) { setSteamError('No Steam ID linked — set it in your profile settings'); return; }
+    if (!force) {
+      try {
+        const cached = sessionStorage.getItem('steam_inv_cache');
+        if (cached) {
+          const { data, ts } = JSON.parse(cached);
+          if (Date.now() - ts < INVENTORY_CACHE_TTL) { setSteamInventory(data); return; }
+        }
+      } catch(e) {}
+    }
     setSteamLoading(true); setSteamError('');
     try {
       const res = await fetch(`/api/cs/steam/inventory/${id}`, { headers: authHeaders() });
       const data = await res.json();
-      if (!res.ok) setSteamError(data.error || 'Failed to fetch inventory');
-      else setSteamInventory(data);
+      if (!res.ok) { setSteamError(data.error || 'Failed to fetch inventory'); }
+      else {
+        setSteamInventory(data);
+        sessionStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now() }));
+      }
     } catch(e) { setSteamError('Network error: ' + e.message); }
     setSteamLoading(false);
   };
@@ -165,11 +186,22 @@ export default function CSSkins({ isDark, authUsername }) {
     if (modalInventory) return;
     const id = settings.steam_id;
     if (!id) return;
+    // Use the same sessionStorage cache as the inventory tab
+    try {
+      const cached = sessionStorage.getItem('steam_inv_cache');
+      if (cached) {
+        const { data, ts } = JSON.parse(cached);
+        if (Date.now() - ts < 10 * 60 * 1000) { setModalInventory(data.items || []); return; }
+      }
+    } catch(e) {}
     setModalInvLoading(true);
     try {
       const res = await fetch(`/api/cs/steam/inventory/${id}`, { headers: authHeaders() });
       const data = await res.json();
-      if (res.ok) setModalInventory(data.items || []);
+      if (res.ok) {
+        setModalInventory(data.items || []);
+        sessionStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now() }));
+      }
     } catch(e) {}
     setModalInvLoading(false);
   };
@@ -394,6 +426,50 @@ export default function CSSkins({ isDark, authUsername }) {
                   )}
                 </div>
               )}
+
+              {/* Recent trades */}
+              {inventory.length > 0 && (
+                <div className={`${card} p-5`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Recent Trades</h3>
+                    <button onClick={() => setTab('tracker')} className={`text-xs text-orange-400 hover:underline`}>View all →</button>
+                  </div>
+                  <div className="flex flex-col divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-100'}">
+                    {inventory.slice(0, 5).map(item => {
+                      const costSEK = item.purchase_price_sek || item.purchase_price;
+                      const currentSEK = item.current_price_sek || 0;
+                      const pnlVal = item.sold ? (item.sale_price - costSEK) : (currentSEK - costSEK);
+                      const pnlPos = pnlVal >= 0;
+                      return (
+                        <div key={item.id} className={`flex items-center gap-4 py-3 first:pt-0 last:pb-0`}>
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${item.sold ? (isDark ? 'bg-gray-500' : 'bg-gray-300') : 'bg-green-400'}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{item.skin_name}</p>
+                            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {item.purchase_date}
+                              {item.exterior && <span className="ml-1">· {item.exterior}</span>}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className={`text-sm font-bold ${currentSEK === 0 && !item.sold ? (isDark ? 'text-gray-500' : 'text-gray-400') : pnlPos ? 'text-green-400' : 'text-red-400'}`}>
+                              {currentSEK === 0 && !item.sold ? '—' : `${pnlPos ? '+' : ''}${fmtSEK(pnlVal)}`}
+                            </p>
+                            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {item.purchase_currency !== 'SEK'
+                                ? `${fmt(item.purchase_price)} ${item.purchase_currency}`
+                                : fmtSEK(item.purchase_price)
+                              }
+                            </p>
+                          </div>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${item.sold ? (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500') : 'bg-green-900/40 text-green-400'}`}>
+                            {item.sold ? 'Sold' : 'Holding'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -402,7 +478,7 @@ export default function CSSkins({ isDark, authUsername }) {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold">Steam Inventory</h2>
-                <button onClick={fetchSteamInventory} disabled={steamLoading || !settings.steam_id} className={btnOrange}>
+                <button onClick={() => fetchSteamInventory(true)} disabled={steamLoading || !settings.steam_id} className={btnOrange}>
                   {steamLoading ? '⏳ Fetching...' : '↺ Refresh'}
                 </button>
               </div>
@@ -933,16 +1009,16 @@ export default function CSSkins({ isDark, authUsername }) {
                       <tbody>
                         {filteredInv.map(item => {
                           const currentSEK = item.current_price_sek || 0;
-                          const buySEK = item.purchase_price;
+                          const buySEK = item.purchase_price_sek || item.purchase_price;
                           const pnlVal = item.sold ? (item.sale_price - buySEK) : (currentSEK - buySEK);
                           const pnlPos = pnlVal >= 0;
                           const isExpanded = expandedRow === item.id;
                           const hasScreenshot = item.screenshot_url || (item.sold && item.cs_sales?.[0]?.screenshot_url);
-                          return [
+                          return (
                             <tr
                               key={item.id}
                               onClick={() => setExpandedRow(isExpanded ? null : item.id)}
-                              className={`border-t ${isDark ? 'border-gray-700 hover:bg-gray-700/30' : 'border-gray-100 hover:bg-gray-50'} transition cursor-pointer`}
+                              className={`border-t ${isExpanded ? (isDark ? 'bg-gray-700/40' : 'bg-gray-50') : ''} ${isDark ? 'border-gray-700 hover:bg-gray-700/30' : 'border-gray-100 hover:bg-gray-50'} transition cursor-pointer`}
                             >
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
@@ -954,7 +1030,12 @@ export default function CSSkins({ isDark, authUsername }) {
                               <td className={`px-4 py-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} whitespace-nowrap`}>{item.exterior || '—'}</td>
                               <td className={`px-4 py-3 text-xs font-mono ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
                               <td className={`px-4 py-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{item.purchase_date}</td>
-                              <td className="px-4 py-3 whitespace-nowrap font-mono text-xs">{fmtSEK(buySEK)}</td>
+                              <td className="px-4 py-3 whitespace-nowrap font-mono text-xs">
+                                {item.purchase_currency && item.purchase_currency !== 'SEK'
+                                  ? <span>{fmt(item.purchase_price)} <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{item.purchase_currency}</span></span>
+                                  : fmtSEK(item.purchase_price)
+                                }
+                              </td>
                               <td className="px-4 py-3 whitespace-nowrap font-mono text-xs">
                                 {item.sold
                                   ? <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>{fmtSEK(item.sale_price)}</span>
@@ -976,32 +1057,37 @@ export default function CSSkins({ isDark, authUsername }) {
                                   <button onClick={() => deleteItem(item.id)} className={`text-xs px-2 py-1 rounded ${isDark ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} transition`}>✕</button>
                                 </div>
                               </td>
-                            </tr>,
-                            isExpanded && (
-                              <tr key={`${item.id}-expanded`} className={`border-t ${isDark ? 'border-gray-700 bg-gray-800/60' : 'border-gray-100 bg-gray-50/80'}`}>
-                                <td colSpan={9} className="px-6 py-4">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                                    <div className="flex flex-col gap-2">
-                                      {item.pattern && <div><span className={`font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Pattern: </span><span>{item.pattern}</span></div>}
-                                      {item.notes && <div><span className={`font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Notes: </span><span>{item.notes}</span></div>}
-                                      {item.sold && item.sale_date && <div><span className={`font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Sold on: </span><span>{item.sale_date}</span></div>}
-                                      {!item.pattern && !item.notes && !item.sold && <p className={isDark ? 'text-gray-600' : 'text-gray-400'}>No additional details.</p>}
-                                    </div>
-                                    <div>
-                                      {item.screenshot_url
-                                        ? <SteamScreenshotEmbed url={item.screenshot_url || item.cs_sales?.[0]?.screenshot_url} isDark={isDark} />
-                                        : <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No screenshot linked.</p>
-                                      }
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            )
-                          ];
+                            </tr>
+                          );
                         })}
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Expanded detail panel — outside the scroll container so it uses full width */}
+                  {expandedRow && (() => {
+                    const item = filteredInv.find(i => i.id === expandedRow);
+                    if (!item) return null;
+                    const screenshotUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url;
+                    return (
+                      <div className={`border-t ${isDark ? 'border-gray-700 bg-gray-800/60' : 'border-gray-100 bg-gray-50/60'} px-6 py-5`}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                          <div className="flex flex-col gap-2 text-sm">
+                            {item.pattern && <div><span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Pattern: </span><span>{item.pattern}</span></div>}
+                            {item.notes && <div><span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Notes: </span><span>{item.notes}</span></div>}
+                            {item.sold && item.sale_date && <div><span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Sold on: </span><span>{item.sale_date}</span></div>}
+                            {!item.pattern && !item.notes && !item.sold && <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No additional details.</p>}
+                          </div>
+                          <div>
+                            {screenshotUrl
+                              ? <SteamScreenshotEmbed url={screenshotUrl} isDark={isDark} />
+                              : <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No screenshot linked.</p>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

@@ -113,22 +113,6 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
   if (id === 'settings') return (
     <div className="flex flex-col gap-3">
       <div>
-        <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${sub}`}>Base Currency</p>
-        <select value={pa.baseCurrency} onChange={e => pa.onSetBaseCurrency(e.target.value)}
-          className={`${inputCls}`}>
-          <option>EUR</option><option>GBP</option><option>SEK</option><option>USD</option>
-        </select>
-      </div>
-      <div>
-        <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${sub}`}>Change Password</p>
-        <input type="password" value={pa.authForm?.password||''} onChange={e => pa.onAuthFormChange('password', e.target.value)} placeholder="Current password" className={`${inputCls} mb-1`} />
-        <input type="password" value={pa.authForm?.newPassword||''} onChange={e => pa.onAuthFormChange('newPassword', e.target.value)} placeholder="New password" className={`${inputCls} mb-1`} />
-        {pa.authError && <p className="text-[10px] text-red-400 mb-1">{pa.authError}</p>}
-        <button onClick={pa.onChangePassword} disabled={pa.authLoading} className={`${btn} bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50`}>
-          {pa.authLoading ? 'Saving…' : 'Update Password'}
-        </button>
-      </div>
-      <div>
         <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${sub}`}>Ticker Overrides</p>
         <input value={pa.overrideIsin||''} onChange={e => pa.onOverrideIsinChange(e.target.value)} placeholder="ISIN" className={`${inputCls} mb-1`} />
         <input value={pa.overrideTicker||''} onChange={e => pa.onOverrideTickerChange(e.target.value)} placeholder="Ticker" className={`${inputCls} mb-1`} />
@@ -280,6 +264,13 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         { id: 'cs-tracker',    label: 'Trade Registry', path: '/cs-skins/tracker' },
         { id: 'cs-settings',   label: 'Settings',      path: '/cs-skins/settings' },
       ]
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: Cog,
+      path: '/settings',
+      subItems: null,
     },
     {
       id: 'moderator',
@@ -471,10 +462,9 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
           {isExpanded && (
             <button
               onClick={() => navigate('/profile/edit')}
-              title="Edit Profile"
-              className={`p-2 rounded-lg ${hoverBg} transition-colors shrink-0`}
+              className={`px-3 py-1.5 rounded-lg ${hoverBg} transition-colors shrink-0 text-xs font-semibold ${textSecondary}`}
             >
-              <Cog size={16} className={textSecondary} />
+              Edit
             </button>
           )}
         </div>

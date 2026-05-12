@@ -1062,10 +1062,22 @@ app.get('/api/cs/inventory', requireUser, async (req, res) => {
   res.json(items.map(item => ({ ...item, current_price_sek: priceMap[item.skin_name]?.price_sek || 0, sale_price: item.cs_sales?.[0]?.sale_price, sale_date: item.cs_sales?.[0]?.sale_date })));
 });
 
+async function toSEK(amount, currency) {
+  if (!amount) return 0;
+  if (!currency || currency === 'SEK') return parseFloat(amount);
+  try {
+    const r = await fetch(`https://api.frankfurter.app/latest?from=${currency}&to=SEK`);
+    const d = await r.json();
+    const rate = d?.rates?.SEK;
+    return rate ? parseFloat(amount) * rate : parseFloat(amount);
+  } catch(e) { return parseFloat(amount); }
+}
+
 app.post('/api/cs/inventory', requireUser, async (req, res) => {
-  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url } = req.body;
+  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id } = req.body;
   if (!skin_name||!purchase_date) return res.status(400).json({ error:'skin_name and purchase_date required' });
-  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value, pattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_date, notes, screenshot_url:screenshot_url||null }).select().single();
+  const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
+  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value, pattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:screenshot_url||null, steam_asset_id:steam_asset_id||null }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior });
   res.json({ id:data.id, success:true });
@@ -1075,8 +1087,9 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
   const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id } = req.body;
   if (!skin_name || !purchase_date) return res.status(400).json({ error: 'skin_name and purchase_date required' });
   const { data: existing } = await supabase.from('cs_inventory').select('skin_name, screenshot_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
   const { error } = await supabase.from('cs_inventory')
-    .update({ skin_name, exterior, float_value, pattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_date, notes, screenshot_url: screenshot_url || null, steam_asset_id: steam_asset_id || null })
+    .update({ skin_name, exterior, float_value, pattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: screenshot_url || null, steam_asset_id: steam_asset_id || null })
     .eq('id', req.params.id)
     .eq('user_id', req.user.id);
   if (error) return res.status(500).json({ error: error.message });
@@ -1113,7 +1126,9 @@ app.get('/api/cs/steam/screenshot/:id', async (req, res) => {
     const data = await r.json();
     const file = data?.response?.publishedfiledetails?.[0];
     if (!file || file.result !== 1) return res.status(404).json({ error: 'Screenshot not found' });
-    res.json({ previewUrl: file.preview_url, title: file.title || '' });
+    // Strip resize query params to get full resolution image
+    const previewUrl = file.preview_url ? file.preview_url.split('?')[0] : null;
+    res.json({ previewUrl, title: file.title || '' });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -1121,8 +1136,8 @@ app.get('/api/cs/steam/screenshot/:id', async (req, res) => {
 
 app.get('/api/cs/pnl', requireUser, async (req, res) => {
   const [{ data: sold }, { data: holding }] = await Promise.all([
-    supabase.from('cs_inventory').select('purchase_price, cs_sales(sale_price)').eq('user_id', req.user.id).eq('sold', true),
-    supabase.from('cs_inventory').select('id, skin_name, purchase_price').eq('user_id', req.user.id).eq('sold', false),
+    supabase.from('cs_inventory').select('purchase_price, purchase_price_sek, cs_sales(sale_price)').eq('user_id', req.user.id).eq('sold', true),
+    supabase.from('cs_inventory').select('id, skin_name, purchase_price, purchase_price_sek').eq('user_id', req.user.id).eq('sold', false),
   ]);
   const holdingItems = holding || [];
   let priceMap = {};
@@ -1131,9 +1146,10 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
     const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
     (prices || []).forEach(p => { priceMap[p.skin_name] = p.price_sek; });
   }
-  const realised = (sold||[]).reduce((s,r) => s + ((r.cs_sales?.[0]?.sale_price||0) - r.purchase_price), 0);
-  const unrealised = holdingItems.reduce((s,r) => s + ((priceMap[r.skin_name]||0) - r.purchase_price), 0);
-  res.json({ realised, unrealised, totalInvested: holdingItems.reduce((s,r) => s + r.purchase_price, 0), currentValue: holdingItems.reduce((s,r) => s + (priceMap[r.skin_name]||0), 0), totalPnl: realised + unrealised, soldCount: (sold||[]).length, holdingCount: holdingItems.length });
+  const costOf = r => r.purchase_price_sek || r.purchase_price;
+  const realised = (sold||[]).reduce((s,r) => s + ((r.cs_sales?.[0]?.sale_price||0) - costOf(r)), 0);
+  const unrealised = holdingItems.reduce((s,r) => s + ((priceMap[r.skin_name]||0) - costOf(r)), 0);
+  res.json({ realised, unrealised, totalInvested: holdingItems.reduce((s,r) => s + costOf(r), 0), currentValue: holdingItems.reduce((s,r) => s + (priceMap[r.skin_name]||0), 0), totalPnl: realised + unrealised, soldCount: (sold||[]).length, holdingCount: holdingItems.length });
 });
 
 // ── Admin routes ─────────────────────────────────────────────────────────────
