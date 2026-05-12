@@ -277,7 +277,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       subItems: [
         { id: 'cs-overview',   label: 'Overview',      path: '/cs-skins' },
         { id: 'cs-inventory',  label: 'My Inventory',  path: '/cs-skins/inventory' },
-        { id: 'cs-tracker',    label: 'Skin Tracker',  path: '/cs-skins/tracker' },
+        { id: 'cs-tracker',    label: 'Trade Registry', path: '/cs-skins/tracker' },
         { id: 'cs-settings',   label: 'Settings',      path: '/cs-skins/settings' },
       ]
     },

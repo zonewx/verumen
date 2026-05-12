@@ -1,5 +1,52 @@
 import { useState, useEffect, useCallback } from 'react';
 
+function SteamScreenshotPreview({ url, isDark }) {
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!url) return;
+    const match = url.match(/id=(\d+)/);
+    if (!match) return;
+    setLoading(true);
+    fetch(`/api/cs/steam/screenshot/${match[1]}`)
+      .then(r => r.json())
+      .then(d => { if (d.previewUrl) setPreview(d.previewUrl); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [url]);
+
+  if (!url) return null;
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="block mt-2 rounded-xl overflow-hidden group">
+      {loading && (
+        <div className={`flex items-center gap-2 p-3 rounded-xl border ${isDark ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+          <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs text-orange-400">Loading preview...</span>
+        </div>
+      )}
+      {!loading && preview && (
+        <div className="relative">
+          <img src={preview} alt="Steam screenshot" className="w-full rounded-xl object-cover max-h-72" />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition rounded-xl flex items-center justify-center">
+            <span className="opacity-0 group-hover:opacity-100 transition text-white text-xs font-semibold bg-black/60 px-3 py-1.5 rounded-full">View on Steam ↗</span>
+          </div>
+        </div>
+      )}
+      {!loading && !preview && (
+        <div className={`flex items-center gap-3 p-3 rounded-xl border ${isDark ? 'bg-gray-700/50 border-gray-600 hover:bg-gray-700' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}>
+          <span className="text-xl">📷</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">Steam Screenshot</p>
+            <p className="text-xs text-orange-400 truncate">{url}</p>
+          </div>
+          <span className="text-xs text-orange-400 shrink-0">View ↗</span>
+        </div>
+      )}
+    </a>
+  );
+}
+
 const ROLE_BADGE = {
   admin: { label: 'admin', cls: 'bg-red-900/40 text-red-400 border border-red-800' },
   moderator: { label: 'mod', cls: 'bg-blue-900/40 text-blue-400 border border-blue-800' },
@@ -61,6 +108,16 @@ function ActivityCard({ item, isDark, onDelete, isOwn }) {
             {isBuy ? 'Bought' : 'Sold'}
           </span>
         </div>
+      </div>
+    );
+  }
+
+  if (item.type === 'cs_trade_screenshot') {
+    return (
+      <div className={card}>
+        <Header />
+        <p className="text-sm font-semibold mb-2">{item.skinName}</p>
+        <SteamScreenshotPreview url={item.screenshotUrl} isDark={isDark} />
       </div>
     );
   }

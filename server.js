@@ -1055,12 +1055,27 @@ app.get('/api/cs/inventory', requireUser, async (req, res) => {
 });
 
 app.post('/api/cs/inventory', requireUser, async (req, res) => {
-  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes } = req.body;
+  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url } = req.body;
   if (!skin_name||!purchase_date) return res.status(400).json({ error:'skin_name and purchase_date required' });
-  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value, pattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_date, notes }).select().single();
+  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value, pattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_date, notes, screenshot_url:screenshot_url||null }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior });
   res.json({ id:data.id, success:true });
+});
+
+app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
+  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id } = req.body;
+  if (!skin_name || !purchase_date) return res.status(400).json({ error: 'skin_name and purchase_date required' });
+  const { data: existing } = await supabase.from('cs_inventory').select('skin_name, screenshot_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  const { error } = await supabase.from('cs_inventory')
+    .update({ skin_name, exterior, float_value, pattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_date, notes, screenshot_url: screenshot_url || null, steam_asset_id: steam_asset_id || null })
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  if (screenshot_url && !existing?.screenshot_url) {
+    await appendActivity(req.user.id, 'cs_trade_screenshot', { skinName: skin_name, screenshotUrl: screenshot_url });
+  }
+  res.json({ success: true });
 });
 
 app.delete('/api/cs/inventory/:id', requireUser, async (req, res) => {
@@ -1069,13 +1084,31 @@ app.delete('/api/cs/inventory/:id', requireUser, async (req, res) => {
 });
 
 app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
-  const { sale_price, sale_currency, sale_date, notes } = req.body;
+  const { sale_price, sale_currency, sale_date, notes, screenshot_url } = req.body;
   if (!sale_price||!sale_date) return res.status(400).json({ error:'sale_price and sale_date required' });
   const { data: item } = await supabase.from('cs_inventory').select('skin_name, purchase_price').eq('id', req.params.id).single();
   await supabase.from('cs_inventory').update({ sold:true }).eq('id', req.params.id).eq('user_id', req.user.id);
-  const { data } = await supabase.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price, sale_currency:sale_currency||'SEK', sale_date, notes }).select().single();
+  const { data } = await supabase.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price, sale_currency:sale_currency||'SEK', sale_date, notes, screenshot_url:screenshot_url||null }).select().single();
   if (item) await appendActivity(req.user.id, 'cs_trade', { action:'sell', skinName:item.skin_name, buyPrice:item.purchase_price, sellPrice:sale_price, currency:sale_currency });
   res.json({ id:data?.id, success:true });
+});
+
+app.get('/api/cs/steam/screenshot/:id', async (req, res) => {
+  const { id } = req.params;
+  if (!/^\d+$/.test(id)) return res.status(400).json({ error: 'Invalid screenshot ID' });
+  try {
+    const r = await fetch('https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `itemcount=1&publishedfileids%5B0%5D=${id}`,
+    });
+    const data = await r.json();
+    const file = data?.response?.publishedfiledetails?.[0];
+    if (!file || file.result !== 1) return res.status(404).json({ error: 'Screenshot not found' });
+    res.json({ previewUrl: file.preview_url, title: file.title || '' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/cs/pnl', requireUser, async (req, res) => {
