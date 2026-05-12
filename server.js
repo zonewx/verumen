@@ -1050,9 +1050,16 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
 });
 
 app.get('/api/cs/inventory', requireUser, async (req, res) => {
-  const { data, error } = await supabase.from('cs_inventory').select('*, cs_sales(*), cs_price_cache(price_sek, price_usd)').eq('user_id', req.user.id).order('purchase_date', { ascending:false });
+  const { data, error } = await supabase.from('cs_inventory').select('*, cs_sales(*)').eq('user_id', req.user.id).order('purchase_date', { ascending:false });
   if (error) { log.error('cs_inventory GET failed', { error: error.message, userId: req.user.id }); return res.status(500).json({ error: error.message }); }
-  res.json((data||[]).map(item=>({ ...item, current_price_sek:item.cs_price_cache?.price_sek, sale_price:item.cs_sales?.[0]?.sale_price, sale_date:item.cs_sales?.[0]?.sale_date })));
+  const items = data || [];
+  const names = [...new Set(items.map(i => i.skin_name))];
+  let priceMap = {};
+  if (names.length > 0) {
+    const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek, price_usd').in('skin_name', names);
+    (prices || []).forEach(p => { priceMap[p.skin_name] = p; });
+  }
+  res.json(items.map(item => ({ ...item, current_price_sek: priceMap[item.skin_name]?.price_sek || 0, sale_price: item.cs_sales?.[0]?.sale_price, sale_date: item.cs_sales?.[0]?.sale_date })));
 });
 
 app.post('/api/cs/inventory', requireUser, async (req, res) => {
@@ -1113,11 +1120,20 @@ app.get('/api/cs/steam/screenshot/:id', async (req, res) => {
 });
 
 app.get('/api/cs/pnl', requireUser, async (req, res) => {
-  const { data: sold } = await supabase.from('cs_inventory').select('purchase_price, cs_sales(sale_price)').eq('user_id', req.user.id).eq('sold', true);
-  const { data: holding } = await supabase.from('cs_inventory').select('purchase_price, cs_price_cache(price_sek)').eq('user_id', req.user.id).eq('sold', false);
-  const realised=(sold||[]).reduce((s,r)=>s+((r.cs_sales?.[0]?.sale_price||0)-r.purchase_price),0);
-  const unrealised=(holding||[]).reduce((s,r)=>s+((r.cs_price_cache?.price_sek||0)-r.purchase_price),0);
-  res.json({ realised, unrealised, totalInvested:(holding||[]).reduce((s,r)=>s+r.purchase_price,0), currentValue:(holding||[]).reduce((s,r)=>s+(r.cs_price_cache?.price_sek||0),0), totalPnl:realised+unrealised, soldCount:(sold||[]).length, holdingCount:(holding||[]).length });
+  const [{ data: sold }, { data: holding }] = await Promise.all([
+    supabase.from('cs_inventory').select('purchase_price, cs_sales(sale_price)').eq('user_id', req.user.id).eq('sold', true),
+    supabase.from('cs_inventory').select('id, skin_name, purchase_price').eq('user_id', req.user.id).eq('sold', false),
+  ]);
+  const holdingItems = holding || [];
+  let priceMap = {};
+  if (holdingItems.length > 0) {
+    const names = [...new Set(holdingItems.map(i => i.skin_name))];
+    const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
+    (prices || []).forEach(p => { priceMap[p.skin_name] = p.price_sek; });
+  }
+  const realised = (sold||[]).reduce((s,r) => s + ((r.cs_sales?.[0]?.sale_price||0) - r.purchase_price), 0);
+  const unrealised = holdingItems.reduce((s,r) => s + ((priceMap[r.skin_name]||0) - r.purchase_price), 0);
+  res.json({ realised, unrealised, totalInvested: holdingItems.reduce((s,r) => s + r.purchase_price, 0), currentValue: holdingItems.reduce((s,r) => s + (priceMap[r.skin_name]||0), 0), totalPnl: realised + unrealised, soldCount: (sold||[]).length, holdingCount: holdingItems.length });
 });
 
 // ── Admin routes ─────────────────────────────────────────────────────────────
