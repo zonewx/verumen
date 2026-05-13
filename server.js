@@ -1073,10 +1073,11 @@ app.post('/api/cs/prices/sync', requireUser, async (req, res) => {
       const now = new Date().toISOString();
       const entries = items
         .filter(i => i.market_hash_name)
+        .filter(i => (i.suggested_price || i.min_price || 0) > 0) // skip items with no current listings
         .map(i => ({
           skin_name: i.market_hash_name,
-          price_sek: i.median_price || i.suggested_price || i.min_price || 0,
-          price_usd: parseFloat(((i.median_price || i.suggested_price || i.min_price || 0) / sekPerUsd).toFixed(2)),
+          price_sek: i.suggested_price || i.min_price || 0,
+          price_usd: parseFloat(((i.suggested_price || i.min_price || 0) / sekPerUsd).toFixed(2)),
           last_updated: now,
         }));
 
@@ -1109,7 +1110,45 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
     const names = (data.assets||[]).map(a=>{ const d=descMap[`${a.classid}_${a.instanceid}`]; return d?.market_hash_name||d?.name||'Unknown'; }).filter(n=>n!=='Unknown');
     const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
     const priceMap = {};
-    (prices||[]).forEach(p=>{ priceMap[p.skin_name]=p.price_sek; });
+    (prices||[]).forEach(p=>{ priceMap[p.skin_name] = p.price_sek; });
+
+    // Steam Market fallback for tradable items with no cached price (knives, agents, new items)
+    const uniqueNames = [...new Set(names)];
+    const missingNames = uniqueNames.filter(n => !priceMap[n] || priceMap[n] === 0).slice(0, 8);
+    if (missingNames.length > 0) {
+      let usdToSek = 10.5;
+      try {
+        const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
+        const fxd = await fx.json();
+        usdToSek = fxd?.rates?.SEK || usdToSek;
+      } catch(e) {}
+
+      const steamResults = await Promise.all(missingNames.map(async name => {
+        try {
+          const r = await fetch(`https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`);
+          if (!r.ok) return null;
+          const d = await r.json();
+          if (!d.success) return null;
+          const raw = d.median_price || d.lowest_price;
+          if (!raw) return null;
+          const usd = parseFloat(raw.replace(/[^0-9.]/g, ''));
+          if (!(usd > 0)) return null;
+          return { name, usd, sek: parseFloat((usd * usdToSek).toFixed(2)) };
+        } catch(e) { return null; }
+      }));
+
+      const newEntries = steamResults.filter(Boolean);
+      if (newEntries.length > 0) {
+        const now = new Date().toISOString();
+        newEntries.forEach(e => { priceMap[e.name] = e.sek; });
+        // Cache in background so it doesn't block the response
+        setImmediate(() => supabase.from('cs_price_cache').upsert(
+          newEntries.map(e => ({ skin_name: e.name, price_sek: e.sek, price_usd: e.usd, last_updated: now })),
+          { onConflict: 'skin_name' }
+        ));
+      }
+    }
+
     const items = (data.assets||[]).map(asset => {
       const desc = descMap[`${asset.classid}_${asset.instanceid}`];
       const name = desc?.market_hash_name || desc?.name || 'Unknown';
