@@ -80,7 +80,7 @@ function SkinCard({ item, isDark, onClick }) {
           <div className="flex gap-1 mt-1.5 flex-wrap">
             {item.stickers.map((s, i) => (
               <div key={i} className="relative group">
-                <img src={s.url} alt={s.name} className="w-6 h-6 object-contain opacity-85 hover:opacity-100 transition" />
+                <img src={s.url} alt={s.name} className="w-9 h-9 object-contain opacity-85 hover:opacity-100 transition" />
                 {s.name && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] bg-gray-900 text-white rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-20 border border-gray-700 shadow-lg">
                     {s.name}
@@ -473,15 +473,15 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                   {steamInventory && (
                     <div>
                       <div className="flex gap-6 mb-4">
-                        <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Items</p><p className="text-xl font-bold">{steamInventory.count}</p></div>
-                        <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Est. Value</p><p className="text-xl font-bold text-green-400">{fmtSEK(steamInventory.totalValue)}</p></div>
+                        <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Tradable items</p><p className="text-xl font-bold">{steamInventory.items.filter(i=>i.tradable).length}</p></div>
+                        <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Est. Value</p><p className="text-xl font-bold text-green-400">{fmtSEK(steamInventory.items.filter(i=>i.tradable).reduce((s,i)=>s+i.priceSEK,0))}</p></div>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 max-h-80 overflow-y-auto">
-                        {steamInventory.items.slice(0, 24).map((item, i) => (
+                        {steamInventory.items.filter(i=>i.tradable).slice(0, 24).map((item, i) => (
                           <SkinCard key={i} item={item} isDark={isDark} />
                         ))}
                       </div>
-                      {steamInventory.items.length > 24 && <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>+{steamInventory.items.length - 24} more items</p>}
+                      {steamInventory.items.filter(i=>i.tradable).length > 24 && <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>+{steamInventory.items.filter(i=>i.tradable).length - 24} more items</p>}
                     </div>
                   )}
                   {!steamInventory && !steamLoading && !steamError && (
@@ -555,11 +555,11 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
               {steamInventory && (
                 <>
                   <div className={`${card} p-4 flex gap-6`}>
-                    <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Total items</p><p className="text-2xl font-bold">{steamInventory.count}</p></div>
-                    <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Estimated value</p><p className="text-2xl font-bold text-green-400">{fmtSEK(steamInventory.totalValue)}</p></div>
+                    <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Tradable items</p><p className="text-2xl font-bold">{steamInventory.items.filter(i=>i.tradable).length}</p></div>
+                    <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Estimated value</p><p className="text-2xl font-bold text-green-400">{fmtSEK(steamInventory.items.filter(i=>i.tradable).reduce((s,i)=>s+i.priceSEK,0))}</p></div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                    {steamInventory.items.map((item, i) => (
+                    {steamInventory.items.filter(i=>i.tradable).map((item, i) => (
                       <SkinCard key={i} item={item} isDark={isDark} />
                     ))}
                   </div>
