@@ -124,7 +124,6 @@ function SkinCard({ item, isDark, onClick }) {
     </div>
   );
 }
-}
 
 export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) {
   const location = useLocation();
