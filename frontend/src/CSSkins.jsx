@@ -226,7 +226,11 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
           setSyncingPrices(false);
           setPricesReady(true);
           setSyncStatus('✓ Sync complete — prices updated');
+          // Clear Steam inventory cache so it reloads with fresh prices
+          sessionStorage.removeItem('steam_inv_cache');
+          setSteamInventory(null);
           fetchAll();
+          if (settings.steam_id) fetchSteamInventory(true);
         }
       }, 1000);
     } catch(e) { setSyncStatus('Error: ' + e.message); setSyncingPrices(false); }
