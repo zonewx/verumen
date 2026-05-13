@@ -1008,6 +1008,26 @@ app.get('/api/announcements', async (req, res) => {
 });
 
 // ── CS helpers ──────────────────────────────────────────────────────────────
+function parseSteamTags(tags) {
+  const r = {};
+  for (const t of tags || []) {
+    if (t.category === 'Exterior') r.exterior = t.localized_tag_name;
+    else if (t.category === 'Quality') r.quality = t.localized_tag_name;
+    else if (t.category === 'Rarity') { r.rarity = t.localized_tag_name; r.rarityColor = t.color ? `#${t.color}` : null; }
+    else if (t.category === 'Weapon') r.weapon = t.localized_tag_name;
+  }
+  return r;
+}
+
+function parseSteamStickers(descriptions) {
+  const entry = (descriptions || []).find(d => d.value?.includes('sticker_info'));
+  if (!entry) return [];
+  const icons = [...entry.value.matchAll(/src="([^"]+)"/g)].map(m => m[1]);
+  const nameMatch = entry.value.match(/Stickers?:\s*([^<]+)/i);
+  const names = nameMatch ? nameMatch[1].trim().split(/,\s*/) : [];
+  return icons.map((url, i) => ({ url, name: (names[i] || '').trim() }));
+}
+
 function fetchJSON(url) {
   return new Promise((resolve, reject) => {
     https.get(url, { headers:{ 'User-Agent':'Statera/1.0' } }, (res) => {
@@ -1028,21 +1048,42 @@ app.post('/api/cs/settings', requireUser, async (req, res) => {
   res.json({ success:true });
 });
 
-app.post('/api/cs/prices/sync', requireAdmin, async (req, res) => {
+app.post('/api/cs/prices/sync', requireUser, async (req, res) => {
   try {
-    let prices = null;
-    try { const d = await fetchJSON('https://prices.csgotrader.app/latest/prices_v6.json'); if (d && typeof d === 'object' && !d.error) prices = d; } catch(e) {}
-    let sekRate = 10.5;
-    try { const fx = await fetchJSON('https://api.exchangerate-api.com/v4/latest/USD'); sekRate = fx?.rates?.SEK||10.5; } catch(e) {}
-    if (!prices) return res.status(500).json({ error:'Could not fetch prices. Try again later.' });
+    const r = await fetch('https://api.skinport.com/v1/items?app_id=730&currency=SEK', {
+      headers: { 'Accept-Encoding': 'br' },
+    });
+    if (!r.ok) return res.status(500).json({ error: `Skinport returned ${r.status}` });
+    const items = await r.json();
+    if (!Array.isArray(items)) return res.status(500).json({ error: 'Unexpected response from Skinport' });
+
+    // Single exchange rate call to get USD equivalent
+    let sekPerUsd = 10.5;
+    try {
+      const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
+      const fxData = await fx.json();
+      sekPerUsd = fxData?.rates?.SEK || sekPerUsd;
+    } catch(e) {}
+
     const now = new Date().toISOString();
-    const entries = Object.entries(prices);
-    for (let i=0; i<entries.length; i+=500) {
-      const chunk = entries.slice(i, i+500).map(([name, data]) => { const priceUSD = data?.steam?.last_24h||data?.steam?.last_7d||data?.steam?.last_30d||0; return { skin_name:name, price_usd:priceUSD, price_sek:priceUSD*sekRate, last_updated:now }; });
-      await supabase.from('cs_price_cache').upsert(chunk, { onConflict:'skin_name' });
+    const entries = items
+      .filter(i => i.market_hash_name)
+      .map(i => ({
+        skin_name: i.market_hash_name,
+        price_sek: i.median_price || i.suggested_price || i.min_price || 0,
+        price_usd: parseFloat(((i.median_price || i.suggested_price || i.min_price || 0) / sekPerUsd).toFixed(2)),
+        last_updated: now,
+      }));
+
+    for (let i = 0; i < entries.length; i += 500) {
+      await supabase.from('cs_price_cache').upsert(entries.slice(i, i + 500), { onConflict: 'skin_name' });
     }
-    res.json({ success:true, count:entries.length, sekRate, source:'csgotrader' });
-  } catch(e) { res.status(500).json({ error:e.message }); }
+
+    res.json({ success: true, count: entries.length, sekRate: sekPerUsd, source: 'skinport' });
+  } catch(e) {
+    log.error('cs prices sync failed', { error: e.message });
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
@@ -1061,7 +1102,25 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
     const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
     const priceMap = {};
     (prices||[]).forEach(p=>{ priceMap[p.skin_name]=p.price_sek; });
-    const items = (data.assets||[]).map(asset=>{ const desc=descMap[`${asset.classid}_${asset.instanceid}`]; const name=desc?.market_hash_name||desc?.name||'Unknown'; return { assetId:asset.assetid, name, iconUrl:desc?.icon_url?`https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/128x128`:null, tradable:desc?.tradable===1, type:desc?.type||'', priceSEK:priceMap[name]||0 }; }).filter(i=>i.name!=='Unknown');
+    const items = (data.assets||[]).map(asset => {
+      const desc = descMap[`${asset.classid}_${asset.instanceid}`];
+      const name = desc?.market_hash_name || desc?.name || 'Unknown';
+      const tags = parseSteamTags(desc?.tags);
+      const stickers = parseSteamStickers(desc?.descriptions);
+      return {
+        assetId: asset.assetid,
+        name,
+        iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/360x360` : null,
+        tradable: desc?.tradable === 1,
+        type: desc?.type || '',
+        priceSEK: priceMap[name] || 0,
+        exterior: tags.exterior || null,
+        quality: tags.quality || null,
+        rarity: tags.rarity || null,
+        rarityColor: tags.rarityColor || null,
+        stickers,
+      };
+    }).filter(i => i.name !== 'Unknown');
     res.json({ items, totalValue:items.reduce((s,i)=>s+i.priceSEK,0), count:items.length });
   } catch(e) { res.status(500).json({ error:e.message }); }
 });

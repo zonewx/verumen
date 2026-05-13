@@ -59,6 +59,73 @@ function authHeaders(extra = {}) {
   return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extra };
 }
 
+function SkinCard({ item, isDark, onClick }) {
+  const isSpecial = item.quality && (item.quality.includes('StatTrak') || item.quality.includes('Souvenir'));
+  const isKnifeOrGloves = item.rarity === 'Extraordinary';
+  const qualityColor = item.quality?.includes('StatTrak') ? '#cf6a32' : item.quality?.includes('Souvenir') ? '#ffd700' : null;
+
+  return (
+    <div
+      onClick={onClick}
+      className={`rounded-xl border overflow-hidden flex flex-col transition-transform hover:scale-[1.02] ${onClick ? 'cursor-pointer' : ''} ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+    >
+      {/* Image area with rarity tint */}
+      <div className="relative p-3 pb-2" style={item.rarityColor ? { background: `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 70%)` } : {}}>
+        {item.iconUrl
+          ? <img src={item.iconUrl} alt={item.name} className="w-full h-24 object-contain" />
+          : <div className="w-full h-24 flex items-center justify-center text-3xl">🔫</div>
+        }
+        {/* Sticker row */}
+        {item.stickers?.length > 0 && (
+          <div className="flex gap-1 mt-1.5 flex-wrap">
+            {item.stickers.map((s, i) => (
+              <div key={i} className="relative group">
+                <img src={s.url} alt={s.name} className="w-6 h-6 object-contain opacity-85 hover:opacity-100 transition" />
+                {s.name && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] bg-gray-900 text-white rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-20 border border-gray-700 shadow-lg">
+                    {s.name}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Info area */}
+      <div className="px-3 pb-3 flex flex-col gap-0.5 flex-1">
+        {/* Rarity + quality badges */}
+        <div className="flex items-center gap-1.5 mb-0.5">
+          {item.rarityColor && (
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.rarityColor }} />
+          )}
+          {item.rarity && <span className="text-[10px] font-semibold" style={{ color: item.rarityColor || 'inherit' }}>{item.rarity}</span>}
+          {isSpecial && <span className="text-[10px] font-bold ml-auto" style={{ color: qualityColor }}>{item.quality}</span>}
+        </div>
+
+        {/* Name */}
+        <p className="text-xs font-semibold leading-tight line-clamp-2" title={item.name}>
+          {isKnifeOrGloves && <span className="text-yellow-400 mr-0.5">★</span>}{item.name}
+        </p>
+
+        {/* Exterior */}
+        {item.exterior && (
+          <p className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{item.exterior}</p>
+        )}
+
+        <div className="mt-auto pt-1.5 flex items-center justify-between gap-1">
+          {item.priceSEK > 0
+            ? <p className="text-sm font-bold text-green-400">{fmtSEK(item.priceSEK)}</p>
+            : <span />
+          }
+          {!item.tradable && <span className="text-[10px] text-yellow-500 font-medium">Not tradable</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+}
+
 export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -147,7 +214,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
       const res = await fetch('/api/cs/prices/sync', { method: 'POST', headers: authHeaders() });
       const data = await res.json();
       if (data.success) {
-        setSyncStatus(`✓ Synced ${data.count.toLocaleString()} items (${data.source})${data.note ? ' — ' + data.note : ''} at ${data.sekRate?.toFixed(2)} SEK/USD`);
+        setSyncStatus(`✓ Synced ${data.count.toLocaleString()} items via ${data.source}`);
         setPricesReady(true);
         await fetchAll();
       } else setSyncStatus('Failed: ' + data.error);
@@ -155,7 +222,8 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
     setSyncingPrices(false);
   };
 
-  const INVENTORY_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+  const INVENTORY_CACHE_TTL = 10 * 60 * 1000;
+  const INVENTORY_CACHE_VERSION = 2; // bump when item shape changes
 
   const fetchSteamInventory = async (force = false) => {
     const id = settings.steam_id;
@@ -164,8 +232,8 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
       try {
         const cached = sessionStorage.getItem('steam_inv_cache');
         if (cached) {
-          const { data, ts } = JSON.parse(cached);
-          if (Date.now() - ts < INVENTORY_CACHE_TTL) { setSteamInventory(data); return; }
+          const { data, ts, v } = JSON.parse(cached);
+          if (v === INVENTORY_CACHE_VERSION && Date.now() - ts < INVENTORY_CACHE_TTL) { setSteamInventory(data); return; }
         }
       } catch(e) {}
     }
@@ -176,7 +244,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
       if (!res.ok) { setSteamError(data.error || 'Failed to fetch inventory'); }
       else {
         setSteamInventory(data);
-        sessionStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now() }));
+        sessionStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION }));
       }
     } catch(e) { setSteamError('Network error: ' + e.message); }
     setSteamLoading(false);
@@ -200,7 +268,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
       const data = await res.json();
       if (res.ok) {
         setModalInventory(data.items || []);
-        sessionStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now() }));
+        sessionStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION }));
       }
     } catch(e) {}
     setModalInvLoading(false);
@@ -409,13 +477,9 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                         <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Items</p><p className="text-xl font-bold">{steamInventory.count}</p></div>
                         <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Est. Value</p><p className="text-xl font-bold text-green-400">{fmtSEK(steamInventory.totalValue)}</p></div>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 max-h-72 overflow-y-auto">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 max-h-80 overflow-y-auto">
                         {steamInventory.items.slice(0, 24).map((item, i) => (
-                          <div key={i} className={`${isDark ? 'bg-gray-700' : 'bg-gray-50'} rounded-lg p-2 text-center`}>
-                            {item.iconUrl && <img src={item.iconUrl} alt={item.name} className="w-full h-16 object-contain mb-1" />}
-                            <p className="text-xs font-medium truncate" title={item.name}>{item.name}</p>
-                            {item.priceSEK > 0 && <p className="text-xs text-green-400 font-bold">{fmtSEK(item.priceSEK)}</p>}
-                          </div>
+                          <SkinCard key={i} item={item} isDark={isDark} />
                         ))}
                       </div>
                       {steamInventory.items.length > 24 && <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>+{steamInventory.items.length - 24} more items</p>}
@@ -497,13 +561,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                     {steamInventory.items.map((item, i) => (
-                      <div key={i} className={`${card} p-3`}>
-                        {item.iconUrl && <img src={item.iconUrl} alt={item.name} className="w-full h-20 object-contain mb-2" />}
-                        <p className="text-xs font-semibold leading-tight mb-1" title={item.name}>{item.name}</p>
-                        <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{item.type}</p>
-                        {item.priceSEK > 0 && <p className="text-sm font-bold text-green-400 mt-1">{fmtSEK(item.priceSEK)}</p>}
-                        {!item.tradable && <span className="text-xs text-yellow-500">Not tradable</span>}
-                      </div>
+                      <SkinCard key={i} item={item} isDark={isDark} />
                     ))}
                   </div>
                 </>
