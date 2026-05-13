@@ -3,6 +3,9 @@ const express = require('express');
 const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
+const zlib = require('zlib');
+const { promisify } = require('util');
+const brotliDecompress = promisify(zlib.brotliDecompress);
 const { supabase } = require('./supabase');
 
 // Simple in-memory rate limiter for auth routes
@@ -1054,7 +1057,16 @@ app.post('/api/cs/prices/sync', requireUser, async (req, res) => {
       headers: { 'Accept-Encoding': 'br' },
     });
     if (!r.ok) return res.status(500).json({ error: `Skinport returned ${r.status}` });
-    const items = await r.json();
+    // Decompress Brotli manually — Node.js fetch doesn't always auto-decompress br
+    let items;
+    const enc = r.headers.get('content-encoding');
+    if (enc === 'br') {
+      const buf = Buffer.from(await r.arrayBuffer());
+      const decompressed = await brotliDecompress(buf);
+      items = JSON.parse(decompressed.toString());
+    } else {
+      items = await r.json();
+    }
     if (!Array.isArray(items)) return res.status(500).json({ error: 'Unexpected response from Skinport' });
 
     // Single exchange rate call to get USD equivalent
