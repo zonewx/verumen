@@ -139,6 +139,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
   const [steamInventory, setSteamInventory] = useState(null);
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState('');
+  const [invSort, setInvSort] = useState('default');
   const [inventory, setInventory] = useState(() => apiCache.get('/api/cs/inventory') || []);
   const [pnl, setPnl] = useState(() => apiCache.get('/api/cs/pnl'));
   const [pricesReady, setPricesReady] = useState(() => apiCache.has('/api/cs/prices-ready'));
@@ -203,12 +204,12 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Auto-load Steam inventory when on the inventory tab and Steam ID is known
+  // Auto-load Steam inventory as soon as Steam ID is known
   useEffect(() => {
-    if (tab === 'inventory' && settings.steam_id && !steamInventory) {
+    if (settings.steam_id && !steamInventory) {
       fetchSteamInventory();
     }
-  }, [tab, settings.steam_id]);
+  }, [settings.steam_id]);
 
   const INVENTORY_CACHE_TTL = 10 * 60 * 1000;
   const INVENTORY_CACHE_VERSION = 2; // bump when item shape changes
@@ -455,24 +456,36 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                 <div className={`${card} p-5`}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Steam Inventory</h3>
-                    <button onClick={fetchSteamInventory} disabled={steamLoading} className={btnOrange}>
-                      {steamLoading ? '⏳ Loading...' : '↺ Fetch Inventory'}
-                    </button>
+                    <select
+                      value={invSort}
+                      onChange={e => setInvSort(e.target.value)}
+                      className={`px-2 py-1.5 rounded-lg border text-xs outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                    >
+                      <option value="default">Inventory order</option>
+                      <option value="price-desc">Price: High → Low</option>
+                      <option value="price-asc">Price: Low → High</option>
+                    </select>
                   </div>
                   {steamError && <p className="text-red-400 text-sm">{steamError}</p>}
-                  {steamInventory && (
-                    <div>
-                      <div className="flex gap-6 mb-4">
-                        <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Tradable items</p><p className="text-xl font-bold">{steamInventory.items.filter(i=>i.tradable).length}</p></div>
-                        <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Est. Value</p><p className="text-xl font-bold text-green-400">{fmtSEK(steamInventory.items.filter(i=>i.tradable).reduce((s,i)=>s+i.priceSEK,0))}</p></div>
+                  {steamInventory && (() => {
+                    const tradable = steamInventory.items.filter(i=>i.tradable);
+                    const sorted = invSort === 'price-desc' ? [...tradable].sort((a,b)=>b.priceSEK-a.priceSEK)
+                      : invSort === 'price-asc' ? [...tradable].sort((a,b)=>a.priceSEK-b.priceSEK)
+                      : tradable;
+                    return (
+                      <div>
+                        <div className="flex gap-6 mb-4">
+                          <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Tradable items</p><p className="text-xl font-bold">{tradable.length}</p></div>
+                          <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Est. Value</p><p className="text-xl font-bold text-green-400">{fmtSEK(tradable.reduce((s,i)=>s+i.priceSEK,0))}</p></div>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                          {sorted.map((item, i) => (
+                            <SkinCard key={i} item={item} isDark={isDark} />
+                          ))}
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                        {steamInventory.items.filter(i=>i.tradable).map((item, i) => (
-                          <SkinCard key={i} item={item} isDark={isDark} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                   {!steamInventory && !steamLoading && !steamError && (
                     <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Click "Fetch Inventory" to load your Steam CS inventory.</p>
                   )}
@@ -530,9 +543,15 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold">Steam Inventory</h2>
-                <button onClick={() => fetchSteamInventory(true)} disabled={steamLoading || !settings.steam_id} className={btnOrange}>
-                  {steamLoading ? '⏳ Fetching...' : '↺ Refresh'}
-                </button>
+                <select
+                  value={invSort}
+                  onChange={e => setInvSort(e.target.value)}
+                  className={`px-2 py-1.5 rounded-lg border text-xs outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                >
+                  <option value="default">Inventory order</option>
+                  <option value="price-desc">Price: High → Low</option>
+                  <option value="price-asc">Price: Low → High</option>
+                </select>
               </div>
               {!settings.steam_id && (
                 <div className={`${card} p-6 text-center`}>
@@ -541,23 +560,28 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                 </div>
               )}
               {steamError && <div className={`${card} p-4`}><p className="text-red-400 text-sm">{steamError}</p></div>}
-              {steamInventory && (
-                <>
-                  <div className={`${card} p-4 flex gap-6`}>
-                    <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Tradable items</p><p className="text-2xl font-bold">{steamInventory.items.filter(i=>i.tradable).length}</p></div>
-                    <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Estimated value</p><p className="text-2xl font-bold text-green-400">{fmtSEK(steamInventory.items.filter(i=>i.tradable).reduce((s,i)=>s+i.priceSEK,0))}</p></div>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                    {steamInventory.items.filter(i=>i.tradable).map((item, i) => (
-                      <SkinCard key={i} item={item} isDark={isDark} />
-                    ))}
-                  </div>
-                </>
-              )}
+              {steamInventory && (() => {
+                const tradable = steamInventory.items.filter(i=>i.tradable);
+                const sorted = invSort === 'price-desc' ? [...tradable].sort((a,b)=>b.priceSEK-a.priceSEK)
+                  : invSort === 'price-asc' ? [...tradable].sort((a,b)=>a.priceSEK-b.priceSEK)
+                  : tradable;
+                return (
+                  <>
+                    <div className={`${card} p-4 flex gap-6`}>
+                      <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Tradable items</p><p className="text-2xl font-bold">{tradable.length}</p></div>
+                      <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Estimated value</p><p className="text-2xl font-bold text-green-400">{fmtSEK(tradable.reduce((s,i)=>s+i.priceSEK,0))}</p></div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                      {sorted.map((item, i) => (
+                        <SkinCard key={i} item={item} isDark={isDark} />
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
               {!steamInventory && !steamLoading && settings.steam_id && (
                 <div className={`${card} p-6 text-center`}>
-                  <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Your Steam inventory is not loaded yet.</p>
-                  <button onClick={fetchSteamInventory} className={btnOrange}>Fetch Inventory</button>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading your Steam inventory...</p>
                 </div>
               )}
             </div>

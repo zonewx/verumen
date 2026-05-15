@@ -8,6 +8,9 @@ export default function AdminPanel({ isDark, authUsername }) {
   const [announcements, setAnnouncements] = useState(() => apiCache.get('/api/announcements') || []);
   const [loading, setLoading] = useState(!apiCache.has('/api/admin/stats'));
   const [actionMsg, setActionMsg] = useState('');
+  const [syncingPrices, setSyncingPrices] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
+  const [lastPriceSync, setLastPriceSync] = useState(null);
 
   // Modals
   const [resetModal, setResetModal] = useState(null); // { username }
@@ -31,11 +34,13 @@ export default function AdminPanel({ isDark, authUsername }) {
     try {
       const token = sessionStorage.getItem('auth_token');
       const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
-      const [statsRes, annRes, settingsRes] = await Promise.all([
+      const [statsRes, annRes, settingsRes, syncRes] = await Promise.all([
         fetch('/api/admin/stats', { headers }).then(r => r.json()),
         fetch('/api/announcements', { headers }).then(r => r.json()),
         fetch('/api/admin/settings', { headers }).then(r => r.json()),
+        fetch('/api/cs/prices/last-sync', { headers }).then(r => r.json()).catch(() => ({})),
       ]);
+      if (syncRes.lastSync) setLastPriceSync(syncRes.lastSync);
       if (statsRes.error) { flash('Stats error: ' + statsRes.error); }
       else { apiCache.set('/api/admin/stats', statsRes); setStats(statsRes); }
       if (Array.isArray(annRes)) { apiCache.set('/api/announcements', annRes); setAnnouncements(annRes); }
@@ -120,6 +125,31 @@ export default function AdminPanel({ isDark, authUsername }) {
     await fetch(`/api/admin/announcements/${id}`, { method: 'DELETE', headers: h });
     setAnnouncements(a => a.filter(x => x.id !== id));
     flash('✓ Announcement removed');
+  };
+
+  const syncPrices = async () => {
+    setSyncingPrices(true);
+    setSyncStatus('Starting sync...');
+    try {
+      const res = await fetch('/api/cs/prices/sync', { method: 'POST', headers: h });
+      const data = await res.json();
+      if (!data.success) { setSyncStatus('Failed: ' + data.error); setSyncingPrices(false); return; }
+      let secs = 35;
+      setSyncStatus(`Syncing in background — ~${secs}s`);
+      const tick = setInterval(() => {
+        secs--;
+        if (secs > 0) setSyncStatus(`Syncing in background — ~${secs}s`);
+        else { clearInterval(tick); setSyncingPrices(false); setSyncStatus('✓ Sync complete'); setLastPriceSync(Date.now()); }
+      }, 1000);
+    } catch(e) { setSyncStatus('Error: ' + e.message); setSyncingPrices(false); }
+  };
+
+  const fmtAgo = (ts) => {
+    if (!ts) return 'Never';
+    const mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    return `${Math.floor(mins / 60)}h ago`;
   };
 
   const toggleRegistration = async () => {
@@ -261,6 +291,25 @@ export default function AdminPanel({ isDark, authUsername }) {
                         <button onClick={saveUserLimit} className={btnBlue}>Save</button>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* CS Prices */}
+                <div className={`${card} p-5`}>
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>CS Item Prices</h2>
+                  <div className={`flex items-center justify-between gap-4 p-4 rounded-xl ${isDark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                    <div>
+                      <p className="text-sm font-semibold">Manual price sync</p>
+                      <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Last sync: {fmtAgo(lastPriceSync)} — auto-syncs every 24h. Admin sync bypasses the 1-hour cooldown.
+                      </p>
+                      {syncStatus && (
+                        <p className={`text-xs mt-1 ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{syncStatus}</p>
+                      )}
+                    </div>
+                    <button onClick={syncPrices} disabled={syncingPrices} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
+                      {syncingPrices ? '⏳ Syncing...' : '↺ Sync Now'}
+                    </button>
                   </div>
                 </div>
 

@@ -11,6 +11,9 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
   const [resetModal, setResetModal] = useState(null);
   const [resetPw, setResetPw] = useState('');
   const [annForm, setAnnForm] = useState({ title: '', message: '', type: 'info' });
+  const [syncingPrices, setSyncingPrices] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('');
+  const [lastPriceSync, setLastPriceSync] = useState(null);
 
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
   const card = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
@@ -24,11 +27,13 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
   const fetchAll = useCallback(async () => {
     if (!apiCache.has('/api/users')) setLoading(true);
     try {
-      const [usersRes, logRes, annRes] = await Promise.all([
+      const [usersRes, logRes, annRes, syncRes] = await Promise.all([
         fetch('/api/users', { headers: h }).then(r => r.json()),
         fetch('/api/mod/log', { headers: h }).then(r => r.json()),
         fetch('/api/announcements', { headers: h }).then(r => r.json()),
+        fetch('/api/cs/prices/last-sync', { headers: h }).then(r => r.json()).catch(() => ({})),
       ]);
+      if (syncRes.lastSync) setLastPriceSync(syncRes.lastSync);
       const filtered = usersRes.filter(u => u.username !== authUsername);
       apiCache.set('/api/users', filtered);
       apiCache.set('/api/mod/log', logRes);
@@ -80,6 +85,31 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
     setAnnouncements(a => a.filter(x => x.id !== id)); flash('✓ Removed');
   };
 
+  const syncPrices = async () => {
+    setSyncingPrices(true);
+    setSyncStatus('Starting sync...');
+    try {
+      const res = await fetch('/api/cs/prices/sync', { method: 'POST', headers: h });
+      const data = await res.json();
+      if (!data.success) { setSyncStatus('Failed: ' + data.error); setSyncingPrices(false); return; }
+      let secs = 35;
+      setSyncStatus(`Syncing in background — ~${secs}s`);
+      const tick = setInterval(() => {
+        secs--;
+        if (secs > 0) setSyncStatus(`Syncing in background — ~${secs}s`);
+        else { clearInterval(tick); setSyncingPrices(false); setSyncStatus('✓ Sync complete'); setLastPriceSync(Date.now()); }
+      }, 1000);
+    } catch(e) { setSyncStatus('Error: ' + e.message); setSyncingPrices(false); }
+  };
+
+  const fmtAgo = (ts) => {
+    if (!ts) return 'Never';
+    const mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    return `${Math.floor(mins / 60)}h ago`;
+  };
+
   const typeColors = { info: 'bg-blue-900/40 text-blue-400 border-blue-800', warning: 'bg-yellow-900/40 text-yellow-400 border-yellow-800', success: 'bg-green-900/40 text-green-400 border-green-800', error: 'bg-red-900/40 text-red-400 border-red-800' };
   const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800', user: '' };
 
@@ -108,6 +138,25 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
             <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Logged in as <span className="font-semibold text-blue-400">{authUsername}</span></p>
           </div>
           {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-red-900/40 text-red-400 border-red-800'}`}>{actionMsg}</div>}
+        </div>
+
+        {/* CS Prices */}
+        <div className={`${card} p-5 mb-6`}>
+          <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>CS Item Prices</h2>
+          <div className={`flex items-center justify-between gap-4 p-4 rounded-xl ${isDark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+            <div>
+              <p className="text-sm font-semibold">Manual price sync</p>
+              <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                Last sync: {fmtAgo(lastPriceSync)} — auto-syncs every 24h. Moderator sync bypasses the 1-hour cooldown.
+              </p>
+              {syncStatus && (
+                <p className={`text-xs mt-1 ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{syncStatus}</p>
+              )}
+            </div>
+            <button onClick={syncPrices} disabled={syncingPrices} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
+              {syncingPrices ? '⏳ Syncing...' : '↺ Sync Now'}
+            </button>
+          </div>
         </div>
 
         <div className={`flex gap-0 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} mb-6`}>

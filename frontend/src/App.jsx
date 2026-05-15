@@ -10,6 +10,11 @@ import SocialFeed from './SocialFeed';
 import FriendsPage from './FriendsPage';
 import Sidebar from './Sidebar';
 import SettingsPage from './SettingsPage';
+import apiCache from './apiCache';
+
+// Stable fingerprint of the current portfolio + currency — used as cache key discriminator
+const portfolioFingerprint = (p, c) =>
+  (c || '') + ':' + (p || []).map(h => `${h.ticker}:${h.shares}`).sort().join('|');
 
 export default function App() {
   const navigate = useNavigate();
@@ -31,19 +36,29 @@ export default function App() {
   // ── Core state ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => JSON.parse(localStorage.getItem('portfolio')) || []);
   const [baseCurrency, setBaseCurrency] = useState(() => localStorage.getItem('baseCurrency') || 'SEK');
-  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardData, setDashboardData] = useState(() => {
+    const saved = JSON.parse(localStorage.getItem('portfolio')) || [];
+    const cur = localStorage.getItem('baseCurrency') || 'SEK';
+    const fp = portfolioFingerprint(saved, cur);
+    return apiCache.get('/api/portfolio-fingerprint') === fp ? apiCache.get('/api/portfolio-dashboard') : null;
+  });
   const [activeTab, setActiveTab] = useState('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedForRemoval, setSelectedForRemoval] = useState([]);
-  const [dividends, setDividends] = useState(null);
-  const [overrides, setOverrides] = useState({});
+  const [dividends, setDividends] = useState(() => apiCache.get('/api/dividends'));
+  const [overrides, setOverrides] = useState(() => apiCache.get('/api/overrides') || {});
   const [overrideIsin, setOverrideIsin] = useState('');
   const [overrideTicker, setOverrideTicker] = useState('');
   const [overrideMsg, setOverrideMsg] = useState('');
   const [sortCol, setSortCol] = useState('value');
   const [sortDir, setSortDir] = useState('desc');
   const [expandedYear, setExpandedYear] = useState(null);
-  const [isAppLoading, setIsAppLoading] = useState(true);
+  const [isAppLoading, setIsAppLoading] = useState(() => {
+    const saved = JSON.parse(localStorage.getItem('portfolio')) || [];
+    const cur = localStorage.getItem('baseCurrency') || 'SEK';
+    const fp = portfolioFingerprint(saved, cur);
+    return !(apiCache.get('/api/portfolio-fingerprint') === fp && apiCache.has('/api/portfolio-dashboard'));
+  });
   const [uploadStatus, setUploadStatus] = useState(null);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null); // { phase, pct, label }
@@ -71,7 +86,7 @@ export default function App() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const globalSearchRef = useRef(null);
   const [selectedBroker, setSelectedBroker] = useState('auto');
-  const [txCount, setTxCount] = useState({ total: 0, trades: 0, byBroker: {} });
+  const [txCount, setTxCount] = useState(() => apiCache.get('/api/txCount') || { total: 0, trades: 0, byBroker: {} });
   const [uploadAborted, setUploadAborted] = useState(false);
 
   // ── API helper ─────────────────────────────────────────────────────────────
@@ -172,6 +187,7 @@ export default function App() {
     setAuthForm({ username: '', password: '', confirmPassword: '', newPassword: '' });
     navigate('/');
     setPortfolio([]); setDashboardData(null); setUserRole('user');
+    apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
     sessionStorage.removeItem('auth_role'); sessionStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_refresh');
     if (msg) setSessionExpiredMsg(msg);
   };
@@ -195,7 +211,9 @@ export default function App() {
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchAllData = useCallback(async (p, c) => {
     if (!authUsername) return;
-    setIsAppLoading(true);
+    const fp = portfolioFingerprint(p, c);
+    const hasCached = apiCache.get('/api/portfolio-fingerprint') === fp && apiCache.has('/api/portfolio-dashboard');
+    if (!hasCached) setIsAppLoading(true);
     try {
       const [dashRes, divRes, txRes, overRes] = await Promise.all([
         p.length > 0
@@ -206,6 +224,10 @@ export default function App() {
         apiFetch('/api/overrides').then(r => r.json()),
       ]);
       setDashboardData(dashRes); setDividends(divRes); setTxCount(txRes); setOverrides(overRes);
+      if (dashRes) { apiCache.set('/api/portfolio-dashboard', dashRes); apiCache.set('/api/portfolio-fingerprint', fp); }
+      apiCache.set('/api/dividends', divRes);
+      apiCache.set('/api/txCount', txRes);
+      apiCache.set('/api/overrides', overRes);
     } catch(e) { console.error(e); }
     setIsAppLoading(false);
   }, [authUsername, apiFetch]);
@@ -443,6 +465,7 @@ const handleUpload = async (files) => {
   const handleClearTransactions = async () => {
     await apiFetch('/api/transactions', { method: 'DELETE' });
     setTxCount({ total: 0, trades: 0 }); setPortfolio([]); setUploadStatus(null); setDividends(null); setSyncStatus('History cleared.');
+    apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
   };
 
   const handleClearBroker = async (broker) => {

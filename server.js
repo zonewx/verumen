@@ -1051,6 +1051,8 @@ app.post('/api/cs/settings', requireUser, async (req, res) => {
   res.json({ success:true });
 });
 
+let lastPriceSyncAt = null;
+
 async function runPriceSync() {
   try {
     const r = await fetch('https://api.skinport.com/v1/items?app_id=730&currency=SEK');
@@ -1085,6 +1087,7 @@ async function runPriceSync() {
     );
 
     log.info('cs prices sync completed', { count: entries.length, sekRate: sekPerUsd });
+    lastPriceSyncAt = Date.now();
   } catch(e) {
     log.error('cs prices sync failed', { error: e.message });
   }
@@ -1094,7 +1097,18 @@ async function runPriceSync() {
 setTimeout(runPriceSync, 60 * 1000);
 setInterval(runPriceSync, 24 * 60 * 60 * 1000).unref();
 
+app.get('/api/cs/prices/last-sync', requireUser, (req, res) => {
+  res.json({ lastSync: lastPriceSyncAt });
+});
+
+const SYNC_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
 app.post('/api/cs/prices/sync', requireUser, async (req, res) => {
+  const isPrivileged = req.role === 'admin' || req.role === 'moderator';
+  if (!isPrivileged && lastPriceSyncAt && Date.now() - lastPriceSyncAt < SYNC_COOLDOWN_MS) {
+    const minAgo = Math.floor((Date.now() - lastPriceSyncAt) / 60000);
+    return res.json({ success: false, cooldown: true, error: `Prices were synced ${minAgo} minute(s) ago. Please wait before syncing again.` });
+  }
   // Respond immediately — upserts run in background to avoid Vercel's 10s proxy timeout
   res.json({ success: true, count: 0, source: 'skinport', syncing: true });
   setImmediate(runPriceSync);
@@ -1128,27 +1142,54 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
         usdToSek = fxd?.rates?.SEK || usdToSek;
       } catch(e) {}
 
-      // Sequential with 350ms delay — parallel requests trigger Steam rate limiting
-      const newEntries = [];
-      for (const name of missingNames) {
+      const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+
+      const steamPrice = async (name) => {
+        // 1. Try priceoverview (median of recent sales)
         try {
           const r = await fetch(
             `https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`,
-            { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }
+            { headers: { 'User-Agent': UA } }
           );
           if (r.ok) {
-            const text = await r.text();
-            let d;
-            try { d = JSON.parse(text); } catch(e) { /* HTML rate-limit page */ }
+            let d; try { d = JSON.parse(await r.text()); } catch(e) {}
             if (d?.success) {
               const raw = d.median_price || d.lowest_price;
               if (raw) {
                 const usd = parseFloat(raw.replace(/[^0-9.]/g, ''));
-                if (usd > 0) newEntries.push({ name, usd, sek: parseFloat((usd * usdToSek).toFixed(2)) });
+                if (usd > 0) return usd;
               }
             }
           }
         } catch(e) {}
+
+        // 2. Fallback: listings endpoint (lowest current ask) — works for low-volume items
+        await new Promise(r => setTimeout(r, 200));
+        try {
+          const r = await fetch(
+            `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}/render/?start=0&count=1&currency=1&language=english&format=json`,
+            { headers: { 'User-Agent': UA } }
+          );
+          if (r.ok) {
+            let d; try { d = JSON.parse(await r.text()); } catch(e) {}
+            if (d?.success && d.listinginfo) {
+              const listing = Object.values(d.listinginfo)[0];
+              if (listing) {
+                const usd = (listing.converted_price + listing.converted_fee) / 100;
+                if (usd > 0) return usd;
+              }
+            }
+          }
+        } catch(e) {}
+
+        return null;
+      };
+
+      // Sequential with 350ms delay between items — parallel triggers Steam rate limiting
+      const newEntries = [];
+      for (const name of missingNames) {
+        const usd = await steamPrice(name);
+        if (usd) newEntries.push({ name, usd, sek: parseFloat((usd * usdToSek).toFixed(2)) });
         await new Promise(resolve => setTimeout(resolve, 350));
       }
       if (newEntries.length > 0) {
