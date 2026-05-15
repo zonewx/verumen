@@ -1131,78 +1131,10 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
     const priceMap = {};
     (prices||[]).forEach(p=>{ priceMap[p.skin_name] = p.price_sek; });
 
-    // Steam Market fallback for tradable items with no cached price (knives, agents, new items)
     const uniqueNames = [...new Set(names)];
-    const missingNames = uniqueNames.filter(n => !priceMap[n] || priceMap[n] === 0).slice(0, 8);
-    if (missingNames.length > 0) {
-      let usdToSek = 10.5;
-      try {
-        const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
-        const fxd = await fx.json();
-        usdToSek = fxd?.rates?.SEK || usdToSek;
-      } catch(e) {}
+    const missingNames = uniqueNames.filter(n => !priceMap[n] || priceMap[n] === 0);
 
-      const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
-
-      const steamPrice = async (name) => {
-        // 1. Try priceoverview (median of recent sales)
-        try {
-          const r = await fetch(
-            `https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`,
-            { headers: { 'User-Agent': UA } }
-          );
-          if (r.ok) {
-            let d; try { d = JSON.parse(await r.text()); } catch(e) {}
-            if (d?.success) {
-              const raw = d.median_price || d.lowest_price;
-              if (raw) {
-                const usd = parseFloat(raw.replace(/[^0-9.]/g, ''));
-                if (usd > 0) return usd;
-              }
-            }
-          }
-        } catch(e) {}
-
-        // 2. Fallback: listings endpoint (lowest current ask) — works for low-volume items
-        await new Promise(r => setTimeout(r, 200));
-        try {
-          const r = await fetch(
-            `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}/render/?start=0&count=1&currency=1&language=english&format=json`,
-            { headers: { 'User-Agent': UA } }
-          );
-          if (r.ok) {
-            let d; try { d = JSON.parse(await r.text()); } catch(e) {}
-            if (d?.success && d.listinginfo) {
-              const listing = Object.values(d.listinginfo)[0];
-              if (listing) {
-                const usd = (listing.converted_price + listing.converted_fee) / 100;
-                if (usd > 0) return usd;
-              }
-            }
-          }
-        } catch(e) {}
-
-        return null;
-      };
-
-      // Sequential with 350ms delay between items — parallel triggers Steam rate limiting
-      const newEntries = [];
-      for (const name of missingNames) {
-        const usd = await steamPrice(name);
-        if (usd) newEntries.push({ name, usd, sek: parseFloat((usd * usdToSek).toFixed(2)) });
-        await new Promise(resolve => setTimeout(resolve, 350));
-      }
-      if (newEntries.length > 0) {
-        const now = new Date().toISOString();
-        newEntries.forEach(e => { priceMap[e.name] = e.sek; });
-        // Cache in background so it doesn't block the response
-        setImmediate(() => supabase.from('cs_price_cache').upsert(
-          newEntries.map(e => ({ skin_name: e.name, price_sek: e.sek, price_usd: e.usd, last_updated: now })),
-          { onConflict: 'skin_name' }
-        ));
-      }
-    }
-
+    // Build and send the response immediately with whatever prices are already in the DB
     const items = (data.assets||[]).map(asset => {
       const desc = descMap[`${asset.classid}_${asset.instanceid}`];
       const name = desc?.market_hash_name || desc?.name || 'Unknown';
@@ -1222,7 +1154,67 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
         stickers,
       };
     }).filter(i => i.name !== 'Unknown');
-    res.json({ items, totalValue:items.reduce((s,i)=>s+i.priceSEK,0), count:items.length });
+    res.json({ items, totalValue: items.reduce((s,i)=>s+i.priceSEK,0), count: items.length, pricingPending: missingNames.length > 0 });
+
+    // Background: look up ALL missing prices from Steam Market — no limit, runs after response sent
+    if (missingNames.length > 0) {
+      setImmediate(async () => {
+        let usdToSek = 10.5;
+        try {
+          const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
+          const fxd = await fx.json();
+          usdToSek = fxd?.rates?.SEK || usdToSek;
+        } catch(e) {}
+
+        const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+
+        const steamPrice = async (name) => {
+          try {
+            const r = await fetch(
+              `https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`,
+              { headers: { 'User-Agent': UA } }
+            );
+            if (r.ok) {
+              let d; try { d = JSON.parse(await r.text()); } catch(e) {}
+              if (d?.success) {
+                const raw = d.median_price || d.lowest_price;
+                if (raw) { const usd = parseFloat(raw.replace(/[^0-9.]/g, '')); if (usd > 0) return usd; }
+              }
+            }
+          } catch(e) {}
+          await new Promise(r => setTimeout(r, 200));
+          try {
+            const r = await fetch(
+              `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}/render/?start=0&count=1&currency=1&language=english&format=json`,
+              { headers: { 'User-Agent': UA } }
+            );
+            if (r.ok) {
+              let d; try { d = JSON.parse(await r.text()); } catch(e) {}
+              if (d?.success && d.listinginfo) {
+                const listing = Object.values(d.listinginfo)[0];
+                if (listing) { const usd = (listing.converted_price + listing.converted_fee) / 100; if (usd > 0) return usd; }
+              }
+            }
+          } catch(e) {}
+          return null;
+        };
+
+        const newEntries = [];
+        for (const name of missingNames) {
+          const usd = await steamPrice(name);
+          if (usd) newEntries.push({ name, usd, sek: parseFloat((usd * usdToSek).toFixed(2)) });
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
+        if (newEntries.length > 0) {
+          const now = new Date().toISOString();
+          await supabase.from('cs_price_cache').upsert(
+            newEntries.map(e => ({ skin_name: e.name, price_sek: e.sek, price_usd: e.usd, last_updated: now })),
+            { onConflict: 'skin_name' }
+          );
+          log.info('steam price fallback cached', { count: newEntries.length });
+        }
+      });
+    }
   } catch(e) { res.status(500).json({ error:e.message }); }
 });
 

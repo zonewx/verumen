@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // Inline accordion content for portfolio actions
@@ -222,8 +222,23 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
   const [isExpanded, setIsExpanded] = useState(true);
   const [activeSubMenu, setActiveSubMenu] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null);
+  const [avatarBase64, setAvatarBase64] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (!currentUser?.username) return;
+    const fetchAvatar = () => {
+      const token = sessionStorage.getItem('auth_token');
+      fetch(`/api/users/${currentUser.username}/profile`, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} })
+        .then(r => r.json())
+        .then(d => { if (d?.avatarBase64) setAvatarBase64(d.avatarBase64); })
+        .catch(() => {});
+    };
+    fetchAvatar();
+    window.addEventListener('profile-updated', fetchAvatar);
+    return () => window.removeEventListener('profile-updated', fetchAvatar);
+  }, [currentUser?.username]);
 
   const toggleSection = (id) => setExpandedSection(prev => prev === id ? null : id);
 
@@ -451,9 +466,13 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
             className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg ${hoverBg} transition-colors ${textPrimary}`}
             title={!isExpanded ? currentUser?.username : ''}
           >
-            <User size={20} className={textSecondary} />
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">
+              {avatarBase64
+                ? <img src={avatarBase64} className="w-full h-full object-cover" alt="" />
+                : <User size={16} className="text-white" />}
+            </div>
             {isExpanded && (
-              <div className="flex-1 text-left">
+              <div className="flex-1 text-left min-w-0">
                 <p className="text-sm font-medium truncate">{currentUser?.username}</p>
                 <p className="text-xs text-gray-500">{currentUser?.role}</p>
               </div>

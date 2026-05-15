@@ -211,6 +211,13 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
     }
   }, [settings.steam_id]);
 
+  // Auto-refresh once when server signals prices are still being looked up in background
+  useEffect(() => {
+    if (!steamInventory?.pricingPending) return;
+    const t = setTimeout(() => fetchSteamInventory(true), 20000);
+    return () => clearTimeout(t);
+  }, [steamInventory?.pricingPending]);
+
   const INVENTORY_CACHE_TTL = 10 * 60 * 1000;
   const INVENTORY_CACHE_VERSION = 2; // bump when item shape changes
 
@@ -467,6 +474,11 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                     </select>
                   </div>
                   {steamError && <p className="text-red-400 text-sm">{steamError}</p>}
+                  {steamInventory?.pricingPending && (
+                    <p className={`text-xs mb-3 px-3 py-2 rounded-lg ${isDark ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-50 text-yellow-700'}`}>
+                      Fetching prices for new items in background — updating automatically in ~20s
+                    </p>
+                  )}
                   {steamInventory && (() => {
                     const tradable = steamInventory.items.filter(i=>i.tradable);
                     const sorted = invSort === 'price-desc' ? [...tradable].sort((a,b)=>b.priceSEK-a.priceSEK)
@@ -560,6 +572,11 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                 </div>
               )}
               {steamError && <div className={`${card} p-4`}><p className="text-red-400 text-sm">{steamError}</p></div>}
+              {steamInventory?.pricingPending && (
+                <p className={`text-xs px-3 py-2 rounded-lg ${isDark ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-50 text-yellow-700'}`}>
+                  Fetching prices for new items in background — updating automatically in ~20s
+                </p>
+              )}
               {steamInventory && (() => {
                 const tradable = steamInventory.items.filter(i=>i.tradable);
                 const sorted = invSort === 'price-desc' ? [...tradable].sort((a,b)=>b.priceSEK-a.priceSEK)
