@@ -1052,6 +1052,7 @@ app.post('/api/cs/settings', requireUser, async (req, res) => {
 });
 
 let lastPriceSyncAt = null;
+let steamPriceLookupRunning = false;
 
 async function runPriceSync() {
   try {
@@ -1127,92 +1128,141 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
     const descMap = {};
     (data.descriptions||[]).forEach(d=>{ descMap[`${d.classid}_${d.instanceid}`]=d; });
     const names = (data.assets||[]).map(a=>{ const d=descMap[`${a.classid}_${a.instanceid}`]; return d?.market_hash_name||d?.name||'Unknown'; }).filter(n=>n!=='Unknown');
-    const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
+    const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek, last_updated').in('skin_name', names);
     const priceMap = {};
-    (prices||[]).forEach(p=>{ priceMap[p.skin_name] = p.price_sek; });
+    (prices||[]).forEach(p=>{ priceMap[p.skin_name] = p; });
 
     const uniqueNames = [...new Set(names)];
-    const missingNames = uniqueNames.filter(n => !priceMap[n] || priceMap[n] === 0);
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const allMissing = uniqueNames.filter(n =>
+      !priceMap[n] ||
+      priceMap[n].price_sek === 0 ||
+      new Date(priceMap[n].last_updated).getTime() < sevenDaysAgo
+    );
 
-    // Build and send the response immediately with whatever prices are already in the DB
-    const items = (data.assets||[]).map(asset => {
+    // Shared Steam Market fetch helpers
+    const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+    let usdToSek = 10.5;
+    if (allMissing.length > 0) {
+      try {
+        const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
+        const fxd = await fx.json();
+        usdToSek = fxd?.rates?.SEK || usdToSek;
+      } catch(e) {}
+    }
+
+    const steamPrice = async (name) => {
+      const encoded = encodeURIComponent(name);
+
+      // 1. priceoverview — median of recent sales, fast, works for most items
+      try {
+        const r = await fetch(
+          `https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encoded}`,
+          { headers: { 'User-Agent': UA } }
+        );
+        if (r.ok) {
+          let d; try { d = JSON.parse(await r.text()); } catch(e) {}
+          if (d?.success) {
+            const raw = d.median_price || d.lowest_price;
+            if (raw) { const usd = parseFloat(raw.replace(/[^0-9.]/g, '')); if (usd > 0) return usd; }
+          }
+        }
+      } catch(e) {}
+
+      await new Promise(r => setTimeout(r, 300));
+
+      // 2. pricehistory — average of last 10 actual completed sales
+      // Works unauthenticated for popular items; rare items may require a Steam session
+      try {
+        const r = await fetch(
+          `https://steamcommunity.com/market/pricehistory/?appid=730&currency=1&market_hash_name=${encoded}`,
+          { headers: { 'User-Agent': UA } }
+        );
+        if (r.ok) {
+          let d; try { d = JSON.parse(await r.text()); } catch(e) {}
+          if (d?.success && Array.isArray(d.prices) && d.prices.length > 0) {
+            const recent = d.prices.slice(-10);
+            const avg = recent.reduce((s, p) => s + parseFloat(p[1]), 0) / recent.length;
+            if (avg > 0) return avg;
+          }
+        }
+      } catch(e) {}
+
+      await new Promise(r => setTimeout(r, 300));
+
+      // 3. listings/render — lowest current ask (last resort)
+      try {
+        const r = await fetch(
+          `https://steamcommunity.com/market/listings/730/${encoded}/render/?start=0&count=1&currency=1&language=english&format=json`,
+          { headers: { 'User-Agent': UA } }
+        );
+        if (r.ok) {
+          let d; try { d = JSON.parse(await r.text()); } catch(e) {}
+          if (d?.success && d.listinginfo) {
+            const listing = Object.values(d.listinginfo)[0];
+            if (listing) { const usd = (listing.converted_price + listing.converted_fee) / 100; if (usd > 0) return usd; }
+          }
+        }
+      } catch(e) {}
+
+      return null;
+    };
+
+    const cacheEntries = async (entries) => {
+      if (!entries.length) return;
+      const now = new Date().toISOString();
+      await supabase.from('cs_price_cache').upsert(
+        entries.map(e => ({ skin_name: e.name, price_sek: e.sek, price_usd: e.usd, last_updated: now })),
+        { onConflict: 'skin_name' }
+      );
+    };
+
+    // Sync: fetch first 5 missing items before responding so prices show on first load
+    const syncBatch = allMissing.slice(0, 5);
+    const bgBatch = allMissing.slice(5);
+
+    if (syncBatch.length > 0) {
+      const syncEntries = [];
+      for (const name of syncBatch) {
+        const usd = await steamPrice(name);
+        if (usd) { const sek = parseFloat((usd * usdToSek).toFixed(2)); syncEntries.push({ name, usd, sek }); priceMap[name] = { price_sek: sek }; }
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (syncEntries.length > 0) setImmediate(() => cacheEntries(syncEntries));
+    }
+
+    const buildItems = () => (data.assets||[]).map(asset => {
       const desc = descMap[`${asset.classid}_${asset.instanceid}`];
       const name = desc?.market_hash_name || desc?.name || 'Unknown';
       const tags = parseSteamTags(desc?.tags);
       const stickers = parseSteamStickers(desc?.descriptions);
       return {
-        assetId: asset.assetid,
-        name,
+        assetId: asset.assetid, name,
         iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/360x360` : null,
-        tradable: desc?.tradable === 1,
-        type: desc?.type || '',
-        priceSEK: priceMap[name] || 0,
-        exterior: tags.exterior || null,
-        quality: tags.quality || null,
-        rarity: tags.rarity || null,
-        rarityColor: tags.rarityColor || null,
-        stickers,
+        tradable: desc?.tradable === 1, type: desc?.type || '',
+        priceSEK: priceMap[name]?.price_sek || 0,
+        exterior: tags.exterior || null, quality: tags.quality || null,
+        rarity: tags.rarity || null, rarityColor: tags.rarityColor || null, stickers,
       };
     }).filter(i => i.name !== 'Unknown');
-    res.json({ items, totalValue: items.reduce((s,i)=>s+i.priceSEK,0), count: items.length, pricingPending: missingNames.length > 0 });
 
-    // Background: look up ALL missing prices from Steam Market — no limit, runs after response sent
-    if (missingNames.length > 0) {
+    const items = buildItems();
+    res.json({ items, totalValue: items.reduce((s,i)=>s+i.priceSEK,0), count: items.length, pricingPending: bgBatch.length > 0 });
+
+    // Background: fetch remaining items after response — skip if a job is already running
+    if (bgBatch.length > 0 && !steamPriceLookupRunning) {
       setImmediate(async () => {
-        let usdToSek = 10.5;
+        steamPriceLookupRunning = true;
         try {
-          const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
-          const fxd = await fx.json();
-          usdToSek = fxd?.rates?.SEK || usdToSek;
-        } catch(e) {}
-
-        const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
-
-        const steamPrice = async (name) => {
-          try {
-            const r = await fetch(
-              `https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encodeURIComponent(name)}`,
-              { headers: { 'User-Agent': UA } }
-            );
-            if (r.ok) {
-              let d; try { d = JSON.parse(await r.text()); } catch(e) {}
-              if (d?.success) {
-                const raw = d.median_price || d.lowest_price;
-                if (raw) { const usd = parseFloat(raw.replace(/[^0-9.]/g, '')); if (usd > 0) return usd; }
-              }
-            }
-          } catch(e) {}
-          await new Promise(r => setTimeout(r, 200));
-          try {
-            const r = await fetch(
-              `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}/render/?start=0&count=1&currency=1&language=english&format=json`,
-              { headers: { 'User-Agent': UA } }
-            );
-            if (r.ok) {
-              let d; try { d = JSON.parse(await r.text()); } catch(e) {}
-              if (d?.success && d.listinginfo) {
-                const listing = Object.values(d.listinginfo)[0];
-                if (listing) { const usd = (listing.converted_price + listing.converted_fee) / 100; if (usd > 0) return usd; }
-              }
-            }
-          } catch(e) {}
-          return null;
-        };
-
-        const newEntries = [];
-        for (const name of missingNames) {
-          const usd = await steamPrice(name);
-          if (usd) newEntries.push({ name, usd, sek: parseFloat((usd * usdToSek).toFixed(2)) });
-          await new Promise(resolve => setTimeout(resolve, 400));
-        }
-        if (newEntries.length > 0) {
-          const now = new Date().toISOString();
-          await supabase.from('cs_price_cache').upsert(
-            newEntries.map(e => ({ skin_name: e.name, price_sek: e.sek, price_usd: e.usd, last_updated: now })),
-            { onConflict: 'skin_name' }
-          );
-          log.info('steam price fallback cached', { count: newEntries.length });
-        }
+          const bgEntries = [];
+          for (const name of bgBatch) {
+            const usd = await steamPrice(name);
+            if (usd) bgEntries.push({ name, usd, sek: parseFloat((usd * usdToSek).toFixed(2)) });
+            await new Promise(r => setTimeout(r, 700));
+          }
+          await cacheEntries(bgEntries);
+          if (bgEntries.length > 0) log.info('steam bg price fallback cached', { count: bgEntries.length });
+        } finally { steamPriceLookupRunning = false; }
       });
     }
   } catch(e) { res.status(500).json({ error:e.message }); }

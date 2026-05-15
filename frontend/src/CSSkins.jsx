@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
 
@@ -211,12 +211,16 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
     }
   }, [settings.steam_id]);
 
-  // Auto-refresh once when server signals prices are still being looked up in background
+  // Auto-refresh while server signals prices are still being fetched in background.
+  // Depends on the steamInventory object reference so it re-evaluates after every refresh,
+  // not just when pricingPending flips — otherwise a stuck-at-true value never retriggers.
+  const pricingRetries = useRef(0);
   useEffect(() => {
-    if (!steamInventory?.pricingPending) return;
-    const t = setTimeout(() => fetchSteamInventory(true), 20000);
+    if (!steamInventory?.pricingPending) { pricingRetries.current = 0; return; }
+    if (pricingRetries.current >= 5) return; // give up after 5 attempts (~2 min total)
+    const t = setTimeout(() => { pricingRetries.current++; fetchSteamInventory(true); }, 20000);
     return () => clearTimeout(t);
-  }, [steamInventory?.pricingPending]);
+  }, [steamInventory]);
 
   const INVENTORY_CACHE_TTL = 10 * 60 * 1000;
   const INVENTORY_CACHE_VERSION = 2; // bump when item shape changes
