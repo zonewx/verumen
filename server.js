@@ -1120,6 +1120,31 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   res.json(data||[]);
 });
 
+app.get('/api/cs/prices/overrides', requireUser, async (req, res) => {
+  const { data, error } = await supabase.from('cs_price_overrides').select('skin_name, price_sek').eq('user_id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+app.post('/api/cs/prices/override', requireUser, async (req, res) => {
+  const { skin_name, price_sek } = req.body;
+  if (!skin_name || price_sek == null || isNaN(price_sek)) return res.status(400).json({ error: 'skin_name and numeric price_sek required' });
+  const { error } = await supabase.from('cs_price_overrides').upsert(
+    { user_id: req.user.id, skin_name, price_sek: parseFloat(price_sek) },
+    { onConflict: 'user_id,skin_name' }
+  );
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+app.delete('/api/cs/prices/override/:skinName', requireUser, async (req, res) => {
+  const { error } = await supabase.from('cs_price_overrides').delete()
+    .eq('user_id', req.user.id).eq('skin_name', decodeURIComponent(req.params.skinName));
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+
 app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
   if (!/^\d{17}$/.test(req.params.steamId)) return res.status(400).json({ error: 'Invalid Steam ID' });
   try {
@@ -1128,15 +1153,20 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
     const descMap = {};
     (data.descriptions||[]).forEach(d=>{ descMap[`${d.classid}_${d.instanceid}`]=d; });
     const names = (data.assets||[]).map(a=>{ const d=descMap[`${a.classid}_${a.instanceid}`]; return d?.market_hash_name||d?.name||'Unknown'; }).filter(n=>n!=='Unknown');
-    const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek, last_updated').in('skin_name', names);
+    const [{ data: prices }, { data: overrideRows }] = await Promise.all([
+      supabase.from('cs_price_cache').select('skin_name, price_sek, last_updated').in('skin_name', names),
+      supabase.from('cs_price_overrides').select('skin_name, price_sek').eq('user_id', req.user.id),
+    ]);
     const priceMap = {};
     (prices||[]).forEach(p=>{ priceMap[p.skin_name] = p; });
+    const overrideMap = {};
+    (overrideRows||[]).forEach(o=>{ overrideMap[o.skin_name] = o.price_sek; });
 
     const uniqueNames = [...new Set(names)];
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const allMissing = uniqueNames.filter(n =>
-      !priceMap[n] ||
-      new Date(priceMap[n].last_updated).getTime() < sevenDaysAgo
+      !overrideMap[n] &&
+      (!priceMap[n] || new Date(priceMap[n].last_updated).getTime() < sevenDaysAgo)
     );
 
     // Shared Steam Market fetch helpers
@@ -1295,7 +1325,8 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
         assetId: asset.assetid, name,
         iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/360x360` : null,
         tradable: desc?.tradable === 1, type: desc?.type || '',
-        priceSEK: priceMap[name]?.price_sek || 0,
+        priceSEK: overrideMap[name] ?? priceMap[name]?.price_sek ?? 0,
+        isOverride: name in overrideMap,
         exterior: tags.exterior || null, quality: tags.quality || null,
         rarity: tags.rarity || null, rarityColor: tags.rarityColor || null, stickers,
       };

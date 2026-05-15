@@ -60,10 +60,20 @@ function authHeaders(extra = {}) {
   return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extra };
 }
 
-function SkinCard({ item, isDark, onClick }) {
+function SkinCard({ item, isDark, onClick, onSetPrice, onClearPrice }) {
+  const [editing, setEditing] = useState(false);
+  const [inputVal, setInputVal] = useState('');
   const isSpecial = item.quality && (item.quality.includes('StatTrak') || item.quality.includes('Souvenir'));
   const isKnifeOrGloves = item.rarity === 'Extraordinary';
   const qualityColor = item.quality?.includes('StatTrak') ? '#cf6a32' : item.quality?.includes('Souvenir') ? '#ffd700' : null;
+
+  const startEdit = (e) => { e.stopPropagation(); setInputVal(''); setEditing(true); };
+  const cancelEdit = (e) => { e.stopPropagation(); setEditing(false); };
+  const saveEdit = (e) => {
+    e.stopPropagation();
+    const val = parseFloat(inputVal.replace(',', '.'));
+    if (!isNaN(val) && val > 0) { onSetPrice(val); setEditing(false); }
+  };
 
   return (
     <div
@@ -115,11 +125,35 @@ function SkinCard({ item, isDark, onClick }) {
         )}
 
         <div className="mt-auto pt-1.5 flex items-center justify-between gap-1">
-          {item.priceSEK > 0
-            ? <p className="text-sm font-bold text-green-400">{fmtSEK(item.priceSEK)}</p>
-            : <p className={`text-sm font-bold ${isDark ? 'text-gray-600' : 'text-gray-300'}`}>—</p>
-          }
-          {!item.tradable && <span className="text-[10px] text-yellow-500 font-medium">Not tradable</span>}
+          {editing ? (
+            <div className="flex items-center gap-1 w-full" onClick={e => e.stopPropagation()}>
+              <input
+                autoFocus
+                type="number"
+                min="0"
+                step="any"
+                placeholder="kr"
+                value={inputVal}
+                onChange={e => setInputVal(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveEdit(e); if (e.key === 'Escape') cancelEdit(e); }}
+                className={`w-full text-xs px-2 py-1 rounded border ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'} outline-none`}
+              />
+              <button onClick={saveEdit} className="text-[10px] px-1.5 py-1 rounded bg-green-600 text-white hover:bg-green-500 shrink-0">✓</button>
+              <button onClick={cancelEdit} className={`text-[10px] px-1.5 py-1 rounded shrink-0 ${isDark ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}>✕</button>
+            </div>
+          ) : item.priceSEK > 0 ? (
+            <div className="flex items-center gap-1">
+              <p className="text-sm font-bold text-green-400">{fmtSEK(item.priceSEK)}</p>
+              {item.isOverride && (
+                <button onClick={e => { e.stopPropagation(); onClearPrice(); }} title="Remove manual price" className="text-[10px] text-gray-500 hover:text-red-400 transition">✕</button>
+              )}
+            </div>
+          ) : (
+            <button onClick={startEdit} className={`text-xs font-medium ${isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'} transition`}>
+              — <span className="text-[10px]">set price</span>
+            </button>
+          )}
+          {!item.tradable && !editing && <span className="text-[10px] text-yellow-500 font-medium">Not tradable</span>}
         </div>
       </div>
     </div>
@@ -291,6 +325,31 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
     setSkinSearchResults([]);
     setSkinSearch('');
     setModalInvSearch('');
+  };
+
+  const saveOverride = async (name, priceSEK) => {
+    await fetch('/api/cs/prices/override', {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ skin_name: name, price_sek: priceSEK }),
+    });
+    setSteamInventory(prev => {
+      if (!prev) return prev;
+      const items = prev.items.map(i => i.name === name ? { ...i, priceSEK, isOverride: true } : i);
+      return { ...prev, items, totalValue: items.reduce((s, i) => s + i.priceSEK, 0) };
+    });
+  };
+
+  const clearOverride = async (name) => {
+    await fetch(`/api/cs/prices/override/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    setSteamInventory(prev => {
+      if (!prev) return prev;
+      const items = prev.items.map(i => i.name === name ? { ...i, priceSEK: 0, isOverride: false } : i);
+      return { ...prev, items, totalValue: items.reduce((s, i) => s + i.priceSEK, 0) };
+    });
   };
 
   const selectModalSkin = (item) => {
@@ -485,7 +544,9 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
                           {sorted.map((item, i) => (
-                            <SkinCard key={i} item={item} isDark={isDark} />
+                            <SkinCard key={i} item={item} isDark={isDark}
+                              onSetPrice={p => saveOverride(item.name, p)}
+                              onClearPrice={() => clearOverride(item.name)} />
                           ))}
                         </div>
                       </div>
@@ -583,7 +644,9 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                       {sorted.map((item, i) => (
-                        <SkinCard key={i} item={item} isDark={isDark} />
+                        <SkinCard key={i} item={item} isDark={isDark}
+                          onSetPrice={p => saveOverride(item.name, p)}
+                          onClearPrice={() => clearOverride(item.name)} />
                       ))}
                     </div>
                   </>

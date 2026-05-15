@@ -220,7 +220,7 @@ const ChevronLeft = ({ size = 20, className }) => (
 
 export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker, onBrokerChange, portfolioActions = {} }) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [activeSubMenu, setActiveSubMenu] = useState(null);
+  const [expandedMenus, setExpandedMenus] = useState(new Set());
   const [expandedSection, setExpandedSection] = useState(null);
   const [avatarBase64, setAvatarBase64] = useState(null);
   const navigate = useNavigate();
@@ -239,6 +239,14 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
     window.addEventListener('profile-updated', fetchAvatar);
     return () => window.removeEventListener('profile-updated', fetchAvatar);
   }, [currentUser?.username]);
+
+  const toggleMenu = (id) => {
+    setExpandedMenus(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const toggleSection = (id) => setExpandedSection(prev => prev === id ? null : id);
 
@@ -311,28 +319,24 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
     }
   ];
 
-  const handleItemClick = (item) => {
-    if (item.subItems) {
-      setActiveSubMenu(item.id);
-      if (!isExpanded) setIsExpanded(true);
-    } else {
-      navigate(item.path);
-      setActiveSubMenu(null);
-    }
-  };
-
-  const handleSubItemClick = (path) => {
-    navigate(path);
-  };
-
-  const handleBack = () => {
-    setActiveSubMenu(null);
-  };
-
   const isActive = (path) => {
     if (!path) return false;
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
+
+  // Auto-expand parent when navigating directly to a child route
+  useEffect(() => {
+    menuItems.forEach(item => {
+      if (item.subItems?.some(s => s.path && isActive(s.path))) {
+        setExpandedMenus(prev => {
+          if (prev.has(item.id)) return prev;
+          const next = new Set(prev);
+          next.add(item.id);
+          return next;
+        });
+      }
+    });
+  }, [location.pathname]);
 
   const sidebarWidth = isExpanded ? 'w-60' : 'w-16';
   const bg = isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200';
@@ -368,95 +372,83 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       </div>
 
       <nav className="flex-1 overflow-y-auto p-2">
-        {activeSubMenu ? (
-          <div className="space-y-1">
-            <button
-              onClick={handleBack}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${hoverBg} transition-colors ${textSecondary}`}
-            >
-              <ChevronLeft size={20} />
-              {isExpanded && <span className="text-sm font-medium">Back</span>}
-            </button>
+        <div className="space-y-0.5">
+          {visibleMenuItems.map(item => {
+            const Icon = item.icon;
+            const isOpen = expandedMenus.has(item.id);
+            const hasActiveChild = item.subItems?.some(s => s.path && isActive(s.path));
+            const active = item.path ? isActive(item.path) : hasActiveChild;
 
-            {isExpanded && (
-              <div className={`px-3 py-2 ${textPrimary} font-semibold text-sm uppercase tracking-wide`}>
-                {menuItems.find(m => m.id === activeSubMenu)?.label}
-              </div>
-            )}
-
-            {menuItems.find(m => m.id === activeSubMenu)?.subItems.map(subItem => {
-              if (subItem.isDivider) {
-                return isExpanded ? (
-                  <div key={subItem.id} className={`my-2 border-t ${isDark ? 'border-gray-700' : 'border-gray-300'}`} />
-                ) : null;
-              }
-
-              if (subItem.isAction) {
-                const isOpen = expandedSection === subItem.id;
-                return (
-                  <div key={subItem.id}>
-                    <button
-                      onClick={() => toggleSection(subItem.id)}
-                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${hoverBg} ${subItem.isDanger ? 'text-red-400' : textPrimary}`}
-                    >
-                      <div className="w-5 shrink-0"/>
-                      {isExpanded && (
-                        <>
-                          <span className="text-sm flex-1 text-left">{subItem.label}</span>
-                          <ChevronLeft size={14} className={`transition-transform duration-200 ${isOpen ? '-rotate-90' : 'rotate-180'}`} />
-                        </>
-                      )}
-                    </button>
-                    {isOpen && isExpanded && (
-                      <div className={`mx-2 mt-1 mb-2 rounded-lg p-3 flex flex-col gap-2 ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                        <ActionContent id={subItem.id} pa={portfolioActions} isDark={isDark} selectedBroker={selectedBroker} onBrokerChange={onBrokerChange} />
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-
-              return (
+            return (
+              <div key={item.id}>
                 <button
-                  key={subItem.id}
-                  onClick={() => navigate(subItem.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                    location.pathname === subItem.path ? activeBg : hoverBg
-                  } ${textPrimary}`}
-                >
-                  <div className="w-5" />
-                  {isExpanded && <span className="text-sm">{subItem.label}</span>}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {visibleMenuItems.map(item => {
-              const Icon = item.icon;
-              const active = item.path ? isActive(item.path) : false;
-              
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleItemClick(item)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                    active ? activeBg : hoverBg
-                  } ${textPrimary} group`}
+                  onClick={() => {
+                    if (item.subItems) {
+                      if (!isExpanded) setIsExpanded(true);
+                      toggleMenu(item.id);
+                    } else {
+                      navigate(item.path);
+                    }
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${active ? activeBg : hoverBg} ${textPrimary}`}
                   title={!isExpanded ? item.label : ''}
                 >
                   <Icon size={20} className={active ? 'text-blue-400' : textSecondary} />
                   {isExpanded && (
-                    <span className="text-sm flex-1 text-left">{item.label}</span>
-                  )}
-                  {isExpanded && item.subItems && (
-                    <ChevronLeft size={16} className={`${textSecondary} -rotate-180`} />
+                    <>
+                      <span className="text-sm flex-1 text-left">{item.label}</span>
+                      {item.subItems && (
+                        <ChevronLeft size={15} className={`${textSecondary} transition-transform duration-200 ${isOpen ? '-rotate-90' : 'rotate-180'}`} />
+                      )}
+                    </>
                   )}
                 </button>
-              );
-            })}
-          </div>
-        )}
+
+                {item.subItems && isOpen && isExpanded && (
+                  <div className={`ml-4 mt-0.5 mb-1 pl-3 border-l ${isDark ? 'border-gray-700' : 'border-gray-200'} space-y-0.5`}>
+                    {item.subItems.map(subItem => {
+                      if (subItem.isDivider) {
+                        return <div key={subItem.id} className={`my-1.5 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`} />;
+                      }
+
+                      if (subItem.isAction) {
+                        const isActionOpen = expandedSection === subItem.id;
+                        return (
+                          <div key={subItem.id}>
+                            <button
+                              onClick={() => toggleSection(subItem.id)}
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors ${hoverBg} ${subItem.isDanger ? 'text-red-400' : textSecondary}`}
+                            >
+                              <span className="text-xs flex-1 text-left">{subItem.label}</span>
+                              <ChevronLeft size={12} className={`transition-transform duration-200 ${isActionOpen ? '-rotate-90' : 'rotate-180'}`} />
+                            </button>
+                            {isActionOpen && (
+                              <div className={`mt-1 mb-1 rounded-lg p-3 flex flex-col gap-2 ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                                <ActionContent id={subItem.id} pa={portfolioActions} isDark={isDark} selectedBroker={selectedBroker} onBrokerChange={onBrokerChange} />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <button
+                          key={subItem.id}
+                          onClick={() => navigate(subItem.path)}
+                          className={`w-full flex items-center px-2 py-1.5 rounded-lg transition-colors text-left ${
+                            isActive(subItem.path) ? activeBg : hoverBg
+                          } ${textPrimary}`}
+                        >
+                          <span className="text-xs">{subItem.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </nav>
 
       <div className="border-t border-gray-800 p-2">
