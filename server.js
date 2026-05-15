@@ -1171,8 +1171,11 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
 
       await new Promise(r => setTimeout(r, 300));
 
-      // 2. pricehistory — average of last 10 actual completed sales
-      // Works unauthenticated for popular items; rare items may require a Steam session
+      // 2. pricehistory — actual completed sales
+      // Works unauthenticated for popular items; rare items may require a Steam session.
+      // High volume (5+ recent sales): average last 10 to smooth anomalies.
+      // Low volume (<5 sales): use only the most recent sale — averaging old sparse
+      // sales gives a worse estimate than the latest transaction price.
       try {
         const r = await fetch(
           `https://steamcommunity.com/market/pricehistory/?appid=730&currency=1&market_hash_name=${encoded}`,
@@ -1182,8 +1185,10 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
           let d; try { d = JSON.parse(await r.text()); } catch(e) {}
           if (d?.success && Array.isArray(d.prices) && d.prices.length > 0) {
             const recent = d.prices.slice(-10);
-            const avg = recent.reduce((s, p) => s + parseFloat(p[1]), 0) / recent.length;
-            if (avg > 0) return avg;
+            const price = recent.length >= 5
+              ? recent.reduce((s, p) => s + parseFloat(p[1]), 0) / recent.length
+              : parseFloat(recent[recent.length - 1][1]);
+            if (price > 0) return price;
           }
         }
       } catch(e) {}
