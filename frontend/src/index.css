@@ -14,3 +14,7 @@ body {
 
 /* Smooth transitions */
 * { transition-property: color, background-color, border-color; transition-duration: 150ms; }
+
+/* Pointer cursor on all interactive elements */
+button, [role="button"], select, label[for] { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
