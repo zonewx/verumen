@@ -38,12 +38,6 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
           <div className="flex items-center gap-2">
             <div className="animate-spin">⏳</div>
             <span className="font-medium flex-1">{pa.uploadProgress.label}</span>
-            <button 
-              onClick={pa.onCancelUpload}
-              className="text-xs text-red-400 hover:text-red-300 font-semibold transition"
-            >
-              Cancel
-            </button>
           </div>
         </div>
       )}
@@ -458,7 +452,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
             className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg ${hoverBg} transition-colors ${textPrimary}`}
             title={!isExpanded ? currentUser?.username : ''}
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">
               {avatarBase64
                 ? <img src={avatarBase64} className="w-full h-full object-cover" alt="" />
                 : <User size={16} className="text-white" />}

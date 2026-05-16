@@ -78,7 +78,7 @@ function SkinCard({ item, isDark, onClick, onSetPrice, onClearPrice }) {
   return (
     <div
       onClick={onClick}
-      className={`rounded-xl border overflow-hidden flex flex-col transition-transform hover:scale-[1.02] ${onClick ? 'cursor-pointer' : ''} ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+      className={`rounded-xl border flex flex-col transition-transform hover:scale-[1.02] ${onClick ? 'cursor-pointer' : ''} ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
     >
       {/* Image area with rarity tint */}
       <div className="relative p-3 pb-2" style={item.rarityColor ? { background: `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 70%)` } : {}}>
@@ -93,8 +93,8 @@ function SkinCard({ item, isDark, onClick, onSetPrice, onClearPrice }) {
               <div key={i} className="relative group">
                 <img src={s.url} alt={s.name} className="w-9 h-9 object-contain opacity-85 hover:opacity-100 transition" />
                 {s.name && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] bg-gray-900 text-white rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-20 border border-gray-700 shadow-lg">
-                    {s.name}
+                  <div className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 bg-gray-900 border border-gray-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-200 whitespace-nowrap">
+                    <p className="text-xs font-semibold text-white">{s.name}</p>
                   </div>
                 )}
               </div>
@@ -542,7 +542,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                           <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Tradable items</p><p className="text-xl font-bold">{tradable.length}</p></div>
                           <div><p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Est. Value</p><p className="text-xl font-bold text-green-400">{fmtSEK(tradable.reduce((s,i)=>s+i.priceSEK,0))}</p></div>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                           {sorted.map((item, i) => (
                             <SkinCard key={i} item={item} isDark={isDark}
                               onSetPrice={p => saveOverride(item.name, p)}

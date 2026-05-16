@@ -87,7 +87,7 @@ export default function App() {
   const globalSearchRef = useRef(null);
   const [selectedBroker, setSelectedBroker] = useState('auto');
   const [txCount, setTxCount] = useState(() => apiCache.get('/api/txCount') || { total: 0, trades: 0, byBroker: {} });
-  const [uploadAborted, setUploadAborted] = useState(false);
+  const uploadAbortRef = useRef(false);
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -323,6 +323,7 @@ export default function App() {
 
 const handleUpload = async (files) => {
   if (!files.length) return;
+  uploadAbortRef.current = false;
   setUploadLoading(true); setUploadStatus(null); setSyncStatus(''); setUploadProgress(null);
   
   const updateProgress = (phase, pct, label) => setUploadProgress({ phase, pct, label });
@@ -366,10 +367,11 @@ const handleUpload = async (files) => {
     let failures = 0;
     
     while (remaining > 0 && failures < 3) {
-      if (uploadAborted) {
-        updateProgress('cancelled', progress, '✗ Upload cancelled');
+      if (uploadAbortRef.current) {
+        uploadAbortRef.current = false;
+        updateProgress('cancelled', 40 + Math.floor((totalResolved / data.newAdded) * 40), '✗ Upload cancelled');
         setTimeout(() => setUploadProgress(null), 2000);
-        setUploadAborted(false); // Reset for next upload
+        setUploadLoading(false);
         return;
       }
 
@@ -858,6 +860,12 @@ const handleUpload = async (files) => {
                               />
                             </div>
                           )}
+                          <button
+                            onClick={() => { uploadAbortRef.current = true; }}
+                            className="mt-2 text-xs text-red-400 hover:text-red-300 font-semibold transition"
+                          >
+                            Cancel
+                          </button>
                         </div>
                       </div>
                     ) : !dashboardData || portfolio.length === 0 ? (
@@ -1183,7 +1191,7 @@ const handleUpload = async (files) => {
         onClearTransactions: handleClearTransactions,
         onClearAll: handleClearAll,
         onClearBroker: handleClearBroker,
-        onCancelUpload: () => setUploadAborted(true),
+        onCancelUpload: () => { uploadAbortRef.current = true; },
       }}
     />
       
