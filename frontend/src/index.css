@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Scale the entire UI with viewport width.
+   Stays at 13px on small/laptop screens, ramps to 16px at ~1778px+.
+   All rem-based Tailwind utilities (spacing, type, sizing) scale with this. */
+html {
+  font-size: clamp(13px, 0.9vw, 16px);
+}
+
 body {
   background-color: #111827;
   color: white;

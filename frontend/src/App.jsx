@@ -843,7 +843,24 @@ const handleUpload = async (files) => {
 
                 {currentTab === 'overview' && (
                   <div className="flex flex-col gap-6">
-                    {!dashboardData || portfolio.length === 0 ? (
+                    {uploadLoading && (!dashboardData || portfolio.length === 0) ? (
+                      <div className="flex flex-col items-center justify-center py-32 gap-6">
+                        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        <div className="flex flex-col items-center gap-3 w-72">
+                          <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                            {uploadProgress?.label || 'Processing…'}
+                          </p>
+                          {uploadProgress?.pct != null && (
+                            <div className={`w-full h-1.5 rounded-full ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                              <div
+                                className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadProgress.pct}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : !dashboardData || portfolio.length === 0 ? (
                       <EmptyState icon="📊" title="No portfolio data" desc="Upload a CSV from your broker to get started." action={{ label: 'Upload CSV', fn: () => { setIsSidebarOpen(true); } }} />
                     ) : (
                       <>
