@@ -327,7 +327,7 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-8 py-8">
+      <div className="px-10 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Social</h1>
           {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg}</div>}

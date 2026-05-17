@@ -66,7 +66,7 @@ export default function FriendsPage({ isDark, authUsername }) {
 
   return (
     <div className={`flex-1 overflow-y-auto ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="px-10 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-1">Friends</h1>
           <p className={`text-sm ${textSecondary}`}>Manage your friend connections</p>

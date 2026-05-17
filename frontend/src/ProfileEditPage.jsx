@@ -219,7 +219,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-8 py-8">
+      <div className="px-10 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -432,7 +432,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
 
         {/* Save Button (sticky at bottom) */}
         <div className={`sticky bottom-0 mt-6 p-6 ${isDark ? 'bg-gray-900/95 border-gray-700' : 'bg-white/95 border-gray-200'} border-t backdrop-blur-sm`}>
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button onClick={saveProfile} disabled={saving} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save Profile'}

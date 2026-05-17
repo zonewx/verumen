@@ -176,7 +176,7 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
   if (isViewing) {
     return (
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-8 py-8">
+        <div className="px-10 py-8">
           {!profile ? (
             <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/></div>
           ) : (
@@ -263,7 +263,7 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
   // ── Own profile ────────────────────────────────────────────────────────────
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-8 py-8">
+      <div className="px-10 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Left col: Avatar + identity */}

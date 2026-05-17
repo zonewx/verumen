@@ -1060,9 +1060,15 @@ function parseSteamStickers(descriptions) {
   const entry = (descriptions || []).find(d => d.value?.includes('sticker_info'));
   if (!entry) return [];
   const icons = [...entry.value.matchAll(/src="([^"]+)"/g)].map(m => m[1]);
-  const nameMatch = entry.value.match(/Stickers?:\s*([^<]+)/i);
-  const names = nameMatch ? nameMatch[1].trim().split(/,\s*/) : [];
-  return icons.map((url, i) => ({ url, name: (names[i] || '').trim() }));
+  // Try "Sticker: A, B" / "Patch: A, B" / "Autograph: A" label format
+  const labelMatch = entry.value.match(/(?:Stickers?|Patches?|Autograph):\s*([^<]+)/i);
+  if (labelMatch) {
+    const names = labelMatch[1].trim().split(/,\s*/);
+    return icons.map((url, i) => ({ url, name: (names[i] || '').trim() }));
+  }
+  // Fallback: strip all HTML tags and extract non-empty text fragments
+  const textFragments = entry.value.replace(/<[^>]+>/g, '\n').split('\n').map(s => s.trim()).filter(Boolean);
+  return icons.map((url, i) => ({ url, name: (textFragments[i] || '').trim() }));
 }
 
 function fetchJSON(url) {

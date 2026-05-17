@@ -501,7 +501,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
 
   return (
     <div className={`flex flex-col flex-1 overflow-y-auto ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-      <div className="max-w-6xl mx-auto px-8 py-8 w-full">
+      <div className="px-10 py-8 w-full">
 
           {/* OVERVIEW */}
           {tab === 'overview' && (
