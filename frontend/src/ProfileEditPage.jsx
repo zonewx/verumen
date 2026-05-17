@@ -37,6 +37,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
   const [profile, setProfile] = useState(null);
   const [editForm, setEditForm] = useState({ bio: '', steamId: '', publicInventory: false, publicHoldings: false, publicDividends: false, showPortfolioValue: false, avatarBase64: null, showcaseItems: [], country: 'se' });
   const [steamVerified, setSteamVerified] = useState(false);
+  const [steamLevel, setSteamLevel] = useState(0);
   const [steamLookupError, setSteamLookupError] = useState('');
   const [steamLookupLoading, setSteamLookupLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -74,9 +75,8 @@ export default function ProfileEditPage({ isDark, authUsername }) {
 
   async function fetchProfile() {
     try {
-      const cached = apiCache.get(`/api/users/${authUsername}/profile`);
-      const data = cached || await fetch(`/api/users/${authUsername}/profile`, { headers: h }).then(r => r.json());
-      if (!cached) apiCache.set(`/api/users/${authUsername}/profile`, data);
+      const data = await fetch(`/api/users/${authUsername}/profile`, { headers: h }).then(r => r.json());
+      apiCache.set(`/api/users/${authUsername}/profile`, data);
       setProfile(data);
       setEditForm({
         bio: data.bio || '',
@@ -91,10 +91,8 @@ export default function ProfileEditPage({ isDark, authUsername }) {
       });
       setSelectedShowcaseItems(data.showcaseItems || []);
       setSteamVerified(data.steamVerified || false);
+      setSteamLevel(data.steamLevel || 0);
       if (data.steamId) loadInventory(data.steamId);
-      // Refresh in background if we served from cache
-      if (cached) fetch(`/api/users/${authUsername}/profile`, { headers: h }).then(r => r.json())
-        .then(d => { apiCache.set(`/api/users/${authUsername}/profile`, d); setProfile(d); }).catch(() => {});
     } catch(e) {}
   }
 
@@ -138,7 +136,9 @@ export default function ProfileEditPage({ isDark, authUsername }) {
   async function unlinkSteam() {
     await fetch('/api/steam/unlink', { method: 'DELETE', headers: h });
     setSteamVerified(false);
+    setSteamLevel(0);
     setEditForm(f => ({ ...f, steamId: '' }));
+    apiCache.del(`/api/users/${authUsername}/profile`);
     window.dispatchEvent(new Event('profile-updated'));
   }
 
@@ -341,7 +341,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                 <div className={`flex items-center gap-3 p-4 rounded-xl ${isDark ? 'bg-green-900/20 border border-green-800/40' : 'bg-green-50 border border-green-200'}`}>
                   <img src="https://store.steampowered.com/favicon.ico" alt="Steam" className="w-6 h-6 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-green-400">✓ Steam linked & verified</p>
+                    <p className="text-sm font-semibold text-green-400">✓ Steam linked & verified{steamLevel > 0 && <span className="ml-2 text-xs font-normal text-gray-400">Level {steamLevel}</span>}</p>
                     <a href={`https://steamcommunity.com/profiles/${editForm.steamId}`} target="_blank" rel="noopener noreferrer" className={`text-xs hover:underline ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{editForm.steamId} ↗</a>
                   </div>
                   <button onClick={unlinkSteam} className={`text-xs px-3 py-1.5 rounded-lg transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>Unlink</button>

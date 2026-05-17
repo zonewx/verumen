@@ -173,7 +173,7 @@ app.get('/api/users', requireUser, async (req, res) => {
 app.get('/api/users/:username/profile', async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('*').eq('username', req.params.username).single();
   if (error || !data) return res.status(404).json({ error: 'User not found' });
-  res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, steamId: data.public_inventory ? (data.steam_id || null) : null, steamVerified: data.public_inventory ? (data.steam_verified || false) : false, steamLevel: data.public_inventory ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
+  res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_verified ? (data.steam_id || null) : null, steamVerified: data.steam_verified || false, steamLevel: data.steam_verified ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
 });
 
 app.put('/api/users/:username/profile', requireUser, async (req, res) => {
@@ -775,7 +775,7 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
   const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
   if (!symbols.length) return res.json([]);
   try {
-    const quotes = await Promise.all(symbols.map(s => yahooFinance.quote(s).catch(() => null)));
+    const quotes = await Promise.all(symbols.map(s => yahooFinance.quote(s, {}, { validateResult: false }).catch(() => null)));
     res.json(quotes.filter(Boolean).map(q => ({
       symbol: q.symbol,
       price: q.regularMarketPrice || 0,
@@ -1747,7 +1747,7 @@ app.get('/api/steam/callback', async (req, res) => {
   const pending = steamLinkTokens.get(state);
   steamLinkTokens.delete(state);
   if (!pending || Date.now() > pending.expiresAt) {
-    return res.redirect(`${BASE_URL}/profile?steam_error=session`);
+    return res.redirect(`${BASE_URL}/profile/edit?steam_error=session`);
   }
   const userId = pending.userId;
 
@@ -1757,7 +1757,7 @@ app.get('/api/steam/callback', async (req, res) => {
     const verifyRes = await fetch(`${STEAM_OPENID_URL}?${verifyParams.toString()}`);
     const verifyText = await verifyRes.text();
     if (!verifyText.includes('is_valid:true')) {
-      return res.redirect(`${BASE_URL}/profile?steam_error=invalid`);
+      return res.redirect(`${BASE_URL}/profile/edit?steam_error=invalid`);
     }
 
     // Extract SteamID from claimed_id (format: https://steamcommunity.com/openid/id/STEAMID64)
@@ -1792,10 +1792,10 @@ app.get('/api/steam/callback', async (req, res) => {
     }).eq('id', userId);
 
     // Redirect back to profile with success
-    res.redirect(`${BASE_URL}/profile?steam_success=1&steam_name=${encodeURIComponent(steamName)}`);
+    res.redirect(`${BASE_URL}/profile/edit?steam_success=1&steam_name=${encodeURIComponent(steamName)}`);
   } catch(e) {
     log.error('steam/callback failed', { error: e.message });
-    res.redirect(`${BASE_URL}/profile?steam_error=failed`);
+    res.redirect(`${BASE_URL}/profile/edit?steam_error=failed`);
   }
 });
 

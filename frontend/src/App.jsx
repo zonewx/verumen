@@ -327,38 +327,57 @@ const handleUpload = async (files) => {
   uploadAbortRef.current = false;
   uploadAbortControllerRef.current = new AbortController();
   setUploadLoading(true); setUploadStatus(null); setSyncStatus(''); setUploadProgress(null);
-  
+
   const updateProgress = (phase, pct, label) => setUploadProgress({ phase, pct, label });
-  
+
   try {
-    updateProgress('parsing', 10, 'Reading CSV files...');
-    const payloads = await Promise.all(Array.from(files).map(readFile));
-    
-    // Count total transactions in CSV
-    let totalTxCount = 0;
-    payloads.forEach(p => {
-      const lines = p.content.split('\n').filter(l => l.trim());
-      totalTxCount += Math.max(0, lines.length - 1);
-    });
-    
-    updateProgress('uploading', 30, `Processing ${totalTxCount} transactions...`);
-    const res = await apiFetch('/api/transactions/upload', { 
-      method: 'POST', 
-      body: JSON.stringify({ 
-        files: payloads,
-        forceBroker: selectedBroker !== 'auto' ? selectedBroker : null 
-      }) 
-    });
-    const data = await res.json();
-    
-    setUploadStatus({ results: data.results, newAdded: data.newAdded ?? 0, total: data.total ?? 0 });
-    
-    if (data.newAdded === 0) {
+    // Auto-clear existing data before uploading new CSV
+    if (txCount.total > 0) {
+      updateProgress('clearing', 5, 'Clearing previous data...');
+      await apiFetch('/api/transactions', { method: 'DELETE' });
+      setTxCount({ total: 0, trades: 0 }); setPortfolio([]); setDividends(null);
+      apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
+    }
+
+    const fileList = Array.from(files);
+    const allResults = [];
+    let totalNewAdded = 0;
+
+    for (let i = 0; i < fileList.length; i++) {
+      if (uploadAbortRef.current) {
+        uploadAbortRef.current = false;
+        updateProgress('cancelled', 10, '✗ Upload cancelled');
+        setTimeout(() => setUploadProgress(null), 2000);
+        setUploadLoading(false);
+        return;
+      }
+
+      updateProgress('parsing', 10, `Reading file ${i + 1} of ${fileList.length}...`);
+      const payload = await readFile(fileList[i]);
+
+      updateProgress('uploading', 15 + Math.floor((i / fileList.length) * 20), `Uploading file ${i + 1} of ${fileList.length}...`);
+      const res = await apiFetch('/api/transactions/upload', {
+        method: 'POST',
+        body: JSON.stringify({
+          files: [payload],
+          forceBroker: selectedBroker !== 'auto' ? selectedBroker : null
+        })
+      });
+      const data = await res.json();
+      if (data.results) allResults.push(...data.results);
+      totalNewAdded += data.newAdded ?? 0;
+    }
+
+    setUploadStatus({ results: allResults, newAdded: totalNewAdded, total: allResults.reduce((s, r) => s + (r.count || 0), 0) });
+
+    if (totalNewAdded === 0) {
       updateProgress('done', 100, '✓ No new transactions (all duplicates)');
       setTimeout(() => setUploadProgress(null), 3000);
       setUploadLoading(false);
       return;
     }
+
+    const data = { newAdded: totalNewAdded };
     
     // Auto-resolve tickers in chunks
     updateProgress('resolving', 40, 'Resolving tickers...');
@@ -569,7 +588,6 @@ const handleUpload = async (files) => {
   // ── Sub-components ─────────────────────────────────────────────────────────
   const EmptyState = ({ icon, title, desc, action }) => (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="text-5xl mb-4 opacity-30">{icon}</div>
       <h3 className="text-lg font-semibold text-gray-300 mb-2">{title}</h3>
       <p className="text-sm text-gray-500 max-w-xs mb-6">{desc}</p>
       {action && <button onClick={action.fn} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold transition">{action.label}</button>}

@@ -351,7 +351,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
 
   return (
     <div className={`${sidebarWidth} ${bg} border-r transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
-      <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+      <div className="p-4 flex items-center justify-between">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className={`p-2 rounded-lg ${hoverBg} transition-colors shrink-0`}

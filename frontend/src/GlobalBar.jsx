@@ -145,7 +145,7 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
     : <span className="text-xs font-bold">{authUsername[0].toUpperCase()}</span>;
 
   return (
-    <div className={`fixed top-0 left-0 right-0 z-50 h-12 flex items-center px-4 border-b ${isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+    <div className={`fixed top-0 left-0 right-0 z-50 h-12 flex items-center px-4 ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
       {/* Left spacer */}
       <div className="flex-1" />
 
