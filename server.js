@@ -774,19 +774,38 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
 app.get('/api/market-indexes', requireUser, async (req, res) => {
   const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 6);
   if (!symbols.length) return res.json([]);
-  try {
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(','))}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketChange&lang=en-US&region=US`;
-    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
-    const data = await r.json();
-    const quotes = data?.quoteResponse?.result ?? [];
-    const results = quotes
-      .filter(q => q?.regularMarketPrice != null)
-      .map(q => ({ symbol: q.symbol, price: q.regularMarketPrice, changePct: q.regularMarketChangePercent ?? 0, change: q.regularMarketChange ?? 0 }));
-    res.json(results);
-  } catch(e) {
-    log.warn('market-index fetch failed', { error: e.message });
-    res.json([]);
+  const results = [];
+  for (const s of symbols) {
+    try {
+      const summary = await yahooFinance.quoteSummary(s, { modules: ['price'] }, { validateResult: false });
+      const p = summary?.price;
+      if (p?.regularMarketPrice != null) {
+        const rawPct = p.regularMarketChangePercent;
+        const rawChg = p.regularMarketChange;
+        results.push({
+          symbol: s,
+          price: Number(p.regularMarketPrice),
+          changePct: Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0,
+          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0,
+        });
+      }
+    } catch(e) {
+      const p = (e.result ?? e.data)?.price;
+      if (p?.regularMarketPrice != null) {
+        const rawPct = p.regularMarketChangePercent;
+        const rawChg = p.regularMarketChange;
+        results.push({
+          symbol: s,
+          price: Number(p.regularMarketPrice),
+          changePct: Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0,
+          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0,
+        });
+      } else {
+        log.warn('market-index failed', { symbol: s, error: e.message });
+      }
+    }
   }
+  res.json(results);
 });
 
 // ── Portfolio valuation ─────────────────────────────────────────────────────

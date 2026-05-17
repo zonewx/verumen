@@ -333,7 +333,8 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
   }, [location.pathname]);
 
   const sidebarWidth = isExpanded ? 'w-60' : 'w-16';
-  const bg = isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200';
+  const bg = isDark ? 'bg-gray-900' : 'bg-white';
+  const borderColor = isDark ? 'bg-gray-800' : 'bg-gray-200';
   const textPrimary = isDark ? 'text-gray-100' : 'text-gray-900';
   const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
   const hoverBg = isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-100';
@@ -350,7 +351,8 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
   });
 
   return (
-    <div className={`${sidebarWidth} ${bg} border-r transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
+    <>
+    <div className={`${sidebarWidth} ${bg} transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
       <div className="p-4 flex items-center justify-between">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -475,5 +477,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         </div>
       </div>
     </div>
+    <div className={`fixed top-0 bottom-0 w-px ${isExpanded ? 'left-60' : 'left-16'} ${borderColor} z-[51] pointer-events-none transition-all duration-300`} />
+    </>
   );
 }

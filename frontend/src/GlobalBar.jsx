@@ -142,7 +142,7 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
 
   const avatarContent = profile?.avatarBase64
     ? <img src={profile.avatarBase64} alt="avatar" className="w-full h-full object-cover" />
-    : <span className="text-xs font-bold">{authUsername[0].toUpperCase()}</span>;
+    : <span className="text-xs font-bold">{authUsername?.[0]?.toUpperCase() ?? ''}</span>;
 
   return (
     <div className={`fixed top-0 left-0 right-0 z-50 h-12 flex items-center px-4 ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
