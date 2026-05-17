@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 
 export const MARKET_INDEXES = [
-  { id: 'sp500',    label: 'S&P 500',              short: 'S&P 500', ticker: '^GSPC'   },
-  { id: 'nasdaq100',label: 'NASDAQ 100',            short: 'NDX',     ticker: '^NDX'    },
-  { id: 'omxs30',  label: 'OMXS30',                short: 'OMXS30',  ticker: '^OMX'    },
-  { id: 'omxc25',  label: 'OMX Copenhagen 25',      short: 'OMXC25',  ticker: '^OMXC25' },
-  { id: 'omxh25',  label: 'OMX Helsinki 25',        short: 'OMXH25',  ticker: '^OMXH25' },
-  { id: 'osebx',   label: 'OSEBX Oslo',             short: 'OSEBX',   ticker: '^OSEOBX' },
+  { id: 'sp500',    label: 'S&P 500',              short: 'S&P 500', ticker: '^GSPC',   country: 'us' },
+  { id: 'nasdaq100',label: 'NASDAQ 100',            short: 'NDX',     ticker: '^NDX',    country: 'us' },
+  { id: 'omxs30',  label: 'OMXS30',                short: 'OMXS30',  ticker: '^OMX',    country: 'se' },
+  { id: 'omxc25',  label: 'OMX Copenhagen 25',      short: 'OMXC25',  ticker: '^OMXC25', country: 'dk' },
+  { id: 'omxh25',  label: 'OMX Helsinki 25',        short: 'OMXH25',  ticker: '^OMXH25', country: 'fi' },
+  { id: 'osebx',   label: 'OSEBX Oslo',             short: 'OSEBX',   ticker: '^OSEOBX', country: 'no' },
 ];
 
 const STORAGE_KEY = 'marketIndexes';
@@ -58,7 +58,7 @@ function MarketTicker({ isDark }) {
   if (!selected.length || !quotes.length) return null;
 
   const divider = isDark ? 'border-gray-700' : 'border-gray-200';
-  const labelCls = isDark ? 'text-gray-500' : 'text-gray-400';
+  const labelCls = isDark ? 'text-gray-100' : 'text-gray-700';
   const valCls   = isDark ? 'text-gray-200' : 'text-gray-800';
 
   return (
@@ -70,6 +70,7 @@ function MarketTicker({ isDark }) {
         const pctCls = pos ? 'text-green-400' : 'text-red-400';
         return (
           <div key={q.symbol} className={`flex items-center gap-1.5 text-xs ${i > 0 ? `border-l pl-3 ${divider}` : ''}`}>
+            {meta?.country && <img src={`https://flagcdn.com/${meta.country}.svg`} alt={meta.country} className="w-4 h-3 object-cover shrink-0" />}
             <span className={`font-medium ${labelCls}`}>{meta?.short ?? q.symbol}</span>
             <span className={`font-mono font-semibold ${valCls}`}>{fmt(q.price)}</span>
             <span className={`font-semibold ${pctCls}`}>{arrow}{Math.abs(q.changePct).toFixed(2)}%</span>
@@ -144,9 +145,12 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
     : <span className="text-xs font-bold">{authUsername[0].toUpperCase()}</span>;
 
   return (
-    <div className={`fixed top-0 left-0 right-0 z-50 h-12 flex items-center px-4 gap-3 border-b ${isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
-      {/* Middle — Logo + Search */}
-      <div ref={searchRef} className="flex-1 max-w-md mx-auto relative">
+    <div className={`fixed top-0 left-0 right-0 z-50 h-12 flex items-center px-4 border-b ${isDark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+      {/* Left spacer */}
+      <div className="flex-1" />
+
+      {/* Center — Search */}
+      <div ref={searchRef} className="w-full max-w-md relative">
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
           <svg width="16" height="16" viewBox="0 0 28 28" fill="none" className="shrink-0">
             <rect width="28" height="28" rx="6" fill="#0f1e3c"/>
@@ -191,11 +195,9 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
         )}
       </div>
 
-      {/* Market ticker */}
-      <MarketTicker isDark={isDark} />
-
-      {/* Right */}
-      <div className="flex items-center gap-1 shrink-0">
+      {/* Right — ticker + buttons */}
+      <div className="flex-1 flex items-center justify-end gap-1">
+        <MarketTicker isDark={isDark} />
         {/* Friends with notification dot */}
         <button onClick={() => onNavigate('friends')} title="Friends" className={`relative p-1.5 rounded-lg ${isDark ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'} transition`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
