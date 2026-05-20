@@ -786,8 +786,9 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
       if (p?.regularMarketPrice != null) {
         const rawPct = p.regularMarketChangePercent;
         const rawChg = p.regularMarketChange;
+        // quoteSummary price module returns changePct as a decimal (0.0159 = 1.59%) — multiply by 100
         results.push({ symbol: s, price: Number(p.regularMarketPrice),
-          changePct: Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0,
+          changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
           change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 });
         pushed = true;
       }
@@ -798,7 +799,7 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
         const rawPct = p.regularMarketChangePercent;
         const rawChg = p.regularMarketChange;
         results.push({ symbol: s, price: Number(p.regularMarketPrice),
-          changePct: Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0,
+          changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
           change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 });
         pushed = true;
       }
@@ -806,13 +807,13 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
 
     if (pushed) continue;
 
-    // Attempt 2: quote with validateResult: false
+    // Attempt 2: quote with validateResult: false (also returns decimal changePct)
     try {
       const q = await yahooFinance.quote(s, {}, { validateResult: false });
       log.info('market-index quote fallback', { s, rmp: q?.regularMarketPrice });
       if (q?.regularMarketPrice != null) {
         results.push({ symbol: q.symbol || s, price: Number(q.regularMarketPrice),
-          changePct: Number(q.regularMarketChangePercent) || 0,
+          changePct: (Number(q.regularMarketChangePercent) || 0) * 100,
           change: Number(q.regularMarketChange) || 0 });
         pushed = true;
       }
@@ -821,7 +822,7 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
       log.warn('market-index quote threw', { s, err: e.message?.slice(0,120), resultKeys: q ? Object.keys(q) : [] });
       if (q?.regularMarketPrice != null) {
         results.push({ symbol: s, price: Number(q.regularMarketPrice),
-          changePct: Number(q.regularMarketChangePercent) || 0,
+          changePct: (Number(q.regularMarketChangePercent) || 0) * 100,
           change: Number(q.regularMarketChange) || 0 });
       }
     }

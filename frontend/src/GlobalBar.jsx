@@ -62,18 +62,21 @@ function MarketTicker({ isDark }) {
   const valCls   = isDark ? 'text-gray-200' : 'text-gray-800';
 
   return (
-    <div className={`hidden md:flex items-center gap-3 border-r mr-1 pr-3 ${divider}`}>
+    <div className={`hidden md:flex items-center gap-1.5 border-r mr-1 pr-2 ${divider}`}>
       {quotes.map((q, i) => {
-        const meta  = MARKET_INDEXES.find(m => m.ticker === q.symbol);
-        const pos   = q.changePct >= 0;
-        const arrow = pos ? '▲' : '▼';
+        const meta   = MARKET_INDEXES.find(m => m.ticker === q.symbol);
+        const pos    = q.changePct >= 0;
         const pctCls = pos ? 'text-green-400' : 'text-red-400';
         return (
-          <div key={q.symbol} className={`flex items-center gap-1.5 text-xs ${i > 0 ? `border-l pl-3 ${divider}` : ''}`}>
-            {meta?.country && <img src={`https://flagcdn.com/${meta.country}.svg`} alt={meta.country} className="w-4 h-3 object-cover shrink-0" />}
-            <span className={`font-medium ${labelCls}`}>{meta?.short ?? q.symbol}</span>
-            <span className={`font-mono font-semibold ${valCls}`}>{fmt(q.price)}</span>
-            <span className={`font-semibold ${pctCls}`}>{arrow}{Math.abs(q.changePct).toFixed(2)}%</span>
+          <div key={q.symbol} className={`flex flex-col items-start leading-tight text-[10px] px-1.5 ${i > 0 ? `border-l ${divider}` : ''}`}>
+            <div className="flex items-center gap-1">
+              {meta?.country && <img src={`https://flagcdn.com/${meta.country}.svg`} alt={meta.country} className="w-3 h-2 object-cover shrink-0" />}
+              <span className={`font-medium ${labelCls}`}>{meta?.short ?? q.symbol}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className={`font-mono ${valCls}`}>{fmt(q.price)}</span>
+              <span className={`font-semibold ${pctCls}`}>{pos ? '▲' : '▼'}{Math.abs(q.changePct).toFixed(2)}%</span>
+            </div>
           </div>
         );
       })}
@@ -145,7 +148,7 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
     : <span className="text-xs font-bold">{authUsername?.[0]?.toUpperCase() ?? ''}</span>;
 
   return (
-    <div className={`fixed top-0 left-0 right-0 z-50 h-12 flex items-center px-4 ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
+    <div className={`fixed top-0 right-0 z-50 h-12 flex items-center px-4 ${isDark ? 'bg-gray-900' : 'bg-white'}`} style={{ left: 'var(--sidebar-w, 240px)' }}>
       {/* Center — Search (absolutely centered so ticker width never shifts it) */}
       <div ref={searchRef} className="absolute left-1/2 -translate-x-1/2 w-full max-w-md z-10">
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>

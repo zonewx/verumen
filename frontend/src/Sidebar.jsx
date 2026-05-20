@@ -214,6 +214,10 @@ const ChevronLeft = ({ size = 20, className }) => (
 
 export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker, onBrokerChange, portfolioActions = {} }) {
   const [isExpanded, setIsExpanded] = useState(true);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-w', isExpanded ? '240px' : '64px');
+  }, [isExpanded]);
   const [expandedMenus, setExpandedMenus] = useState(new Set());
   const [expandedSection, setExpandedSection] = useState(null);
   const [avatarBase64, setAvatarBase64] = useState(null);
