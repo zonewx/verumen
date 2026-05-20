@@ -172,13 +172,9 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-semibold">{u.username}</span>
-                      {u.role && rb[u.role] && <span className={`text-xs px-1.5 py-0.5 rounded-full ${rb[u.role]}`}>{u.role}</span>}
+                      {u.role && rb[u.role] && <span className={`text-xs px-1.5 py-0.5 rounded-full ${rb[u.role]}`}>{u.role.charAt(0).toUpperCase() + u.role.slice(1)}</span>}
                     </div>
                     {u.bio && <p className={`text-xs truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{u.bio}</p>}
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    {u.publicInventory && <span className="text-xs text-green-400 bg-green-900/30 px-1.5 py-0.5 rounded-full">CS</span>}
-                    {u.publicHoldings && <span className="text-xs text-blue-400 bg-blue-900/30 px-1.5 py-0.5 rounded-full">Portfolio</span>}
                   </div>
                 </button>
               );

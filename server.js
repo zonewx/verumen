@@ -776,32 +776,53 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
   if (!symbols.length) return res.json([]);
   const results = [];
   for (const s of symbols) {
+    let pushed = false;
+
+    // Attempt 1: quoteSummary / price module
     try {
       const summary = await yahooFinance.quoteSummary(s, { modules: ['price'] }, { validateResult: false });
       const p = summary?.price;
+      log.info('market-index quoteSummary', { s, hasPrice: !!p, rmp: p?.regularMarketPrice });
       if (p?.regularMarketPrice != null) {
         const rawPct = p.regularMarketChangePercent;
         const rawChg = p.regularMarketChange;
-        results.push({
-          symbol: s,
-          price: Number(p.regularMarketPrice),
+        results.push({ symbol: s, price: Number(p.regularMarketPrice),
           changePct: Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0,
-          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0,
-        });
+          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 });
+        pushed = true;
       }
     } catch(e) {
       const p = (e.result ?? e.data)?.price;
+      log.warn('market-index quoteSummary threw', { s, err: e.message?.slice(0,120), hasResultPrice: !!p?.regularMarketPrice });
       if (p?.regularMarketPrice != null) {
         const rawPct = p.regularMarketChangePercent;
         const rawChg = p.regularMarketChange;
-        results.push({
-          symbol: s,
-          price: Number(p.regularMarketPrice),
+        results.push({ symbol: s, price: Number(p.regularMarketPrice),
           changePct: Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0,
-          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0,
-        });
-      } else {
-        log.warn('market-index failed', { symbol: s, error: e.message });
+          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 });
+        pushed = true;
+      }
+    }
+
+    if (pushed) continue;
+
+    // Attempt 2: quote with validateResult: false
+    try {
+      const q = await yahooFinance.quote(s, {}, { validateResult: false });
+      log.info('market-index quote fallback', { s, rmp: q?.regularMarketPrice });
+      if (q?.regularMarketPrice != null) {
+        results.push({ symbol: q.symbol || s, price: Number(q.regularMarketPrice),
+          changePct: Number(q.regularMarketChangePercent) || 0,
+          change: Number(q.regularMarketChange) || 0 });
+        pushed = true;
+      }
+    } catch(e) {
+      const q = e.result ?? e.data;
+      log.warn('market-index quote threw', { s, err: e.message?.slice(0,120), resultKeys: q ? Object.keys(q) : [] });
+      if (q?.regularMarketPrice != null) {
+        results.push({ symbol: s, price: Number(q.regularMarketPrice),
+          changePct: Number(q.regularMarketChangePercent) || 0,
+          change: Number(q.regularMarketChange) || 0 });
       }
     }
   }

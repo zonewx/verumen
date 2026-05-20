@@ -216,7 +216,7 @@ export default function AdminPanel({ isDark, authUsername }) {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">🛡️ Admin Panel</h1>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Logged in as <span className="font-semibold text-red-400">admin</span></p>
+            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Logged in as <span className="font-semibold text-red-400">Admin</span></p>
           </div>
           {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : actionMsg.includes('Error') ? 'bg-red-900/40 text-red-400 border-red-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg}</div>}
         </div>
@@ -386,7 +386,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center flex-wrap gap-2 mb-1">
                           <span className="font-bold">{u.username}</span>
-                          {u.username === 'admin' && <span className="text-xs bg-red-900/40 text-red-400 border border-red-800 px-2 py-0.5 rounded-full">admin</span>}
+                          {u.username === 'admin' && <span className="text-xs bg-red-900/40 text-red-400 border border-red-800 px-2 py-0.5 rounded-full">Admin</span>}
                           {u.hasSteam && <span className="text-xs text-orange-400 bg-orange-900/30 px-1.5 py-0.5 rounded-full">Steam</span>}
                         </div>
                         <div className="grid grid-cols-2 gap-3 mb-3 mt-2">
@@ -472,7 +472,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-bold">{u.username}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadge[u.role || 'user']}`}>{u.role || 'user'}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadge[u.role || 'user']}`}>{(u.role || 'user').charAt(0).toUpperCase() + (u.role || 'user').slice(1)}</span>
                         </div>
                         <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Joined {new Date(u.createdAt).toLocaleDateString()}</p>
                       </div>

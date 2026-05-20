@@ -317,7 +317,7 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <button onClick={() => onViewProfile(user.username)} className={`font-semibold text-sm hover:underline`}>{user.username}</button>
-          {user.role && ROLE_BADGE[user.role] && <span className={`text-xs px-1.5 py-0.5 rounded-full ${ROLE_BADGE[user.role].cls}`}>{user.role}</span>}
+          {user.role && ROLE_BADGE[user.role] && <span className={`text-xs px-1.5 py-0.5 rounded-full ${ROLE_BADGE[user.role].cls}`}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span>}
         </div>
         {user.bio && <p className={`text-xs truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{user.bio}</p>}
       </div>

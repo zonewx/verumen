@@ -463,7 +463,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
             {isExpanded && (
               <div className="flex-1 text-left min-w-0">
                 <p className="text-sm font-medium truncate">{currentUser?.username}</p>
-                <p className="text-xs text-gray-500">{currentUser?.role}</p>
+                <p className="text-xs text-gray-500">{currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : ''}</p>
               </div>
             )}
           </button>
