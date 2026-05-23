@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 
 export const MARKET_INDEXES = [
   { id: 'sp500',    label: 'S&P 500',              short: 'S&P 500', ticker: '^GSPC',   country: 'us' },
-  { id: 'nasdaq100',label: 'NASDAQ 100',            short: 'NDX',     ticker: '^NDX',    country: 'us' },
+  { id: 'nasdaq100',label: 'NASDAQ 100',            short: 'NASDAQ 100', ticker: '^NDX',    country: 'us' },
   { id: 'omxs30',  label: 'OMXS30',                short: 'OMXS30',  ticker: '^OMX',    country: 'se' },
   { id: 'omxc25',  label: 'OMX Copenhagen 25',      short: 'OMXC25',  ticker: '^OMXC25', country: 'dk' },
   { id: 'omxh25',  label: 'OMX Helsinki 25',        short: 'OMXH25',  ticker: '^OMXH25', country: 'fi' },

@@ -365,10 +365,8 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       >
         <Menu size={20} className={textPrimary} />
       </button>
-      {isExpanded && (
-        <h1 className={`text-lg font-bold ${textPrimary} flex-1 text-center`}>Verumen</h1>
-      )}
-      {isExpanded && <div className="w-9 shrink-0" />}
+      <h1 className={`text-lg font-bold ${textPrimary} flex-1 text-center overflow-hidden whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>Verumen</h1>
+      <div className={`w-9 shrink-0 transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0'}`} />
     </div>
 
     <div className={`${sidebarWidth} ${bg} transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
@@ -395,13 +393,9 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                   title={!isExpanded ? item.label : ''}
                 >
                   <Icon size={20} className={active ? 'text-blue-400' : textSecondary} />
-                  {isExpanded && (
-                    <>
-                      <span className="text-sm flex-1 text-left">{item.label}</span>
-                      {item.subItems && (
-                        <ChevronLeft size={15} className={`${textSecondary} transition-transform duration-200 ${isOpen ? '-rotate-90' : 'rotate-180'}`} />
-                      )}
-                    </>
+                  <span className={`text-sm flex-1 text-left overflow-hidden whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>{item.label}</span>
+                  {item.subItems && (
+                    <ChevronLeft size={15} className={`${textSecondary} transition-transform duration-200 shrink-0 ${isOpen ? '-rotate-90' : 'rotate-180'} transition-opacity ${isExpanded ? 'opacity-100' : 'opacity-0'}`} />
                   )}
                 </button>
 
@@ -464,21 +458,17 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                 ? <img src={avatarBase64} className="w-full h-full object-cover" alt="" />
                 : <User size={16} className="text-white" />}
             </div>
-            {isExpanded && (
-              <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-medium truncate">{currentUser?.username}</p>
-                <p className="text-xs text-gray-500">{currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : ''}</p>
-              </div>
-            )}
+            <div className={`flex-1 text-left min-w-0 overflow-hidden transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+              <p className="text-sm font-medium truncate">{currentUser?.username}</p>
+              <p className="text-xs text-gray-500">{currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : ''}</p>
+            </div>
           </button>
-          {isExpanded && (
-            <button
-              onClick={() => navigate('/profile/edit')}
-              className={`px-3 py-1.5 rounded-lg ${hoverBg} transition-colors shrink-0 text-xs font-semibold ${textSecondary}`}
-            >
-              Edit
-            </button>
-          )}
+          <button
+            onClick={() => navigate('/profile/edit')}
+            className={`rounded-lg ${hoverBg} transition-all duration-200 shrink-0 text-xs font-semibold ${textSecondary} overflow-hidden ${isExpanded ? 'opacity-100 px-3 py-1.5 max-w-[60px]' : 'opacity-0 pointer-events-none px-0 max-w-0'}`}
+          >
+            Edit
+          </button>
         </div>
       </div>
     </div>
