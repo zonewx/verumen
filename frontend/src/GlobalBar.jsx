@@ -22,7 +22,9 @@ function fmt(n) {
 }
 
 function MarketTicker({ isDark }) {
-  const [quotes, setQuotes]       = useState([]);
+  const [quotes, setQuotes]       = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('market_quotes_cache')) || []; } catch { return []; }
+  });
   const [selected, setSelected]   = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
   });
@@ -47,7 +49,7 @@ function MarketTicker({ isDark }) {
     const fetch_ = () =>
       fetch(`/api/market-indexes?symbols=${encodeURIComponent(tickers)}`, { headers: authHeader() })
         .then(r => r.json())
-        .then(data => { if (Array.isArray(data)) setQuotes(data); })
+        .then(data => { if (Array.isArray(data)) { setQuotes(data); sessionStorage.setItem('market_quotes_cache', JSON.stringify(data)); } })
         .catch(() => {});
 
     fetch_();
@@ -62,15 +64,15 @@ function MarketTicker({ isDark }) {
   const valCls   = isDark ? 'text-gray-200' : 'text-gray-800';
 
   return (
-    <div className={`hidden md:flex items-center gap-1.5 border-r mr-1 pr-2 ${divider}`}>
+    <div className={`hidden md:flex items-center gap-3 border-r mr-2 pr-3 ${divider}`}>
       {quotes.map((q, i) => {
         const meta   = MARKET_INDEXES.find(m => m.ticker === q.symbol);
         const pos    = q.changePct >= 0;
         const pctCls = pos ? 'text-green-400' : 'text-red-400';
         return (
-          <div key={q.symbol} className={`flex flex-col items-start leading-tight text-[10px] px-1.5 ${i > 0 ? `border-l ${divider}` : ''}`}>
+          <div key={q.symbol} className={`flex flex-col items-start leading-tight text-xs px-2 ${i > 0 ? `border-l ${divider}` : ''}`}>
             <div className="flex items-center gap-1">
-              {meta?.country && <img src={`https://flagcdn.com/${meta.country}.svg`} alt={meta.country} className="w-3 h-2 object-cover shrink-0" />}
+              {meta?.country && <img src={`https://flagcdn.com/${meta.country}.svg`} alt={meta.country} className="w-3.5 h-2.5 object-cover shrink-0" />}
               <span className={`font-medium ${labelCls}`}>{meta?.short ?? q.symbol}</span>
             </div>
             <div className="flex items-center gap-1">

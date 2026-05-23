@@ -21,8 +21,13 @@ export default function App() {
   const location = useLocation();
 
   // ── Auth ───────────────────────────────────────────────────────────────────
-  const [authStatus, setAuthStatus] = useState('loading');
-  const [authUsername, setAuthUsername] = useState('');
+  // Initialise synchronously from sessionStorage — no loading spinner on page load
+  const [authStatus, setAuthStatus] = useState(() => {
+    const u = sessionStorage.getItem('auth_user');
+    const t = sessionStorage.getItem('auth_token');
+    return (u && t) ? 'logged-in' : 'logged-out';
+  });
+  const [authUsername, setAuthUsername] = useState(() => sessionStorage.getItem('auth_user') || '');
   const [authMode, setAuthMode] = useState('login');
   const [authForm, setAuthForm] = useState({ username: '', password: '', confirmPassword: '', newPassword: '' });
   const [authError, setAuthError] = useState('');
@@ -30,7 +35,7 @@ export default function App() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
   const [announcements, setAnnouncements] = useState([]);
-  const [userRole, setUserRole] = useState('user');
+  const [userRole, setUserRole] = useState(() => sessionStorage.getItem('auth_role') || 'user');
   const [allowRegistration, setAllowRegistration] = useState(true);
 
   // ── Core state ─────────────────────────────────────────────────────────────

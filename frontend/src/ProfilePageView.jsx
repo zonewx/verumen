@@ -237,7 +237,7 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-4xl mx-auto px-6 py-6">
+      <div className="max-w-5xl mx-auto px-6 py-6">
         
         {/* Profile Header - Horizontal Steam-Style Layout */}
         <div className={`${card} p-8 mb-4`}>
