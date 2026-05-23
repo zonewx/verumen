@@ -389,13 +389,13 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                       navigate(item.path);
                     }
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${active ? activeBg : hoverBg} ${textPrimary}`}
+                  className={`w-full flex items-center py-2 rounded-lg transition-colors ${active ? activeBg : hoverBg} ${textPrimary} ${isExpanded ? 'gap-3 px-3' : 'justify-center px-2'}`}
                   title={!isExpanded ? item.label : ''}
                 >
-                  <Icon size={20} className={active ? 'text-blue-400' : textSecondary} />
-                  <span className={`text-sm flex-1 text-left overflow-hidden whitespace-nowrap transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0'}`}>{item.label}</span>
+                  <Icon size={20} className={`shrink-0 ${active ? 'text-blue-400' : textSecondary}`} />
+                  <span className={`text-sm text-left whitespace-nowrap transition-all duration-200 ${isExpanded ? 'opacity-100 flex-1 overflow-hidden' : 'opacity-0 w-0 overflow-hidden'}`}>{item.label}</span>
                   {item.subItems && (
-                    <ChevronLeft size={15} className={`${textSecondary} transition-transform duration-200 shrink-0 ${isOpen ? '-rotate-90' : 'rotate-180'} transition-opacity ${isExpanded ? 'opacity-100' : 'opacity-0'}`} />
+                    <ChevronLeft size={15} className={`${textSecondary} transition-transform duration-200 shrink-0 ${isOpen ? '-rotate-90' : 'rotate-180'} ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`} />
                   )}
                 </button>
 

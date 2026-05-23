@@ -1260,7 +1260,7 @@ const handleUpload = async (files) => {
           <Route path="/admin/ticker-failures" element={<PageShell title="Admin Panel - Ticker Failures"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           <Route path="/admin/announcements" element={<PageShell title="Admin Panel - Announcements"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           
-          <Route path="/moderator" element={<PageShell title="Moderator Panel"><ModeratorPanel isDark={isDark} authUsername={authUsername} userRole={userRole}/></PageShell>}/>
+          <Route path="/moderator" element={<PageShell><ModeratorPanel isDark={isDark} authUsername={authUsername} userRole={userRole}/></PageShell>}/>
           <Route path="*" element={<Navigate to="/social" replace/>}/>
         </Routes>
       </div>
