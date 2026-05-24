@@ -938,10 +938,29 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     if (shareClass && !new RegExp(`\\b${shareClass}$`).test(cleaned)) cleaned += ` ${shareClass}`;
     return cleaned;
   };
+  // Resolve a ticker to a live quote, with fallback to ISIN-based suffix variants
+  const fetchQuote = async (ticker, isin) => {
+    const tryQuote = async (sym) => {
+      try { const q = await yahooFinance.quote(sym); return q?.regularMarketPrice != null ? q : null; } catch(e) { return null; }
+    };
+    let q = await tryQuote(ticker);
+    // If the ticker has no exchange suffix and direct lookup failed, derive suffix from ISIN
+    if (!q && isin && !ticker.includes('.')) {
+      const isinPrefix = isin.substring(0, 2).toUpperCase();
+      const isinCurrency = ISIN_CURRENCY_MAP[isinPrefix];
+      const suffixes = isinCurrency ? (CURRENCY_SUFFIX_MAP[isinCurrency] || []) : [];
+      for (const suffix of suffixes) {
+        q = await tryQuote(`${ticker}${suffix}`);
+        if (q) break;
+      }
+    }
+    return q;
+  };
+
   const results=[];
   for (const h of portfolio) {
     try {
-      const q = await yahooFinance.quote(h.ticker);
+      const q = await fetchQuote(h.ticker, h.isin);
       if (!q) continue;
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice, currency=q.currency||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
