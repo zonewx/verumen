@@ -32,3 +32,6 @@ Thumbs.db
 .env
 .env.local
 .env.production
+
+# Claude Code local settings
+.claude/

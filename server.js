@@ -493,39 +493,116 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
 
 // ── CSV parsers ─────────────────────────────────────────────────────────────
 function parseMontrose(content) {
-  const lines = content.replace(/^\uFEFF/, '').split('\n').filter(l => l.trim());
+  const lines = content.replace(/^﻿/, '').split('\n').filter(l => l.trim());
   if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+
+  // Proper quoted-field CSV split — handles company names containing commas
+  const splitCSV = (line) => {
+    const fields = [];
+    let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') inQ = !inQ;
+      else if (ch === ',' && !inQ) { fields.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    fields.push(cur.trim());
+    return fields;
+  };
+
+  const headers = splitCSV(lines[0]);
   const idx = (name) => headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
   const iDatum=idx('datum'), iTyp=idx('typ'), iNamn=idx('rdepapper')!==-1?idx('rdepapper'):idx('eskr');
   const iIsin=idx('isin'), iTicker=idx('ticker'), iAntal=idx('antal'), iKurs=idx('kurs'), iKursvaluta=idx('kursvaluta'), iTotalt=idx('totalt'), iKonto=idx('konto');
-  const TYPE_MAP = { 'köp':'buy','kop':'buy','sälj':'sell','salj':'sell','utdelning':'dividend','utländsk skatt':'foreign-tax','utlandsk skatt':'foreign-tax','insättning':'deposit','uttag':'withdrawal','vp-överföring in':'buy','vp-overforing in':'buy','vp-överföring ut':'sell','vp-overforing ut':'sell' };
+  const parseNum = (s) => parseFloat((s||'').replace(/\s/g,'').replace(',','.')) || 0;
+  const TYPE_MAP = {
+    'köp':'buy','kop':'buy','sälj':'sell','salj':'sell',
+    'utdelning':'dividend',
+    'utländsk skatt':'foreign-tax','utlandsk skatt':'foreign-tax',
+    'insättning':'deposit','insattning':'deposit',
+    'uttag':'withdrawal',
+    'vp-överföring in':'buy','vp-overforing in':'buy',
+    'vp-överföring ut':'sell','vp-overforing ut':'sell',
+    'övrigt':'other','ovrigt':'other',
+    'ränta':'other','ranta':'other',
+  };
   return lines.slice(1).filter(l => l.trim()).map(line => {
-    const cols = line.split(',').map(c => c.trim().replace(/"/g, ''));
+    const cols = splitCSV(line);
     if (!cols[iDatum]) return null;
     const rawType = (cols[iTyp]||'').trim().toLowerCase();
     const txType = TYPE_MAP[rawType] || 'other';
-    const rawQty = parseFloat((cols[iAntal]||'').replace(/\s/g,'').replace(',','.'));
-    const qty = isNaN(rawQty) ? 0 : Math.abs(rawQty); // always store positive; type determines direction
+    const qty = Math.abs(parseNum(cols[iAntal]));
     if (txType === 'other' && !cols[iIsin]?.trim()) return null; // skip empty rows
-    return { broker:'montrose', date:cols[iDatum]?.trim()||'', type:txType, name:cols[iNamn]?.trim()||'', isin:cols[iIsin]?.trim()||'', rawTicker:cols[iTicker]?.trim()||'', ticker:'', quantity:qty, price:parseFloat((cols[iKurs]||'0').replace(/\s/g,'').replace(',','.'))||0, currency:cols[iKursvaluta]?.trim()||'SEK', totalSEK:parseFloat((cols[iTotalt]||'0').replace(/\s/g,'').replace(',','.'))||0, account:cols[iKonto]?.trim()||'' };
+    return { broker:'montrose', date:cols[iDatum]?.trim()||'', type:txType, name:cols[iNamn]?.trim()||'', isin:cols[iIsin]?.trim()||'', rawTicker:cols[iTicker]?.trim()||'', ticker:'', quantity:qty, price:parseNum(cols[iKurs]), currency:cols[iKursvaluta]?.trim()||'SEK', totalSEK:parseNum(cols[iTotalt]), account:cols[iKonto]?.trim()||'' };
   }).filter(Boolean);
 }
-
 function parseAvanza(content) {
   const lines = content.replace(/^\uFEFF/, '').split('\n').filter(l => l.trim());
   if (lines.length < 2) return [];
-  const headers = lines[0].split(';').map(h => h.trim().replace(/"/g, ''));
-  const col = (row, name) => { const i = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase())); return i >= 0 ? (row[i]||'').trim().replace(/"/g,'') : ''; };
-  const TYPE_MAP = { 'köpt':'buy','sålt':'sell','utdelning':'dividend','utländsk källskatt':'foreign-tax','insättning':'deposit','uttag':'withdrawal' };
+  // Auto-detect delimiter: old Avanza uses ';', new export format uses ','
+  const firstLine = lines[0];
+  const delimiter = (firstLine.match(/;/g)||[]).length > (firstLine.match(/,/g)||[]).length ? ';' : ',';
+
+  const splitLine = (line) => {
+    if (delimiter === ';') return line.split(';').map(c => c.trim().replace(/"/g,''));
+    // Comma delimiter: handle quoted fields (Avanza may quote numbers containing commas)
+    const fields = [];
+    let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') inQ = !inQ;
+      else if (ch === ',' && !inQ) { fields.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    fields.push(cur.trim());
+    return fields;
+  };
+
+  const headers = splitLine(lines[0]);
+  // Prefer exact column match to avoid Kurs vs Kursvaluta, Totalt vs Totalvaluta collisions
+  const col = (row, name) => {
+    const nl = name.toLowerCase();
+    let i = headers.findIndex(h => h.toLowerCase() === nl);
+    if (i < 0) i = headers.findIndex(h => h.toLowerCase().includes(nl));
+    return i >= 0 ? (row[i]||'').trim().replace(/"/g,'') : '';
+  };
+  const parseNum = (s) => parseFloat((s||'').replace(/\s/g,'').replace(',','.')) || 0;
+
+  const TYPE_MAP = {
+    'koopt':'buy','köpt':'buy','köp':'buy','kop':'buy',
+    'salt':'sell','sålt':'sell','sälj':'sell','salj':'sell',
+    'utdelning':'dividend',
+    'utlandsk kallskatt':'foreign-tax','utländsk källskatt':'foreign-tax',
+    'utlandsk skatt':'foreign-tax','utländsk skatt':'foreign-tax',
+    'insattning':'deposit','insättning':'deposit',
+    'uttag':'withdrawal',
+    'vp-overforing in':'buy','vp-överföring in':'buy',
+    'vp-overforing ut':'sell','vp-överföring ut':'sell',
+    'ovrigt':'other','övrigt':'other',
+  };
+
   return lines.slice(1).map(line => {
-    const cols = line.split(';');
+    const cols = splitLine(line);
     if (cols.length < 4) return null;
-    const txType = TYPE_MAP[col(cols,'typ').toLowerCase()] || 'other';
-    const rawQty = parseFloat(col(cols,'antal').replace(',','.').replace(/\s/g,''));
-    const qty = isNaN(rawQty) ? 0 : Math.abs(rawQty);
-    return { broker:'avanza', date:col(cols,'datum'), type:txType, name:col(cols,'värdepapper')||col(cols,'beskrivning'), isin:col(cols,'isin'), rawTicker:'', ticker:'', quantity:qty, price:parseFloat(col(cols,'kurs').replace(',','.').replace(/\s/g,''))||0, currency:col(cols,'valuta')||'SEK', totalSEK:parseFloat(col(cols,'belopp').replace(',','.').replace(/\s/g,''))||0, account:col(cols,'konto') };
-  }).filter(Boolean);
+    const typRaw = col(cols,'typ').toLowerCase().trim();
+    if (!typRaw) return null;
+    const txType = TYPE_MAP[typRaw] || 'other';
+    const qty = Math.abs(parseNum(col(cols,'antal')));
+    const currency = col(cols,'instrumentvaluta') || col(cols,'kursvaluta') || col(cols,'valuta') || 'SEK';
+    const totalRaw = col(cols,'totalt') || col(cols,'belopp');
+    return {
+      broker: 'avanza',
+      date: col(cols,'datum'),
+      type: txType,
+      name: col(cols,'värdepapper') || col(cols,'beskrivning') || col(cols,'beskr'),
+      isin: col(cols,'isin'),
+      rawTicker: '',
+      ticker: '',
+      quantity: qty,
+      price: parseNum(col(cols,'kurs')),
+      currency,
+      totalSEK: parseNum(totalRaw),
+      account: col(cols,'konto'),
+    };
+  }).filter(r => r && r.date);
 }
 
 function parseNordnet(content) {
@@ -545,7 +622,12 @@ function parseNordnet(content) {
   }).filter(Boolean);
 }
 
-function detectBrokerAndParse(filename, content) {
+function detectBrokerAndParse(filename, content, forcedBroker = null) {
+  if (forcedBroker && forcedBroker !== 'auto') {
+    if (forcedBroker === 'montrose') return { broker:'montrose', rows:parseMontrose(content) };
+    if (forcedBroker === 'avanza')   return { broker:'avanza',   rows:parseAvanza(content) };
+    if (forcedBroker === 'nordnet')  return { broker:'nordnet',  rows:parseNordnet(content) };
+  }
   const lower = filename.toLowerCase();
 
   // Step 1: Encoding check — Nordnet uses UTF-16 LE with BOM
@@ -567,19 +649,17 @@ function detectBrokerAndParse(filename, content) {
     headerLower.includes('bokföringsdag') ||
     lower.includes('nordnet');
 
-  // Montrose: comma-separated, unique header 'kursvaluta' or 'ticker'
-  const isMontrose = !isNordnet && (
-    headerLower.includes('kursvaluta') ||
-    (headerLower.includes('ticker') && commaCount > semicolonCount) ||
-    lower.includes('montrose')
-  );
-
-  // Avanza: semicolon-separated, headers like 'typ av transaktion', 'courtage'
-  const isAvanza = !isNordnet && !isMontrose && (
-    semicolonCount > commaCount ||
-    headerLower.includes('courtage') ||
+  // Avanza: 'typ av transaktion' is unique to Avanza (Montrose uses just 'Typ')
+  const isAvanza = !isNordnet && (
     headerLower.includes('typ av transaktion') ||
     lower.includes('avanza')
+  );
+
+  // Montrose: has 'ticker' column (unique to Montrose) — checked after Avanza
+  const isMontrose = !isNordnet && !isAvanza && (
+    headerLower.includes('ticker') ||
+    headerLower.includes('kursvaluta') ||
+    lower.includes('montrose')
   );
 
   if (isNordnet) return { broker:'nordnet', rows:parseNordnet(content) };
@@ -624,12 +704,13 @@ app.delete('/api/transactions', requireUser, async (req, res) => {
 });
 
 app.post('/api/transactions/upload', requireUser, async (req, res) => {
-  const { files } = req.body;
+  const { files, broker: brokerKey, forceBroker } = req.body;
+  const forcedBroker = brokerKey || forceBroker || null;
   if (!files?.length) return res.status(400).json({ error: 'No files provided' });
   const results = [];
   let allNew = [];
   for (const { name, content } of files) {
-    try { const { broker, rows } = detectBrokerAndParse(name, content); results.push({ file:name, broker, count:rows.length }); allNew = allNew.concat(rows); }
+    try { const { broker, rows } = detectBrokerAndParse(name, content, forcedBroker); results.push({ file:name, broker, count:rows.length }); allNew = allNew.concat(rows); }
     catch(e) { results.push({ file:name, error:e.message }); }
   }
   const { data: existing } = await supabase.from('transactions').select('broker, date, type, isin, quantity, price').eq('user_id', req.user.id);

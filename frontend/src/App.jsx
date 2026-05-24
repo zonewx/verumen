@@ -877,27 +877,67 @@ const handleUpload = async (files) => {
                 {currentTab === 'overview' && (
                   <div className="flex flex-col gap-6">
                     {uploadLoading && (!dashboardData || portfolio.length === 0) ? (
-                      <div className="flex flex-col items-center justify-center py-32 gap-6">
-                        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                        <div className="flex flex-col items-center gap-3 w-72">
-                          <p className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                            {uploadProgress?.label || 'Processing…'}
-                          </p>
-                          {uploadProgress?.pct != null && (
-                            <div className={`w-full h-1.5 rounded-full ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                              <div
-                                className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                                style={{ width: `${uploadProgress.pct}%` }}
-                              />
-                            </div>
-                          )}
-                          <button
-                            onClick={() => { uploadAbortRef.current = true; uploadAbortControllerRef.current?.abort(); }}
-                            className="mt-2 text-xs text-red-400 hover:text-red-300 font-semibold transition"
-                          >
-                            Cancel
-                          </button>
+                      <div className="flex flex-col items-center justify-center py-24 gap-8">
+                        {/* Circular progress ring */}
+                        <div className="relative w-24 h-24">
+                          <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+                            <circle cx="48" cy="48" r="40" fill="none" stroke={isDark ? '#1f2937' : '#e5e7eb'} strokeWidth="7"/>
+                            <circle cx="48" cy="48" r="40" fill="none" stroke="#3b82f6" strokeWidth="7"
+                              strokeLinecap="round"
+                              strokeDasharray={`${2 * Math.PI * 40}`}
+                              strokeDashoffset={`${2 * Math.PI * 40 * (1 - (uploadProgress?.pct ?? 0) / 100)}`}
+                              style={{ transition: 'stroke-dashoffset 0.4s ease' }}
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-lg font-bold text-blue-400">
+                              {uploadProgress?.pct != null ? `${Math.round(uploadProgress.pct)}%` : '…'}
+                            </span>
+                          </div>
                         </div>
+
+                        {/* Status label */}
+                        <p className={`text-sm font-semibold text-center max-w-xs ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                          {uploadProgress?.label || 'Processing…'}
+                        </p>
+
+                        {/* Step indicators */}
+                        <div className="flex items-center gap-2">
+                          {[
+                            { label: 'Upload',  phases: ['clearing','parsing','uploading'] },
+                            { label: 'Resolve', phases: ['resolving'] },
+                            { label: 'Build',   phases: ['syncing','done'] },
+                          ].map((step, i) => {
+                            const order = ['clearing','parsing','uploading','resolving','syncing','done'];
+                            const cur = order.indexOf(uploadProgress?.phase || 'parsing');
+                            const start = order.indexOf(step.phases[0]);
+                            const end   = order.indexOf(step.phases[step.phases.length - 1]);
+                            const done  = cur > end;
+                            const active = cur >= start && cur <= end;
+                            return (
+                              <div key={step.label} className="flex items-center gap-2">
+                                {i > 0 && <div className={`w-10 h-px transition-colors ${done ? 'bg-blue-500' : isDark ? 'bg-gray-700' : 'bg-gray-300'}`}/>}
+                                <div className="flex flex-col items-center gap-1.5">
+                                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                                    done   ? 'bg-blue-600 text-white' :
+                                    active ? 'bg-blue-500/20 border-2 border-blue-500 text-blue-400' :
+                                    isDark ? 'bg-gray-800 border border-gray-700 text-gray-600' : 'bg-gray-100 border border-gray-300 text-gray-400'
+                                  }`}>
+                                    {done ? '✓' : i + 1}
+                                  </div>
+                                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${active ? 'text-blue-400' : isDark ? 'text-gray-600' : 'text-gray-400'}`}>{step.label}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          onClick={() => { uploadAbortRef.current = true; uploadAbortControllerRef.current?.abort(); }}
+                          className="text-xs text-red-400 hover:text-red-300 font-semibold transition"
+                        >
+                          Cancel
+                        </button>
                       </div>
                     ) : !dashboardData || portfolio.length === 0 ? (
                       <div className="max-w-lg mx-auto w-full flex flex-col gap-5 py-8">
@@ -906,11 +946,24 @@ const handleUpload = async (files) => {
                           <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Upload a CSV from your broker to get started.</p>
                         </div>
                         <div className={`${cardCls} p-5 flex flex-col gap-4`}>
+                          <div>
+                            <p className={`text-xs font-semibold uppercase tracking-wide mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Broker</p>
+                            <select
+                              value={selectedBroker}
+                              onChange={e => setSelectedBroker(e.target.value)}
+                              className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                            >
+                              <option value="auto">Auto-detect</option>
+                              <option value="montrose">Montrose</option>
+                              <option value="avanza">Avanza</option>
+                              <option value="nordnet">Nordnet</option>
+                            </select>
+                          </div>
                           <label className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl cursor-pointer font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
                             {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
                             <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { handleUpload(e.target.files); e.target.value = ''; }} />
                           </label>
-                          <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Broker detected automatically. Supports Montrose, Avanza and Nordnet.</p>
+                          <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Supports Montrose, Avanza and Nordnet. Select a broker manually or use auto-detect.</p>
                           {uploadProgress && (
                             <div className={`rounded-lg px-3 py-2.5 text-sm border ${isDark ? 'bg-blue-900/20 border-blue-800/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
                               <div className="flex items-center gap-2"><div className="animate-spin">⏳</div><span className="font-medium">{uploadProgress.label}</span></div>

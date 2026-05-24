@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(curl -s \"https://api.skinport.com/v1/items?app_id=730&currency=SEK\")",
-      "Bash(curl -s --compressed -H \"Accept-Encoding: br\" \"https://api.skinport.com/v1/items?app_id=730&currency=SEK\")",
-      "WebSearch"
-    ]
-  }
-}
