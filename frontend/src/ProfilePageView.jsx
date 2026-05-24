@@ -275,10 +275,7 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                   rel="noopener noreferrer"
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition ${isDark ? 'bg-green-900/30 text-green-400 hover:bg-green-900/40 border border-green-800' : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'}`}
                 >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
-                  </svg>
-                  <span>Steam verified</span>
+                  <span>Steam profile</span>
                   <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                   </svg>
@@ -292,14 +289,14 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                 const colors = getSteamLevelColors(profile.steamLevel);
                 return (
                   <div className="flex items-center gap-3">
-                    <span className={`text-sm font-normal ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Level</span>
+                    <span className="text-4xl font-bold">Level</span>
                     <div className="relative">
                       <div className="absolute inset-0 rounded-full bg-black/20 blur-sm translate-y-0.5"></div>
-                      <div 
-                        className="relative w-15 h-15 rounded-full flex items-center justify-center shadow-md"
+                      <div
+                        className="relative w-11 h-11 rounded-full flex items-center justify-center shadow-md"
                         style={{ background: `linear-gradient(to bottom, ${colors.from}, ${colors.to})` }}
                       >
-                        <span className="text-white font-bold text-[22px] drop-shadow-md">{profile.steamLevel}</span>
+                        <span className="text-white font-bold text-sm drop-shadow-md">{profile.steamLevel}</span>
                       </div>
                     </div>
                   </div>
@@ -324,12 +321,26 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
               {showcaseItems.map(item => (
                 <div key={item.assetId} className={`${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} rounded p-1 transition cursor-pointer border ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
-                  <img 
-                    src={item.iconUrl} 
+                  <img
+                    src={item.iconUrl}
                     alt={item.name}
                     className="w-full aspect-square object-contain mb-0.5"
                   />
-                  <p className="text-[9px] text-center truncate">{item.name}</p>
+                  {item.stickers?.length > 0 && (
+                    <div className="flex gap-0.5 mt-1 flex-wrap">
+                      {item.stickers.map((s, i) => (
+                        <div key={i} className="relative group">
+                          <img src={s.url} alt={s.name} className="w-6 h-6 object-contain opacity-85 hover:opacity-100 transition" />
+                          {s.name && (
+                            <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-gray-900 border border-gray-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
+                              <p className="text-xs font-semibold text-white">{s.name}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[9px] text-center truncate mt-0.5">{item.name}</p>
                 </div>
               ))}
             </div>
