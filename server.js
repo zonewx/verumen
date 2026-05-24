@@ -631,6 +631,7 @@ function parseNordnet(content) {
 }
 
 function detectBrokerAndParse(filename, content, forcedBroker = null) {
+  console.log('[detect] filename:', filename, 'contentLen:', content?.length, 'forcedBroker:', forcedBroker);
   if (forcedBroker && forcedBroker !== 'auto') {
     if (forcedBroker === 'montrose') return { broker:'montrose', rows:parseMontrose(content) };
     if (forcedBroker === 'avanza')   return { broker:'avanza',   rows:parseAvanza(content) };
@@ -714,6 +715,7 @@ app.delete('/api/transactions', requireUser, async (req, res) => {
 app.post('/api/transactions/upload', requireUser, async (req, res) => {
   const { files, broker: brokerKey, forceBroker } = req.body;
   console.log('[upload] received files:', files?.length, 'forceBroker:', forceBroker, 'brokerKey:', brokerKey);
+  if (files?.length) console.log('[upload] file[0] name:', files[0]?.name, 'content length:', files[0]?.content?.length, 'content start:', (files[0]?.content||'').substring(0,80));
   const forcedBroker = brokerKey || forceBroker || null;
   if (!files?.length) return res.status(400).json({ error: 'No files provided' });
   const results = [];
