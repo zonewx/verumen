@@ -1569,17 +1569,15 @@ app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
   const { id } = req.params;
   if (!/^\d+$/.test(id)) return res.status(400).json({ error: 'Invalid screenshot ID' });
   try {
-    const r = await fetch('https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `itemcount=1&publishedfileids%5B0%5D=${id}`,
+    // Scrape the Steam page for og:image which contains the full-resolution screenshot
+    const r = await fetch(`https://steamcommunity.com/sharedfiles/filedetails/?id=${id}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
     });
-    const data = await r.json();
-    const file = data?.response?.publishedfiledetails?.[0];
-    if (!file || file.result !== 1) return res.status(404).json({ error: 'Screenshot not found' });
-    // Strip resize query params to get full resolution image
-    const previewUrl = file.preview_url ? file.preview_url.split('?')[0] : null;
-    res.json({ previewUrl, title: file.title || '' });
+    const html = await r.text();
+    const match = html.match(/<meta property="og:image"\s+content="([^"]+)"/);
+    const previewUrl = match?.[1] || null;
+    if (!previewUrl) return res.status(404).json({ error: 'Screenshot not found' });
+    res.json({ previewUrl });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
