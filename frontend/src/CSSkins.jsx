@@ -15,22 +15,24 @@ function fmtCur(n, bc = 'SEK') {
   return sym ? `${sym}${formatted}` : `${formatted} ${bc}`;
 }
 
+const _screenshotCache = {};
+
 function SteamScreenshotEmbed({ url, isDark }) {
-  const [preview, setPreview] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const match = url?.match(/id=(\d+)/);
+  const cacheKey = match?.[1];
+  const [preview, setPreview] = useState(() => (cacheKey ? _screenshotCache[cacheKey] ?? null : null));
+  const [loading, setLoading] = useState(!preview && !!cacheKey);
 
   useEffect(() => {
-    if (!url) return;
-    const match = url.match(/id=(\d+)/);
-    if (!match) return;
+    if (!cacheKey || _screenshotCache[cacheKey]) return;
     setLoading(true);
     const token = sessionStorage.getItem('auth_token');
-    fetch(`/api/cs/steam/screenshot/${match[1]}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    fetch(`/api/cs/steam/screenshot/${cacheKey}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(r => r.json())
-      .then(d => { if (d.previewUrl) setPreview(d.previewUrl); })
+      .then(d => { if (d.previewUrl) { _screenshotCache[cacheKey] = d.previewUrl; setPreview(d.previewUrl); } })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [url]);
+  }, [cacheKey]);
 
   if (!url) return null;
   return (
@@ -502,7 +504,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
 
   return (
     <div className={`flex flex-col flex-1 overflow-y-auto ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-      <div className="max-w-6xl mx-auto px-6 py-8 w-full">
+      <div className="max-w-7xl mx-auto px-6 py-8 w-full">
 
           {/* OVERVIEW */}
           {tab === 'overview' && (
@@ -1174,9 +1176,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                             >
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="font-semibold max-w-xs truncate">{item.skin_name}</span>
-                                  {hasScreenshot && <span className="text-orange-400 text-xs" title="Has screenshot">📷</span>}
-                                  {item.notes && <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`} title={item.notes}>💬</span>}
+                                  <span className="font-semibold max-w-xs truncate">{item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')}</span>
                                 </div>
                               </td>
                               <td className={`px-4 py-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} whitespace-nowrap`}>{item.exterior || '—'}</td>
@@ -1220,17 +1220,32 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                     const screenshotUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url;
                     return (
                       <div className={`border-t ${isDark ? 'border-gray-700 bg-gray-800/60' : 'border-gray-100 bg-gray-50/60'} px-6 py-5`}>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                          <div className="flex flex-col gap-2 text-sm">
-                            {item.pattern && <div><span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Pattern: </span><span>{item.pattern}</span></div>}
-                            {item.notes && <div><span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Notes: </span><span>{item.notes}</span></div>}
-                            {item.sold && item.sale_date && <div><span className={`text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Sold on: </span><span>{item.sale_date}</span></div>}
-                            {!item.pattern && !item.notes && !item.sold && <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No additional details.</p>}
+                        <div className="flex gap-6">
+                          {/* Left: item details */}
+                          <div className="w-48 shrink-0 flex flex-col gap-3">
+                            {[
+                              ['Skin',     item.skin_name?.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')],
+                              ['Exterior', item.exterior],
+                              ['Float',    item.float_value ? parseFloat(item.float_value).toFixed(4) : null],
+                              ['Pattern',  item.pattern],
+                              ['Buy date', item.purchase_date],
+                              ['Buy price',fmtBC(item.purchase_price_display)],
+                              ['Current',  item.sold ? null : (item.current_price > 0 ? fmtBC(item.current_price) : null)],
+                              ['Sold on',  item.sold ? item.sale_date : null],
+                              ['Sale price', item.sold ? fmtBC(item.sale_price_display) : null],
+                              ['Notes',    item.notes],
+                            ].filter(([, v]) => v).map(([label, value]) => (
+                              <div key={label}>
+                                <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{label}</p>
+                                <p className="text-sm">{value}</p>
+                              </div>
+                            ))}
                           </div>
-                          <div>
+                          {/* Right: screenshot — grows to fill remaining space */}
+                          <div className="flex-1 min-w-0">
                             {screenshotUrl
                               ? <SteamScreenshotEmbed url={screenshotUrl} isDark={isDark} />
-                              : <p className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No screenshot linked.</p>
+                              : <div className={`h-full flex items-center justify-center rounded-xl border ${isDark ? 'border-gray-700 text-gray-600' : 'border-gray-200 text-gray-400'}`}><p className="text-xs">No screenshot linked.</p></div>
                             }
                           </div>
                         </div>
