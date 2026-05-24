@@ -525,7 +525,9 @@ function parseMontrose(content) {
     'övrigt':'other','ovrigt':'other',
     'ränta':'other','ranta':'other',
   };
-  return lines.slice(1).filter(l => l.trim()).map(line => {
+  console.log('[parseMontrose] headers:', headers);
+  console.log('[parseMontrose] col indices:', { iDatum, iTyp, iNamn, iIsin, iTicker, iAntal });
+  const rows = lines.slice(1).filter(l => l.trim()).map(line => {
     const cols = splitCSV(line);
     if (!cols[iDatum]) return null;
     const rawType = (cols[iTyp]||'').trim().toLowerCase();
@@ -536,6 +538,10 @@ function parseMontrose(content) {
     if (txType === 'other' && !cols[iIsin]?.trim()) return null; // skip empty rows
     return { broker:'montrose', date:cols[iDatum]?.trim()||'', type:txType, name:cols[iNamn]?.trim()||'', isin:cols[iIsin]?.trim()||'', rawTicker:cols[iTicker]?.trim()||'', ticker:'', quantity:qty, price:parseNum(cols[iKurs]), currency:cols[iKursvaluta]?.trim()||'SEK', totalSEK:parseNum(cols[iTotalt]), account:cols[iKonto]?.trim()||'' };
   }).filter(Boolean);
+  const typeCounts = rows.reduce((acc, r) => { acc[r.type] = (acc[r.type]||0)+1; return acc; }, {});
+  console.log('[parseMontrose] parsed', rows.length, 'rows, types:', typeCounts);
+  if (rows.length > 0) console.log('[parseMontrose] sample row[0] rawType was from col', iTyp, ':', rows[0]);
+  return rows;
 }
 function parseAvanza(content) {
   const lines = content.replace(/^\uFEFF/, '').split('\n').filter(l => l.trim());
