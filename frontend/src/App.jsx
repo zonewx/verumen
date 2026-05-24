@@ -341,7 +341,8 @@ const handleUpload = async (files) => {
   uploadAbortControllerRef.current = new AbortController();
   setUploadLoading(true); setUploadStatus(null); setSyncStatus(''); setUploadProgress(null);
 
-  const updateProgress = (phase, pct, label) => setUploadProgress({ phase, pct, label });
+  const updateProgress = (phase, pct, label, txEstimate) =>
+    setUploadProgress(prev => ({ ...prev, phase, pct, label, ...(txEstimate !== undefined && { txEstimate }) }));
 
   try {
     // Auto-clear existing data before uploading new CSV
@@ -355,6 +356,7 @@ const handleUpload = async (files) => {
     const fileList = Array.from(files);
     const allResults = [];
     let totalNewAdded = 0;
+    let totalRowEstimate = 0;
 
     for (let i = 0; i < fileList.length; i++) {
       if (uploadAbortRef.current) {
@@ -367,8 +369,9 @@ const handleUpload = async (files) => {
 
       updateProgress('parsing', 10, `Reading file ${i + 1} of ${fileList.length}...`);
       const payload = await readFile(fileList[i]);
+      totalRowEstimate += Math.max(0, payload.content.split('\n').filter(l => l.trim()).length - 1);
 
-      updateProgress('uploading', 15 + Math.floor((i / fileList.length) * 20), `Uploading file ${i + 1} of ${fileList.length}...`);
+      updateProgress('uploading', 15 + Math.floor((i / fileList.length) * 20), `Uploading file ${i + 1} of ${fileList.length}...`, totalRowEstimate);
       const res = await apiFetch('/api/transactions/upload', {
         method: 'POST',
         body: JSON.stringify({
@@ -900,17 +903,19 @@ const handleUpload = async (files) => {
                               strokeDashoffset={`${2 * Math.PI * 40 * 0.75}`}
                             />
                           </svg>
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-lg font-bold text-blue-400">
-                              {uploadProgress?.pct != null ? `${Math.round(uploadProgress.pct)}%` : '…'}
-                            </span>
-                          </div>
                         </div>
 
                         {/* Status label */}
-                        <p className={`text-sm font-semibold text-center max-w-xs ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                          {uploadProgress?.label || 'Processing…'}
-                        </p>
+                        <div className="flex flex-col items-center gap-1 text-center max-w-xs">
+                          <p className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                            {uploadProgress?.label || 'Processing…'}
+                          </p>
+                          {uploadProgress?.txEstimate > 0 && (
+                            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                              ~{uploadProgress.txEstimate.toLocaleString()} transactions
+                            </p>
+                          )}
+                        </div>
 
                         {/* Step indicators */}
                         <div className="flex items-center gap-2">

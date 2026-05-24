@@ -529,7 +529,9 @@ function parseMontrose(content) {
     const cols = splitCSV(line);
     if (!cols[iDatum]) return null;
     const rawType = (cols[iTyp]||'').trim().toLowerCase();
-    const txType = TYPE_MAP[rawType] || 'other';
+    const txType = TYPE_MAP[rawType] ||
+      (Object.entries(TYPE_MAP).find(([k]) => rawType.includes(k))?.[1]) ||
+      'other';
     const qty = Math.abs(parseNum(cols[iAntal]));
     if (txType === 'other' && !cols[iIsin]?.trim()) return null; // skip empty rows
     return { broker:'montrose', date:cols[iDatum]?.trim()||'', type:txType, name:cols[iNamn]?.trim()||'', isin:cols[iIsin]?.trim()||'', rawTicker:cols[iTicker]?.trim()||'', ticker:'', quantity:qty, price:parseNum(cols[iKurs]), currency:cols[iKursvaluta]?.trim()||'SEK', totalSEK:parseNum(cols[iTotalt]), account:cols[iKonto]?.trim()||'' };
