@@ -713,6 +713,7 @@ app.delete('/api/transactions', requireUser, async (req, res) => {
 
 app.post('/api/transactions/upload', requireUser, async (req, res) => {
   const { files, broker: brokerKey, forceBroker } = req.body;
+  console.log('[upload] received files:', files?.length, 'forceBroker:', forceBroker, 'brokerKey:', brokerKey);
   const forcedBroker = brokerKey || forceBroker || null;
   if (!files?.length) return res.status(400).json({ error: 'No files provided' });
   const results = [];
