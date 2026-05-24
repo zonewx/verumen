@@ -900,7 +900,53 @@ const handleUpload = async (files) => {
                         </div>
                       </div>
                     ) : !dashboardData || portfolio.length === 0 ? (
-                      <EmptyState icon="📊" title="No portfolio data" desc="Upload a CSV from your broker to get started." action={{ label: 'Upload CSV', fn: () => { setIsSidebarOpen(true); } }} />
+                      <div className="max-w-lg mx-auto w-full flex flex-col gap-5 py-8">
+                        <div>
+                          <h2 className="text-xl font-bold mb-1">Import CSV</h2>
+                          <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Upload a CSV from your broker to get started.</p>
+                        </div>
+                        <div className={`${cardCls} p-5 flex flex-col gap-4`}>
+                          <label className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl cursor-pointer font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                            {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
+                            <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { handleUpload(e.target.files); e.target.value = ''; }} />
+                          </label>
+                          <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Broker detected automatically. Supports Montrose, Avanza and Nordnet.</p>
+                          {uploadProgress && (
+                            <div className={`rounded-lg px-3 py-2.5 text-sm border ${isDark ? 'bg-blue-900/20 border-blue-800/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                              <div className="flex items-center gap-2"><div className="animate-spin">⏳</div><span className="font-medium">{uploadProgress.label}</span></div>
+                            </div>
+                          )}
+                          {uploadStatus?.error && <div className="rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400">✗ {uploadStatus.error}</div>}
+                          {!uploadProgress && uploadStatus?.results && (
+                            <div className="flex flex-col gap-1.5">
+                              {uploadStatus.results.map((r, i) => (
+                                <div key={i} className={`${isDark ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-lg px-3 py-2 text-xs`}>
+                                  {r.error ? <p className="text-red-400">✗ {r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
+                                </div>
+                              ))}
+                              <p className="text-xs text-green-400 font-semibold">+{uploadStatus.newAdded} new · {uploadStatus.total} total</p>
+                            </div>
+                          )}
+                          {txCount.total > 0 && (
+                            <div className={`${isDark ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-xl px-3 py-2.5 flex items-center justify-between`}>
+                              <div><p className="text-sm font-bold text-green-400">{txCount.trades} trades</p><p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{txCount.total} total in history</p></div>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-green-400"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                          )}
+                          {txCount.trades > 0 && (
+                            <>
+                              <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
+                                {syncLoading ? '⏳ Syncing…' : '⟳ Sync Portfolio'}
+                              </button>
+                              {syncStatus && <p className={`text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>{syncStatus}</p>}
+                              <button onClick={handleResolveTickers} disabled={resolveLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} disabled:opacity-50`}>
+                                {resolveLoading ? '⏳ Resolving...' : '🔍 Resolve Tickers'}
+                              </button>
+                              {resolveStatus && <p className={`text-xs ${resolveStatus.startsWith('✓') ? 'text-green-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>{resolveStatus}</p>}
+                            </>
+                          )}
+                        </div>
+                      </div>
                     ) : (
                       <>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1141,9 +1187,8 @@ const handleUpload = async (files) => {
           </div>
           <div className="p-8">
             {sessionExpiredMsg && (
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 mb-5 text-sm text-blue-400 flex items-start gap-2">
-                <span className="shrink-0">ℹ️</span>
-                <span>{sessionExpiredMsg}</span>
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 mb-5 text-sm text-blue-400">
+                {sessionExpiredMsg}
               </div>
             )}
             {authError && <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 mb-5 text-sm text-red-400">{authError}</div>}
