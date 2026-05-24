@@ -296,7 +296,7 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                         className="relative w-11 h-11 rounded-full flex items-center justify-center shadow-md"
                         style={{ background: `linear-gradient(to bottom, ${colors.from}, ${colors.to})` }}
                       >
-                        <span className="text-white font-bold text-sm drop-shadow-md">{profile.steamLevel}</span>
+                        <span className="text-white font-bold text-lg drop-shadow-md">{profile.steamLevel}</span>
                       </div>
                     </div>
                   </div>

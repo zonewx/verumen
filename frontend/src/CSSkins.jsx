@@ -24,7 +24,8 @@ function SteamScreenshotEmbed({ url, isDark }) {
     const match = url.match(/id=(\d+)/);
     if (!match) return;
     setLoading(true);
-    fetch(`/api/cs/steam/screenshot/${match[1]}`)
+    const token = sessionStorage.getItem('auth_token');
+    fetch(`/api/cs/steam/screenshot/${match[1]}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(r => r.json())
       .then(d => { if (d.previewUrl) setPreview(d.previewUrl); })
       .catch(() => {})
@@ -501,7 +502,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
 
   return (
     <div className={`flex flex-col flex-1 overflow-y-auto ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-      <div className="max-w-4xl mx-auto px-6 py-8 w-full">
+      <div className="max-w-6xl mx-auto px-6 py-8 w-full">
 
           {/* OVERVIEW */}
           {tab === 'overview' && (
