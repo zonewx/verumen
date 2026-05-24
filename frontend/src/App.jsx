@@ -308,7 +308,15 @@ export default function App() {
     reader.onload = ev => {
       const buffer = ev.target.result;
       const bytes = new Uint8Array(buffer);
-      const content = (bytes[0] === 0xFF && bytes[1] === 0xFE) ? new TextDecoder('utf-16le').decode(buffer) : new TextDecoder('utf-8').decode(buffer);
+      let content;
+      if (bytes[0] === 0xFF && bytes[1] === 0xFE) {
+        content = new TextDecoder('utf-16le').decode(buffer);
+      } else {
+        content = new TextDecoder('utf-8', { fatal: false }).decode(buffer);
+        if (content.includes('�')) {
+          content = new TextDecoder('windows-1252').decode(buffer);
+        }
+      }
       resolve({ name: file.name, content });
     };
     reader.readAsArrayBuffer(file);
@@ -880,23 +888,16 @@ const handleUpload = async (files) => {
                       <div className="flex flex-col items-center justify-center py-24 gap-8">
                         {/* Circular progress ring */}
                         <div className="relative w-24 h-24">
-                          {/* Static fill ring */}
-                          <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+                          {/* Track ring */}
+                          <svg className="w-24 h-24" viewBox="0 0 96 96">
                             <circle cx="48" cy="48" r="40" fill="none" stroke={isDark ? '#1f2937' : '#e5e7eb'} strokeWidth="7"/>
+                          </svg>
+                          {/* Spinning blue arc */}
+                          <svg className="absolute inset-0 w-24 h-24 animate-spin" style={{ animationDuration: '2s' }} viewBox="0 0 96 96">
                             <circle cx="48" cy="48" r="40" fill="none" stroke="#3b82f6" strokeWidth="7"
                               strokeLinecap="round"
                               strokeDasharray={`${2 * Math.PI * 40}`}
-                              strokeDashoffset={`${2 * Math.PI * 40 * (1 - (uploadProgress?.pct ?? 0) / 100)}`}
-                              style={{ transition: 'stroke-dashoffset 0.4s ease' }}
-                            />
-                          </svg>
-                          {/* Spinning glint on top */}
-                          <svg className="absolute inset-0 w-24 h-24 animate-spin" style={{ animationDuration: '2s' }} viewBox="0 0 96 96">
-                            <circle cx="48" cy="48" r="40" fill="none" stroke="white" strokeWidth="7"
-                              strokeLinecap="round"
-                              strokeDasharray={`${2 * Math.PI * 40}`}
-                              strokeDashoffset={`${2 * Math.PI * 40 * 0.93}`}
-                              opacity="0.25"
+                              strokeDashoffset={`${2 * Math.PI * 40 * 0.75}`}
                             />
                           </svg>
                           <div className="absolute inset-0 flex items-center justify-center">
