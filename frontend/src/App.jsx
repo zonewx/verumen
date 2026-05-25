@@ -36,7 +36,7 @@ export default function App() {
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
   const [announcements, setAnnouncements] = useState([]);
   const [userRole, setUserRole] = useState(() => sessionStorage.getItem('auth_role') || 'user');
-  const [allowRegistration, setAllowRegistration] = useState(true);
+  const [allowRegistration, setAllowRegistration] = useState(null);
 
   // ── Core state ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => JSON.parse(localStorage.getItem('portfolio')) || []);
@@ -1294,8 +1294,8 @@ const handleUpload = async (files) => {
               <button onClick={handleAuth} disabled={authLoading} className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition text-sm">
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
-              {authStatus==='logged-out' && allowRegistration && <button onClick={()=>{setAuthMode(isSignup?'login':'signup');setAuthError('');setAuthForm({username:'',password:'',confirmPassword:'',newPassword:''});}} className={`text-sm text-center ${isDark?'text-gray-400 hover:text-white':'text-gray-500 hover:text-gray-900'} transition`}>{isSignup?'Already have an account? Sign in':'Create an account'}</button>}
-              {authStatus==='logged-out' && !allowRegistration && authMode==='login' && <p className={`text-xs text-center ${isDark?'text-gray-500':'text-gray-400'}`}>Registration is currently closed.</p>}
+              {authStatus==='logged-out' && allowRegistration === true && <button onClick={()=>{setAuthMode(isSignup?'login':'signup');setAuthError('');setAuthForm({username:'',password:'',confirmPassword:'',newPassword:''});}} className={`text-sm text-center ${isDark?'text-gray-400 hover:text-white':'text-gray-500 hover:text-gray-900'} transition`}>{isSignup?'Already have an account? Sign in':'Create an account'}</button>}
+              {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className={`text-xs text-center ${isDark?'text-gray-500':'text-gray-400'}`}>Registration is currently closed.</p>}
             </div>
           </div>
         </div>
