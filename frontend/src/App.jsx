@@ -36,7 +36,10 @@ export default function App() {
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
   const [announcements, setAnnouncements] = useState([]);
   const [userRole, setUserRole] = useState(() => sessionStorage.getItem('auth_role') || 'user');
-  const [allowRegistration, setAllowRegistration] = useState(null);
+  const [allowRegistration, setAllowRegistration] = useState(() => {
+    const c = localStorage.getItem('allowRegistration');
+    return c === null ? null : c === 'true';
+  });
 
   // ── Core state ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => JSON.parse(localStorage.getItem('portfolio')) || []);
@@ -151,7 +154,9 @@ export default function App() {
   // ── Auth Logic ─────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/auth/status').then(r => r.json()).then(d => {
-      setAllowRegistration(d.allowRegistration !== false && !d.reachedLimit);
+      const val = d.allowRegistration !== false && !d.reachedLimit;
+      setAllowRegistration(val);
+      localStorage.setItem('allowRegistration', String(val));
       if (!d.hasUsers) { setAuthStatus('no-user'); setAuthMode('signup'); }
       else {
         const saved = sessionStorage.getItem('auth_user');
@@ -336,7 +341,8 @@ export default function App() {
 // Replace your existing handleUpload function in App.jsx with this:
 
 const handleUpload = async (files) => {
-  if (!files.length) return;
+  const fileList = Array.from(files);
+  if (!fileList.length) return;
   uploadAbortRef.current = false;
   uploadAbortControllerRef.current = new AbortController();
   setUploadLoading(true); setUploadStatus(null); setSyncStatus(''); setUploadProgress(null);
@@ -353,7 +359,6 @@ const handleUpload = async (files) => {
       apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
     }
 
-    const fileList = Array.from(files);
     const allResults = [];
     let totalNewAdded = 0;
     let totalRowEstimate = 0;
@@ -768,7 +773,7 @@ const handleUpload = async (files) => {
                     <div className={`${cardCls} p-5 flex flex-col gap-4`}>
                       <label className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl cursor-pointer font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
                         {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
-                        <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { handleUpload(e.target.files); e.target.value = ''; }} />
+                        <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { const f = Array.from(e.target.files); e.target.value = ''; handleUpload(f); }} />
                       </label>
                       <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Broker detected automatically. Supports Montrose, Avanza and Nordnet.</p>
                       {uploadProgress && (
@@ -977,7 +982,7 @@ const handleUpload = async (files) => {
                           </div>
                           <label className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl cursor-pointer font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
                             {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
-                            <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { handleUpload(e.target.files); e.target.value = ''; }} />
+                            <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { const f = Array.from(e.target.files); e.target.value = ''; handleUpload(f); }} />
                           </label>
                           <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Supports Montrose, Avanza and Nordnet. Select a broker manually or use auto-detect.</p>
                           {uploadProgress && (

@@ -651,8 +651,9 @@ function detectBrokerAndParse(filename, content, forcedBroker = null) {
   // Step 3: Header-based detection (most reliable)
   const headerLower = firstLine.toLowerCase();
 
-  // Nordnet: tab-separated, unique headers like 'transaktionstype', 'afviklingsdato', 'bokföringsdag'
-  const isNordnet = hasBOM || tabCount > 3 ||
+  // Nordnet: tab-separated with unique headers. hasBOM alone is NOT sufficient —
+  // Montrose also exports UTF-8 with BOM, so both produce charCode 0xFEFF at pos 0.
+  const isNordnet = tabCount > 3 ||
     headerLower.includes('transaktionstype') ||
     headerLower.includes('afviklingsdato') ||
     headerLower.includes('bokföringsdag') ||
@@ -721,7 +722,13 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
   const results = [];
   let allNew = [];
   for (const { name, content } of files) {
-    try { const { broker, rows } = detectBrokerAndParse(name, content, forcedBroker); results.push({ file:name, broker, count:rows.length }); allNew = allNew.concat(rows); }
+    try {
+      const { broker, rows } = detectBrokerAndParse(name, content, forcedBroker);
+      const typeCounts = rows.reduce((a, r) => { a[r.type]=(a[r.type]||0)+1; return a; }, {});
+      const sampleTypes = rows.slice(0,5).map(r => r.type+'('+r.name.slice(0,15)+')');
+      results.push({ file:name, broker, count:rows.length, typeCounts, sampleTypes });
+      allNew = allNew.concat(rows);
+    }
     catch(e) { results.push({ file:name, error:e.message }); }
   }
   const { data: existing } = await supabase.from('transactions').select('broker, date, type, isin, quantity, price').eq('user_id', req.user.id);
