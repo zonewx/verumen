@@ -12,6 +12,16 @@ import Sidebar from './Sidebar';
 import SettingsPage from './SettingsPage';
 import apiCache from './apiCache';
 
+function PageShell({ isDark, authUsername, onNavigate, onLogout, userRole, searchInputRef, title, children }) {
+  return (
+    <div className={`flex flex-col h-screen pt-12 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+      <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={onNavigate} onLogout={onLogout} userRole={userRole} searchInputRef={searchInputRef} />
+      {title && <div className={`px-8 py-3 border-b shrink-0 ${isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'}`}><h1 className="text-base font-bold">{title}</h1></div>}
+      {children}
+    </div>
+  );
+}
+
 // Stable fingerprint of the current portfolio + currency — used as cache key discriminator
 const portfolioFingerprint = (p, c) =>
   (c || '') + ':' + (p || []).map(h => `${h.ticker}:${h.shares}`).sort().join('|');
@@ -718,20 +728,13 @@ const handleUpload = async (files) => {
   };
 
   // ── Pages ─────────────────────────────────────────────────────────────
-  const GB = () => <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef}/>;
-
-  const PageShell = ({ children, title }) => (
-    <div className={`flex flex-col h-screen pt-12 ${isDark?'bg-gray-900 text-white':'bg-gray-100 text-gray-900'}`}>
-      <GB/>
-      {title&&<div className={`px-8 py-3 border-b shrink-0 ${isDark?'border-gray-800 bg-gray-900':'border-gray-200 bg-white'}`}><h1 className="text-base font-bold">{title}</h1></div>}
-      {children}
-    </div>
-  );
+  // Build stable shell props so PageShell (defined at module scope) preserves child component state across App re-renders
+  const shellProps = { isDark, authUsername, onNavigate: handleNavigate, onLogout: handleLogout, userRole, searchInputRef: globalSearchRef };
 
   const ProfileRoute = () => {
     const { username } = useParams();
     const viewUser = username ? username.replace('@','') : null;
-    return <PageShell><ProfilePageView isDark={isDark} authUsername={authUsername} viewUsername={viewUser}/></PageShell>;
+    return <PageShell {...shellProps}><ProfilePageView isDark={isDark} authUsername={authUsername} viewUsername={viewUser}/></PageShell>;
   };
 
   const PortfolioView = () => {
@@ -1367,8 +1370,8 @@ const handleUpload = async (files) => {
       <div className="flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<Navigate to="/social" replace/>}/>
-          <Route path="/social" element={<PageShell><SocialFeed isDark={isDark} authUsername={authUsername} onViewProfile={u=>navigate(`/profile/@${u}`)}/></PageShell>}/>
-          <Route path="/friends" element={<PageShell><FriendsPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/social" element={<PageShell {...shellProps}><SocialFeed isDark={isDark} authUsername={authUsername} onViewProfile={u=>navigate(`/profile/@${u}`)}/></PageShell>}/>
+          <Route path="/friends" element={<PageShell {...shellProps}><FriendsPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           
           {/* Portfolio routes */}
           <Route path="/portfolio" element={<PortfolioView/>}/>
@@ -1381,23 +1384,23 @@ const handleUpload = async (files) => {
           <Route path="/portfolio/settings" element={<PortfolioView/>}/>
           <Route path="/portfolio/danger" element={<PortfolioView/>}/>
           
-          <Route path="/cs-skins" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
-          <Route path="/cs-skins/inventory" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
-          <Route path="/cs-skins/tracker" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
-          <Route path="/cs-skins/settings" element={<PageShell><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
-          <Route path="/settings" element={<PageShell><SettingsPage isDark={isDark} baseCurrency={baseCurrency} onSetBaseCurrency={setBaseCurrency}/></PageShell>}/>
-          <Route path="/profile/edit" element={<PageShell><ProfileEditPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/cs-skins" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/cs-skins/inventory" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/cs-skins/tracker" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/cs-skins/settings" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/settings" element={<PageShell {...shellProps}><SettingsPage isDark={isDark} baseCurrency={baseCurrency} onSetBaseCurrency={setBaseCurrency}/></PageShell>}/>
+          <Route path="/profile/edit" element={<PageShell {...shellProps}><ProfileEditPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           <Route path="/profile" element={<ProfileRoute/>}/>
           <Route path="/profile/:username" element={<ProfileRoute/>}/>
-          
+
           {/* Admin routes */}
-          <Route path="/admin" element={<PageShell title="Admin Panel"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/users" element={<PageShell title="Admin Panel - Users"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/roles" element={<PageShell title="Admin Panel - Roles"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/ticker-failures" element={<PageShell title="Admin Panel - Ticker Failures"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/announcements" element={<PageShell title="Admin Panel - Announcements"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          
-          <Route path="/moderator" element={<PageShell><ModeratorPanel isDark={isDark} authUsername={authUsername} userRole={userRole}/></PageShell>}/>
+          <Route path="/admin" element={<PageShell {...shellProps} title="Admin Panel"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/admin/users" element={<PageShell {...shellProps} title="Admin Panel - Users"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/admin/roles" element={<PageShell {...shellProps} title="Admin Panel - Roles"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/admin/ticker-failures" element={<PageShell {...shellProps} title="Admin Panel - Ticker Failures"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/admin/announcements" element={<PageShell {...shellProps} title="Admin Panel - Announcements"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+
+          <Route path="/moderator" element={<PageShell {...shellProps}><ModeratorPanel isDark={isDark} authUsername={authUsername} userRole={userRole}/></PageShell>}/>
           <Route path="*" element={<Navigate to="/social" replace/>}/>
         </Routes>
       </div>

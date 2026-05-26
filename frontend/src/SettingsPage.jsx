@@ -22,7 +22,11 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
   const navigate = useNavigate();
   const [syncingPrices, setSyncingPrices] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
-  const [lastSync, setLastSync] = useState(null);
+  const [lastSync, setLastSync] = useState(() => {
+    const s = localStorage.getItem('cs_prices_last_sync');
+    return s ? parseInt(s, 10) : null;
+  });
+  const updateLastSync = (ts) => { setLastSync(ts); localStorage.setItem('cs_prices_last_sync', String(ts)); };
   const [marketSel, setMarketSel] = useState(() => {
     try { return JSON.parse(localStorage.getItem('marketIndexes')) || []; } catch { return []; }
   });
@@ -35,7 +39,7 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
   useEffect(() => {
     fetch('/api/cs/prices/last-sync', { headers: authHeaders() })
       .then(r => r.json())
-      .then(d => { if (d.lastSync) setLastSync(d.lastSync); })
+      .then(d => { if (d.lastSync) updateLastSync(d.lastSync); })
       .catch(() => {});
   }, []);
 
@@ -60,7 +64,7 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
           clearInterval(tick);
           setSyncingPrices(false);
           setSyncStatus('✓ Sync complete — prices updated');
-          setLastSync(Date.now());
+          updateLastSync(Date.now());
         }
       }, 1000);
     } catch(e) { setSyncStatus('Error: ' + e.message); setSyncingPrices(false); }
