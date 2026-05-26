@@ -578,7 +578,7 @@ const handleUpload = async (files) => {
   const plPositive = totals?.profit >= 0;
   const plColor = plPositive ? 'text-green-400' : 'text-red-400';
   const plSign = plPositive ? '+' : '';
-  const todayTotal = dashboardData ? dashboardData.portfolio.reduce((s, x) => s + x.todayGainBase, 0) : null;
+  const todayTotal = dashboardData ? dashboardData.portfolio.reduce((s, x) => s + (x.todayGainBase ?? 0), 0) : null;
   const todayPositive = todayTotal >= 0;
   const todayPct = todayTotal !== null && totals && (totals.value - todayTotal) !== 0 ? (todayTotal / (totals.value - todayTotal)) * 100 : null;
   const fmt = n => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—';
@@ -587,8 +587,8 @@ const handleUpload = async (files) => {
   const TABS = [{ id: 'overview', label: 'Overview' },{ id: 'holdings', label: 'Holdings' },{ id: 'performance', label: 'Performance' },{ id: 'ownership', label: 'Ownership' },{ id: 'insights', label: 'Insights' },{ id: 'history', label: 'History' }];
 
   // ── Helpers ─────────────────────────────────────────────────────────────
-  const getSectorData = d => { const m = {}; d.forEach(s => { const sec = s.sector && s.sector !== 'Unknown' ? s.sector : 'Other'; m[sec] = (m[sec] || 0) + s.currentValue; }); return Object.entries(m).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value); };
-  const getCurrencyData = () => { if (!dashboardData?.portfolio) return []; const m = {}; dashboardData.portfolio.forEach(s => { const cur = s.currency || baseCurrency; m[cur] = (m[cur] || 0) + s.currentValue; }); return Object.entries(m).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value); };
+  const getSectorData = d => { const m = {}; d.forEach(s => { if (s.currentValue == null) return; const sec = s.sector && s.sector !== 'Unknown' ? s.sector : 'Other'; m[sec] = (m[sec] || 0) + s.currentValue; }); return Object.entries(m).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value); };
+  const getCurrencyData = () => { if (!dashboardData?.portfolio) return []; const m = {}; dashboardData.portfolio.forEach(s => { if (s.currentValue == null) return; const cur = s.currency || baseCurrency; m[cur] = (m[cur] || 0) + s.currentValue; }); return Object.entries(m).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value); };
 
   // ── Page Title useEffect ────────────────────────────────────────────────────
   useEffect(() => {
@@ -684,7 +684,7 @@ const handleUpload = async (files) => {
   };
 
   const TodayCards = ({ data, sortMode }) => {
-    const sorted = [...data].sort((a, b) => sortMode === 'currency' ? b.todayGainBase - a.todayGainBase : b.todayChangePct - a.todayChangePct);
+    const sorted = [...data].filter(s => s.todayChangePct != null).sort((a, b) => sortMode === 'currency' ? (b.todayGainBase ?? 0) - (a.todayGainBase ?? 0) : b.todayChangePct - a.todayChangePct);
     const best = sorted.slice(0, 3), worst = [...sorted].reverse().slice(0, 3);
     const Card = ({ s }) => {
       const pos = s.todayChangePct >= 0;
@@ -1161,7 +1161,7 @@ const handleUpload = async (files) => {
                     {!dashboardData || portfolio.length === 0 ? <EmptyState icon="💡" title="No insights" desc="Upload and sync a portfolio first." /> : (
                       <>
                         {[
-                          { title: 'Portfolio Allocation', data: dashboardData.portfolio.map(s => ({ name: s.ticker, value: s.currentValue })) },
+                          { title: 'Portfolio Allocation', data: dashboardData.portfolio.filter(s => s.currentValue != null).map(s => ({ name: s.ticker, value: s.currentValue })) },
                           { title: 'Sector Exposure', data: getSectorData(dashboardData.portfolio) },
                         ].map(({ title, data }) => (
                           <div key={title} className={`${cardCls} p-6`}>
