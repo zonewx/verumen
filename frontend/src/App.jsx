@@ -40,6 +40,10 @@ export default function App() {
     const c = localStorage.getItem('allowRegistration');
     return c === null ? null : c === 'true';
   });
+  // True from login (or page-load while already logged in) until first fetchAllData completes
+  const [isInitializing, setIsInitializing] = useState(() => {
+    return !!(sessionStorage.getItem('auth_user') && sessionStorage.getItem('auth_token'));
+  });
 
   // ── Core state ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => JSON.parse(localStorage.getItem('portfolio')) || []);
@@ -176,7 +180,7 @@ export default function App() {
         const data = await res.json();
         if (!res.ok) { setAuthError(data.error); setAuthLoading(false); return; }
         sessionStorage.setItem('auth_user', data.username);
-        setAuthUsername(data.username); setAuthStatus('logged-in');
+        setAuthUsername(data.username); setIsInitializing(true); setAuthStatus('logged-in');
       } else {
         const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: authForm.username, password: authForm.password }) });
         const data = await res.json();
@@ -185,7 +189,7 @@ export default function App() {
         sessionStorage.setItem('auth_role', data.role || 'user');
         sessionStorage.setItem('auth_token', data.token);
         if (data.refreshToken) sessionStorage.setItem('auth_refresh', data.refreshToken);
-        setAuthUsername(data.username); setAuthStatus('logged-in');
+        setAuthUsername(data.username); setUserRole(data.role || 'user'); setIsInitializing(true); setAuthStatus('logged-in');
         setUserRole(data.role || 'user');
       }
     } catch { setAuthError('Connection error.'); }
@@ -241,6 +245,7 @@ export default function App() {
       apiCache.set('/api/overrides', overRes);
     } catch(e) { console.error(e); }
     setIsAppLoading(false);
+    setIsInitializing(false);
   }, [authUsername, apiFetch]);
 
   useEffect(() => {
@@ -1306,6 +1311,20 @@ const handleUpload = async (files) => {
       </div>
     );
   }
+
+  // ── Initializing screen (shown once after login until first data fetch completes) ──
+  if (isInitializing) return (
+    <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+      <div className="flex flex-col items-center gap-4">
+        <div className="flex items-center gap-3 mb-2">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#3b82f6"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Verumen</span>
+        </div>
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+        <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading your portfolio…</p>
+      </div>
+    </div>
+  );
 
   // ── Main App Return with Routes ─────────────────────────────────────────────
   return (
