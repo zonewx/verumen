@@ -862,6 +862,7 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
     .map(h => ({
       ticker: h.ticker,
       isin: h.isin || null,
+      name: h.name || '',
       quantity: Math.floor(h.quantity), // Round down to whole shares
       avgPrice: h.quantity > 0 ? parseFloat((h.totalCost / h.quantity).toFixed(4)) : 0,
     }));
@@ -979,7 +980,12 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   for (const h of portfolio) {
     try {
       const q = await fetchQuote(h.ticker, h.isin);
-      if (!q) continue;
+      if (!q) {
+        // Yahoo Finance unavailable — include holding without live price
+        const fallbackName = h.name || h.ticker;
+        results.push({ ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker), currency:'SEK', quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null });
+        continue;
+      }
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice, currency=q.currency||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
       results.push({ ticker:h.ticker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,h.ticker), flag:getFlag(h.ticker), currency, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType });
