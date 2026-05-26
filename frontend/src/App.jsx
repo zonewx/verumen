@@ -338,8 +338,6 @@ export default function App() {
     setSyncLoading(false);
   };
 
-// Replace your existing handleUpload function in App.jsx with this:
-
 const handleUpload = async (files) => {
   const fileList = Array.from(files);
   if (!fileList.length) return;
@@ -355,7 +353,7 @@ const handleUpload = async (files) => {
     if (txCount.total > 0) {
       updateProgress('clearing', 5, 'Clearing previous data...');
       await apiFetch('/api/transactions', { method: 'DELETE' });
-      setTxCount({ total: 0, trades: 0 }); setPortfolio([]); setDividends(null);
+      setTxCount({ total: 0, trades: 0 });
       apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
     }
 
@@ -547,6 +545,7 @@ const handleUpload = async (files) => {
       setUploadStatus(null);
       setDividends(null);
       setSyncStatus('All data cleared successfully.');
+      apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
       
       // Clear after 4 seconds
       setTimeout(() => setSyncStatus(''), 4000);
@@ -1123,10 +1122,10 @@ const handleUpload = async (files) => {
                                 <td className="p-4 font-bold"><span className="flex items-center gap-2">{s.flag}<span>{s.cleanName || s.name}</span></span></td>
                                 <td className={`p-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{s.ticker}</td>
                                 <td className="p-4 whitespace-nowrap">{fmt(s.nativePrice)} {s.currency}</td>
-                                <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct >= 0 ? '+' : ''}{s.todayChangePct.toFixed(2)}%</td>
+                                <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct == null ? '' : s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct == null ? '—' : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</td>
                                 <td className="p-4">{s.quantity}</td>
-                                <td className={`p-4 font-bold whitespace-nowrap ${s.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.profit >= 0 ? '+' : ''}{fmtSym(s.profit)}</td>
-                                <td className={`p-4 font-bold whitespace-nowrap ${s.returnPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.returnPct >= 0 ? '+' : ''}{s.returnPct.toFixed(2)}%</td>
+                                <td className={`p-4 font-bold whitespace-nowrap ${s.profit == null ? '' : s.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.profit == null ? '—' : `${s.profit >= 0 ? '+' : ''}${fmtSym(s.profit)}`}</td>
+                                <td className={`p-4 font-bold whitespace-nowrap ${s.returnPct == null ? '' : s.returnPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.returnPct == null ? '—' : `${s.returnPct >= 0 ? '+' : ''}${s.returnPct.toFixed(2)}%`}</td>
                                 <td className="p-4 whitespace-nowrap">{fmtSym(s.currentValue)}</td>
                               </tr>
                             ))}

@@ -30,7 +30,7 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
 
       <label className={`${btn} cursor-pointer ${pa.uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
         {pa.uploadLoading ? <>{spinner}Processing…</> : pa.uploadStatus ? '↺ Re-upload' : '↑ Upload CSV'}
-        <input type="file" accept=".csv" multiple className="hidden" disabled={pa.uploadLoading} onChange={e => { pa.onUpload(e.target.files); e.target.value=''; }} />
+        <input type="file" accept=".csv" multiple className="hidden" disabled={pa.uploadLoading} onChange={e => { const f = Array.from(e.target.files); e.target.value = ''; pa.onUpload(f); }} />
       </label>
       <p className={`text-[10px] ${sub}`}>Supports Avanza, Montrose, Nordnet.</p>
       {pa.uploadProgress && (
