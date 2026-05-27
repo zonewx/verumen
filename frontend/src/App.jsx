@@ -111,6 +111,7 @@ export default function App() {
   const [txCount, setTxCount] = useState(() => apiCache.get('/api/txCount') || { total: 0, trades: 0, byBroker: {} });
   const uploadAbortRef = useRef(false);
   const uploadAbortControllerRef = useRef(null);
+  const globalFileInputRef = useRef(null);
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -238,7 +239,7 @@ export default function App() {
     if (!authUsername) return;
     const fp = portfolioFingerprint(p, c);
     const hasCached = apiCache.get('/api/portfolio-fingerprint') === fp && apiCache.has('/api/portfolio-dashboard');
-    if (!hasCached) setIsAppLoading(true);
+    if (!hasCached && p.length > 0) setIsAppLoading(true);
     try {
       const [dashRes, divRes, txRes, overRes, feedRes] = await Promise.all([
         p.length > 0
@@ -780,10 +781,9 @@ const handleUpload = async (files) => {
                   <div className="flex flex-col gap-5">
                     <h2 className="text-xl font-bold">Import CSV</h2>
                     <div className={`${cardCls} p-5 flex flex-col gap-4`}>
-                      <label className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl cursor-pointer font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                      <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
                         {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
-                        <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { const f = Array.from(e.target.files); e.target.value = ''; handleUpload(f); }} />
-                      </label>
+                      </button>
                       <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Broker detected automatically. Supports Montrose, Avanza and Nordnet.</p>
                       {uploadProgress && (
                         <div className={`rounded-lg px-3 py-2.5 text-sm border ${isDark ? 'bg-blue-900/20 border-blue-800/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
@@ -989,10 +989,9 @@ const handleUpload = async (files) => {
                               <option value="nordnet">Nordnet</option>
                             </select>
                           </div>
-                          <label className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl cursor-pointer font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                          <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
                             {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
-                            <input type="file" accept=".csv" multiple className="hidden" disabled={uploadLoading} onChange={e => { const f = Array.from(e.target.files); e.target.value = ''; handleUpload(f); }} />
-                          </label>
+                          </button>
                           <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Supports Montrose, Avanza and Nordnet. Select a broker manually or use auto-detect.</p>
                           {uploadProgress && (
                             <div className={`rounded-lg px-3 py-2.5 text-sm border ${isDark ? 'bg-blue-900/20 border-blue-800/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
@@ -1370,6 +1369,16 @@ const handleUpload = async (files) => {
       }}
     />
       
+      {/* Stable file input — lives outside PortfolioView so it's never destroyed by re-renders */}
+      <input
+        ref={globalFileInputRef}
+        type="file"
+        accept=".csv"
+        multiple
+        className="hidden"
+        onChange={e => { const f = Array.from(e.target.files); e.target.value = ''; handleUpload(f); }}
+      />
+
       {/* Main content area */}
       <div className="flex-1 overflow-hidden">
         <Routes>
