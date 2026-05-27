@@ -735,12 +735,6 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
   const dedupKey = t => `${t.broker||''}|${t.date||''}|${t.type||''}|${t.isin||''}|${Math.round((t.quantity||0)*10000)}|${Math.round((t.price||0)*10000)}`;
   const existingIds = new Set((existing||[]).map(dedupKey));
   const newUnique = allNew.filter(t => !existingIds.has(dedupKey(t)));
-  for (const tx of newUnique) {
-    if ((tx.type==='buy'||tx.type==='sell'||tx.type==='other'||tx.type==='withdrawal') && !tx.ticker && (tx.rawTicker||tx.isin)) {
-      tx.ticker = await resolveSymbol(tx.rawTicker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id) || '';
-      await new Promise(r => setTimeout(r, 150));
-    }
-  }
   if (newUnique.length > 0) {
     const rows = newUnique.map(t => ({ user_id:req.user.id, broker:t.broker, date:t.date, type:t.type, name:t.name, isin:t.isin, raw_ticker:t.rawTicker, ticker:t.ticker, quantity:t.quantity, price:t.price, currency:t.currency, total_sek:t.totalSEK, account:t.account }));
     await supabase.from('transactions').insert(rows);
@@ -755,27 +749,25 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
 });
 
 app.post('/api/transactions/resolve', requireUser, async (req, res) => {
-  const { force } = req.body; // New: force re-resolve all tickers
-  
+  const { force, limit } = req.body;
+  const batchSize = (limit && Number.isFinite(+limit)) ? Math.min(+limit, 100) : null;
+
   if (force) {
-    // Clear all ticker cache entries for this user
     await supabase.from('ticker_cache').delete().eq('user_id', req.user.id);
-    // Get ALL transactions with tickers to re-resolve
     const { data: allTxs } = await supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker').eq('user_id', req.user.id).in('type', ['buy','sell','other','withdrawal']);
     let resolved = 0;
     for (const tx of (allTxs||[])) {
       const ticker = await resolveSymbol(tx.raw_ticker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id);
-      if (ticker && ticker !== tx.ticker) { 
-        await supabase.from('transactions').update({ ticker }).eq('id', tx.id); 
-        resolved++; 
-      }
+      if (ticker && ticker !== tx.ticker) { await supabase.from('transactions').update({ ticker }).eq('id', tx.id); resolved++; }
       await new Promise(r => setTimeout(r, 150));
     }
-    return res.json({ resolved, total:(allTxs||[]).length, forced: true });
+    return res.json({ resolved, total:(allTxs||[]).length, remaining: 0, forced: true });
   }
-  
-  // Normal mode: only resolve unresolved transactions
-  const { data: unresolved } = await supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker').eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
+
+  // Normal mode: resolve up to `limit` unresolved transactions per call
+  let q = supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker').eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
+  if (batchSize) q = q.limit(batchSize);
+  const { data: unresolved } = await q;
   await supabase.from('ticker_cache').delete().eq('user_id', req.user.id).is('ticker', null);
   let resolved = 0;
   for (const tx of (unresolved||[])) {
@@ -783,7 +775,8 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
     if (ticker) { await supabase.from('transactions').update({ ticker }).eq('id', tx.id); resolved++; }
     await new Promise(r => setTimeout(r, 150));
   }
-  res.json({ resolved, total:(unresolved||[]).length });
+  const { count: remaining } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
+  res.json({ resolved, total:(unresolved||[]).length, remaining: remaining || 0 });
 });
 
 app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
@@ -863,7 +856,7 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
       ticker: h.ticker,
       isin: h.isin || null,
       name: h.name || '',
-      quantity: Math.floor(h.quantity), // Round down to whole shares
+      quantity: Math.round(h.quantity * 1e6) / 1e6,
       avgPrice: h.quantity > 0 ? parseFloat((h.totalCost / h.quantity).toFixed(4)) : 0,
     }));
 
