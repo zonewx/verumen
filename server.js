@@ -861,7 +861,7 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
       ticker: h.ticker,
       isin: h.isin || null,
       name: h.name || '',
-      quantity: Math.round(h.quantity * 1e6) / 1e6,
+      quantity: Math.floor(Math.round(h.quantity * 1e6) / 1e6),
       avgPrice: h.quantity > 0 ? parseFloat((h.totalCost / h.quantity).toFixed(4)) : 0,
     }));
 
@@ -971,14 +971,18 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   // Resolve a ticker to a live quote, with fallback to ISIN-based suffix variants, then to price cache
   const fetchQuote = async (ticker, isin, skipCache = false) => {
     const tryQuote = async (sym) => {
+      let q = null;
       try {
-        const q = await yahooFinance.quote(sym, {}, { validateResult: false });
-        if (q?.regularMarketPrice != null) {
-          _priceCache.set(sym, { q, cachedAt: Date.now() });
-          return q;
-        }
-        return null;
-      } catch(e) { return null; }
+        q = await yahooFinance.quote(sym);
+      } catch(e) {
+        // FailedYahooValidationError still carries the data in e.result — use it
+        if (e?.result?.regularMarketPrice != null) q = e.result;
+      }
+      if (q?.regularMarketPrice != null) {
+        _priceCache.set(sym, { q, cachedAt: Date.now() });
+        return q;
+      }
+      return null;
     };
     let q = await tryQuote(ticker);
     // Strip Reuters-style exchange suffixes (.N=NYSE, .O=NASDAQ, .OQ=NASDAQ, .K=AMEX)
