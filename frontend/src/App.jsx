@@ -1082,7 +1082,7 @@ const handleUpload = async (files) => {
                                 {todayCogOpen && (
                                   <div className={`absolute right-0 top-8 z-50 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl shadow-xl overflow-hidden w-44`}>
                                     <div className={`px-3 py-2 text-xs font-semibold ${isDark ? 'text-gray-500 border-gray-700' : 'text-gray-400 border-gray-200'} uppercase tracking-wider border-b`}>Sort by</div>
-                                    {[['pct','Percentage (%)'],['currency',`Amount (${sym})`]].map(([val, label]) => (
+                                    {[['currency',`Amount (${sym})`],['pct','Percentage (%)']].map(([val, label]) => (
                                       <button key={val} onClick={() => { setTodaySortMode(val); setTodayCogOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center justify-between ${todaySortMode === val ? `${isDark ? 'text-white bg-gray-700' : 'text-gray-900 bg-gray-100'}` : `${isDark ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}`}>
                                         {label}{todaySortMode === val && <span className="text-blue-400 text-xs">✓</span>}
                                       </button>

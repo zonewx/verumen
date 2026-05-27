@@ -972,7 +972,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   const fetchQuote = async (ticker, isin, skipCache = false) => {
     const tryQuote = async (sym) => {
       try {
-        const q = await yahooFinance.quote(sym);
+        const q = await yahooFinance.quote(sym, {}, { validateResult: false });
         if (q?.regularMarketPrice != null) {
           _priceCache.set(sym, { q, cachedAt: Date.now() });
           return q;
@@ -981,6 +981,15 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       } catch(e) { return null; }
     };
     let q = await tryQuote(ticker);
+    // Strip Reuters-style exchange suffixes (.N=NYSE, .O=NASDAQ, .OQ=NASDAQ, .K=AMEX)
+    // that are sometimes stored from broker CSV imports — Yahoo Finance doesn't use them
+    if (!q) {
+      const reutersSuffix = ticker.match(/\.(N|O|OQ|K|P|A)$/);
+      if (reutersSuffix) {
+        const baseTicker = ticker.slice(0, -reutersSuffix[0].length);
+        q = await tryQuote(baseTicker);
+      }
+    }
     // If the ticker has no exchange suffix and direct lookup failed, derive suffix from ISIN
     if (!q && isin && !ticker.includes('.')) {
       const isinPrefix = isin.substring(0, 2).toUpperCase();
