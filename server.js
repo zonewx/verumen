@@ -8,6 +8,11 @@ const { promisify } = require('util');
 const brotliDecompress = promisify(zlib.brotliDecompress);
 const { supabase } = require('./supabase');
 
+// In-memory price cache — survives YF outages/rate-limits (cleared on restart, which is fine)
+const _priceCache = new Map(); // ticker -> { q: quoteObject, cachedAt: timestamp }
+const _fxRateCache = {};       // 'USDSEK=X' -> { rate, cachedAt }
+const PRICE_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+
 // Simple in-memory rate limiter for auth routes
 const rateLimitMap = new Map();
 setInterval(() => { const now = Date.now(); for (const [k, v] of rateLimitMap) if (now > v.resetAt) rateLimitMap.delete(k); }, 5 * 60 * 1000).unref();
@@ -929,7 +934,20 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   if (!portfolio?.length) return res.json({ portfolio:[], totals:null });
   const BC = baseCurrency || 'SEK';
   let fxRates = {};
-  try { const fx = await yahooFinance.quote(['USDSEK=X','EURSEK=X','GBPSEK=X','NOKSEK=X','DKKSEK=X']); (Array.isArray(fx)?fx:[fx]).forEach(q => { if (q?.symbol&&q.regularMarketPrice) fxRates[q.symbol]=q.regularMarketPrice; }); } catch(e) {}
+  try {
+    const fx = await yahooFinance.quote(['USDSEK=X','EURSEK=X','GBPSEK=X','NOKSEK=X','DKKSEK=X']);
+    (Array.isArray(fx)?fx:[fx]).forEach(q => {
+      if (q?.symbol && q.regularMarketPrice) {
+        fxRates[q.symbol] = q.regularMarketPrice;
+        _fxRateCache[q.symbol] = { rate: q.regularMarketPrice, cachedAt: Date.now() };
+      }
+    });
+  } catch(e) {
+    // Fall back to cached FX rates so currency conversion still works
+    Object.entries(_fxRateCache).forEach(([sym, { rate, cachedAt }]) => {
+      if (Date.now() - cachedAt < PRICE_CACHE_TTL) fxRates[sym] = rate;
+    });
+  }
   const toSEK=(amount,currency)=>{ if(!currency||currency==='SEK') return amount; return fxRates[`${currency}SEK=X`]?amount*fxRates[`${currency}SEK=X`]:amount; };
   const fromSEK=(amount)=>{ if(BC==='SEK') return amount; return fxRates[`${BC}SEK=X`]?amount/fxRates[`${BC}SEK=X`]:amount; };
   const FLAGS={ST:'🇸🇪',OL:'🇳🇴',CO:'🇩🇰',HE:'🇫🇮',AS:'🇳🇱',PA:'🇫🇷',DE:'🇩🇪',L:'🇬🇧',MI:'🇮🇹',MC:'🇪🇸',SW:'🇨🇭',TO:'🇨🇦',AX:'🇦🇺',HK:'🇭🇰',T:'🇯🇵'};
@@ -950,10 +968,17 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     if (shareClass && !new RegExp(`\\b${shareClass}$`).test(cleaned)) cleaned += ` ${shareClass}`;
     return cleaned;
   };
-  // Resolve a ticker to a live quote, with fallback to ISIN-based suffix variants
+  // Resolve a ticker to a live quote, with fallback to ISIN-based suffix variants, then to price cache
   const fetchQuote = async (ticker, isin) => {
     const tryQuote = async (sym) => {
-      try { const q = await yahooFinance.quote(sym); return q?.regularMarketPrice != null ? q : null; } catch(e) { return null; }
+      try {
+        const q = await yahooFinance.quote(sym);
+        if (q?.regularMarketPrice != null) {
+          _priceCache.set(sym, { q, cachedAt: Date.now() });
+          return q;
+        }
+        return null;
+      } catch(e) { return null; }
     };
     let q = await tryQuote(ticker);
     // If the ticker has no exchange suffix and direct lookup failed, derive suffix from ISIN
@@ -966,26 +991,35 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         if (q) break;
       }
     }
+    // Fall back to cached price when YF is unavailable or rate-limited
+    if (!q) {
+      const cached = _priceCache.get(ticker);
+      if (cached && (Date.now() - cached.cachedAt) < PRICE_CACHE_TTL) {
+        return { ...cached.q, _fromCache: true };
+      }
+    }
     return q;
   };
 
   const results=[];
+  let hasStalePrices = false;
   for (const h of portfolio) {
     try {
       const q = await fetchQuote(h.ticker, h.isin);
       if (!q) {
-        // Yahoo Finance unavailable — include holding without live price
+        // Yahoo Finance unavailable and no cached price — include holding without live price
         const fallbackName = h.name || h.ticker;
         results.push({ ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker), currency:'SEK', quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null });
         continue;
       }
+      if (q._fromCache) hasStalePrices = true;
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice, currency=q.currency||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
-      results.push({ ticker:h.ticker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,h.ticker), flag:getFlag(h.ticker), currency, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType });
+      results.push({ ticker:h.ticker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,h.ticker), flag:getFlag(h.ticker), currency, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache });
     } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); }
   }
   const totalValue=results.reduce((s,r)=>s+(r.currentValue??0),0), totalCost=results.reduce((s,r)=>s+fromSEK(toSEK((r.avgPrice||0)*r.quantity,r.currency)),0), totalProfit=totalValue-totalCost;
-  res.json({ portfolio:results, totals:{ value:totalValue, cost:totalCost, profit:totalProfit, returnPct:totalCost>0?(totalProfit/totalCost)*100:0 } });
+  res.json({ portfolio:results, totals:{ value:totalValue, cost:totalCost, profit:totalProfit, returnPct:totalCost>0?(totalProfit/totalCost)*100:0 }, hasStalePrices });
 });
 
 // ── Dividends ───────────────────────────────────────────────────────────────

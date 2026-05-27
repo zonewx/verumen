@@ -593,6 +593,7 @@ const handleUpload = async (files) => {
   // ── Derived values ─────────────────────────────────────────────────────────
   const sym = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'SEK': 'kr' }[baseCurrency] || baseCurrency;
   const totals = dashboardData?.totals;
+  const hasStalePrices = dashboardData?.hasStalePrices === true;
   const plPositive = totals?.profit >= 0;
   const plColor = plPositive ? 'text-green-400' : 'text-red-400';
   const plSign = plPositive ? '+' : '';
@@ -1031,6 +1032,12 @@ const handleUpload = async (files) => {
                       </div>
                     ) : (
                       <>
+                        {hasStalePrices && (
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-yellow-900/20 border border-yellow-800/40 text-yellow-400' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.
+                          </div>
+                        )}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                           {[
                             { label: 'Total Value', value: fmtSym(totals?.value) },
