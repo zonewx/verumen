@@ -358,11 +358,10 @@ function getEffectiveCurrency(currency, isin, broker) {
 
 function cleanRawTicker(raw) {
   if (!raw) return null;
-  // Strip Montrose exchange suffixes (.N = NYSE, .O = NASDAQ, .ST = Stockholm etc)
   let cleaned = raw.trim().toUpperCase();
-  // Remove trailing exchange codes like .N .O .ST .OL .CO
-  cleaned = cleaned.replace(/\.(?:N|O|NQ|NY)$/, '');
-  // Normalize remaining
+  // Strip Reuters exchange codes (.N=NYSE, .O/.OQ=NASDAQ, .K=AMEX) and Nordnet-style .US
+  // These don't exist on Yahoo Finance; valid YF suffixes (.ST, .OL, .L, .HE etc.) are kept
+  cleaned = cleaned.replace(/\.(?:N|O|OQ|NQ|NY|K|US)$/, '');
   cleaned = cleaned.replace(/\s+/g, '-').replace(/[^A-Z0-9\-\.]/g, '');
   return cleaned || null;
 }
@@ -420,19 +419,34 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   
   const preferUSListing = effectiveCurrency === 'USD' || isinPrefix === 'US' || isinPrefix === 'CA';
   const preferredSuffixes = preferUSListing ? [] : (CURRENCY_SUFFIX_MAP[effectiveCurrency] || []);
+  // For Avanza/Nordnet: always probe .ST first — many international stocks (e.g. AZN, BRK) are
+  // cross-listed on Nasdaq Stockholm and the CSV may export the home-market currency (GBP, USD)
+  // even when the user holds the Swedish depository receipt.
+  const nordicProbe = (broker === 'avanza' || broker === 'nordnet') && !preferredSuffixes.includes('.ST');
 
   const cleaned = cleanRawTicker(rawTicker);
-  const firstWord = rawTicker ? rawTicker.trim().split(/\s+/)[0].toUpperCase().replace(/[^A-Z0-9]/g, '') : null;
+  // For multi-word tickers like 'VOLV B', also try the first word alone.
+  // Apply cleanRawTicker so Reuters suffixes ('BN.N' → 'BN') don't corrupt the variant.
+  const rawFirstWord = rawTicker ? rawTicker.trim().split(/\s+/)[0] : null;
+  const firstWord = rawFirstWord ? cleanRawTicker(rawFirstWord) : null;
   const variants = [...new Set([cleaned, firstWord].filter(Boolean))];
 
   const verifyQuote = async (symbol) => {
-    try {
-      const q = await yahooFinance.quote(symbol);
-      return q?.regularMarketPrice != null ? symbol : null;
-    } catch(e) { return null; }
+    let q = null;
+    try { q = await yahooFinance.quote(symbol); }
+    catch(e) { if (e?.result?.regularMarketPrice != null) q = e.result; }
+    return q?.regularMarketPrice != null ? symbol : null;
   };
 
-  // 3. Fast path: try ticker + preferred suffixes
+  // 3a. Avanza/Nordnet: probe .ST before trusting the CSV currency
+  if (nordicProbe && variants.length) {
+    for (const v of variants) {
+      const result = await verifyQuote(`${v}.ST`);
+      if (result) return save(result);
+    }
+  }
+
+  // 3b. Fast path: try ticker + preferred suffixes
   if (!preferUSListing && variants.length && preferredSuffixes.length) {
     for (const suffix of preferredSuffixes) {
       for (const v of variants) {
@@ -468,9 +482,15 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
           if (isCanadianInUS && !q.symbol.includes('.')) score += 200;
           // PENALTY: -100 for .TO when trading CA company in USD
           if (isCanadianInUS && q.symbol.endsWith('.TO')) score -= 100;
+          // PENALTY: non-US suffix when we want a US listing
+          if (preferUSListing && q.symbol.includes('.')) score -= 100;
           return { symbol: q.symbol, score };
         }).sort((a, b) => b.score - a.score);
-        return save(scored[0].symbol);
+        // Only commit if the best result actually matches our exchange preference;
+        // otherwise fall through to name search which often returns the right listing first
+        const best = scored[0];
+        const hasPreference = preferredSuffixes.length > 0 || preferUSListing;
+        if (!hasPreference || best.score > 0) return save(best.symbol);
       }
     } catch(e) {}
   }
@@ -624,6 +644,16 @@ function parseNordnet(content) {
   if (lines.length < 2) return [];
   const headers = lines[0].split('\t').map(h => h.trim().replace(/"/g,''));
   const col = (row, name) => { const i = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase())); return i >= 0 ? (row[i]||'').trim().replace(/"/g,'') : ''; };
+
+  // Nordnet exports two 'Valuta' columns: the first is the account/transaction currency (SEK),
+  // the second (after 'Inköpsvärde') is the instrument currency (USD, GBP, etc.).
+  // We want the instrument currency so the resolver picks the right exchange.
+  const inkopsvardeIdx = headers.findIndex(h => /ink.p/i.test(h));
+  const allValutaIdxs = headers.reduce((acc, h, i) => h.toLowerCase().includes('valuta') ? [...acc, i] : acc, []);
+  const instrumentValutaIdx = inkopsvardeIdx >= 0
+    ? (allValutaIdxs.find(i => i > inkopsvardeIdx) ?? allValutaIdxs[0] ?? -1)
+    : (allValutaIdxs[0] ?? -1);
+
   const TYPE_MAP = { 'købt':'buy','köpt':'buy','solgt':'sell','sålt':'sell','udbytte':'dividend','utdelning':'dividend','udenlandsk skat':'foreign-tax','utenlandsk kildeskatt':'foreign-tax' };
   return lines.slice(1).map(line => {
     const cols = line.split('\t');
@@ -631,7 +661,8 @@ function parseNordnet(content) {
     const txType = TYPE_MAP[col(cols,'transaktionstype').toLowerCase()] || 'other';
     const rawQty = parseFloat(col(cols,'antal').replace(',','.').replace(/\s/g,''));
     const qty = isNaN(rawQty) ? 0 : Math.abs(rawQty);
-    return { broker:'nordnet', date:col(cols,'afviklingsdato')||col(cols,'bokföringsdag'), type:txType, name:col(cols,'värdepapper')||col(cols,'verdipapir'), isin:col(cols,'isin'), rawTicker:col(cols,'värdepappersbeteckning')||'', ticker:'', quantity:qty, price:parseFloat(col(cols,'kurs').replace(',','.').replace(/\s/g,''))||0, currency:col(cols,'valuta')||'SEK', totalSEK:parseFloat((col(cols,'belopp')||col(cols,'totalt')).replace(',','.').replace(/\s/g,''))||0, account:col(cols,'depå')||col(cols,'depot') };
+    const currency = (instrumentValutaIdx >= 0 ? (cols[instrumentValutaIdx]||'').trim().replace(/"/g,'') : '') || col(cols,'valuta') || 'SEK';
+    return { broker:'nordnet', date:col(cols,'afviklingsdato')||col(cols,'bokföringsdag'), type:txType, name:col(cols,'värdepapper')||col(cols,'verdipapir'), isin:col(cols,'isin'), rawTicker:col(cols,'värdepappersbeteckning')||'', ticker:'', quantity:qty, price:parseFloat(col(cols,'kurs').replace(',','.').replace(/\s/g,''))||0, currency, totalSEK:parseFloat((col(cols,'belopp')||col(cols,'totalt')).replace(',','.').replace(/\s/g,''))||0, account:col(cols,'depå')||col(cols,'depot') };
   }).filter(Boolean);
 }
 
@@ -986,9 +1017,9 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     };
     let q = await tryQuote(ticker);
     // Strip Reuters-style exchange suffixes (.N=NYSE, .O=NASDAQ, .OQ=NASDAQ, .K=AMEX)
-    // that are sometimes stored from broker CSV imports — Yahoo Finance doesn't use them
+    // and Nordnet-style .US — Yahoo Finance doesn't use these suffixes
     if (!q) {
-      const reutersSuffix = ticker.match(/\.(N|O|OQ|K|P|A)$/);
+      const reutersSuffix = ticker.match(/\.(N|O|OQ|K|P|A|US)$/);
       if (reutersSuffix) {
         const baseTicker = ticker.slice(0, -reutersSuffix[0].length);
         q = await tryQuote(baseTicker);
