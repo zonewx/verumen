@@ -112,6 +112,7 @@ export default function App() {
   const uploadAbortRef = useRef(false);
   const uploadAbortControllerRef = useRef(null);
   const globalFileInputRef = useRef(null);
+  const forceRefreshRef = useRef(false);
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -237,13 +238,15 @@ export default function App() {
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchAllData = useCallback(async (p, c) => {
     if (!authUsername) return;
+    const isForceRefresh = forceRefreshRef.current;
+    forceRefreshRef.current = false;
     const fp = portfolioFingerprint(p, c);
-    const hasCached = apiCache.get('/api/portfolio-fingerprint') === fp && apiCache.has('/api/portfolio-dashboard');
+    const hasCached = !isForceRefresh && apiCache.get('/api/portfolio-fingerprint') === fp && apiCache.has('/api/portfolio-dashboard');
     if (!hasCached && p.length > 0) setIsAppLoading(true);
     try {
       const [dashRes, divRes, txRes, overRes, feedRes] = await Promise.all([
         p.length > 0
-          ? apiFetch('/api/portfolio', { method: 'POST', body: JSON.stringify({ portfolio: p, baseCurrency: c }) }).then(r => r.json())
+          ? apiFetch('/api/portfolio', { method: 'POST', body: JSON.stringify({ portfolio: p, baseCurrency: c, forceRefresh: isForceRefresh }) }).then(r => r.json())
           : Promise.resolve(null),
         apiFetch(`/api/dividends?currency=${c}`).then(r => r.json()),
         apiFetch('/api/transactions/count').then(r => r.json()),
@@ -354,6 +357,13 @@ export default function App() {
       else { setPortfolio(reconstructed); setSyncStatus(`✓ ${reconstructed.length} holdings synced.`); }
     } catch { setSyncStatus('Sync failed.'); }
     setSyncLoading(false);
+  };
+
+  const handleRefreshPrices = () => {
+    apiCache.delete('/api/portfolio-dashboard');
+    apiCache.delete('/api/portfolio-fingerprint');
+    forceRefreshRef.current = true;
+    fetchAllData(portfolio, baseCurrency);
   };
 
 const handleUpload = async (files) => {
@@ -1032,12 +1042,23 @@ const handleUpload = async (files) => {
                       </div>
                     ) : (
                       <>
-                        {hasStalePrices && (
-                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-yellow-900/20 border border-yellow-800/40 text-yellow-400' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                            Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.
-                          </div>
-                        )}
+                        <div className="flex items-center justify-between gap-3">
+                          {hasStalePrices ? (
+                            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium flex-1 ${isDark ? 'bg-yellow-900/20 border border-yellow-800/40 text-yellow-400' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                              Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.
+                            </div>
+                          ) : <div />}
+                          <button
+                            onClick={handleRefreshPrices}
+                            disabled={isAppLoading}
+                            title="Refresh prices from Yahoo Finance"
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition shrink-0 ${isAppLoading ? 'opacity-40 cursor-not-allowed' : ''} ${isDark ? 'border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700' : 'border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={isAppLoading ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
+                            Refresh prices
+                          </button>
+                        </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                           {[
                             { label: 'Total Value', value: fmtSym(totals?.value) },

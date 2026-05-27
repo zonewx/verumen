@@ -930,7 +930,7 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
 
 // ── Portfolio valuation ─────────────────────────────────────────────────────
 app.post('/api/portfolio', requireUser, async (req, res) => {
-  const { portfolio, baseCurrency } = req.body;
+  const { portfolio, baseCurrency, forceRefresh } = req.body;
   if (!portfolio?.length) return res.json({ portfolio:[], totals:null });
   const BC = baseCurrency || 'SEK';
   let fxRates = {};
@@ -969,7 +969,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     return cleaned;
   };
   // Resolve a ticker to a live quote, with fallback to ISIN-based suffix variants, then to price cache
-  const fetchQuote = async (ticker, isin) => {
+  const fetchQuote = async (ticker, isin, skipCache = false) => {
     const tryQuote = async (sym) => {
       try {
         const q = await yahooFinance.quote(sym);
@@ -991,8 +991,8 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         if (q) break;
       }
     }
-    // Fall back to cached price when YF is unavailable or rate-limited
-    if (!q) {
+    // Fall back to cached price when YF is unavailable or rate-limited (skip if force-refreshing)
+    if (!q && !skipCache) {
       const cached = _priceCache.get(ticker);
       if (cached && (Date.now() - cached.cachedAt) < PRICE_CACHE_TTL) {
         return { ...cached.q, _fromCache: true };
@@ -1005,7 +1005,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   let hasStalePrices = false;
   for (const h of portfolio) {
     try {
-      const q = await fetchQuote(h.ticker, h.isin);
+      const q = await fetchQuote(h.ticker, h.isin, !!forceRefresh);
       if (!q) {
         // Yahoo Finance unavailable and no cached price — include holding without live price
         const fallbackName = h.name || h.ticker;
