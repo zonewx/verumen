@@ -762,6 +762,27 @@ const handleUpload = async (files) => {
   // Build stable shell props so PageShell (defined at module scope) preserves child component state across App re-renders
   const shellProps = { isDark, authUsername, onNavigate: handleNavigate, onLogout: handleLogout, userRole, searchInputRef: globalSearchRef };
 
+  // Smooth animated counter for the resolving phase — lives in App so it survives
+  // PortfolioView remounts that happen on every uploadProgress state update.
+  const [displayedResolved, setDisplayedResolved] = useState(0);
+  const animTickRef = useRef(null);
+  useEffect(() => {
+    const target = uploadProgress?.resolvedCount;
+    if (target == null) { setDisplayedResolved(0); return; }
+    clearInterval(animTickRef.current);
+    const current = displayedResolved;
+    const steps = target - current;
+    if (steps <= 0) { setDisplayedResolved(target); return; }
+    const intervalMs = Math.max(10, Math.min(30, Math.floor(800 / steps)));
+    let cur = current;
+    animTickRef.current = setInterval(() => {
+      cur++;
+      setDisplayedResolved(cur);
+      if (cur >= target) clearInterval(animTickRef.current);
+    }, intervalMs);
+    return () => clearInterval(animTickRef.current);
+  }, [uploadProgress?.resolvedCount]);
+
   const ProfileRoute = () => {
     const { username } = useParams();
     const viewUser = username ? username.replace('@','') : null;
@@ -771,30 +792,6 @@ const handleUpload = async (files) => {
   const PortfolioView = () => {
     const location = useLocation();
     const cardCls = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
-
-    // Smooth animated counter for the resolving phase
-    const [displayedResolved, setDisplayedResolved] = useState(0);
-    const animTickRef = useRef(null);
-    useEffect(() => {
-      const target = uploadProgress?.resolvedCount;
-      if (target == null) { setDisplayedResolved(0); return; }
-      clearInterval(animTickRef.current);
-      setDisplayedResolved(prev => {
-        const start = prev;
-        const steps = target - start;
-        if (steps <= 0) return target;
-        // spread the animation over up to 800ms, capped at 30ms per tick
-        const intervalMs = Math.max(10, Math.min(30, Math.floor(800 / steps)));
-        let cur = start;
-        animTickRef.current = setInterval(() => {
-          cur++;
-          setDisplayedResolved(cur);
-          if (cur >= target) clearInterval(animTickRef.current);
-        }, intervalMs);
-        return start; // will be updated by the interval
-      });
-      return () => clearInterval(animTickRef.current);
-    }, [uploadProgress?.resolvedCount]);
 
     const pathToTab = {
       '/portfolio':              'overview',
