@@ -919,12 +919,17 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
 });
 
 // ── Market index quotes ──────────────────────────────────────────────────────
+// Server-side cache: last known-good quote per symbol, kept for up to 10 minutes.
+// Used as fallback when Yahoo Finance is unavailable (e.g. during heavy resolve load).
+const _marketIndexCache = new Map(); // symbol → { price, changePct, change, ts }
+const MARKET_INDEX_CACHE_TTL = 10 * 60 * 1000;
+
 app.get('/api/market-indexes', requireUser, async (req, res) => {
   const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 6);
   if (!symbols.length) return res.json([]);
   const results = [];
   for (const s of symbols) {
-    let pushed = false;
+    let entry = null;
 
     // Attempt 1: quoteSummary / price module
     try {
@@ -935,10 +940,9 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
         const rawPct = p.regularMarketChangePercent;
         const rawChg = p.regularMarketChange;
         // quoteSummary price module returns changePct as a decimal (0.0159 = 1.59%) — multiply by 100
-        results.push({ symbol: s, price: Number(p.regularMarketPrice),
+        entry = { symbol: s, price: Number(p.regularMarketPrice),
           changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 });
-        pushed = true;
+          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
       }
     } catch(e) {
       const p = (e.result ?? e.data)?.price;
@@ -946,32 +950,42 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
       if (p?.regularMarketPrice != null) {
         const rawPct = p.regularMarketChangePercent;
         const rawChg = p.regularMarketChange;
-        results.push({ symbol: s, price: Number(p.regularMarketPrice),
+        entry = { symbol: s, price: Number(p.regularMarketPrice),
           changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 });
-        pushed = true;
+          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
       }
     }
 
-    if (pushed) continue;
-
     // Attempt 2: quote with validateResult: false (also returns decimal changePct)
-    try {
-      const q = await yahooFinance.quote(s, {}, { validateResult: false });
-      log.info('market-index quote fallback', { s, rmp: q?.regularMarketPrice });
-      if (q?.regularMarketPrice != null) {
-        results.push({ symbol: q.symbol || s, price: Number(q.regularMarketPrice),
-          changePct: (Number(q.regularMarketChangePercent) || 0) * 100,
-          change: Number(q.regularMarketChange) || 0 });
-        pushed = true;
+    if (!entry) {
+      try {
+        const q = await yahooFinance.quote(s, {}, { validateResult: false });
+        log.info('market-index quote fallback', { s, rmp: q?.regularMarketPrice });
+        if (q?.regularMarketPrice != null) {
+          entry = { symbol: q.symbol || s, price: Number(q.regularMarketPrice),
+            changePct: (Number(q.regularMarketChangePercent) || 0) * 100,
+            change: Number(q.regularMarketChange) || 0 };
+        }
+      } catch(e) {
+        const q = e.result ?? e.data;
+        log.warn('market-index quote threw', { s, err: e.message?.slice(0,120), resultKeys: q ? Object.keys(q) : [] });
+        if (q?.regularMarketPrice != null) {
+          entry = { symbol: s, price: Number(q.regularMarketPrice),
+            changePct: (Number(q.regularMarketChangePercent) || 0) * 100,
+            change: Number(q.regularMarketChange) || 0 };
+        }
       }
-    } catch(e) {
-      const q = e.result ?? e.data;
-      log.warn('market-index quote threw', { s, err: e.message?.slice(0,120), resultKeys: q ? Object.keys(q) : [] });
-      if (q?.regularMarketPrice != null) {
-        results.push({ symbol: s, price: Number(q.regularMarketPrice),
-          changePct: (Number(q.regularMarketChangePercent) || 0) * 100,
-          change: Number(q.regularMarketChange) || 0 });
+    }
+
+    if (entry) {
+      _marketIndexCache.set(s, { ...entry, ts: Date.now() });
+      results.push(entry);
+    } else {
+      // Fall back to last known-good cached data (up to TTL)
+      const cached = _marketIndexCache.get(s);
+      if (cached && Date.now() - cached.ts < MARKET_INDEX_CACHE_TTL) {
+        log.info('market-index serving from cache', { s, ageMs: Date.now() - cached.ts });
+        results.push({ symbol: cached.symbol, price: cached.price, changePct: cached.changePct, change: cached.change });
       }
     }
   }
