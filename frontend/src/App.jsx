@@ -244,7 +244,7 @@ export default function App() {
     const hasCached = !isForceRefresh && apiCache.get('/api/portfolio-fingerprint') === fp && apiCache.has('/api/portfolio-dashboard');
     if (!hasCached && p.length > 0) setIsAppLoading(true);
     try {
-      const [dashRes, divRes, txRes, overRes, feedRes] = await Promise.all([
+      const [dashRes, divRes, txRes, overRes, feedRes, friendsRes] = await Promise.all([
         p.length > 0
           ? apiFetch('/api/portfolio', { method: 'POST', body: JSON.stringify({ portfolio: p, baseCurrency: c, forceRefresh: isForceRefresh }) }).then(r => r.json())
           : Promise.resolve(null),
@@ -252,6 +252,7 @@ export default function App() {
         apiFetch('/api/transactions/count').then(r => r.json()),
         apiFetch('/api/overrides').then(r => r.json()),
         !apiCache.has('/api/feed') ? apiFetch('/api/feed').then(r => r.json()).catch(() => null) : Promise.resolve(null),
+        !apiCache.has('/api/friends') ? apiFetch('/api/friends').then(r => r.json()).catch(() => null) : Promise.resolve(null),
       ]);
       setDashboardData(dashRes); setDividends(divRes); setTxCount(txRes); setOverrides(overRes);
       if (dashRes) { apiCache.set('/api/portfolio-dashboard', dashRes); apiCache.set('/api/portfolio-fingerprint', fp); }
@@ -259,6 +260,7 @@ export default function App() {
       apiCache.set('/api/txCount', txRes);
       apiCache.set('/api/overrides', overRes);
       if (Array.isArray(feedRes)) apiCache.set('/api/feed', feedRes);
+      if (friendsRes && typeof friendsRes === 'object') apiCache.set('/api/friends', friendsRes);
     } catch(e) { console.error(e); }
     setIsAppLoading(false);
     setIsInitializing(false);
