@@ -375,8 +375,12 @@ const handleUpload = async (files) => {
   uploadAbortControllerRef.current = new AbortController();
   setUploadLoading(true); setUploadStatus(null); setSyncStatus(''); setUploadProgress(null);
 
-  const updateProgress = (phase, pct, label, txEstimate) =>
-    setUploadProgress(prev => ({ ...prev, phase, pct, label, ...(txEstimate !== undefined && { txEstimate }) }));
+  const updateProgress = (phase, pct, label, txEstimate, resolvedCount, totalCount) =>
+    setUploadProgress(prev => ({
+      ...prev, phase, pct, label,
+      ...(txEstimate   !== undefined && { txEstimate }),
+      ...(resolvedCount !== undefined && { resolvedCount, totalCount }),
+    }));
 
   try {
     // Auto-clear existing data before uploading new CSV
@@ -476,7 +480,7 @@ const handleUpload = async (files) => {
             ? `~${etaSeconds}s remaining`
             : '';
 
-        updateProgress('resolving', progress, `Resolved ${totalResolved}/${data.newAdded} tickers... ${etaText}`);
+        updateProgress('resolving', progress, `Resolved ${totalResolved}/${data.newAdded} tickers... ${etaText}`, undefined, totalResolved, data.newAdded);
 
         if (remaining === 0) break;
         await new Promise(r => setTimeout(r, 200)); // Small delay between chunks
@@ -757,6 +761,30 @@ const handleUpload = async (files) => {
     const location = useLocation();
     const cardCls = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
 
+    // Smooth animated counter for the resolving phase
+    const [displayedResolved, setDisplayedResolved] = useState(0);
+    const animTickRef = useRef(null);
+    useEffect(() => {
+      const target = uploadProgress?.resolvedCount;
+      if (target == null) { setDisplayedResolved(0); return; }
+      clearInterval(animTickRef.current);
+      setDisplayedResolved(prev => {
+        const start = prev;
+        const steps = target - start;
+        if (steps <= 0) return target;
+        // spread the animation over up to 800ms, capped at 30ms per tick
+        const intervalMs = Math.max(10, Math.min(30, Math.floor(800 / steps)));
+        let cur = start;
+        animTickRef.current = setInterval(() => {
+          cur++;
+          setDisplayedResolved(cur);
+          if (cur >= target) clearInterval(animTickRef.current);
+        }, intervalMs);
+        return start; // will be updated by the interval
+      });
+      return () => clearInterval(animTickRef.current);
+    }, [uploadProgress?.resolvedCount]);
+
     const pathToTab = {
       '/portfolio':              'overview',
       '/portfolio/holdings':     'holdings',
@@ -934,9 +962,20 @@ const handleUpload = async (files) => {
 
                         {/* Status label */}
                         <div className="flex flex-col items-center gap-1 text-center max-w-xs">
-                          <p className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                            {uploadProgress?.label || 'Processing…'}
-                          </p>
+                          {uploadProgress?.phase === 'resolving' && uploadProgress?.totalCount > 0 ? (
+                            <>
+                              <p className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                                Resolved {displayedResolved}/{uploadProgress.totalCount} tickers…
+                              </p>
+                              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {uploadProgress.label.replace(/^Resolved \d+\/\d+ tickers\.\.\.?\s*/, '')}
+                              </p>
+                            </>
+                          ) : (
+                            <p className={`text-sm font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                              {uploadProgress?.label || 'Processing…'}
+                            </p>
+                          )}
                           {uploadProgress?.txEstimate > 0 && (
                             <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                               ~{uploadProgress.txEstimate.toLocaleString()} transactions
