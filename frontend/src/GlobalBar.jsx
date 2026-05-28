@@ -21,9 +21,11 @@ function fmt(n) {
   return n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—';
 }
 
+const QUOTES_CACHE_KEY = 'market_quotes_cache';
+
 function MarketTicker({ isDark }) {
   const [quotes, setQuotes]       = useState(() => {
-    try { return JSON.parse(sessionStorage.getItem('market_quotes_cache')) || []; } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(QUOTES_CACHE_KEY)) || []; } catch { return []; }
   });
   const [selected, setSelected]   = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
@@ -46,10 +48,13 @@ function MarketTicker({ isDark }) {
       .filter(Boolean)
       .join(',');
 
+    if (!tickers) return;
+
     const fetch_ = () =>
       fetch(`/api/market-indexes?symbols=${encodeURIComponent(tickers)}`, { headers: authHeader() })
         .then(r => r.json())
-        .then(data => { if (Array.isArray(data)) { setQuotes(data); sessionStorage.setItem('market_quotes_cache', JSON.stringify(data)); } })
+        // Only update if response has data — ignore empty results from transient YF failures
+        .then(data => { if (Array.isArray(data) && data.length > 0) { setQuotes(data); localStorage.setItem(QUOTES_CACHE_KEY, JSON.stringify(data)); } })
         .catch(() => {});
 
     fetch_();
