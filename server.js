@@ -433,7 +433,9 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   const rawCurrency = (currency || 'SEK').toUpperCase();
   const isCanadianInUS = (isinPrefix === 'CA' && rawCurrency === 'USD');
   
-  const preferUSListing = effectiveCurrency === 'USD' || isinPrefix === 'US' || isinPrefix === 'CA';
+  // CA ISINs only prefer the US listing when the transaction currency is USD (i.e. user holds
+  // the NYSE cross-listing). A CA ISIN traded in CAD should resolve to .TO instead.
+  const preferUSListing = effectiveCurrency === 'USD' || isinPrefix === 'US' || isCanadianInUS;
   const preferredSuffixes = preferUSListing ? [] : (CURRENCY_SUFFIX_MAP[effectiveCurrency] || []);
   // For Avanza/Nordnet: always probe .ST first — many international stocks (e.g. AZN, BRK) are
   // cross-listed on Nasdaq Stockholm and the CSV may export the home-market currency (GBP, USD)
@@ -1088,7 +1090,9 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   const fromSEK=(amount)=>{ if(BC==='SEK') return amount; return fxRates[`${BC}SEK=X`]?amount/fxRates[`${BC}SEK=X`]:amount; };
   const FLAGS={ST:'🇸🇪',OL:'🇳🇴',CO:'🇩🇰',HE:'🇫🇮',AS:'🇳🇱',PA:'🇫🇷',DE:'🇩🇪',L:'🇬🇧',MI:'🇮🇹',MC:'🇪🇸',SW:'🇨🇭',TO:'🇨🇦',AX:'🇦🇺',HK:'🇭🇰',T:'🇯🇵'};
   // ISIN country → flag emoji for when the ticker has no exchange suffix
-  const ISIN_FLAG={SE:'🇸🇪',NO:'🇳🇴',DK:'🇩🇰',FI:'🇫🇮',NL:'🇳🇱',FR:'🇫🇷',DE:'🇩🇪',GB:'🇬🇧',IT:'🇮🇹',ES:'🇪🇸',CH:'🇨🇭',CA:'🇨🇦',AU:'🇦🇺',HK:'🇭🇰',JP:'🇯🇵',US:'🇺🇸'};
+  // Only non-US/CA countries: CA and US companies commonly list on US exchanges without a suffix,
+  // so a no-dot ticker for them is still a US listing and should keep 🇺🇸.
+  const ISIN_FLAG={SE:'🇸🇪',NO:'🇳🇴',DK:'🇩🇰',FI:'🇫🇮',NL:'🇳🇱',FR:'🇫🇷',DE:'🇩🇪',GB:'🇬🇧',IT:'🇮🇹',ES:'🇪🇸',CH:'🇨🇭',AU:'🇦🇺',HK:'🇭🇰',JP:'🇯🇵'};
   const getFlag=(t,isin)=>{ const p=t.split('.'); if(p.length>1) return FLAGS[p[p.length-1]]||'🇺🇸'; if(isin){const cc=isin.substring(0,2).toUpperCase(); if(ISIN_FLAG[cc]) return ISIN_FLAG[cc];} return '🇺🇸'; };
   const getShareClass=(ticker)=>{ const m=ticker.match(/^[^-]+-([A-Ca-c])(?:\.|$)/); return m?m[1].toUpperCase():null; };
   const cleanName=(name,ticker)=>{
