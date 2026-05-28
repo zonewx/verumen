@@ -368,7 +368,6 @@ function cleanRawTicker(raw) {
 
 // Batch resolver — loads cache/overrides once, resolves many tickers
 async function resolveSymbolBatch(transactions, userId) {
-  // Load cache and overrides once for the whole batch
   const [cache, overrides] = await Promise.all([
     loadTickerCache(userId),
     loadOverrides(userId),
@@ -377,12 +376,20 @@ async function resolveSymbolBatch(transactions, userId) {
   const results = {};
   for (const tx of transactions) {
     const key = tx.id;
+
+    // Pre-check: is this a cache or override hit? If so, skip the rate-limit sleep —
+    // only API calls need throttling, not O(1) lookups.
+    const overrideKey = tx.isin || tx.raw_ticker;
+    const cacheKey = `${tx.broker || ''}|${tx.currency || ''}|${tx.isin || tx.raw_ticker || tx.name}`;
+    const isFastPath = (overrideKey && overrides[overrideKey]) || cache[cacheKey] !== undefined;
+
     const ticker = await resolveSymbolWithContext(
       tx.raw_ticker || null, tx.isin, tx.name, tx.currency, tx.broker,
       userId, cache, overrides
     );
     results[key] = ticker;
-    await new Promise(r => setTimeout(r, 120));
+
+    if (!isFastPath) await new Promise(r => setTimeout(r, 120));
   }
   return results;
 }
@@ -791,13 +798,19 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
   if (force) {
     await supabase.from('ticker_cache').delete().eq('user_id', req.user.id);
     const { data: allTxs } = await supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker').eq('user_id', req.user.id).in('type', ['buy','sell','other','withdrawal']);
+    const txList = allTxs || [];
+    // resolveSymbolBatch loads the (now-empty) cache once and skips the rate-limit
+    // sleep for repeated tickers — huge speedup when one stock has many transactions
+    const tickerMap = await resolveSymbolBatch(txList, req.user.id);
     let resolved = 0;
-    for (const tx of (allTxs||[])) {
-      const ticker = await resolveSymbol(tx.raw_ticker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id);
-      if (ticker && ticker !== tx.ticker) { await supabase.from('transactions').update({ ticker }).eq('id', tx.id); resolved++; }
-      await new Promise(r => setTimeout(r, 150));
-    }
-    return res.json({ resolved, total:(allTxs||[]).length, remaining: 0, forced: true });
+    await Promise.all(txList.map(async tx => {
+      const ticker = tickerMap[tx.id];
+      if (ticker && ticker !== tx.ticker) {
+        await supabase.from('transactions').update({ ticker }).eq('id', tx.id);
+        resolved++;
+      }
+    }));
+    return res.json({ resolved, total: txList.length, remaining: 0, forced: true });
   }
 
   // Normal mode: resolve up to `limit` unresolved transactions per call
@@ -805,14 +818,15 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
   if (batchSize) q = q.limit(batchSize);
   const { data: unresolved } = await q;
   await supabase.from('ticker_cache').delete().eq('user_id', req.user.id).is('ticker', null);
+  const txList = unresolved || [];
+  const tickerMap = await resolveSymbolBatch(txList, req.user.id);
   let resolved = 0;
-  for (const tx of (unresolved||[])) {
-    const ticker = await resolveSymbol(tx.raw_ticker||null, tx.isin, tx.name, tx.currency, tx.broker, req.user.id);
+  await Promise.all(txList.map(async tx => {
+    const ticker = tickerMap[tx.id];
     if (ticker) { await supabase.from('transactions').update({ ticker }).eq('id', tx.id); resolved++; }
-    await new Promise(r => setTimeout(r, 150));
-  }
+  }));
   const { count: remaining } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
-  res.json({ resolved, total:(unresolved||[]).length, remaining: remaining || 0 });
+  res.json({ resolved, total: txList.length, remaining: remaining || 0 });
 });
 
 app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
