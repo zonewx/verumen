@@ -775,26 +775,10 @@ const handleUpload = async (files) => {
   // Build stable shell props so PageShell (defined at module scope) preserves child component state across App re-renders
   const shellProps = { isDark, authUsername, onNavigate: handleNavigate, onLogout: handleLogout, userRole, searchInputRef: globalSearchRef };
 
-  // Smooth animated counter for the resolving phase — lives in App so it survives
-  // PortfolioView remounts that happen on every uploadProgress state update.
-  const [displayedResolved, setDisplayedResolved] = useState(0);
-  const animTickRef = useRef(null);
-  useEffect(() => {
-    const target = uploadProgress?.resolvedCount;
-    if (target == null) { setDisplayedResolved(0); return; }
-    clearInterval(animTickRef.current);
-    const current = displayedResolved;
-    const steps = target - current;
-    if (steps <= 0) { setDisplayedResolved(target); return; }
-    const intervalMs = Math.max(10, Math.min(30, Math.floor(800 / steps)));
-    let cur = current;
-    animTickRef.current = setInterval(() => {
-      cur++;
-      setDisplayedResolved(cur);
-      if (cur >= target) clearInterval(animTickRef.current);
-    }, intervalMs);
-    return () => clearInterval(animTickRef.current);
-  }, [uploadProgress?.resolvedCount]);
+  // Display the resolved count directly — no JS animation interval so App doesn't
+  // re-render every 10-30ms, which was causing PortfolioView to remount and
+  // resetting the CSS spinner animation on every tick.
+  const displayedResolved = uploadProgress?.resolvedCount ?? 0;
 
   const ProfileRoute = () => {
     const { username } = useParams();
