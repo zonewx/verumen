@@ -840,16 +840,48 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
     if (ticker) {
       await supabase.from('transactions').update({ ticker }).eq('id', tx.id);
       resolved++;
-    } else {
-      // Resolver couldn't identify this ticker — fall back to raw_ticker so this
-      // transaction is removed from the unresolved queue and doesn't cause an infinite loop.
-      // The reconstruct endpoint already uses raw_ticker as a fallback anyway.
-      const fallback = (tx.raw_ticker || '').trim() || tx.isin || null;
-      if (fallback) await supabase.from('transactions').update({ ticker: fallback }).eq('id', tx.id);
     }
+    // Unresolved transactions stay with ticker = '' — the client's no-progress counter
+    // handles the infinite-loop case. Committing raw_ticker would set a wrong exchange.
   }));
   const { count: remaining } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
   res.json({ resolved, total: txList.length, remaining: remaining || 0 });
+});
+
+// Re-resolve specific tickers that failed price fetch — called by client after portfolio load
+app.post('/api/transactions/resolve-failed', requireUser, async (req, res) => {
+  const { failedTickers } = req.body;
+  if (!Array.isArray(failedTickers) || !failedTickers.length) return res.json({ resolved: 0 });
+
+  // Find transactions for these tickers and clear their cache so resolver tries fresh
+  const { data: txs } = await supabase.from('transactions')
+    .select('id, raw_ticker, isin, name, currency, broker, ticker')
+    .eq('user_id', req.user.id)
+    .in('ticker', failedTickers)
+    .in('type', ['buy', 'sell']);
+
+  if (!txs?.length) return res.json({ resolved: 0 });
+
+  // Delete ticker_cache entries for these so resolver tries YF fresh
+  const cacheKeys = txs.map(tx => `${tx.broker||''}|${tx.currency||''}|${tx.isin||tx.raw_ticker||tx.name}`);
+  await Promise.all(cacheKeys.map(k =>
+    supabase.from('ticker_cache').delete().eq('user_id', req.user.id).eq('cache_key', k)
+  ));
+
+  // Reset tickers to '' so they're treated as unresolved
+  await supabase.from('transactions').update({ ticker: '' }).eq('user_id', req.user.id).in('ticker', failedTickers);
+
+  // Re-resolve
+  const tickerMap = await resolveSymbolBatch(txs.map(tx => ({ ...tx, ticker: '' })), req.user.id);
+  let resolved = 0;
+  await Promise.all(txs.map(async tx => {
+    const ticker = tickerMap[tx.id];
+    if (ticker) {
+      await supabase.from('transactions').update({ ticker }).eq('id', tx.id);
+      resolved++;
+    }
+  }));
+  res.json({ resolved, total: txs.length });
 });
 
 app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
@@ -1052,6 +1084,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   };
   // Resolve a ticker to a live quote, with fallback to ISIN-based suffix variants, then to price cache
   const fetchQuote = async (ticker, isin, skipCache = false) => {
+    let resolvedTicker = ticker;
     const tryQuote = async (sym) => {
       let q = null;
       try {
@@ -1061,6 +1094,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         if (e?.result?.regularMarketPrice != null) q = e.result;
       }
       if (q?.regularMarketPrice != null) {
+        resolvedTicker = sym; // track which ticker actually worked
         _priceCache.set(sym, { q, cachedAt: Date.now() });
         return q;
       }
@@ -1090,9 +1124,10 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     if (!q && !skipCache) {
       const cached = _priceCache.get(ticker);
       if (cached && (Date.now() - cached.cachedAt) < PRICE_CACHE_TTL) {
-        return { ...cached.q, _fromCache: true };
+        return { ...cached.q, _fromCache: true, _resolvedTicker: ticker };
       }
     }
+    if (q) q._resolvedTicker = resolvedTicker;
     return q;
   };
 
@@ -1104,13 +1139,18 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       if (!q) {
         // Yahoo Finance unavailable and no cached price — include holding without live price
         const fallbackName = h.name || h.ticker;
-        results.push({ ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker), currency:'SEK', quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null });
+        results.push({ ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker), currency:'SEK', quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null, noData:true });
         continue;
+      }
+      // If the ISIN-suffix fallback found a better ticker (e.g. NORION→NORION.ST), persist it
+      const resolvedTicker = q._resolvedTicker || h.ticker;
+      if (resolvedTicker !== h.ticker) {
+        supabase.from('transactions').update({ ticker: resolvedTicker }).eq('user_id', req.user.id).eq('ticker', h.ticker).then(() => {});
       }
       if (q._fromCache) hasStalePrices = true;
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice, currency=q.currency||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
-      results.push({ ticker:h.ticker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,h.ticker), flag:getFlag(h.ticker), currency, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache });
+      results.push({ ticker:resolvedTicker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,resolvedTicker), flag:getFlag(resolvedTicker), currency, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache });
     } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); }
   }
   const totalValue=results.reduce((s,r)=>s+(r.currentValue??0),0), totalCost=results.reduce((s,r)=>s+fromSEK(toSEK((r.avgPrice||0)*r.quantity,r.currency)),0), totalProfit=totalValue-totalCost;

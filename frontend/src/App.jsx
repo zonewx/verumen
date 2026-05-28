@@ -368,6 +368,30 @@ export default function App() {
     fetchAllData(portfolio, baseCurrency);
   };
 
+  const [retryingFailed, setRetryingFailed] = useState(false);
+  const handleRetryFailed = async () => {
+    if (!failedHoldings.length || retryingFailed) return;
+    setRetryingFailed(true);
+    try {
+      const failedTickers = failedHoldings.map(h => h.ticker);
+      await apiFetch('/api/transactions/resolve-failed', {
+        method: 'POST',
+        body: JSON.stringify({ failedTickers }),
+      });
+      // Rebuild portfolio with fresh tickers
+      const syncRes = await apiFetch('/api/transactions/reconstruct');
+      const reconstructed = await syncRes.json();
+      if (reconstructed.length > 0) setPortfolio(reconstructed);
+      apiCache.del('/api/portfolio-dashboard');
+      apiCache.del('/api/portfolio-fingerprint');
+      forceRefreshRef.current = true;
+      await fetchAllData(reconstructed.length > 0 ? reconstructed : portfolio, baseCurrency);
+    } catch (e) {
+      console.error('Retry failed:', e);
+    }
+    setRetryingFailed(false);
+  };
+
 const handleUpload = async (files) => {
   const fileList = Array.from(files);
   if (!fileList.length) return;
@@ -634,6 +658,8 @@ const handleUpload = async (files) => {
   const sym = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'SEK': 'kr' }[baseCurrency] || baseCurrency;
   const totals = dashboardData?.totals;
   const hasStalePrices = dashboardData?.hasStalePrices === true;
+  const failedHoldings = dashboardData?.portfolio?.filter(h => h.noData) ?? [];
+  const hasFailedHoldings = failedHoldings.length > 0;
   const plPositive = totals?.profit >= 0;
   const plColor = plPositive ? 'text-green-400' : 'text-red-400';
   const plSign = plPositive ? '+' : '';
@@ -1071,12 +1097,25 @@ const handleUpload = async (files) => {
                     ) : (
                       <>
                         <div className="flex items-center justify-between gap-3">
-                          {hasStalePrices ? (
-                            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium flex-1 ${isDark ? 'bg-yellow-900/20 border border-yellow-800/40 text-yellow-400' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                              Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.
-                            </div>
-                          ) : <div />}
+                          <div className="flex flex-col gap-2 flex-1 min-w-0">
+                            {hasStalePrices && (
+                              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-yellow-900/20 border border-yellow-800/40 text-yellow-400' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.
+                              </div>
+                            )}
+                            {hasFailedHoldings && (
+                              <div className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-red-900/20 border border-red-800/40 text-red-400' : 'bg-red-50 border border-red-200 text-red-600'}`}>
+                                <div className="flex items-center gap-2">
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                  {failedHoldings.length} holding{failedHoldings.length > 1 ? 's' : ''} couldn't fetch price data ({failedHoldings.map(h => h.ticker).join(', ')})
+                                </div>
+                                <button onClick={handleRetryFailed} disabled={retryingFailed} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">
+                                  {retryingFailed ? 'Retrying…' : 'Retry resolution'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
                           <button
                             onClick={handleRefreshPrices}
                             disabled={isAppLoading}
