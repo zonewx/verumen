@@ -513,12 +513,13 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     } catch(e) {}
   }
 
-  // 6. Ticker-string search — handles cases where YF ticker differs from exchange ticker
-  // (e.g. Nordnet exports "HACKSAW" but YF symbol is "HACK.ST")
-  // Search for the raw ticker string and pick any result matching our exchange preference.
-  if (cleaned?.length >= 3) {
+  // 6. ISIN search + ticker-string search — handles cases where YF ticker differs from exchange
+  // ticker (e.g. "HACKSAW" on exchange but "HACK.ST" on YF). ISIN is tried first as it is
+  // unambiguous; ticker string is the fallback.
+  for (const searchTerm of [isin, cleaned].filter(Boolean)) {
+    if (!searchTerm || searchTerm.length < 3) continue;
     try {
-      const results = await withYFTimeout(yahooFinance.search(cleaned));
+      const results = await withYFTimeout(yahooFinance.search(searchTerm));
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
@@ -1152,15 +1153,18 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         if (q) break;
       }
       // Suffix append didn't work — the YF symbol may differ from the exchange ticker entirely
-      // (e.g. Nordnet exports "HACKSAW" but YF symbol is "HACK.ST"). Search YF by ticker string
-      // and pick the first result matching our expected exchange suffix.
+      // (e.g. "HACKSAW" on exchange but "HACK.ST" on YF). Try two searches:
+      // 1. ISIN search — unambiguous, no false positives possible
+      // 2. Ticker-string search — catches name-based matches
       if (!q && suffixes.length) {
-        try {
-          const sr = await withYFTimeout(yahooFinance.search(ticker));
-          const candidates = (sr?.quotes || []).filter(r => r.symbol && r.quoteType !== 'OPTION' && r.quoteType !== 'FUTURE');
-          const hit = candidates.find(r => suffixes.some(s => r.symbol.endsWith(s)));
-          if (hit) q = await tryQuote(hit.symbol);
-        } catch(_) {}
+        for (const searchTerm of [isin, ticker].filter(Boolean)) {
+          try {
+            const sr = await withYFTimeout(yahooFinance.search(searchTerm));
+            const candidates = (sr?.quotes || []).filter(r => r.symbol && r.quoteType !== 'OPTION' && r.quoteType !== 'FUTURE');
+            const hit = candidates.find(r => suffixes.some(s => r.symbol.endsWith(s)));
+            if (hit) { q = await tryQuote(hit.symbol); if (q) break; }
+          } catch(_) {}
+        }
       }
     }
     // Fall back to cached price when YF is unavailable or rate-limited (skip if force-refreshing)
