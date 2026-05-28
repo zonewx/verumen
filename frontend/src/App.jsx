@@ -588,6 +588,17 @@ const handleUpload = async (files) => {
     }
   };
 
+  const handleClearTickerCache = async () => {
+    if (!confirm('This will clear all cached ticker resolutions. Your transaction data is kept, but tickers will be re-resolved on next upload. Continue?')) return;
+    try {
+      await apiFetch('/api/ticker-cache', { method: 'DELETE' });
+      setSyncStatus('Ticker cache cleared. Re-upload a CSV to re-resolve tickers.');
+      setTimeout(() => setSyncStatus(''), 4000);
+    } catch (err) {
+      setSyncStatus('Error clearing ticker cache: ' + err.message);
+    }
+  };
+
   const toggleRemoval = t => setSelectedForRemoval(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
   const handleRemoveSelected = () => { setPortfolio(p => p.filter(s => !selectedForRemoval.includes(s.ticker))); setSelectedForRemoval([]); };
 
@@ -794,7 +805,6 @@ const handleUpload = async (files) => {
       '/portfolio/import':       'import',
       '/portfolio/manage':       'manage',
       '/portfolio/settings':     'settings',
-      '/portfolio/danger':       'danger',
     };
     const currentTab = pathToTab[location.pathname] || 'overview';
 
@@ -923,24 +933,7 @@ const handleUpload = async (files) => {
                   </div>
                 )}
 
-                {currentTab === 'danger' && (
-                  <div className="flex flex-col gap-5">
-                    <h2 className="text-xl font-bold">Danger Zone</h2>
-                    <div className={`${cardCls} p-5 flex flex-col gap-4`}>
-                      <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>These actions cannot be undone.</p>
-                      <button onClick={() => setPortfolio([])} className={`py-2.5 rounded-xl font-semibold text-sm border transition ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
-                        Clear Portfolio
-                      </button>
-                      {txCount.total > 0 && (
-                        <button onClick={handleClearTransactions} className={`py-2.5 rounded-xl font-semibold text-sm border transition ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
-                          Clear Transaction History
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {currentTab === 'overview' && (
+{currentTab === 'overview' && (
                   <div className="flex flex-col gap-6">
                     {uploadLoading && (!dashboardData || portfolio.length === 0) ? (
                       <div className="flex flex-col items-center justify-center py-24 gap-8">
@@ -1433,6 +1426,7 @@ const handleUpload = async (files) => {
         onClearPortfolio: () => setPortfolio([]),
         onClearTransactions: handleClearTransactions,
         onClearAll: handleClearAll,
+        onClearTickerCache: handleClearTickerCache,
         onClearBroker: handleClearBroker,
         onCancelUpload: () => { uploadAbortRef.current = true; uploadAbortControllerRef.current?.abort(); },
       }}
@@ -1464,7 +1458,6 @@ const handleUpload = async (files) => {
           <Route path="/portfolio/import" element={<PortfolioView/>}/>
           <Route path="/portfolio/manage" element={<PortfolioView/>}/>
           <Route path="/portfolio/settings" element={<PortfolioView/>}/>
-          <Route path="/portfolio/danger" element={<PortfolioView/>}/>
           
           <Route path="/cs-skins" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/cs-skins/inventory" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>

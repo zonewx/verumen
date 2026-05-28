@@ -756,6 +756,11 @@ app.delete('/api/transactions', requireUser, async (req, res) => {
   res.json({ success: true });
 });
 
+app.delete('/api/ticker-cache', requireUser, async (req, res) => {
+  await supabase.from('ticker_cache').delete().eq('user_id', req.user.id);
+  res.json({ success: true });
+});
+
 app.post('/api/transactions/upload', requireUser, async (req, res) => {
   const { files, broker: brokerKey, forceBroker } = req.body;
   console.log('[upload] received files:', files?.length, 'forceBroker:', forceBroker, 'brokerKey:', brokerKey);

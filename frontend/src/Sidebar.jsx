@@ -271,7 +271,9 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         { id: 'import',   label: 'Import CSV',      path: '/portfolio' },
         { id: 'manage',   label: 'Manage Holdings', isAction: true },
         { id: 'settings', label: 'Settings',        isAction: true },
-        { id: 'danger',   label: 'Danger Zone',     isAction: true, isDanger: true },
+        { id: 'divider2', isDivider: true },
+        { id: 'clear-data',         label: 'Clear data',         isDirectButton: true, actionKey: 'onClearAll' },
+        { id: 'clear-ticker-cache', label: 'Clear ticker cache', isDirectButton: true, actionKey: 'onClearTickerCache' },
       ]
     },
     {
@@ -404,6 +406,18 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                     {item.subItems.map(subItem => {
                       if (subItem.isDivider) {
                         return <div key={subItem.id} className={`my-1.5 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`} />;
+                      }
+
+                      if (subItem.isDirectButton) {
+                        return (
+                          <button
+                            key={subItem.id}
+                            onClick={() => portfolioActions?.[subItem.actionKey]?.()}
+                            className={`w-full flex items-center px-2 py-1.5 rounded-lg transition-colors text-left text-red-400 ${isDark ? 'hover:bg-red-900/20' : 'hover:bg-red-50'}`}
+                          >
+                            <span className="text-sm">{subItem.label}</span>
+                          </button>
+                        );
                       }
 
                       if (subItem.isAction) {
