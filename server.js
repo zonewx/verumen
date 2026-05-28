@@ -1147,6 +1147,17 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         q = await tryQuote(`${ticker}${suffix}`);
         if (q) break;
       }
+      // Suffix append didn't work — the YF symbol may differ from the exchange ticker entirely
+      // (e.g. Nordnet exports "HACKSAW" but YF symbol is "HACK.ST"). Search YF by ticker string
+      // and pick the first result matching our expected exchange suffix.
+      if (!q && suffixes.length) {
+        try {
+          const sr = await withYFTimeout(yahooFinance.search(ticker));
+          const candidates = (sr?.quotes || []).filter(r => r.symbol && r.quoteType !== 'OPTION' && r.quoteType !== 'FUTURE');
+          const hit = candidates.find(r => suffixes.some(s => r.symbol.endsWith(s)));
+          if (hit) q = await tryQuote(hit.symbol);
+        } catch(_) {}
+      }
     }
     // Fall back to cached price when YF is unavailable or rate-limited (skip if force-refreshing)
     if (!q && !skipCache) {
@@ -1170,10 +1181,14 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         results.push({ ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker,h.isin), currency:h.currency||'SEK', isin:h.isin||null, quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null, noData:true });
         continue;
       }
-      // If the ISIN-suffix fallback found a better ticker (e.g. NORION→NORION.ST), persist it
+      // If a fallback (ISIN suffix or ticker-string search) found a better ticker, persist it.
+      // Match on raw_ticker too because unresolved transactions have ticker='' in DB.
       const resolvedTicker = q._resolvedTicker || h.ticker;
       if (resolvedTicker !== h.ticker) {
-        supabase.from('transactions').update({ ticker: resolvedTicker }).eq('user_id', req.user.id).eq('ticker', h.ticker).then(() => {});
+        supabase.from('transactions').update({ ticker: resolvedTicker })
+          .eq('user_id', req.user.id)
+          .or(`ticker.eq.${h.ticker},and(ticker.eq.,raw_ticker.eq.${h.ticker})`)
+          .then(() => {});
       }
       if (q._fromCache) hasStalePrices = true;
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice, currency=q.currency||'SEK';
