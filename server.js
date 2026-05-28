@@ -356,6 +356,15 @@ function getEffectiveCurrency(currency, isin, broker) {
   return currency || 'SEK';
 }
 
+// Wrap a YF promise with a hard timeout so a hanging call doesn't stall the entire resolver
+function withYFTimeout(promise, ms = 8000) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('YF timeout')), ms); })
+  ]).finally(() => clearTimeout(timer));
+}
+
 function cleanRawTicker(raw) {
   if (!raw) return null;
   let cleaned = raw.trim().toUpperCase();
@@ -440,7 +449,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
 
   const verifyQuote = async (symbol) => {
     let q = null;
-    try { q = await yahooFinance.quote(symbol); }
+    try { q = await withYFTimeout(yahooFinance.quote(symbol)); }
     catch(e) { if (e?.result?.regularMarketPrice != null) q = e.result; }
     return q?.regularMarketPrice != null ? symbol : null;
   };
@@ -474,7 +483,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   // 5. ISIN search — use Yahoo search and score results
   if (isin) {
     try {
-      const results = await yahooFinance.search(isin);
+      const results = await withYFTimeout(yahooFinance.search(isin));
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         // Score: heavily prefer symbols matching transaction currency's exchange
@@ -507,7 +516,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     try {
       // Use first 3 words of name for better search results
       const searchName = name.split(/\s+/).slice(0, 3).join(' ');
-      const results = await yahooFinance.search(searchName);
+      const results = await withYFTimeout(yahooFinance.search(searchName));
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
@@ -828,7 +837,16 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
   let resolved = 0;
   await Promise.all(txList.map(async tx => {
     const ticker = tickerMap[tx.id];
-    if (ticker) { await supabase.from('transactions').update({ ticker }).eq('id', tx.id); resolved++; }
+    if (ticker) {
+      await supabase.from('transactions').update({ ticker }).eq('id', tx.id);
+      resolved++;
+    } else {
+      // Resolver couldn't identify this ticker — fall back to raw_ticker so this
+      // transaction is removed from the unresolved queue and doesn't cause an infinite loop.
+      // The reconstruct endpoint already uses raw_ticker as a fallback anyway.
+      const fallback = (tx.raw_ticker || '').trim() || tx.isin || null;
+      if (fallback) await supabase.from('transactions').update({ ticker: fallback }).eq('id', tx.id);
+    }
   }));
   const { count: remaining } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
   res.json({ resolved, total: txList.length, remaining: remaining || 0 });

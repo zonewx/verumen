@@ -439,7 +439,9 @@ const handleUpload = async (files) => {
     const CHUNK_SIZE = 20; // Smaller chunks to avoid timeout (was 50)
     const startTime = Date.now();
     let failures = 0;
-    
+    let noProgressChunks = 0;
+    let lastRemaining = remaining;
+
     while (remaining > 0 && failures < 3) {
       if (uploadAbortRef.current) {
         uploadAbortRef.current = false;
@@ -466,7 +468,18 @@ const handleUpload = async (files) => {
 
         totalResolved += chunkData.resolved || 0;
         remaining = chunkData.remaining || 0;
-        failures = 0; // Reset failure count on success
+        failures = 0;
+
+        // Detect no-progress (remaining didn't decrease) — bail out to avoid infinite loop
+        if (remaining >= lastRemaining && remaining > 0) {
+          noProgressChunks++;
+          if (noProgressChunks >= 3) {
+            remaining = 0; // force loop exit
+          }
+        } else {
+          noProgressChunks = 0;
+        }
+        lastRemaining = remaining;
 
         const progress = 40 + Math.floor(((totalResolved / data.newAdded) * 40));
 
