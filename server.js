@@ -873,15 +873,19 @@ app.post('/api/transactions/resolve-failed', requireUser, async (req, res) => {
   const { failedTickers } = req.body;
   if (!Array.isArray(failedTickers) || !failedTickers.length) return res.json({ resolved: 0 });
 
-  // Find transactions for these tickers. The display ticker (h.ticker) may be raw_ticker when
-  // the DB ticker is '' (unresolved), so match against both columns.
-  const tickerFilter = failedTickers.map(t => `ticker.eq.${t}`).join(',');
-  const rawFilter = failedTickers.map(t => `raw_ticker.eq.${t}`).join(',');
-  const { data: txs } = await supabase.from('transactions')
-    .select('id, raw_ticker, isin, name, currency, broker, ticker')
-    .eq('user_id', req.user.id)
-    .or(`${tickerFilter},${rawFilter}`)
-    .in('type', ['buy', 'sell']);
+  // Two separate safe queries: by resolved ticker and by raw_ticker (for unresolved rows where ticker='')
+  const [byTicker, byRaw] = await Promise.all([
+    supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
+      .eq('user_id', req.user.id).in('ticker', failedTickers).in('type', ['buy', 'sell']),
+    supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
+      .eq('user_id', req.user.id).in('raw_ticker', failedTickers).in('type', ['buy', 'sell']),
+  ]);
+  const seen = new Set();
+  const txs = [...(byTicker.data || []), ...(byRaw.data || [])].filter(t => {
+    if (seen.has(t.id)) return false;
+    seen.add(t.id);
+    return true;
+  });
 
   if (!txs?.length) return res.json({ resolved: 0 });
 
@@ -1182,12 +1186,12 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         continue;
       }
       // If a fallback (ISIN suffix or ticker-string search) found a better ticker, persist it.
-      // Match on raw_ticker too because unresolved transactions have ticker='' in DB.
+      // h.ticker is derived from (db.ticker || db.raw_ticker), so raw_ticker is the safe key.
       const resolvedTicker = q._resolvedTicker || h.ticker;
       if (resolvedTicker !== h.ticker) {
         supabase.from('transactions').update({ ticker: resolvedTicker })
           .eq('user_id', req.user.id)
-          .or(`ticker.eq.${h.ticker},and(ticker.eq.,raw_ticker.eq.${h.ticker})`)
+          .eq('raw_ticker', h.ticker)
           .then(() => {});
       }
       if (q._fromCache) hasStalePrices = true;
