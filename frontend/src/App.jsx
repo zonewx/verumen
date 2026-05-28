@@ -1105,14 +1105,29 @@ const handleUpload = async (files) => {
                               </div>
                             )}
                             {hasFailedHoldings && (
-                              <div className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-red-900/20 border border-red-800/40 text-red-400' : 'bg-red-50 border border-red-200 text-red-600'}`}>
-                                <div className="flex items-center gap-2">
-                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                                  {failedHoldings.length} holding{failedHoldings.length > 1 ? 's' : ''} couldn't fetch price data ({failedHoldings.map(h => h.ticker).join(', ')})
+                              <div className={`px-3 py-2.5 rounded-lg text-xs ${isDark ? 'bg-red-900/20 border border-red-800/40 text-red-400' : 'bg-red-50 border border-red-200 text-red-600'}`}>
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                  <div className="flex items-center gap-1.5 font-medium">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                    {failedHoldings.length} holding{failedHoldings.length > 1 ? 's' : ''} not found on Yahoo Finance
+                                  </div>
+                                  <button onClick={handleRetryFailed} disabled={retryingFailed} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">
+                                    {retryingFailed ? 'Retrying…' : 'Retry'}
+                                  </button>
                                 </div>
-                                <button onClick={handleRetryFailed} disabled={retryingFailed} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">
-                                  {retryingFailed ? 'Retrying…' : 'Retry resolution'}
-                                </button>
+                                <div className="flex flex-col gap-1">
+                                  {failedHoldings.map(h => (
+                                    <div key={h.ticker} className="flex items-center justify-between gap-2 pl-3">
+                                      <span className="font-mono">{h.ticker}{h.isin ? <span className={`ml-1.5 font-sans ${isDark ? 'text-red-500/70' : 'text-red-400'}`}>{h.isin}</span> : ''}</span>
+                                      {h.isin && (
+                                        <button onClick={() => { setOverrideIsin(h.isin); navigate('/portfolio/settings'); }} className="shrink-0 font-semibold underline underline-offset-2">
+                                          Set ticker →
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className={`mt-1.5 pl-3 ${isDark ? 'text-red-500/60' : 'text-red-400/80'}`}>Use "Set ticker" to pin this ISIN to a Yahoo Finance ticker (e.g. HACKSAW.ST), then re-upload.</p>
                               </div>
                             )}
                           </div>
@@ -1222,8 +1237,8 @@ const handleUpload = async (files) => {
                           </thead>
                           <tbody>
                             {rows.map(s => (
-                              <tr key={s.ticker} className={`border-t ${isDark ? 'border-gray-700 hover:bg-gray-700/30' : 'border-gray-100 hover:bg-gray-50'} transition`}>
-                                <td className="p-4 font-bold"><span className="flex items-center gap-2">{s.flag}<span>{s.cleanName || s.name}</span></span></td>
+                              <tr key={s.ticker} className={`border-t ${s.noData ? (isDark ? 'border-red-900/40 bg-red-900/10' : 'border-red-100 bg-red-50/50') : (isDark ? 'border-gray-700 hover:bg-gray-700/30' : 'border-gray-100 hover:bg-gray-50')} transition`}>
+                                <td className="p-4 font-bold"><span className="flex items-center gap-2">{s.flag}<span>{s.cleanName || s.name}</span>{s.noData && <span className={`text-xs font-normal ${isDark ? 'text-red-500' : 'text-red-400'}`}>no data</span>}</span></td>
                                 <td className={`p-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{s.ticker}</td>
                                 <td className="p-4 whitespace-nowrap">{fmt(s.nativePrice)} {s.currency}</td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct == null ? '' : s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct == null ? '—' : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</td>
