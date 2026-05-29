@@ -2056,6 +2056,11 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {
   if (req.params.username === 'admin') return res.status(400).json({ error:'Cannot delete admin account.' });
+  const { password } = req.body || {};
+  if (!password) return res.status(400).json({ error: 'Password required' });
+  const email = `${req.username.toLowerCase()}@statera.local`;
+  const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+  if (authError) return res.status(401).json({ error: 'Incorrect password' });
   const { data: profile } = await supabase.from('profiles').select('id').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error:'User not found.' });
   await supabase.auth.admin.deleteUser(profile.id);

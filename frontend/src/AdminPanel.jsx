@@ -15,6 +15,9 @@ export default function AdminPanel({ isDark, authUsername }) {
   // Modals
   const [resetModal, setResetModal] = useState(null); // { username }
   const [resetPw, setResetPw] = useState('');
+  const [deleteModal, setDeleteModal] = useState(null); // username
+  const [deletePw, setDeletePw] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [annForm, setAnnForm] = useState({ title: '', message: '', type: 'info' });
   const [settings, setSettings] = useState({ allowRegistration: true, userLimit: 0 });
   const [userLimitInput, setUserLimitInput] = useState('0');
@@ -133,12 +136,19 @@ export default function AdminPanel({ isDark, authUsername }) {
   useEffect(() => { if (tab === 'tickers') fetchFailures(); }, [tab]);
   useEffect(() => { if (tab === 'global-overrides') fetchGlobalOverrides(); }, [tab]);
 
-  const deleteUser = async (username) => {
-    if (!confirm(`Delete user "${username}" and ALL their data? This cannot be undone.`)) return;
-    const res = await fetch(`/api/admin/users/${username}`, { method: 'DELETE', headers: h });
+  const deleteUser = (username) => {
+    setDeleteModal(username);
+    setDeletePw('');
+    setDeleteError('');
+  };
+
+  const confirmDeleteUser = async () => {
+    setDeleteError('');
+    const res = await fetch(`/api/admin/users/${deleteModal}`, { method: 'DELETE', headers: h, body: JSON.stringify({ password: deletePw }) });
     const data = await res.json();
-    if (data.success) { flash(`✓ Deleted ${username}`); fetchStats(); }
-    else flash('Error: ' + data.error);
+    if (!res.ok || !data.success) { setDeleteError(data.error || 'Incorrect password'); return; }
+    setDeleteModal(null); setDeletePw('');
+    flash(`✓ Deleted ${deleteModal}`); fetchStats();
   };
 
   const resetPassword = async () => {
@@ -267,6 +277,23 @@ export default function AdminPanel({ isDark, authUsername }) {
 
   return (
     <div className="flex-1 overflow-y-auto">
+      {/* Delete user modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDeleteModal(null)}>
+          <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold mb-1">Delete user</h3>
+            <p className={`text-sm mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>This will permanently delete <span className="font-semibold text-white">{deleteModal}</span> and all their data.</p>
+            <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Enter your password to confirm.</p>
+            <input type="password" value={deletePw} onChange={e => setDeletePw(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDeleteUser()} placeholder="Your password" className={`${inputCls} mb-2`} autoFocus />
+            {deleteError && <p className="text-xs text-red-400 mb-2">{deleteError}</p>}
+            <div className="flex gap-2 mt-1">
+              <button onClick={confirmDeleteUser} className={btnRed + ' flex-1 py-2'}>Delete</button>
+              <button onClick={() => setDeleteModal(null)} className={btnGhost + ' flex-1 py-2'}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reset password modal */}
       {resetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setResetModal(null)}>
@@ -448,44 +475,51 @@ export default function AdminPanel({ isDark, authUsername }) {
                   <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{stats.users.length} registered user(s)</p>
                   <button onClick={fetchStats} className={btnGhost}>↺ Refresh</button>
                 </div>
-                {stats.users.map(u => (
-                  <div key={u.username} className={`${card} p-5`}>
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
+                {stats.users.map(u => {
+                  const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800' };
+                  return (
+                  <div key={u.username} className={`${card} overflow-hidden`}>
+                    {/* Header */}
+                    <div className="flex items-center gap-3 p-4 border-b border-gray-700/50">
+                      <div className="w-9 h-9 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
                         {u.avatarBase64 ? <img src={u.avatarBase64} className="w-full h-full object-cover" alt={u.username}/> : u.username[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center flex-wrap gap-2 mb-1">
-                          <span className="font-bold">{u.username}</span>
-                          {u.username === 'admin' && <span className="text-xs bg-red-900/40 text-red-400 border border-red-800 px-2 py-0.5 rounded-full">Admin</span>}
-                          {u.hasSteam && <span className="text-xs text-orange-400 bg-orange-900/30 px-1.5 py-0.5 rounded-full">Steam</span>}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm">{u.username}</span>
+                          {roleBadge[u.role] && <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadge[u.role]}`}>{u.role.charAt(0).toUpperCase() + u.role.slice(1)}</span>}
+                          {u.hasSteam && <span className="text-xs text-orange-400 bg-orange-900/30 px-1.5 py-0.5 rounded-full border border-orange-800/50">Steam</span>}
                         </div>
-                        <div className="grid grid-cols-2 gap-3 mb-3 mt-2">
-                          {[
-                            { label: 'Joined', value: new Date(u.createdAt).toLocaleDateString() },
-                            { label: 'Transactions', value: u.transactionCount.toLocaleString() },
-  
-                          ].map(({ label, value }) => (
-                            <div key={label}>
-                              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{label}</p>
-                              <p className="text-sm font-semibold">{value}</p>
-                            </div>
-                          ))}
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0 text-right">
+                        <div>
+                          <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Joined</p>
+                          <p className="text-xs font-semibold">{new Date(u.createdAt).toLocaleDateString()}</p>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button onClick={() => setResetModal({ username: u.username })} className={btnBlue}>Reset Password</button>
-                          <button onClick={() => clearCache(u.username)} className={btnGhost}>Clear Cache</button>
-                          <button onClick={() => resolveUser(u.username)} className={btnGhost}>Re-resolve Tickers</button>
-                          <button onClick={() => clearBio(u.username)} className={btnGhost}>Clear Bio</button>
-                          <button onClick={() => exportUser(u.username)} className={btnGhost}>Export Data</button>
-                          {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnGhost}>Make CS Private</button>}
-                          {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnGhost}>Make Stocks Private</button>}
-                          {u.username !== 'admin' && <button onClick={() => deleteUser(u.username)} className={btnRed}>Delete User</button>}
+                        <div>
+                          <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Transactions</p>
+                          <p className="text-xs font-semibold">{u.transactionCount.toLocaleString()}</p>
                         </div>
                       </div>
                     </div>
+                    {/* Actions */}
+                    <div className="flex items-center justify-between gap-2 px-4 py-3 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button onClick={() => setResetModal({ username: u.username })} className={btnBlue}>Reset Password</button>
+                        <button onClick={() => clearCache(u.username)} className={btnGhost}>Clear Cache</button>
+                        <button onClick={() => resolveUser(u.username)} className={btnGhost}>Re-resolve Tickers</button>
+                        <button onClick={() => clearBio(u.username)} className={btnGhost}>Clear Bio</button>
+                        <button onClick={() => exportUser(u.username)} className={btnGhost}>Export Data</button>
+                        {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnGhost}>Make CS Private</button>}
+                        {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnGhost}>Make Stocks Private</button>}
+                      </div>
+                      {u.username !== 'admin' && (
+                        <button onClick={() => deleteUser(u.username)} className={btnRed}>Delete User</button>
+                      )}
+                    </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
