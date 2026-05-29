@@ -831,7 +831,9 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
   const batchSize = (limit && Number.isFinite(+limit)) ? Math.min(+limit, 100) : null;
 
   if (force) {
-    await supabase.from('ticker_cache').delete().eq('user_id', req.user.id);
+    // Do NOT clear the entire ticker_cache — that forces all stocks to hit YF simultaneously
+    // and triggers rate-limiting. Cache hits for already-correct tickers are free; only
+    // genuinely unresolved tickers (cache miss) will make fresh YF calls.
     const { data: allTxs } = await supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker').eq('user_id', req.user.id).in('type', ['buy','sell','other','withdrawal']);
     const txList = allTxs || [];
     // resolveSymbolBatch loads the (now-empty) cache once and skips the rate-limit
@@ -873,6 +875,9 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
 app.post('/api/transactions/resolve-failed', requireUser, async (req, res) => {
   const { failedTickers } = req.body;
   if (!Array.isArray(failedTickers) || !failedTickers.length) return res.json({ resolved: 0 });
+  // Safety cap: if many holdings are failing it's a systemic issue — mass-reset would wipe all
+  // resolved tickers and trigger YF rate-limiting. Use force-resolve instead.
+  if (failedTickers.length > 5) return res.status(400).json({ error: 'too_many', count: failedTickers.length });
 
   // Two separate safe queries: by resolved ticker and by raw_ticker (for unresolved rows where ticker='')
   const [byTicker, byRaw] = await Promise.all([

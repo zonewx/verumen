@@ -1111,9 +1111,15 @@ const handleUpload = async (files) => {
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                                     {failedHoldings.length} holding{failedHoldings.length > 1 ? 's' : ''} not found on Yahoo Finance
                                   </div>
-                                  <button onClick={handleRetryFailed} disabled={retryingFailed} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">
-                                    {retryingFailed ? 'Retrying…' : 'Retry'}
-                                  </button>
+                                  {failedHoldings.length <= 5 ? (
+                                    <button onClick={handleRetryFailed} disabled={retryingFailed} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">
+                                      {retryingFailed ? 'Retrying…' : 'Retry'}
+                                    </button>
+                                  ) : (
+                                    <button onClick={() => navigate('/portfolio/manage')} className="shrink-0 font-semibold underline underline-offset-2">
+                                      Force re-resolve →
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="flex flex-col gap-1">
                                   {failedHoldings.map(h => (
