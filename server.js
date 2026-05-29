@@ -1126,7 +1126,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     const tryQuote = async (sym) => {
       let q = null;
       try {
-        q = await yahooFinance.quote(sym);
+        q = await withYFTimeout(yahooFinance.quote(sym));
       } catch(e) {
         // FailedYahooValidationError still carries the data in e.result — use it
         if (e?.result?.regularMarketPrice != null) q = e.result;

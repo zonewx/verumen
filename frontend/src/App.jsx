@@ -1520,6 +1520,7 @@ const handleUpload = async (files) => {
           <Route path="/portfolio/ownership" element={<PortfolioView/>}/>
           <Route path="/portfolio/import" element={<PortfolioView/>}/>
           <Route path="/portfolio/manage" element={<PortfolioView/>}/>
+          <Route path="/portfolio/overrides" element={<PortfolioView/>}/>
           <Route path="/portfolio/settings" element={<PortfolioView/>}/>
           
           <Route path="/cs-skins" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
