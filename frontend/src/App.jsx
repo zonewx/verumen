@@ -362,8 +362,8 @@ export default function App() {
   };
 
   const handleRefreshPrices = () => {
-    apiCache.delete('/api/portfolio-dashboard');
-    apiCache.delete('/api/portfolio-fingerprint');
+    apiCache.del('/api/portfolio-dashboard');
+    apiCache.del('/api/portfolio-fingerprint');
     forceRefreshRef.current = true;
     fetchAllData(portfolio, baseCurrency);
   };
@@ -981,7 +981,7 @@ const handleUpload = async (files) => {
                           )}
                           {uploadProgress?.txEstimate > 0 && (
                             <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                              ~{uploadProgress.txEstimate.toLocaleString()} transactions
+                              approx. {uploadProgress.txEstimate.toLocaleString()} transactions
                             </p>
                           )}
                         </div>
@@ -1106,7 +1106,7 @@ const handleUpload = async (files) => {
                                       {retryingFailed ? 'Retrying…' : 'Retry'}
                                     </button>
                                   ) : (
-                                    <button onClick={() => navigate('/portfolio/manage')} className="shrink-0 font-semibold underline underline-offset-2">
+                                    <button onClick={() => navigate('/portfolio/overrides')} className="shrink-0 font-semibold underline underline-offset-2">
                                       Force re-resolve →
                                     </button>
                                   )}

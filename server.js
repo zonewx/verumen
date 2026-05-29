@@ -1185,8 +1185,23 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     return q;
   };
 
+  // Fetch quotes with a concurrency limit of 5 to avoid tripping YF rate limits.
+  // Full Promise.all (19 simultaneous) reliably triggers rate limiting.
+  const fetchWithLimit = async (items, limit, fn) => {
+    const results = new Array(items.length);
+    let idx = 0;
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (idx < items.length) {
+        const i = idx++;
+        results[i] = await fn(items[i]);
+      }
+    });
+    await Promise.all(workers);
+    return results;
+  };
+
   let hasStalePrices = false;
-  const settled = await Promise.all(portfolio.map(async h => {
+  const settled = await fetchWithLimit(portfolio, 5, async h => {
     try {
       const q = await fetchQuote(h.ticker, h.isin, !!forceRefresh);
       if (!q) {
@@ -1203,7 +1218,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
       return { ticker:resolvedTicker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,resolvedTicker), flag:getFlag(resolvedTicker,h.isin), currency, isin:h.isin||null, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache };
     } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); return null; }
-  }));
+  });
   const results = settled.filter(Boolean);
   const totalValue=results.reduce((s,r)=>s+(r.currentValue??0),0), totalCost=results.reduce((s,r)=>s+fromSEK(toSEK((r.avgPrice||0)*r.quantity,r.currency)),0), totalProfit=totalValue-totalCost;
   res.json({ portfolio:results, totals:{ value:totalValue, cost:totalCost, profit:totalProfit, returnPct:totalCost>0?(totalProfit/totalCost)*100:0 }, hasStalePrices });
