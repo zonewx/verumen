@@ -1131,7 +1131,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     const tryQuote = async (sym) => {
       let q = null;
       try {
-        q = await withYFTimeout(yahooFinance.quote(sym));
+        q = await withYFTimeout(yahooFinance.quote(sym), 4000);
       } catch(e) {
         // FailedYahooValidationError still carries the data in e.result — use it
         if (e?.result?.regularMarketPrice != null) q = e.result;
@@ -1188,32 +1188,26 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     return q;
   };
 
-  const results=[];
   let hasStalePrices = false;
-  for (const h of portfolio) {
+  const settled = await Promise.all(portfolio.map(async h => {
     try {
       const q = await fetchQuote(h.ticker, h.isin, !!forceRefresh);
       if (!q) {
-        // Yahoo Finance unavailable and no cached price — include holding without live price
         const fallbackName = h.name || h.ticker;
-        results.push({ ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker,h.isin), currency:h.currency||'SEK', isin:h.isin||null, quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null, noData:true });
-        continue;
+        return { ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker,h.isin), currency:h.currency||'SEK', isin:h.isin||null, quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null, noData:true };
       }
-      // If a fallback (ISIN suffix or ticker-string search) found a better ticker, persist it.
-      // h.ticker is derived from (db.ticker || db.raw_ticker), so raw_ticker is the safe key.
       const resolvedTicker = q._resolvedTicker || h.ticker;
       if (resolvedTicker !== h.ticker) {
         supabase.from('transactions').update({ ticker: resolvedTicker })
-          .eq('user_id', req.user.id)
-          .eq('raw_ticker', h.ticker)
-          .then(() => {});
+          .eq('user_id', req.user.id).eq('raw_ticker', h.ticker).then(() => {});
       }
       if (q._fromCache) hasStalePrices = true;
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice, currency=q.currency||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
-      results.push({ ticker:resolvedTicker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,resolvedTicker), flag:getFlag(resolvedTicker,h.isin), currency, isin:h.isin||null, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache });
-    } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); }
-  }
+      return { ticker:resolvedTicker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,resolvedTicker), flag:getFlag(resolvedTicker,h.isin), currency, isin:h.isin||null, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache };
+    } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); return null; }
+  }));
+  const results = settled.filter(Boolean);
   const totalValue=results.reduce((s,r)=>s+(r.currentValue??0),0), totalCost=results.reduce((s,r)=>s+fromSEK(toSEK((r.avgPrice||0)*r.quantity,r.currency)),0), totalProfit=totalValue-totalCost;
   res.json({ portfolio:results, totals:{ value:totalValue, cost:totalCost, profit:totalProfit, returnPct:totalCost>0?(totalProfit/totalCost)*100:0 }, hasStalePrices });
 });
@@ -1301,6 +1295,11 @@ app.post('/api/admin/global-overrides', requireModerator, async (req, res) => {
 });
 
 app.delete('/api/admin/global-overrides/:isin', requireModerator, async (req, res) => {
+  const { password } = req.body || {};
+  if (!password) return res.status(400).json({ error: 'Password required' });
+  const email = `${req.username.toLowerCase()}@statera.local`;
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return res.status(401).json({ error: 'Incorrect password' });
   await supabase.from('global_ticker_overrides').delete().eq('isin', req.params.isin);
   res.json({ success: true });
 });

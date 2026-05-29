@@ -27,6 +27,9 @@ export default function AdminPanel({ isDark, authUsername }) {
   const [clearAllModal, setClearAllModal] = useState(false);
   const [clearAllPw, setClearAllPw] = useState('');
   const [clearAllError, setClearAllError] = useState('');
+  const [removeModal, setRemoveModal] = useState(null); // isin being removed
+  const [removePw, setRemovePw] = useState('');
+  const [removeError, setRemoveError] = useState('');
 
   const token = sessionStorage.getItem('auth_token');
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
@@ -88,9 +91,18 @@ export default function AdminPanel({ isDark, authUsername }) {
     fetchGlobalOverrides();
   };
 
-  const deleteGlobalOverride = async (isin) => {
-    await fetch(`/api/admin/global-overrides/${isin}`, { method: 'DELETE', headers: h });
-    fetchGlobalOverrides();
+  const deleteGlobalOverride = (isin) => {
+    setRemoveModal(isin);
+    setRemovePw('');
+    setRemoveError('');
+  };
+
+  const confirmDeleteGlobalOverride = async () => {
+    setRemoveError('');
+    const res = await fetch(`/api/admin/global-overrides/${removeModal}`, { method: 'DELETE', headers: h, body: JSON.stringify({ password: removePw }) });
+    const data = await res.json();
+    if (!res.ok) { setRemoveError(data.error || 'Incorrect password'); return; }
+    setRemoveModal(null); setRemovePw(''); fetchGlobalOverrides();
   };
 
   const toggleGlobalOverride = async (isin) => {
@@ -571,19 +583,29 @@ export default function AdminPanel({ isDark, authUsername }) {
                       <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                         This will delete all global ticker overrides for every user. Enter your password to confirm.
                       </p>
-                      <input
-                        type="password"
-                        value={clearAllPw}
-                        onChange={e => setClearAllPw(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && clearAllGlobalOverrides()}
-                        placeholder="Your password"
-                        className={`${inputCls} mb-3`}
-                        autoFocus
-                      />
+                      <input type="password" value={clearAllPw} onChange={e => setClearAllPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && clearAllGlobalOverrides()} placeholder="Your password" className={`${inputCls} mb-3`} autoFocus />
                       {clearAllError && <p className="text-xs text-red-400 mb-3">{clearAllError}</p>}
                       <div className="flex gap-2">
                         <button onClick={clearAllGlobalOverrides} className={`flex-1 ${btnRed}`}>Delete all</button>
                         <button onClick={() => setClearAllModal(false)} className={`flex-1 ${btnGhost}`}>Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {removeModal && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                    <div className={`${card} p-6 w-full max-w-sm mx-4`}>
+                      <h3 className="font-bold text-lg mb-2">Confirm removal</h3>
+                      <p className={`text-sm mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Remove global override for <span className="font-mono font-bold">{removeModal}</span>?
+                      </p>
+                      <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Enter your password to confirm.</p>
+                      <input type="password" value={removePw} onChange={e => setRemovePw(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDeleteGlobalOverride()} placeholder="Your password" className={`${inputCls} mb-3`} autoFocus />
+                      {removeError && <p className="text-xs text-red-400 mb-3">{removeError}</p>}
+                      <div className="flex gap-2">
+                        <button onClick={confirmDeleteGlobalOverride} className={`flex-1 ${btnRed}`}>Remove</button>
+                        <button onClick={() => setRemoveModal(null)} className={`flex-1 ${btnGhost}`}>Cancel</button>
                       </div>
                     </div>
                   </div>
