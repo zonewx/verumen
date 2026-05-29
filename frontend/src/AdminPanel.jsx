@@ -19,6 +19,15 @@ export default function AdminPanel({ isDark, authUsername }) {
   const [settings, setSettings] = useState({ allowRegistration: true, userLimit: 0 });
   const [userLimitInput, setUserLimitInput] = useState('0');
 
+  // Global overrides
+  const [globalOverrides, setGlobalOverrides] = useState([]);
+  const [goIsin, setGoIsin] = useState('');
+  const [goTicker, setGoTicker] = useState('');
+  const [goMsg, setGoMsg] = useState('');
+  const [clearAllModal, setClearAllModal] = useState(false);
+  const [clearAllPw, setClearAllPw] = useState('');
+  const [clearAllError, setClearAllError] = useState('');
+
   const token = sessionStorage.getItem('auth_token');
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
   const card = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
@@ -60,8 +69,42 @@ export default function AdminPanel({ isDark, authUsername }) {
     } catch(e) {}
   }, []);
 
+  const fetchGlobalOverrides = useCallback(async () => {
+    const data = await fetch('/api/admin/global-overrides', { headers: h }).then(r => r.json());
+    if (Array.isArray(data)) setGlobalOverrides(data);
+  }, []);
+
+  const saveGlobalOverride = async () => {
+    const isin = goIsin.trim().toUpperCase(), ticker = goTicker.trim().toUpperCase();
+    if (!isin || !ticker) return;
+    await fetch('/api/admin/global-overrides', { method: 'POST', headers: h, body: JSON.stringify({ isin, ticker }) });
+    setGoIsin(''); setGoTicker('');
+    setGoMsg(`Saved: ${isin} → ${ticker}`);
+    setTimeout(() => setGoMsg(''), 3000);
+    fetchGlobalOverrides();
+  };
+
+  const deleteGlobalOverride = async (isin) => {
+    await fetch(`/api/admin/global-overrides/${isin}`, { method: 'DELETE', headers: h });
+    fetchGlobalOverrides();
+  };
+
+  const toggleGlobalOverride = async (isin) => {
+    await fetch(`/api/admin/global-overrides/${isin}/toggle`, { method: 'PATCH', headers: h });
+    fetchGlobalOverrides();
+  };
+
+  const clearAllGlobalOverrides = async () => {
+    setClearAllError('');
+    const res = await fetch('/api/admin/global-overrides', { method: 'DELETE', headers: h, body: JSON.stringify({ password: clearAllPw }) });
+    const data = await res.json();
+    if (!res.ok) { setClearAllError(data.error || 'Incorrect password'); return; }
+    setClearAllModal(false); setClearAllPw(''); fetchGlobalOverrides();
+  };
+
   useEffect(() => { fetchStats(); }, []);
   useEffect(() => { if (tab === 'tickers') fetchFailures(); }, [tab]);
+  useEffect(() => { if (tab === 'global-overrides') fetchGlobalOverrides(); }, [tab]);
 
   const deleteUser = async (username) => {
     if (!confirm(`Delete user "${username}" and ALL their data? This cannot be undone.`)) return;
@@ -184,6 +227,7 @@ export default function AdminPanel({ isDark, authUsername }) {
     { id: 'users', label: 'Users' },
     { id: 'roles', label: 'Roles' },
     { id: 'tickers', label: 'Ticker Failures' },
+    { id: 'global-overrides', label: 'Global Overrides' },
     { id: 'announcements', label: 'Announcements' },
   ];
 
@@ -458,12 +502,111 @@ export default function AdminPanel({ isDark, authUsername }) {
               </div>
             )}
 
+            {/* GLOBAL OVERRIDES */}
+            {tab === 'global-overrides' && (
+              <div className="flex flex-col gap-4">
+                <div className={`${card} p-5`}>
+                  <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Global overrides apply to <strong>all users</strong> and take priority over per-user overrides. Use this to pin commonly misresolved ISINs to the correct Yahoo Finance ticker.
+                  </p>
+                  <div className="flex gap-2 mb-3">
+                    <input value={goIsin} onChange={e => setGoIsin(e.target.value)} placeholder="ISIN (e.g. SE0025138357)" className={`${inputCls} flex-1`} />
+                    <input value={goTicker} onChange={e => setGoTicker(e.target.value)} placeholder="YF ticker (e.g. HACK.ST)" className={`${inputCls} flex-1`} />
+                    <button onClick={saveGlobalOverride} className={btnBlue}>Save</button>
+                  </div>
+                  {goMsg && <p className="text-xs text-green-400 mb-3">{goMsg}</p>}
+                  {globalOverrides.length > 0 ? (
+                    <div className={`rounded-xl overflow-hidden border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                      <table className="w-full text-sm">
+                        <thead className={`${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'} border-b`}>
+                          <tr>
+                            {['ISIN', 'Ticker', 'Added by', 'Status', ''].map(col => (
+                              <th key={col} className={`px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {globalOverrides.map(o => (
+                            <tr key={o.isin} className={`border-t ${isDark ? 'border-gray-700 hover:bg-gray-700/20' : 'border-gray-100 hover:bg-gray-50'} ${!o.active ? 'opacity-50' : ''}`}>
+                              <td className="px-4 py-2.5 font-mono text-xs">{o.isin}</td>
+                              <td className="px-4 py-2.5 font-mono text-xs font-bold">{o.ticker}</td>
+                              <td className={`px-4 py-2.5 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{o.created_by}</td>
+                              <td className="px-4 py-2.5">
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${o.active ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-500'}`}>
+                                  {o.active ? 'Active' : 'Disabled'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-right">
+                                <div className="flex items-center justify-end gap-3">
+                                  <button onClick={() => toggleGlobalOverride(o.isin)} className={`text-xs font-medium transition ${o.active ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`}>
+                                    {o.active ? 'Disable' : 'Enable'}
+                                  </button>
+                                  <button onClick={() => deleteGlobalOverride(o.isin)} className="text-red-400 hover:text-red-300 text-xs font-medium transition">Remove</button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className={`text-sm ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No global overrides saved yet.</p>
+                  )}
+                  {globalOverrides.length > 0 && (
+                    <button onClick={() => { setClearAllModal(true); setClearAllPw(''); setClearAllError(''); }} className={`mt-4 ${btnRed}`}>
+                      Clear all global overrides
+                    </button>
+                  )}
+                </div>
+
+                {/* Password confirmation modal */}
+                {clearAllModal && (
+                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                    <div className={`${card} p-6 w-full max-w-sm mx-4`}>
+                      <h3 className="font-bold text-lg mb-2">Confirm deletion</h3>
+                      <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        This will delete all global ticker overrides for every user. Enter your password to confirm.
+                      </p>
+                      <input
+                        type="password"
+                        value={clearAllPw}
+                        onChange={e => setClearAllPw(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && clearAllGlobalOverrides()}
+                        placeholder="Your password"
+                        className={`${inputCls} mb-3`}
+                        autoFocus
+                      />
+                      {clearAllError && <p className="text-xs text-red-400 mb-3">{clearAllError}</p>}
+                      <div className="flex gap-2">
+                        <button onClick={clearAllGlobalOverrides} className={`flex-1 ${btnRed}`}>Delete all</button>
+                        <button onClick={() => setClearAllModal(false)} className={`flex-1 ${btnGhost}`}>Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ROLES */}
             {tab === 'roles' && stats && (
               <div className="flex flex-col gap-4">
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Promote users to moderator or demote them back. Admin role is permanent.</p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Promote users to moderator or demote them back.
+                  {authUsername === 'admin' && <span className="ml-1">As the root admin you can also grant or revoke admin access.</span>}
+                </p>
                 {stats.users.map(u => {
+                  const role = u.role || 'user';
                   const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800', user: `${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500'}` };
+                  const isRootAdmin = u.username === 'admin';
+                  const isSelf = u.username === authUsername;
+
+                  const setAdminRole = async (newRole) => {
+                    const res = await fetch(`/api/admin/users/${u.username}/set-role-admin`, { method: 'POST', headers: h, body: JSON.stringify({ role: newRole }) });
+                    const data = await res.json();
+                    if (data.success) { flash(`✓ ${u.username} is now ${newRole}`); fetchStats(); }
+                    else flash('Error: ' + data.error);
+                  };
+
                   return (
                     <div key={u.username} className={`${card} p-4 flex items-center gap-4`}>
                       <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
@@ -472,18 +615,24 @@ export default function AdminPanel({ isDark, authUsername }) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-bold">{u.username}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadge[u.role || 'user']}`}>{(u.role || 'user').charAt(0).toUpperCase() + (u.role || 'user').slice(1)}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadge[role]}`}>{role.charAt(0).toUpperCase() + role.slice(1)}</span>
                         </div>
                         <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Joined {new Date(u.createdAt).toLocaleDateString()}</p>
                       </div>
-                      {u.username !== 'admin' && (
-                        <div className="flex gap-2 shrink-0">
-                          {(u.role || 'user') !== 'moderator'
+                      <div className="flex gap-2 shrink-0">
+                        {/* Mod promote/demote — visible to all admins, not for root admin account */}
+                        {!isRootAdmin && role !== 'admin' && (
+                          role !== 'moderator'
                             ? <button onClick={() => setRole(u.username, 'moderator')} className={btnBlue}>Promote to Mod</button>
-                            : <button onClick={() => setRole(u.username, 'user')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Demote to User</button>
-                          }
-                        </div>
-                      )}
+                            : <button onClick={() => setRole(u.username, 'user')} className={btnGhost}>Demote to User</button>
+                        )}
+                        {/* Admin promote/demote — only visible to the root "admin" account */}
+                        {authUsername === 'admin' && !isRootAdmin && !isSelf && (
+                          role !== 'admin'
+                            ? <button onClick={() => setAdminRole('admin')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-red-700 hover:bg-red-600 text-white`}>Promote to Admin</button>
+                            : <button onClick={() => setAdminRole('user')} className={btnGhost}>Revoke Admin</button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

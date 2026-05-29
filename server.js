@@ -301,9 +301,14 @@ async function saveTickerCacheEntry(userId, key, ticker) {
   await supabase.from('ticker_cache').upsert({ user_id: userId, cache_key: key, ticker, updated_at: new Date().toISOString() });
 }
 async function loadOverrides(userId) {
-  const { data } = await supabase.from('ticker_overrides').select('isin, ticker').eq('user_id', userId);
+  const [{ data: global }, { data: user }] = await Promise.all([
+    supabase.from('global_ticker_overrides').select('isin, ticker').eq('active', true),
+    supabase.from('ticker_overrides').select('isin, ticker').eq('user_id', userId),
+  ]);
   const overrides = {};
-  (data || []).forEach(r => { overrides[r.isin] = r.ticker; });
+  // Per-user loaded first, then global overwrites — global always wins
+  (user || []).forEach(r => { overrides[r.isin] = r.ticker; });
+  (global || []).forEach(r => { overrides[r.isin] = r.ticker; });
   return overrides;
 }
 
@@ -1273,6 +1278,41 @@ app.delete('/api/overrides/:isin', requireUser, async (req, res) => {
   res.json({ success: true });
 });
 
+// ── Global overrides (admin/mod) ─────────────────────────────────────────────
+app.get('/api/admin/global-overrides', requireModerator, async (req, res) => {
+  const { data } = await supabase.from('global_ticker_overrides').select('isin, ticker, active, created_by, created_at').order('created_at', { ascending: false });
+  res.json(data || []);
+});
+
+app.patch('/api/admin/global-overrides/:isin/toggle', requireModerator, async (req, res) => {
+  const { data: current } = await supabase.from('global_ticker_overrides').select('active').eq('isin', req.params.isin).single();
+  if (!current) return res.status(404).json({ error: 'Not found' });
+  await supabase.from('global_ticker_overrides').update({ active: !current.active }).eq('isin', req.params.isin);
+  res.json({ active: !current.active });
+});
+
+app.post('/api/admin/global-overrides', requireModerator, async (req, res) => {
+  const { isin, ticker } = req.body;
+  if (!isin || !ticker) return res.status(400).json({ error: 'isin and ticker required' });
+  await supabase.from('global_ticker_overrides').upsert({ isin: isin.toUpperCase(), ticker: ticker.toUpperCase(), created_by: req.username, created_at: new Date().toISOString() });
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/global-overrides/:isin', requireModerator, async (req, res) => {
+  await supabase.from('global_ticker_overrides').delete().eq('isin', req.params.isin);
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/global-overrides', requireModerator, async (req, res) => {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ error: 'Password required' });
+  const email = `${req.username.toLowerCase()}@statera.local`;
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return res.status(401).json({ error: 'Incorrect password' });
+  await supabase.from('global_ticker_overrides').delete().neq('isin', '');
+  res.json({ success: true });
+});
+
 // ── Ownership ───────────────────────────────────────────────────────────────
 app.post('/api/ownership', requireUser, async (req, res) => {
   const { tickers } = req.body;
@@ -2030,6 +2070,18 @@ app.post('/api/admin/users/:username/set-role', requireAdmin, async (req, res) =
   await supabase.from('profiles').update({ role }).eq('username', req.params.username);
   await appendModLog('admin', `set-role:${role}`, req.params.username);
   res.json({ success:true });
+});
+
+app.post('/api/admin/users/:username/set-role-admin', requireAdmin, async (req, res) => {
+  // Only the root "admin" account can grant or revoke admin role
+  if (req.username !== 'admin') return res.status(403).json({ error: 'Only the root admin account can manage admin roles.' });
+  const { role } = req.body;
+  if (!['user','moderator','admin'].includes(role)) return res.status(400).json({ error: 'Invalid role.' });
+  // Protect the root admin account from being demoted
+  if (req.params.username === 'admin') return res.status(400).json({ error: 'Cannot change the root admin role.' });
+  await supabase.from('profiles').update({ role }).eq('username', req.params.username);
+  await appendModLog('admin', `set-role-admin:${role}`, req.params.username);
+  res.json({ success: true });
 });
 
 app.post('/api/admin/users/:username/clear-bio', requireAdmin, async (req, res) => {

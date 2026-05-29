@@ -107,6 +107,17 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
   if (id === 'settings') return null;
 
   if (id === 'danger') return (
+    <div className="flex flex-col gap-1.5">
+      <button onClick={pa.onClearTickerCache} className={`${btn} border ${isDark ? 'border-orange-800/60 text-orange-400 hover:bg-orange-900/20' : 'border-orange-200 text-orange-600 hover:bg-orange-50'}`}>
+        Clear ticker cache
+      </button>
+      <button onClick={pa.onClearAll} className={`${btn} border ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'}`}>
+        Clear all data
+      </button>
+    </div>
+  );
+
+  if (id === 'danger') return (
     <div className="flex flex-col gap-2">
       <p className={`text-[10px] ${sub}`}>Cannot be undone.</p>
       <button onClick={pa.onClearAll} className={`${btn} border ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
@@ -246,17 +257,15 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       icon: TrendingUp,
       path: null,
       subItems: [
-        { id: 'overview',      label: 'Overview',        path: '/portfolio' },
-        { id: 'holdings',      label: 'Holdings',        path: '/portfolio/holdings' },
-        { id: 'transactions',  label: 'Transactions',    path: '/portfolio/transactions' },
-        { id: 'dividends',     label: 'Dividends',       path: '/portfolio/dividends' },
-        { id: 'ownership',     label: 'Ownership',       path: '/portfolio/ownership' },
+        { id: 'overview',     label: 'Overview',          path: '/portfolio',          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
+        { id: 'holdings',     label: 'Holdings',          path: '/portfolio/holdings', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> },
+        { id: 'transactions', label: 'Transactions',      path: '/portfolio/transactions', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> },
+        { id: 'dividends',    label: 'Dividends',         path: '/portfolio/dividends',    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
+        { id: 'ownership',    label: 'Ownership',         path: '/portfolio/ownership',    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
         { id: 'divider1', isDivider: true },
-        { id: 'overrides', label: 'Portfolio Settings', path: '/portfolio/overrides' },
-        { id: 'settings',  label: 'Settings',         isAction: true },
+        { id: 'overrides',    label: 'Portfolio Settings', path: '/portfolio/overrides',   icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg> },
         { id: 'divider2', isDivider: true },
-        { id: 'clear-data',         label: 'Clear data',         isDirectButton: true, actionKey: 'onClearAll' },
-        { id: 'clear-ticker-cache', label: 'Clear ticker cache', isDirectButton: true, actionKey: 'onClearTickerCache' },
+        { id: 'danger', label: 'Data Management', isAction: true, isDanger: true, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> },
       ]
     },
     {
@@ -265,10 +274,10 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       icon: Package,
       path: null,
       subItems: [
-        { id: 'cs-overview',   label: 'Overview',      path: '/cs-skins' },
-        { id: 'cs-inventory',  label: 'My Inventory',  path: '/cs-skins/inventory' },
-        { id: 'cs-tracker',    label: 'Trade Registry', path: '/cs-skins/tracker' },
-        { id: 'cs-settings',   label: 'Settings',      path: '/cs-skins/settings' },
+        { id: 'cs-overview',   label: 'Overview',       path: '/cs-skins',          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
+        { id: 'cs-inventory',  label: 'My Inventory',   path: '/cs-skins/inventory', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> },
+        { id: 'cs-tracker',    label: 'Trade Registry',  path: '/cs-skins/tracker',   icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> },
+        { id: 'cs-settings',   label: 'Settings',        path: '/cs-skins/settings',  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg> },
       ]
     },
     {
@@ -292,11 +301,11 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       icon: Shield,
       path: null,
       subItems: [
-        { id: 'admin-overview', label: 'Overview', path: '/admin' },
-        { id: 'users', label: 'Users', path: '/admin/users' },
-        { id: 'roles', label: 'Roles', path: '/admin/roles' },
-        { id: 'ticker-failures', label: 'Ticker Failures', path: '/admin/ticker-failures' },
-        { id: 'announcements', label: 'Announcements', path: '/admin/announcements' },
+        { id: 'admin-overview',  label: 'Overview',        path: '/admin',                  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
+        { id: 'users',           label: 'Users',           path: '/admin/users',            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+        { id: 'roles',           label: 'Roles',           path: '/admin/roles',            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> },
+        { id: 'ticker-failures', label: 'Ticker Failures', path: '/admin/ticker-failures',  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> },
+        { id: 'announcements',   label: 'Announcements',   path: '/admin/announcements',    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg> },
       ],
       adminOnly: true
     }
@@ -396,8 +405,9 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                           <button
                             key={subItem.id}
                             onClick={() => portfolioActions?.[subItem.actionKey]?.()}
-                            className={`w-full flex items-center px-2 py-1.5 rounded-lg transition-colors text-left text-red-400 ${isDark ? 'hover:bg-red-900/20' : 'hover:bg-red-50'}`}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-left text-red-400 ${isDark ? 'hover:bg-red-900/20' : 'hover:bg-red-50'}`}
                           >
+                            {subItem.icon && <span className="shrink-0 opacity-70">{subItem.icon}</span>}
                             <span className="text-sm">{subItem.label}</span>
                           </button>
                         );
@@ -411,6 +421,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                               onClick={() => toggleSection(subItem.id)}
                               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors ${hoverBg} ${subItem.isDanger ? 'text-red-400' : textSecondary}`}
                             >
+                              {subItem.icon && <span className="shrink-0 opacity-70">{subItem.icon}</span>}
                               <span className="text-sm flex-1 text-left">{subItem.label}</span>
                               <ChevronLeft size={12} className={`transition-transform duration-200 ${isActionOpen ? '-rotate-90' : 'rotate-180'}`} />
                             </button>
@@ -427,10 +438,11 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                         <button
                           key={subItem.id}
                           onClick={() => navigate(subItem.path)}
-                          className={`w-full flex items-center px-2 py-1.5 rounded-lg transition-colors text-left ${
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-left ${
                             isActive(subItem.path) ? activeBg : hoverBg
                           } ${textPrimary}`}
                         >
+                          {subItem.icon && <span className={`shrink-0 ${isActive(subItem.path) ? 'text-blue-400' : textSecondary}`}>{subItem.icon}</span>}
                           <span className="text-sm">{subItem.label}</span>
                         </button>
                       );
