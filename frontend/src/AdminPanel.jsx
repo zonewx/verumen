@@ -31,6 +31,7 @@ export default function AdminPanel({ isDark, authUsername }) {
   const [removePw, setRemovePw] = useState('');
   const [removeError, setRemoveError] = useState('');
   const [goSearch, setGoSearch] = useState('');
+  const [goLoading, setGoLoading] = useState(false);
 
   const token = sessionStorage.getItem('auth_token');
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
@@ -75,8 +76,10 @@ export default function AdminPanel({ isDark, authUsername }) {
 
   const fetchGlobalOverrides = useCallback(async (force = false) => {
     if (!force && apiCache.has('/api/admin/global-overrides')) return;
+    setGoLoading(true);
     const res = await fetch('/api/admin/global-overrides', { headers: h });
     const data = await res.json();
+    setGoLoading(false);
     if (!res.ok) { setGoMsg(`Error: ${data.error}`); return; }
     if (Array.isArray(data)) { setGlobalOverrides(data); apiCache.set('/api/admin/global-overrides', data); }
   }, []);
@@ -539,7 +542,12 @@ export default function AdminPanel({ isDark, authUsername }) {
                     <button onClick={saveGlobalOverride} className={btnBlue}>Save</button>
                   </div>
                   {goMsg && <p className={`text-xs mb-3 ${goMsg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>{goMsg}</p>}
-                  {globalOverrides.length > 0 ? (
+                  {goLoading ? (
+                    <div className="flex items-center gap-3 py-6 justify-center">
+                      <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"/>
+                      <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading overrides…</span>
+                    </div>
+                  ) : globalOverrides.length > 0 ? (
                     <div className="flex flex-col gap-3">
                       <input
                         value={goSearch}
@@ -565,10 +573,10 @@ export default function AdminPanel({ isDark, authUsername }) {
                                 (o.created_by||'').toLowerCase().includes(q);
                             }).map(o => (
                               <tr key={o.isin} className={`border-t ${isDark ? 'border-gray-700 hover:bg-gray-700/20' : 'border-gray-100 hover:bg-gray-50'}`}>
-                                <td className={`px-4 py-2.5 font-mono text-xs ${!o.active ? 'opacity-50' : ''}`}>{o.isin}</td>
-                                <td className={`px-4 py-2.5 font-mono text-xs font-bold ${!o.active ? 'opacity-50' : ''}`}>{o.ticker}</td>
-                                <td className={`px-4 py-2.5 text-xs ${isDark ? 'text-gray-300' : 'text-gray-700'} ${!o.active ? 'opacity-50' : ''}`}>{o.name || <span className={isDark ? 'text-gray-600' : 'text-gray-400'}>—</span>}</td>
-                                <td className={`px-4 py-2.5 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} ${!o.active ? 'opacity-50' : ''}`}>{o.created_by}</td>
+                                <td className={`px-4 py-2.5 font-mono text-xs ${isDark ? 'text-gray-100' : 'text-gray-800'} ${!o.active ? 'opacity-50' : ''}`}>{o.isin}</td>
+                                <td className={`px-4 py-2.5 font-mono text-xs font-bold ${isDark ? 'text-white' : 'text-gray-900'} ${!o.active ? 'opacity-50' : ''}`}>{o.ticker}</td>
+                                <td className={`px-4 py-2.5 text-xs ${isDark ? 'text-gray-200' : 'text-gray-700'} ${!o.active ? 'opacity-50' : ''}`}>{o.name || <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>—</span>}</td>
+                                <td className={`px-4 py-2.5 text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'} ${!o.active ? 'opacity-50' : ''}`}>{o.created_by}</td>
                                 <td className="px-4 py-2.5">
                                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${o.active ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-500'}`}>
                                     {o.active ? 'Active' : 'Disabled'}
