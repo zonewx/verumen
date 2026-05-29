@@ -1511,11 +1511,11 @@ const handleUpload = async (files) => {
           <Route path="/profile/:username" element={<ProfileRoute/>}/>
 
           {/* Admin routes */}
-          <Route path="/admin" element={<PageShell {...shellProps} title="Admin Panel"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/users" element={<PageShell {...shellProps} title="Admin Panel - Users"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/roles" element={<PageShell {...shellProps} title="Admin Panel - Roles"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/ticker-failures" element={<PageShell {...shellProps} title="Admin Panel - Ticker Failures"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/announcements" element={<PageShell {...shellProps} title="Admin Panel - Announcements"><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/admin" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/admin/users" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/admin/roles" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/admin/ticker-failures" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/admin/announcements" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
 
           <Route path="/moderator" element={<PageShell {...shellProps}><ModeratorPanel isDark={isDark} authUsername={authUsername} userRole={userRole}/></PageShell>}/>
           <Route path="*" element={<Navigate to="/social" replace/>}/>

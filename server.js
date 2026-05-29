@@ -2025,7 +2025,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
     // Fetch profiles and transaction counts in parallel — no N+1
     const [{ data: profiles }, { data: txCounts }, { count: totalTx }] = await Promise.all([
-      supabase.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings'),
+      supabase.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64'),
       supabase.from('transactions').select('user_id').then(r => r), // get all for grouping
       supabase.from('transactions').select('*', { count:'exact', head:true }),
     ]);
@@ -2038,6 +2038,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
       username: p.username, role: p.role, createdAt: p.created_at,
       transactionCount: txCountMap[p.id] || 0,
       publicInventory: p.public_inventory, publicHoldings: p.public_holdings,
+      avatarBase64: p.avatar_base64 || null,
     }));
 
     const mem = process.memoryUsage();

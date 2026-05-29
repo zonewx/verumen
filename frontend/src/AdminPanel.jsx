@@ -20,7 +20,7 @@ export default function AdminPanel({ isDark, authUsername }) {
   const [userLimitInput, setUserLimitInput] = useState('0');
 
   // Global overrides
-  const [globalOverrides, setGlobalOverrides] = useState([]);
+  const [globalOverrides, setGlobalOverrides] = useState(() => apiCache.get('/api/admin/global-overrides') || []);
   const [goIsin, setGoIsin] = useState('');
   const [goTicker, setGoTicker] = useState('');
   const [goMsg, setGoMsg] = useState('');
@@ -73,11 +73,12 @@ export default function AdminPanel({ isDark, authUsername }) {
     } catch(e) {}
   }, []);
 
-  const fetchGlobalOverrides = useCallback(async () => {
+  const fetchGlobalOverrides = useCallback(async (force = false) => {
+    if (!force && apiCache.has('/api/admin/global-overrides')) return;
     const res = await fetch('/api/admin/global-overrides', { headers: h });
     const data = await res.json();
     if (!res.ok) { setGoMsg(`Error: ${data.error}`); return; }
-    if (Array.isArray(data)) setGlobalOverrides(data);
+    if (Array.isArray(data)) { setGlobalOverrides(data); apiCache.set('/api/admin/global-overrides', data); }
   }, []);
 
   const saveGlobalOverride = async () => {
@@ -89,7 +90,8 @@ export default function AdminPanel({ isDark, authUsername }) {
     setGoIsin(''); setGoTicker('');
     setGoMsg(`Saved: ${isin} → ${ticker}`);
     setTimeout(() => setGoMsg(''), 3000);
-    fetchGlobalOverrides();
+    apiCache.del('/api/admin/global-overrides');
+    fetchGlobalOverrides(true);
   };
 
   const deleteGlobalOverride = (isin) => {
@@ -103,12 +105,15 @@ export default function AdminPanel({ isDark, authUsername }) {
     const res = await fetch(`/api/admin/global-overrides/${removeModal}`, { method: 'DELETE', headers: h, body: JSON.stringify({ password: removePw }) });
     const data = await res.json();
     if (!res.ok) { setRemoveError(data.error || 'Incorrect password'); return; }
-    setRemoveModal(null); setRemovePw(''); fetchGlobalOverrides();
+    setRemoveModal(null); setRemovePw('');
+    apiCache.del('/api/admin/global-overrides');
+    fetchGlobalOverrides(true);
   };
 
   const toggleGlobalOverride = async (isin) => {
     await fetch(`/api/admin/global-overrides/${isin}/toggle`, { method: 'PATCH', headers: h });
-    fetchGlobalOverrides();
+    apiCache.del('/api/admin/global-overrides');
+    fetchGlobalOverrides(true);
   };
 
   const clearAllGlobalOverrides = async () => {
@@ -116,7 +121,9 @@ export default function AdminPanel({ isDark, authUsername }) {
     const res = await fetch('/api/admin/global-overrides', { method: 'DELETE', headers: h, body: JSON.stringify({ password: clearAllPw }) });
     const data = await res.json();
     if (!res.ok) { setClearAllError(data.error || 'Incorrect password'); return; }
-    setClearAllModal(false); setClearAllPw(''); fetchGlobalOverrides();
+    setClearAllModal(false); setClearAllPw('');
+    apiCache.del('/api/admin/global-overrides');
+    fetchGlobalOverrides(true);
   };
 
   useEffect(() => { fetchStats(); }, []);
