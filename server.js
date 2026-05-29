@@ -1276,7 +1276,14 @@ app.delete('/api/overrides/:isin', requireUser, async (req, res) => {
 app.get('/api/admin/global-overrides', requireModerator, async (req, res) => {
   const { data, error } = await supabase.from('global_ticker_overrides').select('isin, ticker, active, created_by, created_at').order('created_at', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data || []);
+  const enriched = await Promise.all((data || []).map(async o => {
+    try {
+      const cached = _priceCache.get(o.ticker);
+      const q = cached ? cached.q : await withYFTimeout(yahooFinance.quote(o.ticker), 3000);
+      return { ...o, name: q?.longName || q?.shortName || null };
+    } catch { return { ...o, name: null }; }
+  }));
+  res.json(enriched);
 });
 
 app.patch('/api/admin/global-overrides/:isin/toggle', requireModerator, async (req, res) => {

@@ -30,6 +30,7 @@ export default function AdminPanel({ isDark, authUsername }) {
   const [removeModal, setRemoveModal] = useState(null); // isin being removed
   const [removePw, setRemovePw] = useState('');
   const [removeError, setRemoveError] = useState('');
+  const [goSearch, setGoSearch] = useState('');
 
   const token = sessionStorage.getItem('auth_token');
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
@@ -530,40 +531,55 @@ export default function AdminPanel({ isDark, authUsername }) {
                     <input value={goTicker} onChange={e => setGoTicker(e.target.value)} placeholder="YF ticker (e.g. HACK.ST)" className={`${inputCls} flex-1`} />
                     <button onClick={saveGlobalOverride} className={btnBlue}>Save</button>
                   </div>
-                  {goMsg && <p className="text-xs text-green-400 mb-3">{goMsg}</p>}
+                  {goMsg && <p className={`text-xs mb-3 ${goMsg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>{goMsg}</p>}
                   {globalOverrides.length > 0 ? (
-                    <div className={`rounded-xl overflow-hidden border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                      <table className="w-full text-sm">
-                        <thead className={`${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'} border-b`}>
-                          <tr>
-                            {['ISIN', 'Ticker', 'Added by', 'Status', ''].map(col => (
-                              <th key={col} className={`px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>{col}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {globalOverrides.map(o => (
-                            <tr key={o.isin} className={`border-t ${isDark ? 'border-gray-700 hover:bg-gray-700/20' : 'border-gray-100 hover:bg-gray-50'} ${!o.active ? 'opacity-50' : ''}`}>
-                              <td className="px-4 py-2.5 font-mono text-xs">{o.isin}</td>
-                              <td className="px-4 py-2.5 font-mono text-xs font-bold">{o.ticker}</td>
-                              <td className={`px-4 py-2.5 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{o.created_by}</td>
-                              <td className="px-4 py-2.5">
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${o.active ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-500'}`}>
-                                  {o.active ? 'Active' : 'Disabled'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-2.5 text-right">
-                                <div className="flex items-center justify-end gap-3">
-                                  <button onClick={() => toggleGlobalOverride(o.isin)} className={`text-xs font-medium transition ${o.active ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`}>
-                                    {o.active ? 'Disable' : 'Enable'}
-                                  </button>
-                                  <button onClick={() => deleteGlobalOverride(o.isin)} className="text-red-400 hover:text-red-300 text-xs font-medium transition">Remove</button>
-                                </div>
-                              </td>
+                    <div className="flex flex-col gap-3">
+                      <input
+                        value={goSearch}
+                        onChange={e => setGoSearch(e.target.value)}
+                        placeholder="Search ISIN, ticker or added by…"
+                        className={inputCls}
+                      />
+                      <div className={`rounded-xl overflow-hidden border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <table className="w-full text-sm">
+                          <thead className={`${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'} border-b`}>
+                            <tr>
+                              {['ISIN', 'Ticker', 'Name', 'Added by', 'Status', ''].map(col => (
+                                <th key={col} className={`px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>{col}</th>
+                              ))}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {globalOverrides.filter(o => {
+                              const q = goSearch.toLowerCase();
+                              return o.isin.toLowerCase().includes(q) ||
+                                o.ticker.toLowerCase().includes(q) ||
+                                (o.name||'').toLowerCase().includes(q) ||
+                                (o.created_by||'').toLowerCase().includes(q);
+                            }).map(o => (
+                              <tr key={o.isin} className={`border-t ${isDark ? 'border-gray-700 hover:bg-gray-700/20' : 'border-gray-100 hover:bg-gray-50'}`}>
+                                <td className={`px-4 py-2.5 font-mono text-xs ${!o.active ? 'opacity-50' : ''}`}>{o.isin}</td>
+                                <td className={`px-4 py-2.5 font-mono text-xs font-bold ${!o.active ? 'opacity-50' : ''}`}>{o.ticker}</td>
+                                <td className={`px-4 py-2.5 text-xs ${isDark ? 'text-gray-300' : 'text-gray-700'} ${!o.active ? 'opacity-50' : ''}`}>{o.name || <span className={isDark ? 'text-gray-600' : 'text-gray-400'}>—</span>}</td>
+                                <td className={`px-4 py-2.5 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} ${!o.active ? 'opacity-50' : ''}`}>{o.created_by}</td>
+                                <td className="px-4 py-2.5">
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${o.active ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-500'}`}>
+                                    {o.active ? 'Active' : 'Disabled'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2.5 text-right">
+                                  <div className="flex items-center justify-end gap-3">
+                                    <button onClick={() => toggleGlobalOverride(o.isin)} className={`text-xs font-medium transition ${o.active ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`}>
+                                      {o.active ? 'Disable' : 'Enable'}
+                                    </button>
+                                    <button onClick={() => deleteGlobalOverride(o.isin)} className="text-red-400 hover:text-red-300 text-xs font-medium transition">Remove</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   ) : (
                     <p className={`text-sm ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No global overrides saved yet.</p>
