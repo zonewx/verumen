@@ -1433,7 +1433,7 @@ const handleUpload = async (files) => {
           <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Verumen</span>
         </div>
         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
-        <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading your portfolio…</p>
+        <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading user settings…</p>
       </div>
     </div>
   );

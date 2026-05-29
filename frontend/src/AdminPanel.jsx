@@ -70,14 +70,18 @@ export default function AdminPanel({ isDark, authUsername }) {
   }, []);
 
   const fetchGlobalOverrides = useCallback(async () => {
-    const data = await fetch('/api/admin/global-overrides', { headers: h }).then(r => r.json());
+    const res = await fetch('/api/admin/global-overrides', { headers: h });
+    const data = await res.json();
+    if (!res.ok) { setGoMsg(`Error: ${data.error}`); return; }
     if (Array.isArray(data)) setGlobalOverrides(data);
   }, []);
 
   const saveGlobalOverride = async () => {
     const isin = goIsin.trim().toUpperCase(), ticker = goTicker.trim().toUpperCase();
     if (!isin || !ticker) return;
-    await fetch('/api/admin/global-overrides', { method: 'POST', headers: h, body: JSON.stringify({ isin, ticker }) });
+    const res = await fetch('/api/admin/global-overrides', { method: 'POST', headers: h, body: JSON.stringify({ isin, ticker }) });
+    const data = await res.json();
+    if (!res.ok) { setGoMsg(`Error: ${data.error}`); return; }
     setGoIsin(''); setGoTicker('');
     setGoMsg(`Saved: ${isin} → ${ticker}`);
     setTimeout(() => setGoMsg(''), 3000);

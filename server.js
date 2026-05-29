@@ -1280,13 +1280,14 @@ app.delete('/api/overrides/:isin', requireUser, async (req, res) => {
 
 // ── Global overrides (admin/mod) ─────────────────────────────────────────────
 app.get('/api/admin/global-overrides', requireModerator, async (req, res) => {
-  const { data } = await supabase.from('global_ticker_overrides').select('isin, ticker, active, created_by, created_at').order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('global_ticker_overrides').select('isin, ticker, active, created_by, created_at').order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
   res.json(data || []);
 });
 
 app.patch('/api/admin/global-overrides/:isin/toggle', requireModerator, async (req, res) => {
-  const { data: current } = await supabase.from('global_ticker_overrides').select('active').eq('isin', req.params.isin).single();
-  if (!current) return res.status(404).json({ error: 'Not found' });
+  const { data: current, error } = await supabase.from('global_ticker_overrides').select('active').eq('isin', req.params.isin).single();
+  if (error || !current) return res.status(404).json({ error: 'Not found' });
   await supabase.from('global_ticker_overrides').update({ active: !current.active }).eq('isin', req.params.isin);
   res.json({ active: !current.active });
 });
@@ -1294,7 +1295,8 @@ app.patch('/api/admin/global-overrides/:isin/toggle', requireModerator, async (r
 app.post('/api/admin/global-overrides', requireModerator, async (req, res) => {
   const { isin, ticker } = req.body;
   if (!isin || !ticker) return res.status(400).json({ error: 'isin and ticker required' });
-  await supabase.from('global_ticker_overrides').upsert({ isin: isin.toUpperCase(), ticker: ticker.toUpperCase(), created_by: req.username, created_at: new Date().toISOString() });
+  const { error } = await supabase.from('global_ticker_overrides').upsert({ isin: isin.toUpperCase(), ticker: ticker.toUpperCase(), created_by: req.username, created_at: new Date().toISOString() });
+  if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 

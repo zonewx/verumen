@@ -49,7 +49,7 @@ function SteamScreenshotPreview({ url, isDark }) {
 }
 
 const ROLE_BADGE = {
-  admin: { label: 'admin', cls: 'bg-red-900/40 text-red-400 border border-red-800' },
+  admin: { label: 'Admin', cls: 'bg-red-900/40 text-red-400 border border-red-800' },
   moderator: { label: 'mod', cls: 'bg-blue-900/40 text-blue-400 border border-blue-800' },
 };
 
