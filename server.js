@@ -2074,11 +2074,11 @@ app.post('/api/admin/users/:username/set-role', requireAdmin, async (req, res) =
 
 app.post('/api/admin/users/:username/set-role-admin', requireAdmin, async (req, res) => {
   // Only the root "admin" account can grant or revoke admin role
-  if (req.username !== 'admin') return res.status(403).json({ error: 'Only the root admin account can manage admin roles.' });
+  if (req.username?.toLowerCase() !== 'admin') return res.status(403).json({ error: 'Only the root admin account can manage admin roles.' });
   const { role } = req.body;
   if (!['user','moderator','admin'].includes(role)) return res.status(400).json({ error: 'Invalid role.' });
   // Protect the root admin account from being demoted
-  if (req.params.username === 'admin') return res.status(400).json({ error: 'Cannot change the root admin role.' });
+  if (req.params.username?.toLowerCase() === 'admin') return res.status(400).json({ error: 'Cannot change the root admin role.' });
   await supabase.from('profiles').update({ role }).eq('username', req.params.username);
   await appendModLog('admin', `set-role-admin:${role}`, req.params.username);
   res.json({ success: true });
