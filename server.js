@@ -388,23 +388,28 @@ async function resolveSymbolBatch(transactions, userId) {
   ]);
 
   const results = {};
+  // Deduplicate: group by cache key so each unique stock makes YF calls only once.
+  // Multiple transactions for the same stock (e.g. 10 AAPL buys) resolve in one pass.
+  const pending = new Map(); // cacheKey → { tx, ids[] }
+
   for (const tx of transactions) {
-    const key = tx.id;
-
-    // Pre-check: is this a cache or override hit? If so, skip the rate-limit sleep —
-    // only API calls need throttling, not O(1) lookups.
     const overrideKey = tx.isin || tx.raw_ticker;
+    if (overrideKey && overrides[overrideKey]) { results[tx.id] = overrides[overrideKey]; continue; }
     const cacheKey = `${tx.broker || ''}|${tx.currency || ''}|${tx.isin || tx.raw_ticker || tx.name}`;
-    const isFastPath = (overrideKey && overrides[overrideKey]) || cache[cacheKey] !== undefined;
+    if (cache[cacheKey] !== undefined) { results[tx.id] = cache[cacheKey]; continue; }
+    if (!pending.has(cacheKey)) pending.set(cacheKey, { tx, ids: [] });
+    pending.get(cacheKey).ids.push(tx.id);
+  }
 
+  for (const [, { tx, ids }] of pending) {
     const ticker = await resolveSymbolWithContext(
       tx.raw_ticker || null, tx.isin, tx.name, tx.currency, tx.broker,
       userId, cache, overrides
     );
-    results[key] = ticker;
-
-    if (!isFastPath) await new Promise(r => setTimeout(r, 120));
+    for (const id of ids) results[id] = ticker;
+    await new Promise(r => setTimeout(r, 150));
   }
+
   return results;
 }
 
@@ -456,7 +461,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
 
   const verifyQuote = async (symbol) => {
     let q = null;
-    try { q = await withYFTimeout(yahooFinance.quote(symbol)); }
+    try { q = await withYFTimeout(yahooFinance.quote(symbol, {}, { validateResult: false })); }
     catch(e) { if (e?.result?.regularMarketPrice != null) q = e.result; }
     return q?.regularMarketPrice != null ? symbol : null;
   };
@@ -469,9 +474,13 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     }
   }
 
-  // 3b. Fast path: try ticker + preferred suffixes
+  // 3b. Fast path: try ticker + preferred suffixes.
+  // When an ISIN is available, only try the primary suffix (e.g. .ST) — if it doesn't match
+  // the YF symbol exactly (e.g. Montrose "VOLVO B" vs YF "VOLV-B.ST"), the ISIN search below
+  // is more reliable than exhausting all 7 suffix variants (14 wasted API calls).
   if (!preferUSListing && variants.length && preferredSuffixes.length) {
-    for (const suffix of preferredSuffixes) {
+    const suffixesToTry = isin ? preferredSuffixes.slice(0, 1) : preferredSuffixes;
+    for (const suffix of suffixesToTry) {
       for (const v of variants) {
         const result = await verifyQuote(`${v}${suffix}`);
         if (result) return save(result);
@@ -490,27 +499,18 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   // 5. ISIN search — use Yahoo search and score results
   if (isin) {
     try {
-      const results = await withYFTimeout(yahooFinance.search(isin), 5000);
+      const results = await withYFTimeout(yahooFinance.search(isin, {}, { validateResult: false }), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
-        // Score: heavily prefer symbols matching transaction currency's exchange
-        // This ensures dual-listed stocks resolve to the correct market
         const scored = quotes.map(q => {
           let score = 0;
-          // +100 for matching preferred suffix (e.g., .ST for SEK, .OL for NOK)
           if (preferredSuffixes.some(s => q.symbol.endsWith(s))) score += 100;
-          // +50 for US listings when appropriate
           if (preferUSListing && !q.symbol.includes('.')) score += 50;
-          // BOOST: +200 for CA companies trading in USD to prefer US over .TO
           if (isCanadianInUS && !q.symbol.includes('.')) score += 200;
-          // PENALTY: -100 for .TO when trading CA company in USD
           if (isCanadianInUS && q.symbol.endsWith('.TO')) score -= 100;
-          // PENALTY: non-US suffix when we want a US listing
           if (preferUSListing && q.symbol.includes('.')) score -= 100;
           return { symbol: q.symbol, score };
         }).sort((a, b) => b.score - a.score);
-        // Only commit if the best result actually matches our exchange preference;
-        // otherwise fall through to name search which often returns the right listing first
         const best = scored[0];
         const hasPreference = preferredSuffixes.length > 0 || preferUSListing;
         if (!hasPreference || best.score > 0) return save(best.symbol);
@@ -519,11 +519,10 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   }
 
   // 6. Ticker-string search — for stocks where the exchange ticker differs from the YF symbol
-  // (e.g. Nordnet exports "HACKSAW" but YF symbol is "HACK.ST"). ISIN was already searched in
-  // step 5, so we only try the cleaned ticker here to avoid duplicate rate-limited calls.
+  // (e.g. Nordnet exports "HACKSAW" but YF symbol is "HACK.ST").
   if (cleaned?.length >= 3) {
     try {
-      const results = await withYFTimeout(yahooFinance.search(cleaned), 5000);
+      const results = await withYFTimeout(yahooFinance.search(cleaned, {}, { validateResult: false }), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
@@ -540,7 +539,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   if (name?.length > 2) {
     try {
       const searchName = name.split(/\s+/).slice(0, 3).join(' ');
-      const results = await withYFTimeout(yahooFinance.search(searchName), 5000);
+      const results = await withYFTimeout(yahooFinance.search(searchName, {}, { validateResult: false }), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
@@ -1293,7 +1292,10 @@ app.get('/api/admin/global-overrides', requireModerator, async (req, res) => {
       const cached = _priceCache.get(o.ticker);
       const q = cached ? cached.q : await withYFTimeout(yahooFinance.quote(o.ticker), 3000);
       return { ...o, name: q?.longName || q?.shortName || null };
-    } catch { return { ...o, name: null }; }
+    } catch(e) {
+      const q = e?.result;
+      return { ...o, name: q?.longName || q?.shortName || null };
+    }
   }));
   res.json(enriched);
 });
