@@ -69,8 +69,8 @@ export default function App() {
   const [selectedForRemoval, setSelectedForRemoval] = useState([]);
   const [dividends, setDividends] = useState(() => apiCache.get(`/api/dividends?currency=${baseCurrency}`));
   const [overrides, setOverrides] = useState(() => apiCache.get('/api/overrides') || {});
-  const [overrideIsin, setOverrideIsin] = useState('');
-  const [overrideTicker, setOverrideTicker] = useState('');
+  const overrideIsinRef = useRef(null);
+  const overrideTickerRef = useRef(null);
   const [overrideMsg, setOverrideMsg] = useState('');
   const [sortCol, setSortCol] = useState('value');
   const [sortDir, setSortDir] = useState('desc');
@@ -640,10 +640,12 @@ const handleUpload = async (files) => {
   const handleRemoveSelected = () => { setPortfolio(p => p.filter(s => !selectedForRemoval.includes(s.ticker))); setSelectedForRemoval([]); };
 
   const handleAddOverride = async () => {
-    const isin = overrideIsin.trim().toUpperCase(), ticker = overrideTicker.trim().toUpperCase();
+    const isin = (overrideIsinRef.current?.value || '').trim().toUpperCase();
+    const ticker = (overrideTickerRef.current?.value || '').trim().toUpperCase();
     if (!isin || !ticker) return;
     await apiFetch('/api/overrides', { method: 'POST', body: JSON.stringify({ isin, ticker }) });
-    setOverrideIsin(''); setOverrideTicker('');
+    if (overrideIsinRef.current) overrideIsinRef.current.value = '';
+    if (overrideTickerRef.current) overrideTickerRef.current.value = '';
     fetchAllData(portfolio, baseCurrency);
     setOverrideMsg(`Saved: ${isin} → ${ticker}`);
     setTimeout(() => setOverrideMsg(''), 4000);
@@ -824,6 +826,7 @@ const handleUpload = async (files) => {
       '/portfolio/ownership':    'ownership',
       '/portfolio/import':       'import',
       '/portfolio/manage':       'manage',
+      '/portfolio/overrides':    'overrides',
       '/portfolio/settings':     'settings',
     };
     const currentTab = pathToTab[location.pathname] || 'overview';
@@ -925,31 +928,39 @@ const handleUpload = async (files) => {
                   </div>
                 )}
 
+                {currentTab === 'overrides' && (
+                  <div className="flex flex-col gap-5">
+                    <h2 className="text-xl font-bold">Ticker Overrides</h2>
+                    <div className={`${cardCls} p-6`}>
+                      <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Pin an ISIN to a specific Yahoo Finance ticker. The override takes priority over automatic resolution on every upload.
+                      </p>
+                      <div className="flex gap-2 mb-3">
+                        <input ref={overrideIsinRef} placeholder="ISIN (e.g. SE0025138357)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                        <input ref={overrideTickerRef} placeholder="YF ticker (e.g. HACK.ST)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                      </div>
+                      <button onClick={handleAddOverride} className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition mb-3">Save Override</button>
+                      {overrideMsg && <p className="text-xs text-green-400 mb-3">{overrideMsg}</p>}
+                      {Object.entries(overrides).length > 0 ? (
+                        <div className="flex flex-col gap-2">
+                          <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Active overrides</p>
+                          {Object.entries(overrides).map(([isin, ticker]) => (
+                            <div key={isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-xl px-4 py-2.5`}>
+                              <span className="text-sm font-mono">{isin} <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span> <span className="font-bold">{ticker}</span></span>
+                              <button onClick={() => handleDeleteOverride(isin)} className="text-red-400 hover:text-red-300 text-xs ml-4 transition font-medium">Remove</button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className={`text-sm ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No overrides saved yet.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {currentTab === 'settings' && (
                   <div className="flex flex-col gap-5">
                     <h2 className="text-xl font-bold">Settings</h2>
-                    <div className={`${cardCls} p-5 flex flex-col gap-5`}>
-                      <div>
-                        <label className={`text-xs font-semibold uppercase tracking-wider mb-3 block ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Ticker Overrides</label>
-                        <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Pin an ISIN to a specific Yahoo ticker. Takes effect on next upload.</p>
-                        <div className="flex gap-2 mb-2">
-                          <input value={overrideIsin} onChange={e => setOverrideIsin(e.target.value)} placeholder="ISIN" className={`flex-1 px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
-                          <input value={overrideTicker} onChange={e => setOverrideTicker(e.target.value)} placeholder="Ticker" className={`flex-1 px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
-                        </div>
-                        <button onClick={handleAddOverride} className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-semibold transition mb-2">Save Override</button>
-                        {overrideMsg && <p className="text-xs text-green-400 mb-2">{overrideMsg}</p>}
-                        {Object.entries(overrides).length > 0 && (
-                          <div className="flex flex-col gap-1">
-                            {Object.entries(overrides).map(([isin, ticker]) => (
-                              <div key={isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-lg px-3 py-2`}>
-                                <span className="text-xs">{isin} → <span className="font-bold">{ticker}</span></span>
-                                <button onClick={() => handleDeleteOverride(isin)} className="text-red-400 hover:text-red-300 text-xs ml-2 transition">✕</button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
                   </div>
                 )}
 
@@ -1126,7 +1137,7 @@ const handleUpload = async (files) => {
                                     <div key={h.ticker} className="flex items-center justify-between gap-2 pl-3">
                                       <span className="font-mono">{h.ticker}{h.isin ? <span className={`ml-1.5 font-sans ${isDark ? 'text-red-500/70' : 'text-red-400'}`}>{h.isin}</span> : ''}</span>
                                       {h.isin && (
-                                        <button onClick={() => { setOverrideIsin(h.isin); navigate('/portfolio/settings'); }} className="shrink-0 font-semibold underline underline-offset-2">
+                                        <button onClick={() => { navigate('/portfolio/overrides'); setTimeout(() => { if (overrideIsinRef.current) overrideIsinRef.current.value = h.isin; }, 50); }} className="shrink-0 font-semibold underline underline-offset-2">
                                           Set ticker →
                                         </button>
                                       )}
@@ -1469,9 +1480,7 @@ const handleUpload = async (files) => {
         onRemoveSelected: handleRemoveSelected,
         onForceResolve: handleForceResolve,
         baseCurrency, onSetBaseCurrency: setBaseCurrency,
-        overrideIsin, overrideTicker, overrides, overrideMsg,
-        onOverrideIsinChange: setOverrideIsin,
-        onOverrideTickerChange: setOverrideTicker,
+        overrides, overrideMsg,
         onAddOverride: handleAddOverride,
         onDeleteOverride: handleDeleteOverride,
         authForm, authError, authLoading,

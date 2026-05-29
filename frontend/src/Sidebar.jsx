@@ -104,23 +104,7 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
     </div>
   );
 
-  if (id === 'settings') return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${sub}`}>Ticker Overrides</p>
-        <input value={pa.overrideIsin||''} onChange={e => pa.onOverrideIsinChange(e.target.value)} placeholder="ISIN" className={`${inputCls} mb-1`} />
-        <input value={pa.overrideTicker||''} onChange={e => pa.onOverrideTickerChange(e.target.value)} placeholder="Ticker" className={`${inputCls} mb-1`} />
-        <button onClick={pa.onAddOverride} className={`${btn} bg-blue-600 hover:bg-blue-500 text-white mb-1`}>Save Override</button>
-        {pa.overrideMsg && <p className="text-[10px] text-green-400">{pa.overrideMsg}</p>}
-        {Object.entries(pa.overrides||{}).map(([isin, ticker]) => (
-          <div key={isin} className={`flex items-center justify-between rounded px-2 py-1 mt-1 ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
-            <span className="text-[10px]">{isin} → <b>{ticker}</b></span>
-            <button onClick={() => pa.onDeleteOverride(isin)} className="text-red-400 text-xs ml-1">✕</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  if (id === 'settings') return null;
 
   if (id === 'danger') return (
     <div className="flex flex-col gap-2">
@@ -262,15 +246,16 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       icon: TrendingUp,
       path: null,
       subItems: [
-        { id: 'overview',      label: 'Overview',      path: '/portfolio' },
-        { id: 'holdings',      label: 'Holdings',      path: '/portfolio/holdings' },
-        { id: 'transactions',  label: 'Transactions',  path: '/portfolio/transactions' },
-        { id: 'dividends',     label: 'Dividends',     path: '/portfolio/dividends' },
-        { id: 'ownership',     label: 'Ownership',     path: '/portfolio/ownership' },
+        { id: 'overview',      label: 'Overview',        path: '/portfolio' },
+        { id: 'holdings',      label: 'Holdings',        path: '/portfolio/holdings' },
+        { id: 'transactions',  label: 'Transactions',    path: '/portfolio/transactions' },
+        { id: 'dividends',     label: 'Dividends',       path: '/portfolio/dividends' },
+        { id: 'ownership',     label: 'Ownership',       path: '/portfolio/ownership' },
         { id: 'divider1', isDivider: true },
-        { id: 'import',   label: 'Import CSV',      path: '/portfolio' },
-        { id: 'manage',   label: 'Manage Holdings', isAction: true },
-        { id: 'settings', label: 'Settings',        isAction: true },
+        { id: 'import',    label: 'Import CSV',       path: '/portfolio' },
+        { id: 'manage',    label: 'Manage Holdings',  isAction: true },
+        { id: 'overrides', label: 'Ticker Overrides', path: '/portfolio/overrides' },
+        { id: 'settings',  label: 'Settings',         isAction: true },
         { id: 'divider2', isDivider: true },
         { id: 'clear-data',         label: 'Clear data',         isDirectButton: true, actionKey: 'onClearAll' },
         { id: 'clear-ticker-cache', label: 'Clear ticker cache', isDirectButton: true, actionKey: 'onClearTickerCache' },
