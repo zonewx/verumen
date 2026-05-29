@@ -490,7 +490,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   // 5. ISIN search — use Yahoo search and score results
   if (isin) {
     try {
-      const results = await withYFTimeout(yahooFinance.search(isin));
+      const results = await withYFTimeout(yahooFinance.search(isin), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         // Score: heavily prefer symbols matching transaction currency's exchange
@@ -518,13 +518,12 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     } catch(e) {}
   }
 
-  // 6. ISIN search + ticker-string search — handles cases where YF ticker differs from exchange
-  // ticker (e.g. "HACKSAW" on exchange but "HACK.ST" on YF). ISIN is tried first as it is
-  // unambiguous; ticker string is the fallback.
-  for (const searchTerm of [isin, cleaned].filter(Boolean)) {
-    if (!searchTerm || searchTerm.length < 3) continue;
+  // 6. Ticker-string search — for stocks where the exchange ticker differs from the YF symbol
+  // (e.g. Nordnet exports "HACKSAW" but YF symbol is "HACK.ST"). ISIN was already searched in
+  // step 5, so we only try the cleaned ticker here to avoid duplicate rate-limited calls.
+  if (cleaned?.length >= 3) {
     try {
-      const results = await withYFTimeout(yahooFinance.search(searchTerm));
+      const results = await withYFTimeout(yahooFinance.search(cleaned), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
@@ -540,14 +539,12 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   // 7. Name-based search as last resort
   if (name?.length > 2) {
     try {
-      // Use first 3 words of name for better search results
       const searchName = name.split(/\s+/).slice(0, 3).join(' ');
-      const results = await withYFTimeout(yahooFinance.search(searchName));
+      const results = await withYFTimeout(yahooFinance.search(searchName), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
         if (preferred) return save(preferred.symbol);
-        // Only use first result if it matches expected currency region
         const first = quotes[0];
         if (preferUSListing && !first.symbol.includes('.')) return save(first.symbol);
         if (!preferUSListing && preferredSuffixes.some(s => first.symbol.endsWith(s))) return save(first.symbol);

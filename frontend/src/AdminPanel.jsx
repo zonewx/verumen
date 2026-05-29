@@ -35,6 +35,8 @@ export default function AdminPanel({ isDark, authUsername }) {
   const [removeError, setRemoveError] = useState('');
   const [goSearch, setGoSearch] = useState('');
   const [goLoading, setGoLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [roleSearch, setRoleSearch] = useState('');
 
   const token = sessionStorage.getItem('auth_token');
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
@@ -471,11 +473,15 @@ export default function AdminPanel({ isDark, authUsername }) {
             {/* USERS */}
             {tab === 'users' && stats && (
               <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{stats.users.length} registered user(s)</p>
-                  <button onClick={fetchStats} className={btnGhost}>↺ Refresh</button>
+                <div className="flex items-center gap-3">
+                  <input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search users…" className={`${inputCls} flex-1`} />
+                  <p className={`text-sm shrink-0 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{stats.users.length} user(s)</p>
+                  <button onClick={fetchStats} className={`${btnGhost} shrink-0`}>↺ Refresh</button>
                 </div>
-                {stats.users.map(u => {
+                {[...stats.users]
+                  .filter(u => !userSearch || u.username.toLowerCase().includes(userSearch.toLowerCase()))
+                  .sort((a, b) => a.username.localeCompare(b.username))
+                  .map(u => {
                   const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800' };
                   return (
                   <div key={u.username} className={`${card} overflow-hidden`}>
@@ -607,10 +613,10 @@ export default function AdminPanel({ isDark, authUsername }) {
                                 (o.created_by||'').toLowerCase().includes(q);
                             }).map(o => (
                               <tr key={o.isin} className={`border-t ${isDark ? 'border-gray-700 hover:bg-gray-700/20' : 'border-gray-100 hover:bg-gray-50'}`}>
-                                <td className={`px-4 py-2.5 font-mono text-xs ${isDark ? 'text-gray-100' : 'text-gray-800'} ${!o.active ? 'opacity-50' : ''}`}>{o.isin}</td>
-                                <td className={`px-4 py-2.5 font-mono text-xs font-bold ${isDark ? 'text-white' : 'text-gray-900'} ${!o.active ? 'opacity-50' : ''}`}>{o.ticker}</td>
-                                <td className={`px-4 py-2.5 text-xs ${isDark ? 'text-gray-200' : 'text-gray-700'} ${!o.active ? 'opacity-50' : ''}`}>{o.name || <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>—</span>}</td>
-                                <td className={`px-4 py-2.5 text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'} ${!o.active ? 'opacity-50' : ''}`}>{o.created_by}</td>
+                                <td className={`px-4 py-2.5 font-mono text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.isin}</td>
+                                <td className={`px-4 py-2.5 font-mono text-xs font-bold text-white ${!o.active ? 'opacity-50' : ''}`}>{o.ticker}</td>
+                                <td className={`px-4 py-2.5 text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.name || <span className="text-gray-500">—</span>}</td>
+                                <td className={`px-4 py-2.5 text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.created_by}</td>
                                 <td className="px-4 py-2.5">
                                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${o.active ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-500'}`}>
                                     {o.active ? 'Active' : 'Disabled'}
@@ -681,11 +687,17 @@ export default function AdminPanel({ isDark, authUsername }) {
             {/* ROLES */}
             {tab === 'roles' && stats && (
               <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <input value={roleSearch} onChange={e => setRoleSearch(e.target.value)} placeholder="Search users…" className={`${inputCls} flex-1`} />
+                </div>
                 <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                   Promote users to moderator or demote them back.
                   {authUsername?.toLowerCase() === 'admin' && <span className="ml-1">As the root admin you can also grant or revoke admin access.</span>}
                 </p>
-                {stats.users.map(u => {
+                {[...stats.users]
+                  .filter(u => !roleSearch || u.username.toLowerCase().includes(roleSearch.toLowerCase()))
+                  .sort((a, b) => a.username.localeCompare(b.username))
+                  .map(u => {
                   const role = u.role || 'user';
                   const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800', user: `${isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500'}` };
                   const isRootAdmin = u.username === 'admin';
