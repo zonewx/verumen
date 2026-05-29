@@ -825,7 +825,6 @@ const handleUpload = async (files) => {
       '/portfolio/dividends':    'overview',
       '/portfolio/ownership':    'ownership',
       '/portfolio/import':       'import',
-      '/portfolio/manage':       'manage',
       '/portfolio/overrides':    'overrides',
       '/portfolio/settings':     'settings',
     };
@@ -897,40 +896,10 @@ const handleUpload = async (files) => {
                   </div>
                 )}
 
-                {currentTab === 'manage' && (
-                  <div className="flex flex-col gap-5">
-                    <h2 className="text-xl font-bold">Manage Holdings</h2>
-                    <div className={`${cardCls} p-5 flex flex-col gap-4`}>
-                      {portfolio.length === 0 ? (
-                        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No holdings synced yet.</p>
-                      ) : (
-                        <>
-                          <div className={`${isDark ? 'bg-gray-700/40' : 'bg-gray-50'} rounded-xl overflow-hidden max-h-96 overflow-y-auto`}>
-                            {portfolio.map(s => (
-                              <label key={s.ticker} className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'} border-b ${isDark ? 'border-gray-700/50' : 'border-gray-100'} last:border-0`}>
-                                <input type="checkbox" checked={selectedForRemoval.includes(s.ticker)} onChange={() => toggleRemoval(s.ticker)} className="accent-blue-500" />
-                                <span className="text-sm font-medium">{s.ticker}</span>
-                                <span className={`text-xs ml-auto ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{s.quantity} shares</span>
-                              </label>
-                            ))}
-                          </div>
-                          {selectedForRemoval.length > 0 && (
-                            <button onClick={handleRemoveSelected} className="py-2.5 rounded-xl font-semibold text-sm bg-orange-600 hover:bg-orange-500 text-white transition">
-                              Remove {selectedForRemoval.length} selected
-                            </button>
-                          )}
-                          <button onClick={handleForceResolve} disabled={resolveLoading} className="py-2.5 rounded-xl font-semibold text-sm bg-purple-700 hover:bg-purple-600 text-white transition disabled:opacity-50">
-                            {resolveLoading ? '⏳ Re-resolving...' : '🔄 Force Re-Resolve All Tickers'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 {currentTab === 'overrides' && (
                   <div className="flex flex-col gap-5">
-                    <h2 className="text-xl font-bold">Ticker Overrides</h2>
+                    <h2 className="text-xl font-bold">Portfolio Settings</h2>
                     <div className={`${cardCls} p-6`}>
                       <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                         Pin an ISIN to a specific Yahoo Finance ticker. The override takes priority over automatic resolution on every upload.
@@ -954,6 +923,16 @@ const handleUpload = async (files) => {
                       ) : (
                         <p className={`text-sm ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No overrides saved yet.</p>
                       )}
+                    </div>
+                    <div className={`${cardCls} p-6`}>
+                      <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Re-Resolve Tickers</h3>
+                      <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Re-runs ticker resolution for all holdings using cached results where available. Use this if holdings are showing incorrect or missing data after an upload.
+                      </p>
+                      <button onClick={handleForceResolve} disabled={resolveLoading} className="px-4 py-2.5 bg-purple-700 hover:bg-purple-600 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
+                        {resolveLoading ? '⏳ Re-resolving...' : '🔄 Force Re-Resolve All Tickers'}
+                      </button>
+                      {resolveStatus && <p className={`text-xs mt-3 ${resolveStatus.startsWith('✓') ? 'text-green-400' : (isDark ? 'text-gray-400' : 'text-gray-500')}`}>{resolveStatus}</p>}
                     </div>
                   </div>
                 )}
@@ -1519,7 +1498,6 @@ const handleUpload = async (files) => {
           <Route path="/portfolio/dividends" element={<PortfolioView/>}/>
           <Route path="/portfolio/ownership" element={<PortfolioView/>}/>
           <Route path="/portfolio/import" element={<PortfolioView/>}/>
-          <Route path="/portfolio/manage" element={<PortfolioView/>}/>
           <Route path="/portfolio/overrides" element={<PortfolioView/>}/>
           <Route path="/portfolio/settings" element={<PortfolioView/>}/>
           
