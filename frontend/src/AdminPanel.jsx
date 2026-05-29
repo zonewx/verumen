@@ -592,7 +592,7 @@ export default function AdminPanel({ isDark, authUsername }) {
               <div className="flex flex-col gap-4">
                 <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                   Promote users to moderator or demote them back.
-                  {authUsername === 'admin' && <span className="ml-1">As the root admin you can also grant or revoke admin access.</span>}
+                  {authUsername?.toLowerCase() === 'admin' && <span className="ml-1">As the root admin you can also grant or revoke admin access.</span>}
                 </p>
                 {stats.users.map(u => {
                   const role = u.role || 'user';
@@ -627,7 +627,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                             : <button onClick={() => setRole(u.username, 'user')} className={btnGhost}>Demote to User</button>
                         )}
                         {/* Admin promote/demote — only visible to the root "admin" account */}
-                        {authUsername === 'admin' && !isRootAdmin && !isSelf && (
+                        {authUsername?.toLowerCase() === 'admin' && !isRootAdmin && !isSelf && (
                           role !== 'admin'
                             ? <button onClick={() => setAdminRole('admin')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-red-700 hover:bg-red-600 text-white`}>Promote to Admin</button>
                             : <button onClick={() => setAdminRole('user')} className={btnGhost}>Revoke Admin</button>
