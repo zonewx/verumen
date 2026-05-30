@@ -30,7 +30,7 @@ function MarketTicker({ isDark }) {
     try { return JSON.parse(localStorage.getItem(QUOTES_CACHE_KEY)) || []; } catch { return []; }
   });
   const [selected, setSelected] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || MARKET_INDEXES.map(m => m.id); } catch { return MARKET_INDEXES.map(m => m.id); }
   });
   const [isOverflow, setIsOverflow] = useState(false);
   const [scrollPx, setScrollPx]     = useState(0);

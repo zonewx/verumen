@@ -28,7 +28,7 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
   });
   const updateLastSync = (ts) => { setLastSync(ts); localStorage.setItem('cs_prices_last_sync', String(ts)); };
   const [marketSel, setMarketSel] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('marketIndexes')) || []; } catch { return []; }
+    try { return JSON.parse(localStorage.getItem('marketIndexes')) || MARKET_INDEXES.map(m => m.id); } catch { return MARKET_INDEXES.map(m => m.id); }
   });
 
   const card = `rounded-2xl border p-6 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`;
