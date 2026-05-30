@@ -951,30 +951,32 @@ const handleUpload = async (files) => {
                         );
                       })()}
                     </div>
-                    <div className={`${cardCls} p-6`}>
-                      <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Re-Resolve Tickers</h3>
-                      <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Re-runs ticker resolution for all holdings using cached results where available. Use this if holdings are showing incorrect or missing data after an upload.
-                      </p>
-                      <button onClick={handleForceResolve} disabled={resolveLoading} className="px-4 py-2.5 bg-purple-700 hover:bg-purple-600 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
-                        {resolveLoading ? '⏳ Re-resolving...' : '🔄 Force Re-Resolve All Tickers'}
-                      </button>
-                      {resolveStatus && <p className={`text-xs mt-3 ${resolveStatus.startsWith('✓') ? 'text-green-400' : (isDark ? 'text-gray-400' : 'text-gray-500')}`}>{resolveStatus}</p>}
-                    </div>
-                    <div className={`${cardCls} p-6`}>
-                      <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Refresh Prices</h3>
-                      <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Update all stock prices from Yahoo Finance to reflect current market values.
-                      </p>
-                      <button
-                        onClick={handleRefreshPrices}
-                        disabled={isAppLoading}
-                        title="Refresh prices from Yahoo Finance"
-                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isAppLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isAppLoading ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
-                        {isAppLoading ? 'Refreshing...' : 'Refresh Prices'}
-                      </button>
+                    <div className="grid grid-cols-2 gap-5">
+                      <div className={`${cardCls} p-6`}>
+                        <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Re-Resolve Tickers</h3>
+                        <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                          Re-runs ticker resolution for all holdings using cached results where available. Use this if holdings are showing incorrect or missing data after an upload.
+                        </p>
+                        <button onClick={handleForceResolve} disabled={resolveLoading} className="w-full px-4 py-2.5 bg-purple-700 hover:bg-purple-600 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
+                          {resolveLoading ? '⏳ Re-resolving...' : '🔄 Force Re-Resolve All Tickers'}
+                        </button>
+                        {resolveStatus && <p className={`text-xs mt-3 ${resolveStatus.startsWith('✓') ? 'text-green-400' : (isDark ? 'text-gray-400' : 'text-gray-500')}`}>{resolveStatus}</p>}
+                      </div>
+                      <div className={`${cardCls} p-6`}>
+                        <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Refresh Prices</h3>
+                        <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                          Update all stock prices from Yahoo Finance to reflect current market values.
+                        </p>
+                        <button
+                          onClick={handleRefreshPrices}
+                          disabled={isAppLoading}
+                          title="Refresh prices from Yahoo Finance"
+                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isAppLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isAppLoading ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
+                          {isAppLoading ? 'Refreshing...' : 'Refresh Prices'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1206,38 +1208,6 @@ const handleUpload = async (files) => {
                             <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} />
                           </div>
                         )}
-                        {dividends && dividends.totalAllTime > 0 && (
-                          <div className={`${cardCls} p-6`}>
-                            <h3 className={`text-sm font-bold ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider mb-6`}>Dividend Dashboard</h3>
-                            <div className="grid grid-cols-2 gap-4 mb-8">
-                              <div className={`${isDark ? 'bg-gray-900' : 'bg-gray-50'} rounded-xl p-4`}><p className={`text-xs font-bold uppercase mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>All-Time</p><p className="text-3xl font-bold">{fmtSym(dividends.totalAllTime)}</p></div>
-                              <div className={`${isDark ? 'bg-gray-900' : 'bg-gray-50'} rounded-xl p-4`}><p className={`text-xs font-bold uppercase mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>This Year</p><p className="text-3xl font-bold">{fmtSym(dividends.totalThisYear)}</p></div>
-                            </div>
-                            <div className="flex flex-col gap-1 mb-8">
-                              {dividends.byYear.map(({ year, total, stocks }) => (
-                                <div key={year}>
-                                  <div onClick={() => setExpandedYear(expandedYear === year ? null : year)} className={`flex items-center gap-3 py-1 cursor-pointer rounded-lg px-2 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition`}>
-                                    <span className={`text-sm font-bold w-12 shrink-0 text-right ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{year}</span>
-                                    <div className={`flex-1 h-6 ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded overflow-hidden`}><div className="h-full bg-slate-500 rounded" style={{ width: `${(total / Math.max(...dividends.byYear.map(y=>y.total))) * 100}%` }} /></div>
-                                    <span className={`text-sm font-bold w-28 text-right shrink-0 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{fmtSym(total)}</span>
-                                    <span className={`text-xs w-4 shrink-0 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{expandedYear === year ? '▲' : '▼'}</span>
-                                  </div>
-                                  <div style={{ maxHeight: expandedYear === year ? `${(stocks?.length || 0) * 28 + 16}px` : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
-                                    <div className={`ml-14 mt-1 mb-2 flex flex-col gap-1 border-l-2 ${isDark ? 'border-gray-700' : 'border-gray-200'} pl-3`}>
-                                      {stocks?.map(({ name, total: sTotal }) => (
-                                        <div key={name} className="flex items-center gap-3">
-                                          <span className={`text-xs w-44 shrink-0 truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{name}</span>
-                                          <div className={`flex-1 h-4 ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded overflow-hidden`}><div className="h-full bg-slate-600 rounded" style={{ width: `${(sTotal / (stocks[0]?.total || 1)) * 100}%` }} /></div>
-                                          <span className={`text-xs w-24 text-right shrink-0 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{fmtSym(sTotal)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </>
                     )}
                   </div>
@@ -1352,6 +1322,43 @@ const handleUpload = async (files) => {
                     </div>
                   );
                 })()}
+
+                {currentTab === 'dividends' && (
+                  <div className="flex flex-col gap-6">
+                    {!dividends || dividends.totalAllTime === 0 ? <EmptyState icon="💰" title="No dividends" desc="Upload and sync your portfolio to see dividend history." /> : (
+                      <div className={`${cardCls} p-6`}>
+                        <h3 className={`text-sm font-bold ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider mb-6`}>Dividend Dashboard</h3>
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                          <div className={`${isDark ? 'bg-gray-900' : 'bg-gray-50'} rounded-xl p-4`}><p className={`text-xs font-bold uppercase mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>All-Time</p><p className="text-3xl font-bold">{fmtSym(dividends.totalAllTime)}</p></div>
+                          <div className={`${isDark ? 'bg-gray-900' : 'bg-gray-50'} rounded-xl p-4`}><p className={`text-xs font-bold uppercase mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>This Year</p><p className="text-3xl font-bold">{fmtSym(dividends.totalThisYear)}</p></div>
+                        </div>
+                        <div className="flex flex-col gap-1 mb-8">
+                          {dividends.byYear.map(({ year, total, stocks }) => (
+                            <div key={year}>
+                              <div onClick={() => setExpandedYear(expandedYear === year ? null : year)} className={`flex items-center gap-3 py-1 cursor-pointer rounded-lg px-2 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition`}>
+                                <span className={`text-sm font-bold w-12 shrink-0 text-right ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{year}</span>
+                                <div className={`flex-1 h-6 ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded overflow-hidden`}><div className="h-full bg-slate-500 rounded" style={{ width: `${(total / Math.max(...dividends.byYear.map(y=>y.total))) * 100}%` }} /></div>
+                                <span className={`text-sm font-bold w-28 text-right shrink-0 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{fmtSym(total)}</span>
+                                <span className={`text-xs w-4 shrink-0 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{expandedYear === year ? '▲' : '▼'}</span>
+                              </div>
+                              <div style={{ maxHeight: expandedYear === year ? `${(stocks?.length || 0) * 28 + 16}px` : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
+                                <div className={`ml-14 mt-1 mb-2 flex flex-col gap-1 border-l-2 ${isDark ? 'border-gray-700' : 'border-gray-200'} pl-3`}>
+                                  {stocks?.map(({ name, total: sTotal }) => (
+                                    <div key={name} className="flex items-center gap-3">
+                                      <span className={`text-xs w-44 shrink-0 truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{name}</span>
+                                      <div className={`flex-1 h-4 ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded overflow-hidden`}><div className="h-full bg-slate-600 rounded" style={{ width: `${(sTotal / (stocks[0]?.total || 1)) * 100}%` }} /></div>
+                                      <span className={`text-xs w-24 text-right shrink-0 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{fmtSym(sTotal)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {currentTab === 'history' && (
                   <div className="flex flex-col gap-4">

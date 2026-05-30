@@ -453,7 +453,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         <div className="flex items-center gap-1">
           <button
             onClick={() => navigate(`/profile/${currentUser?.username}`)}
-            className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg ${hoverBg} transition-colors ${textPrimary}`}
+            className={`flex items-center py-2 rounded-lg ${hoverBg} transition-colors ${textPrimary} ${isExpanded ? 'flex-1 gap-3 px-3' : 'justify-center px-2'}`}
             title={!isExpanded ? currentUser?.username : ''}
           >
             <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">

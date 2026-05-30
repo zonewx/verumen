@@ -103,13 +103,11 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
           <div className="flex flex-col gap-2">
             {MARKET_INDEXES.map(idx => {
               const checked = marketSel.includes(idx.id);
-              const disabled = !checked && marketSel.length >= 3;
               return (
-                <label key={idx.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <label key={idx.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'}`}>
                   <input
                     type="checkbox"
                     checked={checked}
-                    disabled={disabled}
                     onChange={() => {
                       const next = checked
                         ? marketSel.filter(id => id !== idx.id)
@@ -126,8 +124,8 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
               );
             })}
           </div>
-          {marketSel.length >= 3 && (
-            <p className={`text-xs mt-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Maximum of 3 indexes selected. Uncheck one to add another.</p>
+          {marketSel.length > 3 && (
+            <p className={`text-xs mt-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>When more than 3 indexes are selected, they will scroll automatically in the top bar.</p>
           )}
         </div>
 

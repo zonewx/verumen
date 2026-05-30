@@ -30,6 +30,9 @@ function MarketTicker({ isDark }) {
   const [selected, setSelected]   = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
   });
+  const [isOverflow, setIsOverflow] = useState(false);
+  const containerRef = useRef(null);
+  const contentRef = useRef(null);
   const intervalRef = useRef(null);
 
   useEffect(() => {
@@ -39,6 +42,31 @@ function MarketTicker({ isDark }) {
     window.addEventListener('marketIndexes-updated', onStorage);
     return () => window.removeEventListener('marketIndexes-updated', onStorage);
   }, []);
+
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (containerRef.current && contentRef.current) {
+        setIsOverflow(contentRef.current.scrollWidth > containerRef.current.clientWidth);
+      }
+    };
+
+    checkOverflow();
+    const resizeObserver = new ResizeObserver(checkOverflow);
+    if (containerRef.current) resizeObserver.observe(containerRef.current);
+
+    // Listen for sidebar collapse/expand (CSS variable change)
+    const mutationObserver = new MutationObserver(checkOverflow);
+    mutationObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+
+    // Also listen to window resize
+    window.addEventListener('resize', checkOverflow);
+
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      window.removeEventListener('resize', checkOverflow);
+    };
+  }, [quotes, selected]);
 
   useEffect(() => {
     if (!selected.length) { setQuotes([]); return; }
@@ -68,14 +96,14 @@ function MarketTicker({ isDark }) {
   const labelCls = isDark ? 'text-gray-100' : 'text-gray-700';
   const valCls   = isDark ? 'text-gray-200' : 'text-gray-800';
 
-  return (
-    <div className={`hidden md:flex items-center gap-3 border-r mr-2 pr-3 ${divider}`}>
+  const tickerContent = (
+    <>
       {quotes.map((q, i) => {
         const meta   = MARKET_INDEXES.find(m => m.ticker === q.symbol);
         const pos    = q.changePct >= 0;
         const pctCls = pos ? 'text-green-400' : 'text-red-400';
         return (
-          <div key={q.symbol} className={`flex flex-col items-start leading-tight text-xs px-2 ${i > 0 ? `border-l ${divider}` : ''}`}>
+          <div key={q.symbol} className={`flex flex-col items-start leading-tight text-xs px-2 shrink-0 ${i > 0 ? `border-l ${divider}` : ''}`}>
             <div className="flex items-center gap-1">
               {meta?.country && <img src={`https://flagcdn.com/${meta.country}.svg`} alt={meta.country} className="w-3.5 h-2.5 object-cover shrink-0" />}
               <span className={`font-medium ${labelCls}`}>{meta?.short ?? q.symbol}</span>
@@ -87,6 +115,25 @@ function MarketTicker({ isDark }) {
           </div>
         );
       })}
+    </>
+  );
+
+  const scrollStyle = isOverflow ? {
+    animation: 'marquee 25s linear infinite',
+  } : {};
+
+  return (
+    <div className={`hidden md:flex items-center gap-3 border-r mr-2 pr-3 overflow-hidden ${divider}`} ref={containerRef} style={{ maxWidth: '100%' }}>
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(calc(-100% - 24px)); }
+        }
+      `}</style>
+      <div ref={contentRef} style={scrollStyle} className="flex items-center gap-3 whitespace-nowrap">
+        {tickerContent}
+        {isOverflow && <div className="flex items-center gap-3 shrink-0 pl-3 border-l">{tickerContent}</div>}
+      </div>
     </div>
   );
 }
