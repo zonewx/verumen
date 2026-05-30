@@ -401,13 +401,40 @@ async function resolveSymbolBatch(transactions, userId) {
     pending.get(cacheKey).ids.push(tx.id);
   }
 
-  for (const [, { tx, ids }] of pending) {
+  console.log(`[resolveSymbolBatch] Grouping: ${transactions.length} transactions → ${pending.size} unique securities`);
+
+  // Adaptive backoff: start at 150ms, increase if we detect rate limiting
+  let delayMs = 150;
+  let resolved = 0;
+  let consecutiveRateLimits = 0;
+  const pendingList = Array.from(pending.entries());
+
+  for (const [, { tx, ids }] of pendingList) {
     const ticker = await resolveSymbolWithContext(
       tx.raw_ticker || null, tx.isin, tx.name, tx.currency, tx.broker,
-      userId, cache, overrides
+      userId, cache, overrides, delayMs
     );
     for (const id of ids) results[id] = ticker;
-    await new Promise(r => setTimeout(r, 150));
+    resolved++;
+
+    // Log progress every 10 securities or on completion
+    if (resolved % 10 === 0 || resolved === pendingList.length) {
+      console.log(`[resolveSymbolBatch] Progress: ${resolved}/${pendingList.length} resolved`);
+    }
+
+    // Adaptive delay: if we see rate limiting, back off exponentially
+    // Start at 150ms, jump to 500ms if rate limited, then 2000ms
+    if (!ticker && isin) {
+      consecutiveRateLimits++;
+      if (consecutiveRateLimits >= 2) {
+        delayMs = Math.min(2000, delayMs * 3);
+        console.log(`[resolveSymbolBatch] Rate limit detected, backing off to ${delayMs}ms`);
+      }
+    } else {
+      consecutiveRateLimits = 0;
+    }
+
+    await new Promise(r => setTimeout(r, delayMs));
   }
 
   return results;
@@ -418,7 +445,7 @@ async function resolveSymbol(rawTicker, isin, name, currency, broker, userId) {
   return resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides);
 }
 
-async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides) {
+async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides, delayMs = 150) {
   // 1. Manual override wins always
   const overrideKey = isin || rawTicker;
   if (overrideKey && overrides[overrideKey]) return overrides[overrideKey];
@@ -434,6 +461,10 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     }
     return symbol;
   };
+
+  // Rate limit handler: if we detect 429 or timeout, signal to increase delay
+  let rateLimited = false;
+  const handleRateLimit = () => { rateLimited = true; };
 
   const effectiveCurrency = getEffectiveCurrency(currency, isin, broker);
   const isinPrefix = isin ? isin.substring(0, 2).toUpperCase() : null;
@@ -461,8 +492,17 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
 
   const verifyQuote = async (symbol) => {
     let q = null;
-    try { q = await withYFTimeout(yahooFinance.quote(symbol, {}, { validateResult: false })); }
-    catch(e) { if (e?.result?.regularMarketPrice != null) q = e.result; }
+    try {
+      q = await withYFTimeout(yahooFinance.quote(symbol, {}, { validateResult: false }));
+    }
+    catch(e) {
+      // Detect rate limiting
+      if (e?.status === 429 || e?.message?.includes('429') || e?.message?.includes('Too Many Requests')) {
+        handleRateLimit();
+        return null;
+      }
+      if (e?.result?.regularMarketPrice != null) q = e.result;
+    }
     return q?.regularMarketPrice != null ? symbol : null;
   };
 
@@ -497,7 +537,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   }
 
   // 5. ISIN search — use Yahoo search and score results
-  if (isin) {
+  if (isin && !rateLimited) {
     try {
       const results = await withYFTimeout(yahooFinance.search(isin, {}, { validateResult: false }), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
@@ -515,12 +555,16 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
         const hasPreference = preferredSuffixes.length > 0 || preferUSListing;
         if (!hasPreference || best.score > 0) return save(best.symbol);
       }
-    } catch(e) {}
+    } catch(e) {
+      if (e?.status === 429 || e?.message?.includes('429') || e?.message?.includes('Too Many Requests')) {
+        handleRateLimit();
+      }
+    }
   }
 
   // 6. Ticker-string search — for stocks where the exchange ticker differs from the YF symbol
   // (e.g. Nordnet exports "HACKSAW" but YF symbol is "HACK.ST").
-  if (cleaned?.length >= 3) {
+  if (cleaned?.length >= 3 && !rateLimited) {
     try {
       const results = await withYFTimeout(yahooFinance.search(cleaned, {}, { validateResult: false }), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
@@ -532,11 +576,15 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
           if (!first.symbol.includes('.')) return save(first.symbol);
         }
       }
-    } catch(e) {}
+    } catch(e) {
+      if (e?.status === 429 || e?.message?.includes('429') || e?.message?.includes('Too Many Requests')) {
+        handleRateLimit();
+      }
+    }
   }
 
   // 7. Name-based search as last resort
-  if (name?.length > 2) {
+  if (name?.length > 2 && !rateLimited) {
     try {
       const searchName = name.split(/\s+/).slice(0, 3).join(' ');
       const results = await withYFTimeout(yahooFinance.search(searchName, {}, { validateResult: false }), 5000);
@@ -548,7 +596,11 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
         if (preferUSListing && !first.symbol.includes('.')) return save(first.symbol);
         if (!preferUSListing && preferredSuffixes.some(s => first.symbol.endsWith(s))) return save(first.symbol);
       }
-    } catch(e) {}
+    } catch(e) {
+      if (e?.status === 429 || e?.message?.includes('429') || e?.message?.includes('Too Many Requests')) {
+        handleRateLimit();
+      }
+    }
   }
 
   return save(null);
