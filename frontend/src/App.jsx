@@ -912,40 +912,44 @@ const handleUpload = async (files) => {
                       </div>
                       <button onClick={handleAddOverride} className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition mb-3">Save Override</button>
                       {overrideMsg && <p className={`text-xs mb-3 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
-                      {(overrides.global?.length > 0 || overrides.user?.length > 0) ? (
-                        <div className="flex flex-col gap-3">
-                          {overrides.global?.length > 0 && (
-                            <div>
-                              <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Global overrides</p>
-                              <div className="flex flex-col gap-2">
-                                {overrides.global.map(o => (
-                                  <div key={o.isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/30 border border-gray-600/30' : 'bg-blue-50 border border-blue-200'} rounded-xl px-4 py-2.5`}>
-                                    <div className="flex items-center gap-2 flex-1">
-                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isDark ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>Global</span>
-                                      <span className="text-sm font-mono">{o.isin} <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span> <span className="font-bold">{o.ticker}</span></span>
+                      {(() => {
+                        const globalIsins = new Set(overrides.global?.map(o => o.isin) || []);
+                        const userOverridesFiltered = overrides.user?.filter(o => !globalIsins.has(o.isin)) || [];
+                        return (overrides.global?.length > 0 || userOverridesFiltered.length > 0) ? (
+                          <div className="flex flex-col gap-3">
+                            {overrides.global?.length > 0 && (
+                              <div>
+                                <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Global overrides</p>
+                                <div className="flex flex-col gap-2">
+                                  {overrides.global.map(o => (
+                                    <div key={o.isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/30 border border-gray-600/30' : 'bg-blue-50 border border-blue-200'} rounded-xl px-4 py-2.5`}>
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isDark ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>Global</span>
+                                        <span className="text-sm font-mono">{o.isin} <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span> <span className="font-bold">{o.ticker}</span></span>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          {overrides.user?.length > 0 && (
-                            <div>
-                              <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Your overrides</p>
-                              <div className="flex flex-col gap-2">
-                                {overrides.user.map(o => (
-                                  <div key={o.isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-xl px-4 py-2.5`}>
-                                    <span className="text-sm font-mono">{o.isin} <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span> <span className="font-bold">{o.ticker}</span></span>
-                                    <button onClick={() => handleDeleteOverride(o.isin)} className="text-red-400 hover:text-red-300 text-xs ml-4 transition font-medium">Remove</button>
-                                  </div>
-                                ))}
+                            )}
+                            {userOverridesFiltered.length > 0 && (
+                              <div>
+                                <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Your overrides</p>
+                                <div className="flex flex-col gap-2">
+                                  {userOverridesFiltered.map(o => (
+                                    <div key={o.isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-xl px-4 py-2.5`}>
+                                      <span className="text-sm font-mono">{o.isin} <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span> <span className="font-bold">{o.ticker}</span></span>
+                                      <button onClick={() => handleDeleteOverride(o.isin)} className="text-red-400 hover:text-red-300 text-xs ml-4 transition font-medium">Remove</button>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <p className={`text-sm ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No overrides saved yet.</p>
-                      )}
+                            )}
+                          </div>
+                        ) : (
+                          <p className={`text-sm ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No overrides saved yet.</p>
+                        );
+                      })()}
                     </div>
                     <div className={`${cardCls} p-6`}>
                       <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Re-Resolve Tickers</h3>
