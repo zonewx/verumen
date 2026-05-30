@@ -68,7 +68,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedForRemoval, setSelectedForRemoval] = useState([]);
   const [dividends, setDividends] = useState(() => apiCache.get(`/api/dividends?currency=${baseCurrency}`));
-  const [overrides, setOverrides] = useState(() => apiCache.get('/api/overrides') || {});
+  const [overrides, setOverrides] = useState(() => apiCache.get('/api/overrides') || { global: [], user: [] });
   const overrideIsinRef = useRef(null);
   const overrideTickerRef = useRef(null);
   const [overrideMsg, setOverrideMsg] = useState('');
@@ -643,6 +643,8 @@ const handleUpload = async (files) => {
     const isin = (overrideIsinRef.current?.value || '').trim().toUpperCase();
     const ticker = (overrideTickerRef.current?.value || '').trim().toUpperCase();
     if (!isin || !ticker) return;
+    const hasGlobalOverride = overrides.global?.some(o => o.isin === isin);
+    if (hasGlobalOverride) { setOverrideMsg('✗ A global override already exists for this ISIN'); setTimeout(() => setOverrideMsg(''), 4000); return; }
     await apiFetch('/api/overrides', { method: 'POST', body: JSON.stringify({ isin, ticker }) });
     if (overrideIsinRef.current) overrideIsinRef.current.value = '';
     if (overrideTickerRef.current) overrideTickerRef.current.value = '';
@@ -822,7 +824,7 @@ const handleUpload = async (files) => {
       '/portfolio':              'overview',
       '/portfolio/holdings':     'holdings',
       '/portfolio/transactions': 'history',
-      '/portfolio/dividends':    'overview',
+      '/portfolio/dividends':    'dividends',
       '/portfolio/ownership':    'ownership',
       '/portfolio/import':       'import',
       '/portfolio/overrides':    'overrides',
@@ -909,16 +911,37 @@ const handleUpload = async (files) => {
                         <input ref={overrideTickerRef} placeholder="YF ticker (e.g. HACK.ST)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
                       </div>
                       <button onClick={handleAddOverride} className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition mb-3">Save Override</button>
-                      {overrideMsg && <p className="text-xs text-green-400 mb-3">{overrideMsg}</p>}
-                      {Object.entries(overrides).length > 0 ? (
-                        <div className="flex flex-col gap-2">
-                          <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Active overrides</p>
-                          {Object.entries(overrides).map(([isin, ticker]) => (
-                            <div key={isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-xl px-4 py-2.5`}>
-                              <span className="text-sm font-mono">{isin} <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span> <span className="font-bold">{ticker}</span></span>
-                              <button onClick={() => handleDeleteOverride(isin)} className="text-red-400 hover:text-red-300 text-xs ml-4 transition font-medium">Remove</button>
+                      {overrideMsg && <p className={`text-xs mb-3 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
+                      {(overrides.global?.length > 0 || overrides.user?.length > 0) ? (
+                        <div className="flex flex-col gap-3">
+                          {overrides.global?.length > 0 && (
+                            <div>
+                              <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Global overrides</p>
+                              <div className="flex flex-col gap-2">
+                                {overrides.global.map(o => (
+                                  <div key={o.isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/30 border border-gray-600/30' : 'bg-blue-50 border border-blue-200'} rounded-xl px-4 py-2.5`}>
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isDark ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>Global</span>
+                                      <span className="text-sm font-mono">{o.isin} <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span> <span className="font-bold">{o.ticker}</span></span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          ))}
+                          )}
+                          {overrides.user?.length > 0 && (
+                            <div>
+                              <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Your overrides</p>
+                              <div className="flex flex-col gap-2">
+                                {overrides.user.map(o => (
+                                  <div key={o.isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-xl px-4 py-2.5`}>
+                                    <span className="text-sm font-mono">{o.isin} <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span> <span className="font-bold">{o.ticker}</span></span>
+                                    <button onClick={() => handleDeleteOverride(o.isin)} className="text-red-400 hover:text-red-300 text-xs ml-4 transition font-medium">Remove</button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <p className={`text-sm ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>No overrides saved yet.</p>
@@ -933,6 +956,21 @@ const handleUpload = async (files) => {
                         {resolveLoading ? '⏳ Re-resolving...' : '🔄 Force Re-Resolve All Tickers'}
                       </button>
                       {resolveStatus && <p className={`text-xs mt-3 ${resolveStatus.startsWith('✓') ? 'text-green-400' : (isDark ? 'text-gray-400' : 'text-gray-500')}`}>{resolveStatus}</p>}
+                    </div>
+                    <div className={`${cardCls} p-6`}>
+                      <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Refresh Prices</h3>
+                      <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Update all stock prices from Yahoo Finance to reflect current market values.
+                      </p>
+                      <button
+                        onClick={handleRefreshPrices}
+                        disabled={isAppLoading}
+                        title="Refresh prices from Yahoo Finance"
+                        className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isAppLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isAppLoading ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
+                        {isAppLoading ? 'Refreshing...' : 'Refresh Prices'}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -953,13 +991,14 @@ const handleUpload = async (files) => {
                           <svg className="w-24 h-24" viewBox="0 0 96 96">
                             <circle cx="48" cy="48" r="40" fill="none" stroke={isDark ? '#1f2937' : '#e5e7eb'} strokeWidth="7"/>
                           </svg>
-                          {/* Spinning blue arc */}
-                          <svg className="absolute inset-0 w-24 h-24 animate-spin" style={{ animationDuration: '2s' }} viewBox="0 0 96 96">
+                          {/* Spinning blue arc - continuous CSS animation */}
+                          <svg className="absolute inset-0 w-24 h-24" viewBox="0 0 96 96" style={{ animation: 'spin 2s linear infinite' }}>
                             <circle cx="48" cy="48" r="40" fill="none" stroke="#3b82f6" strokeWidth="7"
                               strokeLinecap="round"
                               strokeDasharray={`${2 * Math.PI * 40}`}
                               strokeDashoffset={`${2 * Math.PI * 40 * 0.75}`}
                             />
+                            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                           </svg>
                         </div>
 
@@ -1127,15 +1166,6 @@ const handleUpload = async (files) => {
                               </div>
                             )}
                           </div>
-                          <button
-                            onClick={handleRefreshPrices}
-                            disabled={isAppLoading}
-                            title="Refresh prices from Yahoo Finance"
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition shrink-0 ${isAppLoading ? 'opacity-40 cursor-not-allowed' : ''} ${isDark ? 'border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700' : 'border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={isAppLoading ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
-                            Refresh prices
-                          </button>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                           {[

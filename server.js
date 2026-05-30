@@ -1350,7 +1350,13 @@ app.get('/api/users/:username/dividends', async (req, res) => {
 });
 
 // ── Overrides ───────────────────────────────────────────────────────────────
-app.get('/api/overrides', requireUser, async (req, res) => { res.json(await loadOverrides(req.user.id)); });
+app.get('/api/overrides', requireUser, async (req, res) => {
+  const [{ data: global }, { data: user }] = await Promise.all([
+    supabase.from('global_ticker_overrides').select('isin, ticker').eq('active', true),
+    supabase.from('ticker_overrides').select('isin, ticker').eq('user_id', req.user.id),
+  ]);
+  res.json({ global: global || [], user: user || [] });
+});
 
 app.post('/api/overrides', requireUser, async (req, res) => {
   const { isin, ticker } = req.body;
