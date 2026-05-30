@@ -1149,14 +1149,23 @@ async function refreshMarketIndexes() {
 setImmediate(refreshMarketIndexes);
 setInterval(refreshMarketIndexes, 60_000).unref();
 
-// Endpoint just reads from the shared cache — no YF calls per user request.
+// Serve from shared cache. On cache miss (e.g. before background job warms up on first boot)
+// fall back to a live fetch so the first user never gets an empty response.
 app.get('/api/market-indexes', requireUser, async (req, res) => {
   const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 15);
   if (!symbols.length) return res.json([]);
   const results = [];
   for (const s of symbols) {
     const cached = _marketIndexCache.get(s);
-    if (cached) results.push({ symbol: cached.symbol || s, price: cached.price, changePct: cached.changePct, change: cached.change });
+    if (cached) {
+      results.push({ symbol: cached.symbol || s, price: cached.price, changePct: cached.changePct, change: cached.change });
+    } else {
+      const entry = await fetchOneIndexQuote(s);
+      if (entry) {
+        _marketIndexCache.set(s, { ...entry, ts: Date.now() });
+        results.push({ symbol: entry.symbol || s, price: entry.price, changePct: entry.changePct, change: entry.change });
+      }
+    }
   }
   res.json(results);
 });
