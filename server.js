@@ -1129,17 +1129,21 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
         const q = await yahooFinance.quote(s, {}, { validateResult: false });
         log.info('market-index quote fallback', { s, rmp: q?.regularMarketPrice });
         if (q?.regularMarketPrice != null) {
+          const rawPct2 = q.regularMarketChangePercent;
+          const rawChg2 = q.regularMarketChange;
           entry = { symbol: q.symbol || s, price: Number(q.regularMarketPrice),
-            changePct: (Number(q.regularMarketChangePercent) || 0) * 100,
-            change: Number(q.regularMarketChange) || 0 };
+            changePct: (Number(typeof rawPct2 === 'object' ? rawPct2?.raw : rawPct2) || 0) * 100,
+            change: Number(typeof rawChg2 === 'object' ? rawChg2?.raw : rawChg2) || 0 };
         }
       } catch(e) {
         const q = e.result ?? e.data;
         log.warn('market-index quote threw', { s, err: e.message?.slice(0,120), resultKeys: q ? Object.keys(q) : [] });
         if (q?.regularMarketPrice != null) {
+          const rawPct3 = q.regularMarketChangePercent;
+          const rawChg3 = q.regularMarketChange;
           entry = { symbol: s, price: Number(q.regularMarketPrice),
-            changePct: (Number(q.regularMarketChangePercent) || 0) * 100,
-            change: Number(q.regularMarketChange) || 0 };
+            changePct: (Number(typeof rawPct3 === 'object' ? rawPct3?.raw : rawPct3) || 0) * 100,
+            change: Number(typeof rawChg3 === 'object' ? rawChg3?.raw : rawChg3) || 0 };
         }
       }
     }
@@ -1181,12 +1185,12 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   }
   const toSEK=(amount,currency)=>{ if(!currency||currency==='SEK') return amount; return fxRates[`${currency}SEK=X`]?amount*fxRates[`${currency}SEK=X`]:amount; };
   const fromSEK=(amount)=>{ if(BC==='SEK') return amount; return fxRates[`${BC}SEK=X`]?amount/fxRates[`${BC}SEK=X`]:amount; };
-  const FLAGS={ST:'🇸🇪',OL:'🇳🇴',CO:'🇩🇰',HE:'🇫🇮',AS:'🇳🇱',PA:'🇫🇷',DE:'🇩🇪',L:'🇬🇧',MI:'🇮🇹',MC:'🇪🇸',SW:'🇨🇭',TO:'🇨🇦',AX:'🇦🇺',HK:'🇭🇰',T:'🇯🇵'};
+  const FLAGS={ST:'se',OL:'no',CO:'dk',HE:'fi',AS:'nl',PA:'fr',DE:'de',F:'de',L:'gb',IL:'gb',MI:'it',MC:'es',SW:'ch',VX:'ch',TO:'ca',V:'ca',CN:'ca',AX:'au',HK:'hk',T:'jp',SI:'sg'};
   // ISIN country → flag emoji for when the ticker has no exchange suffix
   // Only non-US/CA countries: CA and US companies commonly list on US exchanges without a suffix,
   // so a no-dot ticker for them is still a US listing and should keep 🇺🇸.
-  const ISIN_FLAG={SE:'🇸🇪',NO:'🇳🇴',DK:'🇩🇰',FI:'🇫🇮',NL:'🇳🇱',FR:'🇫🇷',DE:'🇩🇪',GB:'🇬🇧',IT:'🇮🇹',ES:'🇪🇸',CH:'🇨🇭',AU:'🇦🇺',HK:'🇭🇰',JP:'🇯🇵'};
-  const getFlag=(t,isin)=>{ const p=t.split('.'); if(p.length>1) return FLAGS[p[p.length-1]]||'🇺🇸'; if(isin){const cc=isin.substring(0,2).toUpperCase(); if(ISIN_FLAG[cc]) return ISIN_FLAG[cc];} return '🇺🇸'; };
+  const ISIN_FLAG={SE:'se',NO:'no',DK:'dk',FI:'fi',NL:'nl',FR:'fr',DE:'de',GB:'gb',IT:'it',ES:'es',CH:'ch',AU:'au',HK:'hk',JP:'jp',SG:'sg',CA:'ca'};
+  const getFlag=(t,isin)=>{ const p=t.split('.'); if(p.length>1) return FLAGS[p[p.length-1]]||'us'; if(isin){const cc=isin.substring(0,2).toUpperCase(); if(ISIN_FLAG[cc]) return ISIN_FLAG[cc];} return 'us'; };
   const getShareClass=(ticker)=>{ const m=ticker.match(/^[^-]+-([A-Ca-c])(?:\.|$)/); return m?m[1].toUpperCase():null; };
   const cleanName=(name,ticker)=>{
     if (!name) return name;

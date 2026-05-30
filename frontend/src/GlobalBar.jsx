@@ -4,9 +4,14 @@ export const MARKET_INDEXES = [
   { id: 'sp500',    label: 'S&P 500',              short: 'S&P 500', ticker: '^GSPC',      country: 'us' },
   { id: 'nasdaq100',label: 'NASDAQ 100',            short: 'NASDAQ 100', ticker: '^NDX',       country: 'us' },
   { id: 'omxs30',  label: 'OMXS30',                short: 'OMXS30',  ticker: '^OMX',       country: 'se' },
-  { id: 'omxc25',  label: 'OMX Copenhagen 25',      short: 'OMXC25',  ticker: 'OMXC25.CO', country: 'dk' },
-  { id: 'omxh25',  label: 'OMX Helsinki 25',        short: 'OMXH25',  ticker: 'OMXH25.HE', country: 'fi' },
-  { id: 'osebx',   label: 'OSEBX Oslo',             short: 'OSEBX',   ticker: 'OBX.OL',     country: 'no' },
+  { id: 'omxc25',  label: 'OMX Copenhagen 25',      short: 'OMXC25',  ticker: '^OMXC25',    country: 'dk' },
+  { id: 'omxh25',  label: 'OMX Helsinki 25',        short: 'OMXH25',  ticker: '^OMXH25GI',  country: 'fi' },
+  { id: 'osebx',   label: 'OSEBX Oslo',             short: 'OSEBX',   ticker: '^OSEOBX',    country: 'no' },
+  { id: 'dax',     label: 'DAX',                    short: 'DAX',     ticker: '^GDAXI',     country: 'de' },
+  { id: 'cac40',   label: 'CAC 40',                 short: 'CAC 40',  ticker: '^FCHI',      country: 'fr' },
+  { id: 'smi',     label: 'SMI',                    short: 'SMI',     ticker: '^SSMI',      country: 'ch' },
+  { id: 'tsx',     label: 'S&P/TSX Composite',      short: 'TSX',     ticker: '^GSPTSE',    country: 'ca' },
+  { id: 'sti',     label: 'Straits Times Index',     short: 'STI',     ticker: '^STI',       country: 'sg' },
 ];
 
 const STORAGE_KEY = 'marketIndexes';

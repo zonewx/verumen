@@ -101,7 +101,7 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
             Choose up to 3 market indexes to display in the top bar. Prices refresh every 60 seconds.
           </p>
           <div className="flex flex-col gap-2">
-            {MARKET_INDEXES.map(idx => {
+            {[...MARKET_INDEXES].sort((a, b) => a.label.localeCompare(b.label)).map(idx => {
               const checked = marketSel.includes(idx.id);
               return (
                 <label key={idx.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'}`}>
@@ -118,6 +118,7 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
                     }}
                     className="w-4 h-4 accent-blue-500"
                   />
+                  <img src={`https://flagcdn.com/${idx.country}.svg`} alt={idx.country} className="w-5 h-3.5 object-cover rounded-sm shrink-0" />
                   <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{idx.label}</span>
                   <span className={`ml-auto text-xs font-mono ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{idx.ticker}</span>
                 </label>

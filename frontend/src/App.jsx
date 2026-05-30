@@ -785,7 +785,7 @@ const handleUpload = async (files) => {
               {`${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}
             </span>
           </div>
-          <div className="text-sm font-bold text-white truncate">{s.flag} {s.name}</div>
+          <div className="text-sm font-bold text-white truncate flex items-center gap-1.5"><img src={`https://flagcdn.com/${s.flag}.svg`} alt={s.flag} className="w-4 h-3 object-cover rounded-sm shrink-0" />{s.name}</div>
           <div className="text-xs text-gray-300">{fmt(s.nativePrice)} {s.currency}</div>
           <div className={`text-xs font-semibold ${pos ? 'text-green-400' : 'text-red-400'}`}>
             {`${s.todayGainBase >= 0 ? '+' : ''}${fmtSym(s.todayGainBase)}`}
@@ -1238,7 +1238,7 @@ const handleUpload = async (files) => {
                           <tbody>
                             {rows.map(s => (
                               <tr key={s.ticker} className={`border-t ${s.noData ? (isDark ? 'border-red-900/40 bg-red-900/10' : 'border-red-100 bg-red-50/50') : (isDark ? 'border-gray-700 hover:bg-gray-700/30' : 'border-gray-100 hover:bg-gray-50')} transition`}>
-                                <td className="p-4 font-bold"><span className="flex items-center gap-2">{s.flag}<span>{s.cleanName || s.name}</span>{s.noData && <span className={`text-xs font-normal ${isDark ? 'text-red-500' : 'text-red-400'}`}>no data</span>}</span></td>
+                                <td className="p-4 font-bold"><span className="flex items-center gap-2"><img src={`https://flagcdn.com/${s.flag}.svg`} alt={s.flag} className="w-4 h-3 object-cover rounded-sm shrink-0" /><span>{s.cleanName || s.name}</span>{s.noData && <span className={`text-xs font-normal ${isDark ? 'text-red-500' : 'text-red-400'}`}>no data</span>}</span></td>
                                 <td className={`p-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{s.ticker}</td>
                                 <td className="p-4 whitespace-nowrap">{fmt(s.nativePrice)} {s.currency}</td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct == null ? '' : s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct == null ? '—' : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</td>
