@@ -73,8 +73,11 @@ function MarketTicker({ isDark }) {
           if (r.status === 401) { window.dispatchEvent(new Event('session-expired')); return null; }
           return r.json();
         })
-        .then(data => { if (data && Array.isArray(data) && data.length > 0) { setQuotes(data); localStorage.setItem(QUOTES_CACHE_KEY, JSON.stringify(data)); } })
-        .catch(() => {});
+        .then(data => {
+          console.log('[market-indexes] response:', data);
+          if (data && Array.isArray(data) && data.length > 0) { setQuotes(data); localStorage.setItem(QUOTES_CACHE_KEY, JSON.stringify(data)); }
+        })
+        .catch(err => console.error('[market-indexes] fetch error:', err));
     fetch_();
     intervalRef.current = setInterval(fetch_, REFRESH_MS);
     return () => clearInterval(intervalRef.current);
