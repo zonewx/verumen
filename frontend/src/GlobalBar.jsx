@@ -46,16 +46,25 @@ function MarketTicker({ isDark }) {
   useEffect(() => {
     const checkOverflow = () => {
       if (containerRef.current && contentRef.current) {
-        setIsOverflow(contentRef.current.scrollWidth > containerRef.current.clientWidth);
+        const hasOverflow = contentRef.current.scrollWidth > containerRef.current.clientWidth;
+        setIsOverflow(hasOverflow);
       }
     };
 
-    checkOverflow();
-    const resizeObserver = new ResizeObserver(checkOverflow);
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
+      setTimeout(checkOverflow, 0);
+    });
+
+    const resizeObserver = new ResizeObserver(() => {
+      setTimeout(checkOverflow, 0);
+    });
     if (containerRef.current) resizeObserver.observe(containerRef.current);
 
     // Listen for sidebar collapse/expand (CSS variable change)
-    const mutationObserver = new MutationObserver(checkOverflow);
+    const mutationObserver = new MutationObserver(() => {
+      setTimeout(checkOverflow, 0);
+    });
     mutationObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
 
     // Also listen to window resize
@@ -69,8 +78,6 @@ function MarketTicker({ isDark }) {
   }, [quotes, selected]);
 
   useEffect(() => {
-    if (!selected.length) { setQuotes([]); return; }
-
     const tickers = selected
       .map(id => MARKET_INDEXES.find(m => m.id === id)?.ticker)
       .filter(Boolean)
@@ -90,7 +97,9 @@ function MarketTicker({ isDark }) {
     return () => clearInterval(intervalRef.current);
   }, [selected]);
 
-  if (!selected.length || !quotes.length) return null;
+  // Only display if there are selected indexes with cached/fresh quotes
+  const displayQuotes = quotes.filter(q => selected.some(id => MARKET_INDEXES.find(m => m.id === id)?.ticker === q.symbol));
+  if (!selected.length || !displayQuotes.length) return null;
 
   const divider = isDark ? 'border-gray-700' : 'border-gray-200';
   const labelCls = isDark ? 'text-gray-100' : 'text-gray-700';
@@ -98,7 +107,7 @@ function MarketTicker({ isDark }) {
 
   const tickerContent = (
     <>
-      {quotes.map((q, i) => {
+      {displayQuotes.map((q, i) => {
         const meta   = MARKET_INDEXES.find(m => m.ticker === q.symbol);
         const pos    = q.changePct >= 0;
         const pctCls = pos ? 'text-green-400' : 'text-red-400';
@@ -118,23 +127,29 @@ function MarketTicker({ isDark }) {
     </>
   );
 
-  const scrollStyle = isOverflow ? {
-    animation: 'marquee 25s linear infinite',
-  } : {};
-
   return (
-    <div className={`hidden md:flex items-center gap-3 border-r mr-2 pr-3 overflow-hidden ${divider}`} ref={containerRef} style={{ maxWidth: '100%' }}>
+    <>
       <style>{`
         @keyframes marquee {
           0% { transform: translateX(0); }
-          100% { transform: translateX(calc(-100% - 24px)); }
+          100% { transform: translateX(-50%); }
         }
       `}</style>
-      <div ref={contentRef} style={scrollStyle} className="flex items-center gap-3 whitespace-nowrap">
-        {tickerContent}
-        {isOverflow && <div className="flex items-center gap-3 shrink-0 pl-3 border-l">{tickerContent}</div>}
+      <div className={`hidden md:flex items-center gap-3 border-r mr-2 pr-3 overflow-hidden ${divider}`} ref={containerRef}>
+        <div
+          ref={contentRef}
+          style={isOverflow ? { animation: 'marquee 30s linear infinite' } : {}}
+          className="flex items-center gap-3 whitespace-nowrap"
+        >
+          {tickerContent}
+          {isOverflow && (
+            <>
+              {tickerContent}
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
