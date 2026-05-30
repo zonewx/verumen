@@ -54,13 +54,14 @@ function MarketTicker({ isDark }) {
       setScrollPx(w);
       setIsOverflow(w > cw);
     };
-    requestAnimationFrame(() => setTimeout(check, 0));
-    const ro = new ResizeObserver(() => setTimeout(check, 0));
+    // Run immediately and after a short delay to catch post-render DOM state
+    check();
+    const t = setTimeout(check, 80);
+    const ro = new ResizeObserver(check);
     if (containerRef.current) ro.observe(containerRef.current);
-    const mo = new MutationObserver(() => setTimeout(check, 0));
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    if (firstCopyRef.current) ro.observe(firstCopyRef.current); // catches content width changes
     window.addEventListener('resize', check);
-    return () => { ro.disconnect(); mo.disconnect(); window.removeEventListener('resize', check); };
+    return () => { clearTimeout(t); ro.disconnect(); window.removeEventListener('resize', check); };
   }, [quotes, selected]);
 
   useEffect(() => {
@@ -73,11 +74,8 @@ function MarketTicker({ isDark }) {
           if (r.status === 401) { window.dispatchEvent(new Event('session-expired')); return null; }
           return r.json();
         })
-        .then(data => {
-          console.log('[market-indexes] response:', data);
-          if (data && Array.isArray(data) && data.length > 0) { setQuotes(data); localStorage.setItem(QUOTES_CACHE_KEY, JSON.stringify(data)); }
-        })
-        .catch(err => console.error('[market-indexes] fetch error:', err));
+        .then(data => { if (data && Array.isArray(data) && data.length > 0) { setQuotes(data); localStorage.setItem(QUOTES_CACHE_KEY, JSON.stringify(data)); } })
+        .catch(() => {});
     fetch_();
     intervalRef.current = setInterval(fetch_, REFRESH_MS);
     return () => clearInterval(intervalRef.current);
