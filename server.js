@@ -556,7 +556,17 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
 
 // ── CSV parsers ─────────────────────────────────────────────────────────────
 function parseMontrose(content) {
-  const lines = content.replace(/^﻿/, '').split('\n').filter(l => l.trim());
+  // Fix common encoding issues: Latin-1 interpreted as UTF-8
+  const fixEncoding = (str) => {
+    if (!str) return str;
+    return str
+      .replace(/Ã¤/g, 'ä').replace(/Ã¶/g, 'ö').replace(/Ã©/g, 'é')
+      .replace(/Ã /g, 'à').replace(/Ã¡/g, 'á').replace(/Ã¥/g, 'å')
+      .replace(/Ã½/g, 'ý').replace(/Ã£/g, 'ã').replace(/Ã§/g, 'ç')
+      .replace(/Â»/g, '»').replace(/ð¼/g, 'æ');
+  };
+
+  const lines = content.replace(/^﻿/, '').split('\n').filter(l => l.trim()).map(fixEncoding);
   if (lines.length < 2) return [];
 
   // Proper quoted-field CSV split — handles company names containing commas
@@ -607,7 +617,17 @@ function parseMontrose(content) {
   return rows;
 }
 function parseAvanza(content) {
-  const lines = content.replace(/^\uFEFF/, '').split('\n').filter(l => l.trim());
+  // Fix common encoding issues: Latin-1 interpreted as UTF-8
+  const fixEncoding = (str) => {
+    if (!str) return str;
+    return str
+      .replace(/\u00C3\u00A4/g, '\u00E4').replace(/\u00C3\u00B6/g, '\u00F6').replace(/\u00C3\u00A9/g, '\u00E9')
+      .replace(/\u00C3 /g, '\u00E0').replace(/\u00C3\u00A1/g, '\u00E1').replace(/\u00C3\u00A5/g, '\u00E5')
+      .replace(/\u00C3\u00BD/g, '\u00FD').replace(/\u00C3\u00A3/g, '\u00E3').replace(/\u00C3\u00A7/g, '\u00E7')
+      .replace(/\u00C2\u00BB/g, '\u00BB').replace(/\u00F0\u00BC/g, '\u00E6');
+  };
+
+  const lines = content.replace(/^\uFEFF/, '').split('\n').filter(l => l.trim()).map(fixEncoding);
   if (lines.length < 2) return [];
   // Auto-detect delimiter: old Avanza uses ';', new export format uses ','
   const firstLine = lines[0];
@@ -677,8 +697,18 @@ function parseAvanza(content) {
 }
 
 function parseNordnet(content) {
+  // Fix common encoding issues: Latin-1 interpreted as UTF-8
+  const fixEncoding = (str) => {
+    if (!str) return str;
+    return str
+      .replace(/Ã¤/g, 'ä').replace(/Ã¶/g, 'ö').replace(/Ã©/g, 'é')
+      .replace(/Ã /g, 'à').replace(/Ã¡/g, 'á').replace(/Ã¥/g, 'å')
+      .replace(/Ã½/g, 'ý').replace(/Ã£/g, 'ã').replace(/Ã§/g, 'ç')
+      .replace(/Â»/g, '»').replace(/ð¼/g, 'æ');
+  };
+
   const bom = content.charCodeAt(0) === 0xFEFF;
-  const lines = (bom ? content.slice(1) : content).split('\n').filter(l => l.trim());
+  const lines = (bom ? content.slice(1) : content).split('\n').filter(l => l.trim()).map(fixEncoding);
   if (lines.length < 2) return [];
   const headers = lines[0].split('\t').map(h => h.trim().replace(/"/g,''));
   const col = (row, name) => { const i = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase())); return i >= 0 ? (row[i]||'').trim().replace(/"/g,'') : ''; };
