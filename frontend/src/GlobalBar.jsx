@@ -105,7 +105,7 @@ function MarketTicker({ isDark }) {
   });
 
   return (
-    <div ref={containerRef} className={`hidden md:flex items-center border-r mr-2 pr-3 overflow-hidden ${divider}`}>
+    <div ref={containerRef} className={`hidden md:flex items-center border-r mr-2 pr-3 overflow-hidden ${divider}`} style={{ maxWidth: 'clamp(200px, 25vw, 500px)' }}>
       <div
         className={`flex items-center gap-3 whitespace-nowrap${isOverflow ? ' marquee-scroll' : ''}`}
         style={isOverflow ? { '--marquee-offset': `-${scrollPx}px` } : {}}
@@ -234,9 +234,7 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
 
       {/* Right — buttons always visible, ticker clips if too wide */}
       <div className="ml-auto flex items-center gap-1 shrink-0">
-        <div className="overflow-hidden" style={{ maxWidth: 'clamp(180px, 40vw, 680px)' }}>
-          <MarketTicker isDark={isDark} />
-        </div>
+        <MarketTicker isDark={isDark} />
         {/* Friends with notification dot */}
         <button onClick={() => onNavigate('friends')} title="Friends" className={`relative p-1.5 rounded-lg shrink-0 ${isDark ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'} transition`}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
