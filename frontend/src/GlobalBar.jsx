@@ -29,16 +29,17 @@ function fmt(n) {
 const QUOTES_CACHE_KEY = 'market_quotes_cache';
 
 function MarketTicker({ isDark }) {
-  const [quotes, setQuotes]       = useState(() => {
+  const [quotes, setQuotes]     = useState(() => {
     try { return JSON.parse(localStorage.getItem(QUOTES_CACHE_KEY)) || []; } catch { return []; }
   });
-  const [selected, setSelected]   = useState(() => {
+  const [selected, setSelected] = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
   });
   const [isOverflow, setIsOverflow] = useState(false);
+  const [scrollPx, setScrollPx]     = useState(0);
   const containerRef = useRef(null);
-  const contentRef = useRef(null);
-  const intervalRef = useRef(null);
+  const firstCopyRef = useRef(null); // ref on the FIRST copy only — always measures single-copy width
+  const intervalRef  = useRef(null);
 
   useEffect(() => {
     const onStorage = () => {
@@ -49,37 +50,20 @@ function MarketTicker({ isDark }) {
   }, []);
 
   useEffect(() => {
-    const checkOverflow = () => {
-      if (containerRef.current && contentRef.current) {
-        const hasOverflow = contentRef.current.scrollWidth > containerRef.current.clientWidth;
-        setIsOverflow(hasOverflow);
-      }
+    const check = () => {
+      if (!containerRef.current || !firstCopyRef.current) return;
+      const w  = firstCopyRef.current.scrollWidth;
+      const cw = containerRef.current.clientWidth;
+      setScrollPx(w);
+      setIsOverflow(w > cw);
     };
-
-    // Use requestAnimationFrame to ensure DOM is fully rendered
-    requestAnimationFrame(() => {
-      setTimeout(checkOverflow, 0);
-    });
-
-    const resizeObserver = new ResizeObserver(() => {
-      setTimeout(checkOverflow, 0);
-    });
-    if (containerRef.current) resizeObserver.observe(containerRef.current);
-
-    // Listen for sidebar collapse/expand (CSS variable change)
-    const mutationObserver = new MutationObserver(() => {
-      setTimeout(checkOverflow, 0);
-    });
-    mutationObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
-
-    // Also listen to window resize
-    window.addEventListener('resize', checkOverflow);
-
-    return () => {
-      resizeObserver.disconnect();
-      mutationObserver.disconnect();
-      window.removeEventListener('resize', checkOverflow);
-    };
+    requestAnimationFrame(() => setTimeout(check, 0));
+    const ro = new ResizeObserver(() => setTimeout(check, 0));
+    if (containerRef.current) ro.observe(containerRef.current);
+    const mo = new MutationObserver(() => setTimeout(check, 0));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    window.addEventListener('resize', check);
+    return () => { ro.disconnect(); mo.disconnect(); window.removeEventListener('resize', check); };
   }, [quotes, selected]);
 
   useEffect(() => {
@@ -87,70 +71,64 @@ function MarketTicker({ isDark }) {
       .map(id => MARKET_INDEXES.find(m => m.id === id)?.ticker)
       .filter(Boolean)
       .join(',');
-
     if (!tickers) return;
-
     const fetch_ = () =>
       fetch(`/api/market-indexes?symbols=${encodeURIComponent(tickers)}`, { headers: authHeader() })
         .then(r => r.json())
-        // Only update if response has data — ignore empty results from transient YF failures
         .then(data => { if (Array.isArray(data) && data.length > 0) { setQuotes(data); localStorage.setItem(QUOTES_CACHE_KEY, JSON.stringify(data)); } })
         .catch(() => {});
-
     fetch_();
     intervalRef.current = setInterval(fetch_, REFRESH_MS);
     return () => clearInterval(intervalRef.current);
   }, [selected]);
 
-  // Only display if there are selected indexes with cached/fresh quotes
   const displayQuotes = quotes.filter(q => selected.some(id => MARKET_INDEXES.find(m => m.id === id)?.ticker === q.symbol));
   if (!selected.length || !displayQuotes.length) return null;
 
-  const divider = isDark ? 'border-gray-700' : 'border-gray-200';
+  const divider  = isDark ? 'border-gray-700' : 'border-gray-200';
   const labelCls = isDark ? 'text-gray-100' : 'text-gray-700';
   const valCls   = isDark ? 'text-gray-200' : 'text-gray-800';
 
-  const tickerContent = (
-    <>
-      {displayQuotes.map((q, i) => {
-        const meta   = MARKET_INDEXES.find(m => m.ticker === q.symbol);
-        const pos    = q.changePct >= 0;
-        const pctCls = pos ? 'text-green-400' : 'text-red-400';
-        return (
-          <div key={q.symbol} className={`flex flex-col items-start leading-tight text-xs px-2 shrink-0 ${i > 0 ? `border-l ${divider}` : ''}`}>
-            <div className="flex items-center gap-1">
-              {meta?.country && <img src={`https://flagcdn.com/${meta.country}.svg`} alt={meta.country} className="w-3.5 h-2.5 object-cover shrink-0" />}
-              <span className={`font-medium ${labelCls}`}>{meta?.short ?? q.symbol}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className={`font-mono ${valCls}`}>{fmt(q.price)}</span>
-              <span className={`font-semibold ${pctCls}`}>{pos ? '▲' : '▼'}{Math.abs(q.changePct).toFixed(2)}%</span>
-            </div>
-          </div>
-        );
-      })}
-    </>
-  );
+  const renderItems = () => displayQuotes.map((q, i) => {
+    const meta   = MARKET_INDEXES.find(m => m.ticker === q.symbol);
+    const pos    = q.changePct >= 0;
+    const pctCls = pos ? 'text-green-400' : 'text-red-400';
+    return (
+      <div key={q.symbol} className={`flex flex-col items-start leading-tight text-xs px-2 shrink-0 ${i > 0 ? `border-l ${divider}` : ''}`}>
+        <div className="flex items-center gap-1">
+          {meta?.country && <img src={`https://flagcdn.com/${meta.country}.svg`} alt={meta.country} className="w-3.5 h-2.5 object-cover shrink-0" />}
+          <span className={`font-medium ${labelCls}`}>{meta?.short ?? q.symbol}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className={`font-mono ${valCls}`}>{fmt(q.price)}</span>
+          <span className={`font-semibold ${pctCls}`}>{pos ? '▲' : '▼'}{Math.abs(q.changePct).toFixed(2)}%</span>
+        </div>
+      </div>
+    );
+  });
 
   return (
     <>
       <style>{`
         @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+          from { transform: translateX(0); }
+          to   { transform: translateX(var(--marquee-offset)); }
         }
       `}</style>
-      <div className={`hidden md:flex items-center gap-3 border-r mr-2 pr-3 overflow-hidden ${divider}`} ref={containerRef}>
+      <div ref={containerRef} className={`hidden md:flex items-center border-r mr-2 pr-3 overflow-hidden ${divider}`}>
         <div
-          ref={contentRef}
-          style={isOverflow ? { animation: 'marquee 30s linear infinite' } : {}}
-          className="flex items-center gap-3 whitespace-nowrap min-w-max"
+          className="flex items-center gap-3 whitespace-nowrap"
+          style={isOverflow ? { animation: 'marquee 30s linear infinite', '--marquee-offset': `-${scrollPx}px` } : {}}
         >
-          {tickerContent}
+          {/* First copy — always present, measured via firstCopyRef */}
+          <div ref={firstCopyRef} className="flex items-center gap-3">
+            {renderItems()}
+          </div>
+          {/* Second copy — only rendered for the seamless loop */}
           {isOverflow && (
-            <>
-              {tickerContent}
-            </>
+            <div className="flex items-center gap-3 pl-3">
+              {renderItems()}
+            </div>
           )}
         </div>
       </div>
