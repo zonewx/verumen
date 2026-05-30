@@ -424,7 +424,7 @@ async function resolveSymbolBatch(transactions, userId) {
 
     // Adaptive delay: if we see rate limiting, back off exponentially
     // Start at 150ms, jump to 500ms if rate limited, then 2000ms
-    if (!ticker && isin) {
+    if (!ticker && tx.isin) {
       consecutiveRateLimits++;
       if (consecutiveRateLimits >= 2) {
         delayMs = Math.min(2000, delayMs * 3);
@@ -1092,55 +1092,49 @@ const MARKET_INDEX_CACHE_TTL = 10 * 60 * 1000;
 app.get('/api/market-indexes', requireUser, async (req, res) => {
   const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 15);
   if (!symbols.length) return res.json([]);
-  const results = [];
-  for (const s of symbols) {
-    let entry = null;
 
-    // Attempt 1: quoteSummary / price module
+  const toEntry = (raw, fallbackSymbol) => {
+    if (!raw?.regularMarketPrice) return null;
+    const rawPct = raw.regularMarketChangePercent;
+    const rawChg = raw.regularMarketChange;
+    return {
+      symbol: raw.symbol || fallbackSymbol,
+      price: Number(raw.regularMarketPrice),
+      changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
+      change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0,
+    };
+  };
+
+  const fetchOne = async (s) => {
+    // Attempt 1: quote (faster, more reliable for index symbols)
+    try {
+      const q = await withYFTimeout(yahooFinance.quote(s, {}, { validateResult: false }), 5000);
+      const e = toEntry(q, s);
+      if (e) return e;
+    } catch(err) {
+      const e = toEntry(err.result ?? err.data, s);
+      if (e) return e;
+    }
+
+    // Attempt 2: quoteSummary / price module
     try {
       const summary = await withYFTimeout(yahooFinance.quoteSummary(s, { modules: ['price'] }, { validateResult: false }), 5000);
-      const p = summary?.price;
-      if (p?.regularMarketPrice != null) {
-        const rawPct = p.regularMarketChangePercent;
-        const rawChg = p.regularMarketChange;
-        entry = { symbol: s, price: Number(p.regularMarketPrice),
-          changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
-      }
-    } catch(e) {
-      const p = (e.result ?? e.data)?.price;
-      if (p?.regularMarketPrice != null) {
-        const rawPct = p.regularMarketChangePercent;
-        const rawChg = p.regularMarketChange;
-        entry = { symbol: s, price: Number(p.regularMarketPrice),
-          changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
-      }
+      const e = toEntry(summary?.price, s);
+      if (e) return e;
+    } catch(err) {
+      const e = toEntry((err.result ?? err.data)?.price, s);
+      if (e) return e;
     }
 
-    // Attempt 2: quote fallback
-    if (!entry) {
-      try {
-        const q = await withYFTimeout(yahooFinance.quote(s, {}, { validateResult: false }), 5000);
-        if (q?.regularMarketPrice != null) {
-          const rawPct = q.regularMarketChangePercent;
-          const rawChg = q.regularMarketChange;
-          entry = { symbol: q.symbol || s, price: Number(q.regularMarketPrice),
-            changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-            change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
-        }
-      } catch(e) {
-        const q = e.result ?? e.data;
-        if (q?.regularMarketPrice != null) {
-          const rawPct = q.regularMarketChangePercent;
-          const rawChg = q.regularMarketChange;
-          entry = { symbol: s, price: Number(q.regularMarketPrice),
-            changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-            change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
-        }
-      }
-    }
+    return null;
+  };
 
+  // Fetch all symbols in parallel — previously sequential, causing up to 40s latency for 8 symbols
+  const fetched = await Promise.all(symbols.map(fetchOne));
+  const results = [];
+  for (let i = 0; i < symbols.length; i++) {
+    const s = symbols[i];
+    const entry = fetched[i];
     if (entry) {
       _marketIndexCache.set(s, { ...entry, ts: Date.now() });
       results.push(entry);
