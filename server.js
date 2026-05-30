@@ -1086,84 +1086,68 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
 });
 
 // ── Market index quotes ──────────────────────────────────────────────────────
-// All known index symbols — kept in sync with frontend MARKET_INDEXES array.
-const MARKET_INDEX_SYMBOLS = ['^GSPC','^NDX','^OMX','^OMXC25','^OMXH25','^OSEAX','^GDAXI','^GSPTSE'];
-
 const _marketIndexCache = new Map(); // symbol → { symbol, price, changePct, change, ts }
+const MARKET_INDEX_CACHE_TTL = 10 * 60 * 1000;
 
-async function fetchOneIndexQuote(s) {
-  // Attempt 1: quoteSummary price module
-  try {
-    const summary = await withYFTimeout(yahooFinance.quoteSummary(s, { modules: ['price'] }, { validateResult: false }), 5000);
-    const p = summary?.price;
-    if (p?.regularMarketPrice != null) {
-      const rawPct = p.regularMarketChangePercent;
-      const rawChg = p.regularMarketChange;
-      return { symbol: s, price: Number(p.regularMarketPrice),
-        changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-        change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
-    }
-  } catch(e) {
-    const p = (e.result ?? e.data)?.price;
-    if (p?.regularMarketPrice != null) {
-      const rawPct = p.regularMarketChangePercent;
-      const rawChg = p.regularMarketChange;
-      return { symbol: s, price: Number(p.regularMarketPrice),
-        changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-        change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
-    }
-  }
-  // Attempt 2: quote fallback
-  try {
-    const q = await withYFTimeout(yahooFinance.quote(s, {}, { validateResult: false }), 5000);
-    if (q?.regularMarketPrice != null) {
-      const rawPct = q.regularMarketChangePercent;
-      const rawChg = q.regularMarketChange;
-      return { symbol: q.symbol || s, price: Number(q.regularMarketPrice),
-        changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-        change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
-    }
-  } catch(e) {
-    const q = e.result ?? e.data;
-    if (q?.regularMarketPrice != null) {
-      const rawPct = q.regularMarketChangePercent;
-      const rawChg = q.regularMarketChange;
-      return { symbol: s, price: Number(q.regularMarketPrice),
-        changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-        change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
-    }
-  }
-  return null;
-}
-
-async function refreshMarketIndexes() {
-  for (const s of MARKET_INDEX_SYMBOLS) {
-    const entry = await fetchOneIndexQuote(s);
-    if (entry) _marketIndexCache.set(s, { ...entry, ts: Date.now() });
-    await new Promise(r => setTimeout(r, 200));
-  }
-  log.info('market indexes refreshed', { symbols: MARKET_INDEX_SYMBOLS.length, cached: _marketIndexCache.size });
-}
-
-// Pre-fetch as soon as the event loop is free, then every 60 seconds — all users share one cache.
-setImmediate(refreshMarketIndexes);
-setInterval(refreshMarketIndexes, 60_000).unref();
-
-// Serve from shared cache. On cache miss (e.g. before background job warms up on first boot)
-// fall back to a live fetch so the first user never gets an empty response.
 app.get('/api/market-indexes', requireUser, async (req, res) => {
   const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 15);
   if (!symbols.length) return res.json([]);
   const results = [];
   for (const s of symbols) {
-    const cached = _marketIndexCache.get(s);
-    if (cached) {
-      results.push({ symbol: cached.symbol || s, price: cached.price, changePct: cached.changePct, change: cached.change });
+    let entry = null;
+
+    // Attempt 1: quoteSummary / price module
+    try {
+      const summary = await withYFTimeout(yahooFinance.quoteSummary(s, { modules: ['price'] }, { validateResult: false }), 5000);
+      const p = summary?.price;
+      if (p?.regularMarketPrice != null) {
+        const rawPct = p.regularMarketChangePercent;
+        const rawChg = p.regularMarketChange;
+        entry = { symbol: s, price: Number(p.regularMarketPrice),
+          changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
+          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
+      }
+    } catch(e) {
+      const p = (e.result ?? e.data)?.price;
+      if (p?.regularMarketPrice != null) {
+        const rawPct = p.regularMarketChangePercent;
+        const rawChg = p.regularMarketChange;
+        entry = { symbol: s, price: Number(p.regularMarketPrice),
+          changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
+          change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
+      }
+    }
+
+    // Attempt 2: quote fallback
+    if (!entry) {
+      try {
+        const q = await withYFTimeout(yahooFinance.quote(s, {}, { validateResult: false }), 5000);
+        if (q?.regularMarketPrice != null) {
+          const rawPct = q.regularMarketChangePercent;
+          const rawChg = q.regularMarketChange;
+          entry = { symbol: q.symbol || s, price: Number(q.regularMarketPrice),
+            changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
+            change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
+        }
+      } catch(e) {
+        const q = e.result ?? e.data;
+        if (q?.regularMarketPrice != null) {
+          const rawPct = q.regularMarketChangePercent;
+          const rawChg = q.regularMarketChange;
+          entry = { symbol: s, price: Number(q.regularMarketPrice),
+            changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
+            change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0 };
+        }
+      }
+    }
+
+    if (entry) {
+      _marketIndexCache.set(s, { ...entry, ts: Date.now() });
+      results.push(entry);
     } else {
-      const entry = await fetchOneIndexQuote(s);
-      if (entry) {
-        _marketIndexCache.set(s, { ...entry, ts: Date.now() });
-        results.push({ symbol: entry.symbol || s, price: entry.price, changePct: entry.changePct, change: entry.change });
+      const cached = _marketIndexCache.get(s);
+      if (cached && Date.now() - cached.ts < MARKET_INDEX_CACHE_TTL) {
+        results.push({ symbol: cached.symbol || s, price: cached.price, changePct: cached.changePct, change: cached.change });
       }
     }
   }
