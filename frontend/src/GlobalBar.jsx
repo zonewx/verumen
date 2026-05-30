@@ -69,8 +69,11 @@ function MarketTicker({ isDark }) {
     const allTickers = MARKET_INDEXES.map(m => m.ticker).join(',');
     const fetch_ = () =>
       fetch(`/api/market-indexes?symbols=${encodeURIComponent(allTickers)}`, { headers: authHeader() })
-        .then(r => r.json())
-        .then(data => { if (Array.isArray(data) && data.length > 0) { setQuotes(data); localStorage.setItem(QUOTES_CACHE_KEY, JSON.stringify(data)); } })
+        .then(r => {
+          if (r.status === 401) { window.dispatchEvent(new Event('session-expired')); return null; }
+          return r.json();
+        })
+        .then(data => { if (data && Array.isArray(data) && data.length > 0) { setQuotes(data); localStorage.setItem(QUOTES_CACHE_KEY, JSON.stringify(data)); } })
         .catch(() => {});
     fetch_();
     intervalRef.current = setInterval(fetch_, REFRESH_MS);
