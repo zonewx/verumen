@@ -234,7 +234,7 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
 
       {/* Right — buttons always visible, ticker clips if too wide */}
       <div className="ml-auto flex items-center gap-1 shrink-0">
-        <div className="overflow-hidden min-w-0 shrink">
+        <div className="overflow-hidden" style={{ maxWidth: 'clamp(180px, 40vw, 680px)' }}>
           <MarketTicker isDark={isDark} />
         </div>
         {/* Friends with notification dot */}
