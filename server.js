@@ -1145,8 +1145,8 @@ async function refreshMarketIndexes() {
   log.info('market indexes refreshed', { symbols: MARKET_INDEX_SYMBOLS.length, cached: _marketIndexCache.size });
 }
 
-// Pre-fetch 10 seconds after boot, then every 60 seconds — all users share one cache.
-setTimeout(refreshMarketIndexes, 10_000);
+// Pre-fetch as soon as the event loop is free, then every 60 seconds — all users share one cache.
+setImmediate(refreshMarketIndexes);
 setInterval(refreshMarketIndexes, 60_000).unref();
 
 // Endpoint just reads from the shared cache — no YF calls per user request.

@@ -78,7 +78,7 @@ function MarketTicker({ isDark }) {
   }, []);
 
   const displayQuotes = quotes.filter(q => selected.some(id => MARKET_INDEXES.find(m => m.id === id)?.ticker === q.symbol));
-  if (!selected.length || !displayQuotes.length) return null;
+  const hasContent = selected.length > 0 && displayQuotes.length > 0;
 
   const divider  = isDark ? 'border-gray-700' : 'border-gray-200';
   const labelCls = isDark ? 'text-gray-100' : 'text-gray-700';
@@ -103,23 +103,23 @@ function MarketTicker({ isDark }) {
   });
 
   return (
-    <div ref={containerRef} className={`hidden md:flex flex-1 min-w-0 items-center border-r mr-2 pr-3 overflow-hidden ${divider}`}>
-      <div
-        className={`flex items-center gap-3 whitespace-nowrap${isOverflow ? ' marquee-scroll' : ''}`}
-        style={isOverflow ? { '--marquee-offset': `-${scrollPx}px` } : {}}
-      >
-          {/* First copy — always present, measured via firstCopyRef */}
+    <div ref={containerRef} className={`hidden md:flex flex-1 min-w-0 items-center overflow-hidden ${hasContent ? `border-r mr-2 pr-3 ${divider}` : ''}`}>
+      {hasContent && (
+        <div
+          className={`flex items-center gap-3 whitespace-nowrap${isOverflow ? ' marquee-scroll' : ''}`}
+          style={isOverflow ? { '--marquee-offset': `-${scrollPx}px` } : {}}
+        >
           <div ref={firstCopyRef} className="flex items-center gap-3">
             {renderItems()}
           </div>
-          {/* Second copy — only rendered for the seamless loop */}
           {isOverflow && (
             <div className="flex items-center gap-3 pl-3">
               {renderItems()}
             </div>
           )}
         </div>
-      </div>
+      )}
+    </div>
   );
 }
 
