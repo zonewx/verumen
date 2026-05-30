@@ -105,7 +105,7 @@ function MarketTicker({ isDark }) {
   });
 
   return (
-    <div ref={containerRef} className={`hidden md:flex items-center border-r mr-2 pr-3 overflow-hidden ${divider}`} style={{ maxWidth: 'clamp(200px, 25vw, 500px)' }}>
+    <div ref={containerRef} className={`hidden md:flex flex-1 min-w-0 items-center border-r mr-2 pr-3 overflow-hidden ${divider}`}>
       <div
         className={`flex items-center gap-3 whitespace-nowrap${isOverflow ? ' marquee-scroll' : ''}`}
         style={isOverflow ? { '--marquee-offset': `-${scrollPx}px` } : {}}
@@ -232,8 +232,11 @@ export default function GlobalBar({ isDark, authUsername, onNavigate, onLogout, 
         )}
       </div>
 
-      {/* Right — buttons always visible, ticker clips if too wide */}
-      <div className="ml-auto flex items-center gap-1 shrink-0">
+      {/* Spacer: pushes right section to start exactly after the search bar ends.
+           50% = bar centre, +224px = half of max-w-md (14rem @ 16px base font). */}
+      <div className="shrink-0" style={{ width: 'calc(50% + 224px)' }} />
+      {/* Right — fills all remaining space after the search bar */}
+      <div className="flex flex-1 min-w-0 items-center gap-1">
         <MarketTicker isDark={isDark} />
         {/* Friends with notification dot */}
         <button onClick={() => onNavigate('friends')} title="Friends" className={`relative p-1.5 rounded-lg shrink-0 ${isDark ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'} transition`}>
