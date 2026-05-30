@@ -1088,49 +1088,64 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
 // ── Market index quotes ──────────────────────────────────────────────────────
 const _marketIndexCache = new Map(); // symbol → { symbol, price, changePct, change, ts }
 const MARKET_INDEX_CACHE_TTL = 10 * 60 * 1000;
+const ALL_INDEX_SYMBOLS = ['^GDAXI','^NDX','^OMXC25','^GSPC','^OMX','^OMXH25','^OSEAX','^GSPTSE'];
 
-app.get('/api/market-indexes', requireUser, async (req, res) => {
+function cacheEntry(q, fallbackSymbol) {
+  if (!q?.regularMarketPrice) return;
+  const rawPct = q.regularMarketChangePercent;
+  const rawChg = q.regularMarketChange;
+  _marketIndexCache.set(q.symbol || fallbackSymbol, {
+    symbol: q.symbol || fallbackSymbol,
+    price: Number(q.regularMarketPrice),
+    changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
+    change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0,
+    ts: Date.now(),
+  });
+}
+
+// Background refresh — runs on startup and every 60s so the HTTP endpoint
+// always serves instantly from cache with no per-request YF latency.
+async function refreshMarketIndexes() {
+  // Try batch first
+  try {
+    const raw = await withYFTimeout(yahooFinance.quote(ALL_INDEX_SYMBOLS, {}, { validateResult: false }), 15000);
+    const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+    if (arr.some(q => q?.regularMarketPrice)) {
+      arr.forEach(q => cacheEntry(q));
+      log.info('market-index cache refreshed via batch', { count: arr.filter(q => q?.regularMarketPrice).length });
+      return;
+    }
+  } catch(err) {
+    const arr = Array.isArray(err.result ?? err.data) ? (err.result ?? err.data) : [];
+    if (arr.some(q => q?.regularMarketPrice)) {
+      arr.forEach(q => cacheEntry(q));
+      return;
+    }
+    log.warn('market-index batch refresh failed, falling back to individual', { err: err.message?.slice(0, 80) });
+  }
+
+  // Batch failed — fetch each symbol individually with a small gap
+  for (const s of ALL_INDEX_SYMBOLS) {
+    try {
+      const q = await withYFTimeout(yahooFinance.quote(s, {}, { validateResult: false }), 8000);
+      cacheEntry(q, s);
+    } catch(err) {
+      cacheEntry(err.result ?? err.data, s);
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+  log.info('market-index cache refreshed via individual calls', { count: ALL_INDEX_SYMBOLS.filter(s => _marketIndexCache.has(s)).length });
+}
+
+refreshMarketIndexes();
+setInterval(refreshMarketIndexes, 60 * 1000).unref();
+
+app.get('/api/market-indexes', requireUser, (req, res) => {
   const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 15);
   if (!symbols.length) return res.json([]);
-
-  const toEntry = (raw, fallbackSymbol) => {
-    if (!raw?.regularMarketPrice) return null;
-    const rawPct = raw.regularMarketChangePercent;
-    const rawChg = raw.regularMarketChange;
-    return {
-      symbol: raw.symbol || fallbackSymbol,
-      price: Number(raw.regularMarketPrice),
-      changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-      change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0,
-    };
-  };
-
-  // Single batch call — one HTTP request to YF for all symbols avoids rate limiting
-  // that triggered when N parallel individual calls hit YF from the same server IP.
-  const quoteMap = {};
-  try {
-    const raw = await withYFTimeout(yahooFinance.quote(symbols, {}, { validateResult: false }), 10000);
-    const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
-    arr.forEach(q => { if (q?.symbol) quoteMap[q.symbol] = q; });
-  } catch(err) {
-    const raw = err.result ?? err.data;
-    const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
-    arr.forEach(q => { if (q?.symbol) quoteMap[q.symbol] = q; });
-  }
-
-  const results = [];
-  for (const s of symbols) {
-    const entry = toEntry(quoteMap[s], s);
-    if (entry) {
-      _marketIndexCache.set(s, { ...entry, ts: Date.now() });
-      results.push(entry);
-    } else {
-      const cached = _marketIndexCache.get(s);
-      if (cached && Date.now() - cached.ts < MARKET_INDEX_CACHE_TTL) {
-        results.push({ symbol: cached.symbol || s, price: cached.price, changePct: cached.changePct, change: cached.change });
-      }
-    }
-  }
+  // Serve instantly from the background-populated cache
+  const results = symbols.map(s => _marketIndexCache.get(s)).filter(Boolean)
+    .map(c => ({ symbol: c.symbol, price: c.price, changePct: c.changePct, change: c.change }));
   res.json(results);
 });
 
