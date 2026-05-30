@@ -1092,7 +1092,7 @@ const _marketIndexCache = new Map(); // symbol → { price, changePct, change, t
 const MARKET_INDEX_CACHE_TTL = 10 * 60 * 1000;
 
 app.get('/api/market-indexes', requireUser, async (req, res) => {
-  const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 6);
+  const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 15);
   if (!symbols.length) return res.json([]);
   const results = [];
   for (const s of symbols) {

@@ -6,7 +6,7 @@ export const MARKET_INDEXES = [
   { id: 'omxs30',  label: 'OMXS30',                short: 'OMXS30',  ticker: '^OMX',       country: 'se' },
   { id: 'omxc25',  label: 'OMX Copenhagen 25',      short: 'OMXC25',  ticker: '^OMXC25',    country: 'dk' },
   { id: 'omxh25',  label: 'OMX Helsinki 25',        short: 'OMXH25',  ticker: '^OMXH25GI',  country: 'fi' },
-  { id: 'osebx',   label: 'OSEBX Oslo',             short: 'OSEBX',   ticker: '^OSEOBX',    country: 'no' },
+  { id: 'osebx',   label: 'OSEBX Oslo',             short: 'OSEBX',   ticker: '^OSEAX',     country: 'no' },
   { id: 'dax',     label: 'DAX',                    short: 'DAX',     ticker: '^GDAXI',     country: 'de' },
   { id: 'cac40',   label: 'CAC 40',                 short: 'CAC 40',  ticker: '^FCHI',      country: 'fr' },
   { id: 'smi',     label: 'SMI',                    short: 'SMI',     ticker: '^SSMI',      country: 'ch' },
@@ -144,7 +144,7 @@ function MarketTicker({ isDark }) {
         <div
           ref={contentRef}
           style={isOverflow ? { animation: 'marquee 30s linear infinite' } : {}}
-          className="flex items-center gap-3 whitespace-nowrap"
+          className="flex items-center gap-3 whitespace-nowrap min-w-max"
         >
           {tickerContent}
           {isOverflow && (
