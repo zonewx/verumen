@@ -64,7 +64,9 @@ if (FRONTEND_DIST) {
 
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString() });
+  const cacheSnapshot = {};
+  _marketIndexCache.forEach((v, k) => { cacheSnapshot[k] = { price: v.price, ageMs: Date.now() - v.ts }; });
+  res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString(), indexCache: cacheSnapshot });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
