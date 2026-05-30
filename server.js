@@ -1094,13 +1094,16 @@ const ALL_INDEX_SYMBOLS = ['^GDAXI','^NDX','^OMXC25','^GSPC','^OMX','^OMXH25','^
 
 function cacheEntry(q, fallbackSymbol) {
   if (!q?.regularMarketPrice) return;
-  const rawPct = q.regularMarketChangePercent;
+  const price  = Number(q.regularMarketPrice);
   const rawChg = q.regularMarketChange;
+  const change = Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0;
+  // Calculate % from price/change directly — regularMarketChangePercent returns
+  // inconsistent formats (decimal vs percent, daily vs YTD) for some index symbols.
+  const prevClose = price - change;
+  const changePct = prevClose !== 0 ? (change / prevClose) * 100 : 0;
   _marketIndexCache.set(q.symbol || fallbackSymbol, {
     symbol: q.symbol || fallbackSymbol,
-    price: Number(q.regularMarketPrice),
-    changePct: (Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) || 0) * 100,
-    change: Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0,
+    price, change, changePct,
     ts: Date.now(),
   });
 }
