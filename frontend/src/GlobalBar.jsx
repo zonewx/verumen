@@ -8,10 +8,7 @@ export const MARKET_INDEXES = [
   { id: 'omxh25',  label: 'OMX Helsinki 25',        short: 'OMXH25',  ticker: '^OMXH25GI',  country: 'fi' },
   { id: 'osebx',   label: 'OSEBX Oslo',             short: 'OSEBX',   ticker: '^OSEAX',     country: 'no' },
   { id: 'dax',     label: 'DAX',                    short: 'DAX',     ticker: '^GDAXI',     country: 'de' },
-  { id: 'cac40',   label: 'CAC 40',                 short: 'CAC 40',  ticker: '^FCHI',      country: 'fr' },
-  { id: 'smi',     label: 'SMI',                    short: 'SMI',     ticker: '^SSMI',      country: 'ch' },
   { id: 'tsx',     label: 'S&P/TSX Composite',      short: 'TSX',     ticker: '^GSPTSE',    country: 'ca' },
-  { id: 'sti',     label: 'Straits Times Index',     short: 'STI',     ticker: '^STI',       country: 'sg' },
 ];
 
 const STORAGE_KEY = 'marketIndexes';
@@ -108,18 +105,11 @@ function MarketTicker({ isDark }) {
   });
 
   return (
-    <>
-      <style>{`
-        @keyframes marquee {
-          from { transform: translateX(0); }
-          to   { transform: translateX(var(--marquee-offset)); }
-        }
-      `}</style>
-      <div ref={containerRef} className={`hidden md:flex items-center border-r mr-2 pr-3 overflow-hidden ${divider}`}>
-        <div
-          className="flex items-center gap-3 whitespace-nowrap"
-          style={isOverflow ? { animation: 'marquee 30s linear infinite', '--marquee-offset': `-${scrollPx}px` } : {}}
-        >
+    <div ref={containerRef} className={`hidden md:flex items-center border-r mr-2 pr-3 overflow-hidden ${divider}`}>
+      <div
+        className={`flex items-center gap-3 whitespace-nowrap${isOverflow ? ' marquee-scroll' : ''}`}
+        style={isOverflow ? { '--marquee-offset': `-${scrollPx}px` } : {}}
+      >
           {/* First copy — always present, measured via firstCopyRef */}
           <div ref={firstCopyRef} className="flex items-center gap-3">
             {renderItems()}
@@ -132,7 +122,6 @@ function MarketTicker({ isDark }) {
           )}
         </div>
       </div>
-    </>
   );
 }
 

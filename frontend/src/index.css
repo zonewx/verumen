@@ -25,3 +25,12 @@ body {
 /* Pointer cursor on all interactive elements */
 button, [role="button"], select, label[for] { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
+
+/* Market ticker marquee */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(var(--marquee-offset, 0px)); }
+}
+.marquee-scroll {
+  animation: marquee 30s linear infinite;
+}
