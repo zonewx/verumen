@@ -5,7 +5,7 @@ export const MARKET_INDEXES = [
   { id: 'nasdaq100',label: 'NASDAQ 100',            short: 'NASDAQ 100', ticker: '^NDX',       country: 'us' },
   { id: 'omxs30',  label: 'OMXS30',                short: 'OMXS30',  ticker: '^OMX',       country: 'se' },
   { id: 'omxc25',  label: 'OMX Copenhagen 25',      short: 'OMXC25',  ticker: '^OMXC25',    country: 'dk' },
-  { id: 'omxh25',  label: 'OMX Helsinki 25',        short: 'OMXH25',  ticker: '^OMXH25GI',  country: 'fi' },
+  { id: 'omxh25',  label: 'OMX Helsinki 25',        short: 'OMXH25',  ticker: '^OMXH25',    country: 'fi' },
   { id: 'osebx',   label: 'OSEBX Oslo',             short: 'OSEBX',   ticker: '^OSEAX',     country: 'no' },
   { id: 'dax',     label: 'DAX',                    short: 'DAX',     ticker: '^GDAXI',     country: 'de' },
   { id: 'tsx',     label: 'S&P/TSX Composite',      short: 'TSX',     ticker: '^GSPTSE',    country: 'ca' },
@@ -64,20 +64,18 @@ function MarketTicker({ isDark }) {
   }, [quotes, selected]);
 
   useEffect(() => {
-    const tickers = selected
-      .map(id => MARKET_INDEXES.find(m => m.id === id)?.ticker)
-      .filter(Boolean)
-      .join(',');
-    if (!tickers) return;
+    // Always fetch ALL indexes regardless of selection — data is cached so
+    // selecting/deselecting an index shows its price instantly with no extra request.
+    const allTickers = MARKET_INDEXES.map(m => m.ticker).join(',');
     const fetch_ = () =>
-      fetch(`/api/market-indexes?symbols=${encodeURIComponent(tickers)}`, { headers: authHeader() })
+      fetch(`/api/market-indexes?symbols=${encodeURIComponent(allTickers)}`, { headers: authHeader() })
         .then(r => r.json())
         .then(data => { if (Array.isArray(data) && data.length > 0) { setQuotes(data); localStorage.setItem(QUOTES_CACHE_KEY, JSON.stringify(data)); } })
         .catch(() => {});
     fetch_();
     intervalRef.current = setInterval(fetch_, REFRESH_MS);
     return () => clearInterval(intervalRef.current);
-  }, [selected]);
+  }, []);
 
   const displayQuotes = quotes.filter(q => selected.some(id => MARKET_INDEXES.find(m => m.id === id)?.ticker === q.symbol));
   if (!selected.length || !displayQuotes.length) return null;
