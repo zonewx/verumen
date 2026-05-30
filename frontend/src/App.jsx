@@ -401,7 +401,7 @@ const handleUpload = async (files) => {
 
   const updateProgress = (phase, pct, label, txEstimate, resolvedCount, totalCount) =>
     setUploadProgress(prev => ({
-      ...prev, phase, pct, label,
+      ...(prev || {}), phase, pct, label,
       ...(txEstimate   !== undefined && { txEstimate }),
       ...(resolvedCount !== undefined && { resolvedCount, totalCount }),
     }));
