@@ -1105,36 +1105,22 @@ app.get('/api/market-indexes', requireUser, async (req, res) => {
     };
   };
 
-  const fetchOne = async (s) => {
-    // Attempt 1: quote (faster, more reliable for index symbols)
-    try {
-      const q = await withYFTimeout(yahooFinance.quote(s, {}, { validateResult: false }), 5000);
-      const e = toEntry(q, s);
-      if (e) return e;
-    } catch(err) {
-      const e = toEntry(err.result ?? err.data, s);
-      if (e) return e;
-    }
+  // Single batch call — one HTTP request to YF for all symbols avoids rate limiting
+  // that triggered when N parallel individual calls hit YF from the same server IP.
+  const quoteMap = {};
+  try {
+    const raw = await withYFTimeout(yahooFinance.quote(symbols, {}, { validateResult: false }), 10000);
+    const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+    arr.forEach(q => { if (q?.symbol) quoteMap[q.symbol] = q; });
+  } catch(err) {
+    const raw = err.result ?? err.data;
+    const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+    arr.forEach(q => { if (q?.symbol) quoteMap[q.symbol] = q; });
+  }
 
-    // Attempt 2: quoteSummary / price module
-    try {
-      const summary = await withYFTimeout(yahooFinance.quoteSummary(s, { modules: ['price'] }, { validateResult: false }), 5000);
-      const e = toEntry(summary?.price, s);
-      if (e) return e;
-    } catch(err) {
-      const e = toEntry((err.result ?? err.data)?.price, s);
-      if (e) return e;
-    }
-
-    return null;
-  };
-
-  // Fetch all symbols in parallel — previously sequential, causing up to 40s latency for 8 symbols
-  const fetched = await Promise.all(symbols.map(fetchOne));
   const results = [];
-  for (let i = 0; i < symbols.length; i++) {
-    const s = symbols[i];
-    const entry = fetched[i];
+  for (const s of symbols) {
+    const entry = toEntry(quoteMap[s], s);
     if (entry) {
       _marketIndexCache.set(s, { ...entry, ts: Date.now() });
       results.push(entry);
