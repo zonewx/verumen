@@ -97,7 +97,7 @@ function MarketTicker({ isDark }) {
         const delta = Math.min(ts - lastTsRef.current, 100); // cap to avoid large jump after tab switch
         if (!pausedRef.current && widthRef.current > 0 && animDivRef.current) {
           posRef.current = (posRef.current + delta * TICKER_SPEED / 1000) % widthRef.current;
-          animDivRef.current.style.transform = `translateX(-${posRef.current}px)`;
+          animDivRef.current.style.transform = `translate3d(-${Math.round(posRef.current)}px,0,0)`;
         }
       }
       lastTsRef.current = ts;
@@ -152,7 +152,7 @@ function MarketTicker({ isDark }) {
   return (
     <div
       ref={containerRef}
-      className={`hidden md:flex items-center overflow-hidden ${hasContent ? `border-r mr-2 pr-3 ${divider}` : ''}`}
+      className={`hidden md:flex items-center overflow-hidden ${hasContent ? `border-r mr-2 pr-3 ${divider} cursor-pointer` : ''}`}
       style={{ maxWidth: 'calc((100vw - var(--sidebar-w, 240px)) / 2 - 80px)' }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
