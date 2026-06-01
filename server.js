@@ -1204,10 +1204,11 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     const tryQuote = async (sym) => {
       let q = null;
       try {
-        q = await withYFTimeout(yahooFinance.quote(sym), 4000);
+        q = await withYFTimeout(yahooFinance.quote(sym, {}, { validateResult: false }), 6000);
       } catch(e) {
-        // FailedYahooValidationError still carries the data in e.result — use it
-        if (e?.result?.regularMarketPrice != null) q = e.result;
+        // Timeout or network error — check both result and data for partial payload
+        const r = e?.result ?? e?.data;
+        if (r?.regularMarketPrice != null) q = r;
       }
       if (q?.regularMarketPrice != null) {
         resolvedTicker = sym; // track which ticker actually worked
