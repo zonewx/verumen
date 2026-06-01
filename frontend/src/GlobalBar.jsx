@@ -48,11 +48,8 @@ function MarketTicker({ isDark }) {
   const containerRef = useRef(null);
   const firstCopyRef = useRef(null);
   const animDivRef   = useRef(null);
-  const posRef       = useRef(0);
-  const widthRef     = useRef(0);
-  const rafRef       = useRef(null);
+  const animObjRef   = useRef(null); // WAAPI Animation object — runs on compositor thread
   const pausedRef    = useRef(false);
-  const lastTsRef    = useRef(null);
   const intervalRef  = useRef(null);
 
   useEffect(() => {
@@ -64,22 +61,47 @@ function MarketTicker({ isDark }) {
     return () => window.removeEventListener('marketIndexes-updated', onUpdate);
   }, []);
 
-  // Keep pausedRef in sync so the RAF callback reads the latest value without a stale closure
   useEffect(() => { pausedRef.current = paused; }, [paused]);
 
-  // Reset lastTs on tab-show so the first frame after hiding doesn't produce a huge delta jump
+  // Pause/resume the compositor animation on hover
   useEffect(() => {
-    const onVisibility = () => { if (!document.hidden) lastTsRef.current = null; };
+    if (!animObjRef.current) return;
+    if (paused) animObjRef.current.pause();
+    else animObjRef.current.play();
+  }, [paused]);
+
+  // Pause when tab is hidden, resume when visible (skipping if user has hover-paused)
+  useEffect(() => {
+    const onVisibility = () => {
+      if (!animObjRef.current) return;
+      if (document.hidden) animObjRef.current.pause();
+      else if (!pausedRef.current) animObjRef.current.play();
+    };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
 
-  // Measure one-copy width whenever content changes
+  // Cancel animation on unmount
+  useEffect(() => () => animObjRef.current?.cancel(), []);
+
+  // Measure one-copy width and (re)start the WAAPI animation whenever content changes
   useEffect(() => {
+    const start = (w) => {
+      if (!animDivRef.current || !w) return;
+      const duration = (w / TICKER_SPEED) * 1000;
+      const prevTime = animObjRef.current?.currentTime ?? 0;
+      animObjRef.current?.cancel();
+      animObjRef.current = animDivRef.current.animate(
+        [{ transform: 'translate3d(0,0,0)' }, { transform: `translate3d(-${w}px,0,0)` }],
+        { duration, iterations: Infinity, easing: 'linear' }
+      );
+      animObjRef.current.currentTime = typeof prevTime === 'number' ? prevTime % duration : 0;
+      if (pausedRef.current) animObjRef.current.pause();
+    };
     const measure = () => {
       if (!firstCopyRef.current) return;
       const w = firstCopyRef.current.scrollWidth;
-      if (w > 0) widthRef.current = w;
+      if (w > 0) start(w);
     };
     measure();
     const t = setTimeout(measure, 80);
@@ -89,23 +111,6 @@ function MarketTicker({ isDark }) {
     window.addEventListener('resize', measure);
     return () => { clearTimeout(t); ro.disconnect(); window.removeEventListener('resize', measure); };
   }, [quotes, order]);
-
-  // RAF animation loop — runs once, mutates DOM directly to avoid React re-renders
-  useEffect(() => {
-    function tick(ts) {
-      if (lastTsRef.current !== null) {
-        const delta = Math.min(ts - lastTsRef.current, 100); // cap to avoid large jump after tab switch
-        if (!pausedRef.current && widthRef.current > 0 && animDivRef.current) {
-          posRef.current = (posRef.current + delta * TICKER_SPEED / 1000) % widthRef.current;
-          animDivRef.current.style.transform = `translate3d(-${Math.round(posRef.current)}px,0,0)`;
-        }
-      }
-      lastTsRef.current = ts;
-      rafRef.current = requestAnimationFrame(tick);
-    }
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, []);
 
   useEffect(() => {
     const allTickers = MARKET_INDEXES.map(m => m.ticker).join(',');
@@ -161,7 +166,6 @@ function MarketTicker({ isDark }) {
         <div
           ref={animDivRef}
           className="flex items-center whitespace-nowrap"
-          style={{ willChange: 'transform' }}
         >
           {/* pr-3 gives each copy a trailing gap equal to the inter-item gap so the loop is seamless */}
           <div ref={firstCopyRef} className="flex items-center gap-3 pr-3">{renderItems()}</div>
