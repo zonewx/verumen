@@ -1373,10 +1373,10 @@ app.get('/api/admin/global-overrides', requireModerator, async (req, res) => {
   const enriched = await Promise.all((data || []).map(async o => {
     try {
       const cached = _priceCache.get(o.ticker);
-      const q = cached ? cached.q : await withYFTimeout(yahooFinance.quote(o.ticker), 3000);
+      const q = cached ? cached.q : await withYFTimeout(yahooFinance.quote(o.ticker, {}, { validateResult: false }), 5000);
       return { ...o, name: q?.longName || q?.shortName || null };
     } catch(e) {
-      const q = e?.result;
+      const q = e?.result ?? e?.data;
       return { ...o, name: q?.longName || q?.shortName || null };
     }
   }));
