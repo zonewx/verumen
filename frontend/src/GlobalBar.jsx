@@ -25,48 +25,50 @@ function fmt(n) {
 
 const QUOTES_CACHE_KEY = 'market_quotes_cache';
 
+const ALL_IDS = MARKET_INDEXES.map(m => m.id);
+
+function normaliseOrder(saved) {
+  const valid = (saved || []).filter(id => ALL_IDS.includes(id));
+  const missing = ALL_IDS.filter(id => !valid.includes(id));
+  return [...valid, ...missing];
+}
+
 function MarketTicker({ isDark }) {
-  const [quotes, setQuotes]     = useState(() => {
+  const [quotes, setQuotes] = useState(() => {
     try { return JSON.parse(localStorage.getItem(QUOTES_CACHE_KEY)) || []; } catch { return []; }
   });
-  const [selected, setSelected] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || MARKET_INDEXES.map(m => m.id); } catch { return MARKET_INDEXES.map(m => m.id); }
+  const [order, setOrder] = useState(() => {
+    try { return normaliseOrder(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch { return ALL_IDS; }
   });
-  const [isOverflow, setIsOverflow] = useState(false);
-  const [scrollPx, setScrollPx]     = useState(0);
+  const [scrollPx, setScrollPx] = useState(0);
   const containerRef = useRef(null);
-  const firstCopyRef = useRef(null); // ref on the FIRST copy only — always measures single-copy width
+  const firstCopyRef = useRef(null);
   const intervalRef  = useRef(null);
 
   useEffect(() => {
-    const onStorage = () => {
-      try { setSelected(JSON.parse(localStorage.getItem(STORAGE_KEY)) || []); } catch {}
+    const onUpdate = () => {
+      try { setOrder(normaliseOrder(JSON.parse(localStorage.getItem(STORAGE_KEY)))); } catch {}
     };
-    window.addEventListener('marketIndexes-updated', onStorage);
-    return () => window.removeEventListener('marketIndexes-updated', onStorage);
+    window.addEventListener('marketIndexes-updated', onUpdate);
+    return () => window.removeEventListener('marketIndexes-updated', onUpdate);
   }, []);
 
   useEffect(() => {
     const check = () => {
       if (!containerRef.current || !firstCopyRef.current) return;
-      const w  = firstCopyRef.current.scrollWidth;
-      const cw = containerRef.current.clientWidth;
+      const w = firstCopyRef.current.scrollWidth;
       setScrollPx(w);
-      setIsOverflow(w > cw);
     };
-    // Run immediately and after a short delay to catch post-render DOM state
     check();
     const t = setTimeout(check, 80);
     const ro = new ResizeObserver(check);
     if (containerRef.current) ro.observe(containerRef.current);
-    if (firstCopyRef.current) ro.observe(firstCopyRef.current); // catches content width changes
+    if (firstCopyRef.current) ro.observe(firstCopyRef.current);
     window.addEventListener('resize', check);
     return () => { clearTimeout(t); ro.disconnect(); window.removeEventListener('resize', check); };
-  }, [quotes, selected]);
+  }, [quotes, order]);
 
   useEffect(() => {
-    // Always fetch ALL indexes regardless of selection — data is cached so
-    // selecting/deselecting an index shows its price instantly with no extra request.
     const allTickers = MARKET_INDEXES.map(m => m.ticker).join(',');
     const fetch_ = () =>
       fetch(`/api/market-indexes?symbols=${encodeURIComponent(allTickers)}`, { headers: authHeader() })
@@ -81,9 +83,12 @@ function MarketTicker({ isDark }) {
     return () => clearInterval(intervalRef.current);
   }, []);
 
-  const displayQuotes = quotes.filter(q => selected.some(id => MARKET_INDEXES.find(m => m.id === id)?.ticker === q.symbol));
-  const hasContent = selected.length > 0 && displayQuotes.length > 0;
+  // Show all indexes in user-defined order
+  const displayQuotes = order
+    .map(id => { const ticker = MARKET_INDEXES.find(m => m.id === id)?.ticker; return quotes.find(q => q.symbol === ticker); })
+    .filter(Boolean);
 
+  const hasContent = displayQuotes.length > 0;
   const divider  = isDark ? 'border-gray-700' : 'border-gray-200';
   const labelCls = isDark ? 'text-gray-100' : 'text-gray-700';
   const valCls   = isDark ? 'text-gray-200' : 'text-gray-800';
@@ -110,17 +115,11 @@ function MarketTicker({ isDark }) {
     <div ref={containerRef} className={`hidden md:flex items-center overflow-hidden ${hasContent ? `border-r mr-2 pr-3 ${divider}` : ''}`} style={{ maxWidth: 'calc((100vw - var(--sidebar-w, 240px)) / 2 - 80px)' }}>
       {hasContent && (
         <div
-          className={`flex items-center gap-3 whitespace-nowrap${isOverflow ? ' marquee-scroll' : ''}`}
-          style={isOverflow ? { '--marquee-offset': `-${scrollPx}px` } : {}}
+          className="flex items-center gap-3 whitespace-nowrap marquee-scroll"
+          style={{ '--marquee-offset': `-${scrollPx}px` }}
         >
-          <div ref={firstCopyRef} className="flex items-center gap-3">
-            {renderItems()}
-          </div>
-          {isOverflow && (
-            <div className="flex items-center gap-3 pl-3">
-              {renderItems()}
-            </div>
-          )}
+          <div ref={firstCopyRef} className="flex items-center gap-3">{renderItems()}</div>
+          <div className="flex items-center gap-3 pl-3">{renderItems()}</div>
         </div>
       )}
     </div>

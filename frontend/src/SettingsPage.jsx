@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MARKET_INDEXES } from './GlobalBar';
 
@@ -27,9 +27,16 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
     return s ? parseInt(s, 10) : null;
   });
   const updateLastSync = (ts) => { setLastSync(ts); localStorage.setItem('cs_prices_last_sync', String(ts)); };
-  const [marketSel, setMarketSel] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('marketIndexes')) || MARKET_INDEXES.map(m => m.id); } catch { return MARKET_INDEXES.map(m => m.id); }
+  const allIds = MARKET_INDEXES.map(m => m.id);
+  const [marketOrder, setMarketOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('marketIndexes')) || [];
+      const valid = saved.filter(id => allIds.includes(id));
+      return [...valid, ...allIds.filter(id => !valid.includes(id))];
+    } catch { return allIds; }
   });
+  const [dragging, setDragging] = useState(null);
+  const dragOverRef = useRef(null);
 
   const card = `rounded-2xl border p-6 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`;
   const label = `text-xs font-semibold uppercase tracking-wider mb-2 block ${isDark ? 'text-gray-400' : 'text-gray-500'}`;
@@ -98,36 +105,52 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
         <div className={card}>
           <h2 className={`text-sm font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Market Bar</h2>
           <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-            Choose up to 3 market indexes to display in the top bar. Prices refresh every 60 seconds.
+            All indexes are always shown in the top bar and scroll automatically. Drag to set your preferred order.
           </p>
           <div className="flex flex-col gap-2">
-            {[...MARKET_INDEXES].sort((a, b) => a.label.localeCompare(b.label)).map(idx => {
-              const checked = marketSel.includes(idx.id);
+            {marketOrder.map(id => {
+              const idx = MARKET_INDEXES.find(m => m.id === id);
+              if (!idx) return null;
+              const isDraggingThis = dragging === id;
               return (
-                <label key={idx.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'}`}>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => {
-                      const next = checked
-                        ? marketSel.filter(id => id !== idx.id)
-                        : [...marketSel, idx.id];
-                      setMarketSel(next);
-                      localStorage.setItem('marketIndexes', JSON.stringify(next));
-                      window.dispatchEvent(new Event('marketIndexes-updated'));
-                    }}
-                    className="w-4 h-4 accent-blue-500"
-                  />
+                <div
+                  key={id}
+                  draggable
+                  onDragStart={e => { setDragging(id); e.dataTransfer.effectAllowed = 'move'; }}
+                  onDragEnter={() => {
+                    if (!dragging || dragging === id) return;
+                    dragOverRef.current = id;
+                    const from = marketOrder.indexOf(dragging);
+                    const to   = marketOrder.indexOf(id);
+                    if (from === -1 || to === -1) return;
+                    const next = [...marketOrder];
+                    next.splice(from, 1);
+                    next.splice(to, 0, dragging);
+                    setMarketOrder(next);
+                  }}
+                  onDragOver={e => e.preventDefault()}
+                  onDragEnd={() => {
+                    setDragging(null);
+                    dragOverRef.current = null;
+                    localStorage.setItem('marketIndexes', JSON.stringify(marketOrder));
+                    window.dispatchEvent(new Event('marketIndexes-updated'));
+                  }}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border select-none transition ${
+                    isDraggingThis ? 'opacity-40' : ''
+                  } ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-200'}`}
+                >
+                  <svg className={`shrink-0 cursor-grab ${isDark ? 'text-gray-500' : 'text-gray-400'}`} width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                    <circle cx="4" cy="3" r="1.3"/><circle cx="10" cy="3" r="1.3"/>
+                    <circle cx="4" cy="7" r="1.3"/><circle cx="10" cy="7" r="1.3"/>
+                    <circle cx="4" cy="11" r="1.3"/><circle cx="10" cy="11" r="1.3"/>
+                  </svg>
                   <img src={`https://flagcdn.com/${idx.country}.svg`} alt={idx.country} className="w-5 h-3.5 object-cover rounded-sm shrink-0" />
                   <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{idx.label}</span>
                   <span className={`ml-auto text-xs font-mono ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{idx.ticker}</span>
-                </label>
+                </div>
               );
             })}
           </div>
-          {marketSel.length > 3 && (
-            <p className={`text-xs mt-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>When more than 3 indexes are selected, they will scroll automatically in the top bar.</p>
-          )}
         </div>
 
         <div className={card}>
