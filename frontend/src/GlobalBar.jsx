@@ -49,6 +49,7 @@ function MarketTicker({ isDark }) {
   const firstCopyRef = useRef(null);
   const animDivRef   = useRef(null);
   const animObjRef   = useRef(null); // WAAPI Animation object — runs on compositor thread
+  const widthRef     = useRef(0);    // last measured copy width — skip restart if unchanged
   const pausedRef    = useRef(false);
   const intervalRef  = useRef(null);
 
@@ -88,6 +89,8 @@ function MarketTicker({ isDark }) {
   useEffect(() => {
     const start = (w) => {
       if (!animDivRef.current || !w) return;
+      if (w === widthRef.current && animObjRef.current) return; // width unchanged — don't restart
+      widthRef.current = w;
       const duration = (w / TICKER_SPEED) * 1000;
       const prevTime = animObjRef.current?.currentTime ?? 0;
       animObjRef.current?.cancel();
