@@ -42,11 +42,11 @@ function MarketTicker({ isDark }) {
     try { return normaliseOrder(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch { return ALL_IDS; }
   });
   const [enabled, setEnabled] = useState(() => localStorage.getItem(BAR_ENABLED_KEY) !== 'false');
-  const [paused, setPaused]   = useState(false);
-  const [scrollPx, setScrollPx] = useState(0);
-  const containerRef = useRef(null);
-  const firstCopyRef = useRef(null);
-  const intervalRef  = useRef(null);
+  const [paused, setPaused] = useState(false);
+  const containerRef  = useRef(null);
+  const firstCopyRef  = useRef(null);
+  const scrollPxRef   = useRef(0); // kept as ref — no React state, avoids re-rendering the animated div
+  const intervalRef   = useRef(null);
 
   useEffect(() => {
     const onUpdate = () => {
@@ -61,8 +61,12 @@ function MarketTicker({ isDark }) {
     const check = () => {
       if (!containerRef.current || !firstCopyRef.current) return;
       const w = firstCopyRef.current.scrollWidth;
-      setScrollPx(w);
-      // Constant scroll speed: 60px/s so the marquee feels consistent regardless of item count
+      if (w === scrollPxRef.current) return; // no change — skip to avoid touching animated element
+      scrollPxRef.current = w;
+      // Set both CSS vars on the container (ancestor of the animated div).
+      // Changing a custom property on the animated element itself restarts the animation,
+      // but changing it on an ancestor is safe — the browser re-evaluates mid-animation.
+      containerRef.current.style.setProperty('--marquee-offset', `-${w}px`);
       containerRef.current.style.setProperty('--marquee-duration', `${Math.round(w / 60)}s`);
     };
     check();
@@ -127,7 +131,7 @@ function MarketTicker({ isDark }) {
       {hasContent && (
         <div
           className={`flex items-center whitespace-nowrap marquee-scroll ${paused ? 'cursor-pointer' : ''}`}
-          style={{ '--marquee-offset': `-${scrollPx}px`, animationPlayState: paused ? 'paused' : 'running' }}
+          style={{ animationPlayState: paused ? 'paused' : 'running' }}
         >
           {/* pr-3 gives each copy a trailing gap equal to the inter-item gap so the loop is seamless */}
           <div ref={firstCopyRef} className="flex items-center gap-3 pr-3">{renderItems()}</div>
