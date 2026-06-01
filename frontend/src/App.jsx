@@ -464,15 +464,16 @@ const handleUpload = async (files) => {
 
     const data = { newAdded: totalNewAdded };
     
-    // Auto-resolve tickers in chunks
+    // Resolve tickers — no chunk limit so the server deduplicates all transactions to unique
+    // stocks in one pass. With caching, each subsequent call is instant (all cache hits).
     updateProgress('resolving', 40, 'Resolving tickers...');
     let totalResolved = 0;
     let remaining = data.newAdded;
-    const CHUNK_SIZE = 20; // Smaller chunks to avoid timeout (was 50)
     const startTime = Date.now();
     let failures = 0;
     let noProgressChunks = 0;
     let lastRemaining = remaining;
+    let iteration = 0;
 
     while (remaining > 0 && failures < 3) {
       if (uploadAbortRef.current) {
@@ -484,19 +485,14 @@ const handleUpload = async (files) => {
       }
 
       try {
-        const chunkStart = Date.now();
         const chunkRes = await apiFetch('/api/transactions/resolve', {
           method: 'POST',
-          body: JSON.stringify({ limit: CHUNK_SIZE }),
+          body: JSON.stringify({}),
           signal: uploadAbortControllerRef.current?.signal,
         });
 
-        // Check if request took too long
-        if (Date.now() - chunkStart > 25000) {
-          console.warn('Chunk took over 25s, might be timing out');
-        }
-
         const chunkData = await chunkRes.json();
+        iteration++;
 
         totalResolved += chunkData.resolved || 0;
         remaining = chunkData.remaining || 0;
@@ -515,10 +511,11 @@ const handleUpload = async (files) => {
 
         const progress = 40 + Math.floor(((totalResolved / data.newAdded) * 40));
 
-        // Calculate ETA
-        const elapsed = (Date.now() - startTime) / 1000; // seconds
-        const rate = totalResolved / elapsed; // tickers per second
-        const etaSeconds = remaining > 0 && rate > 0 ? Math.ceil(remaining / rate) : 0;
+        // Only show ETA after the first iteration — the first pass resolves all unique
+        // stocks (slow), subsequent passes are cache hits (fast), so early estimates are useless.
+        const elapsed = (Date.now() - startTime) / 1000;
+        const rate = totalResolved / elapsed;
+        const etaSeconds = iteration > 1 && remaining > 0 && rate > 0 ? Math.ceil(remaining / rate) : 0;
         const etaText = etaSeconds > 60
           ? `~${Math.ceil(etaSeconds / 60)}m remaining`
           : etaSeconds > 0
@@ -528,7 +525,7 @@ const handleUpload = async (files) => {
         updateProgress('resolving', progress, `Resolved ${totalResolved}/${data.newAdded} tickers... ${etaText}`, undefined, totalResolved, data.newAdded);
 
         if (remaining === 0) break;
-        await new Promise(r => setTimeout(r, 200)); // Small delay between chunks
+        await new Promise(r => setTimeout(r, 200));
       } catch (err) {
         if (err.name === 'AbortError') {
           updateProgress('cancelled', 40 + Math.floor((totalResolved / data.newAdded) * 40), '✗ Upload cancelled');

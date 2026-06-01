@@ -71,17 +71,6 @@ function MarketTicker({ isDark }) {
     else animObjRef.current.play();
   }, [paused]);
 
-  // Pause when tab is hidden, resume when visible (skipping if user has hover-paused)
-  useEffect(() => {
-    const onVisibility = () => {
-      if (!animObjRef.current) return;
-      if (document.hidden) animObjRef.current.pause();
-      else if (!pausedRef.current) animObjRef.current.play();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, []);
-
   // Cancel animation on unmount
   useEffect(() => () => animObjRef.current?.cancel(), []);
 
