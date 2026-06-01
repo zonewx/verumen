@@ -26,14 +26,12 @@ function fmt(n) {
 const QUOTES_CACHE_KEY = 'market_quotes_cache';
 
 const ALL_IDS = MARKET_INDEXES.map(m => m.id);
+const BAR_ENABLED_KEY = 'marketBarEnabled';
 
 function normaliseOrder(saved) {
-  const arr = saved || [];
-  // Migrate old format (array of strings) → array of {id, on} objects
-  const entries = arr.map(e => typeof e === 'string' ? { id: e, on: true } : { id: e.id, on: e.on !== false });
-  const valid   = entries.filter(e => ALL_IDS.includes(e.id));
-  const missing = ALL_IDS.filter(id => !valid.some(e => e.id === id)).map(id => ({ id, on: true }));
-  return [...valid, ...missing];
+  // Accept both old string[] and new string[] (no per-item objects anymore)
+  const ids = (saved || []).map(e => typeof e === 'string' ? e : e?.id).filter(id => ALL_IDS.includes(id));
+  return [...ids, ...ALL_IDS.filter(id => !ids.includes(id))];
 }
 
 function MarketTicker({ isDark }) {
@@ -41,8 +39,10 @@ function MarketTicker({ isDark }) {
     try { return JSON.parse(localStorage.getItem(QUOTES_CACHE_KEY)) || []; } catch { return []; }
   });
   const [order, setOrder] = useState(() => {
-    try { return normaliseOrder(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch { return ALL_IDS.map(id => ({ id, on: true })); }
+    try { return normaliseOrder(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch { return ALL_IDS; }
   });
+  const [enabled, setEnabled] = useState(() => localStorage.getItem(BAR_ENABLED_KEY) !== 'false');
+  const [paused, setPaused]   = useState(false);
   const [scrollPx, setScrollPx] = useState(0);
   const containerRef = useRef(null);
   const firstCopyRef = useRef(null);
@@ -51,6 +51,7 @@ function MarketTicker({ isDark }) {
   useEffect(() => {
     const onUpdate = () => {
       try { setOrder(normaliseOrder(JSON.parse(localStorage.getItem(STORAGE_KEY)))); } catch {}
+      setEnabled(localStorage.getItem(BAR_ENABLED_KEY) !== 'false');
     };
     window.addEventListener('marketIndexes-updated', onUpdate);
     return () => window.removeEventListener('marketIndexes-updated', onUpdate);
@@ -59,8 +60,7 @@ function MarketTicker({ isDark }) {
   useEffect(() => {
     const check = () => {
       if (!containerRef.current || !firstCopyRef.current) return;
-      const w = firstCopyRef.current.scrollWidth;
-      setScrollPx(w);
+      setScrollPx(firstCopyRef.current.scrollWidth);
     };
     check();
     const t = setTimeout(check, 80);
@@ -86,14 +86,11 @@ function MarketTicker({ isDark }) {
     return () => clearInterval(intervalRef.current);
   }, []);
 
-  // Show only enabled indexes in user-defined order
   const displayQuotes = order
-    .filter(e => e.on)
-    .map(e => { const ticker = MARKET_INDEXES.find(m => m.id === e.id)?.ticker; return quotes.find(q => q.symbol === ticker); })
+    .map(id => { const ticker = MARKET_INDEXES.find(m => m.id === id)?.ticker; return quotes.find(q => q.symbol === ticker); })
     .filter(Boolean);
 
-  const [paused, setPaused] = useState(false);
-  const hasContent = displayQuotes.length > 0;
+  const hasContent = enabled && displayQuotes.length > 0;
   const divider  = isDark ? 'border-gray-700' : 'border-gray-200';
   const labelCls = isDark ? 'text-gray-100' : 'text-gray-700';
   const valCls   = isDark ? 'text-gray-200' : 'text-gray-800';
@@ -126,7 +123,7 @@ function MarketTicker({ isDark }) {
     >
       {hasContent && (
         <div
-          className="flex items-center gap-3 whitespace-nowrap marquee-scroll"
+          className={`flex items-center gap-3 whitespace-nowrap marquee-scroll ${paused ? 'cursor-pointer' : ''}`}
           style={{ '--marquee-offset': `-${scrollPx}px`, animationPlayState: paused ? 'paused' : 'running' }}
         >
           <div ref={firstCopyRef} className="flex items-center gap-3">{renderItems()}</div>
