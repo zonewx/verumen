@@ -136,7 +136,7 @@ function MarketTicker({ isDark }) {
     const pos    = q.changePct >= 0;
     const pctCls = pos ? 'text-green-400' : 'text-red-400';
     return (
-      <div key={q.symbol} className={`flex flex-col items-start leading-tight text-xs px-2 shrink-0 ${i > 0 ? `border-l ${divider}` : ''}`}>
+      <div key={q.symbol} className={`flex flex-col items-start leading-tight text-xs px-2 shrink-0 border-l ${divider}`}>
         <div className="flex items-center gap-1">
           {meta?.country && <img src={`https://flagcdn.com/${meta.country}.svg`} alt={meta.country} className="w-3.5 h-2.5 object-cover shrink-0" />}
           <span className={`font-medium ${labelCls}`}>{meta?.short ?? q.symbol}</span>
