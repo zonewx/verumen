@@ -1191,7 +1191,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   // ISIN country → flag emoji for when the ticker has no exchange suffix
   // Only non-US/CA countries: CA and US companies commonly list on US exchanges without a suffix,
   // so a no-dot ticker for them is still a US listing and should keep 🇺🇸.
-  const ISIN_FLAG={SE:'se',NO:'no',DK:'dk',FI:'fi',NL:'nl',FR:'fr',DE:'de',GB:'gb',IT:'it',ES:'es',CH:'ch',AU:'au',HK:'hk',JP:'jp',SG:'sg',CA:'ca'};
+  const ISIN_FLAG={SE:'se',NO:'no',DK:'dk',FI:'fi',NL:'nl',FR:'fr',DE:'de',GB:'gb',IT:'it',ES:'es',CH:'ch',AU:'au',HK:'hk',JP:'jp',SG:'sg'};
   const getFlag=(t,isin)=>{ const p=t.split('.'); if(p.length>1) return FLAGS[p[p.length-1]]||'us'; if(isin){const cc=isin.substring(0,2).toUpperCase(); if(ISIN_FLAG[cc]) return ISIN_FLAG[cc];} return 'us'; };
   const getShareClass=(ticker)=>{ const m=ticker.match(/^[^-]+-([A-Ca-c])(?:\.|$)/); return m?m[1].toUpperCase():null; };
   const cleanName=(name,ticker)=>{
