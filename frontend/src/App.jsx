@@ -261,6 +261,14 @@ export default function App() {
       apiCache.set('/api/overrides', overRes);
       if (Array.isArray(feedRes)) apiCache.set('/api/feed', feedRes);
       if (friendsRes && typeof friendsRes === 'object') apiCache.set('/api/friends', friendsRes);
+
+      // Auto-sync: portfolio is empty but trades exist in DB (e.g. fresh login from new device/session)
+      if (p.length === 0 && txRes?.trades > 0) {
+        try {
+          const reconstructed = await apiFetch('/api/transactions/reconstruct').then(r => r.json());
+          if (reconstructed.length > 0) setPortfolio(reconstructed);
+        } catch(e) {}
+      }
     } catch(e) { console.error(e); }
     setIsAppLoading(false);
     setIsInitializing(false);
