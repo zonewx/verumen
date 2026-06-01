@@ -472,9 +472,9 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   const isinPrefix = isin ? isin.substring(0, 2).toUpperCase() : null;
   
   // Dual-listing detection: CA companies often dual-list on TSX and NYSE
-  // If trading in USD, strongly prefer US listing (no suffix) over .TO (Toronto)
-  const rawCurrency = (currency || 'SEK').toUpperCase();
-  const isCanadianInUS = (isinPrefix === 'CA' && rawCurrency === 'USD');
+  // If trading in USD (raw OR effective), strongly prefer US listing over .TO (Toronto)
+  const rawCurrency = (currency || '').toUpperCase();
+  const isCanadianInUS = isinPrefix === 'CA' && (rawCurrency === 'USD' || effectiveCurrency === 'USD');
   
   // CA ISINs only prefer the US listing when the transaction currency is USD (i.e. user holds
   // the NYSE cross-listing). A CA ISIN traded in CAD should resolve to .TO instead.
@@ -483,7 +483,14 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   // For Avanza/Nordnet: always probe .ST first — many international stocks (e.g. AZN, BRK) are
   // cross-listed on Nasdaq Stockholm and the CSV may export the home-market currency (GBP, USD)
   // even when the user holds the Swedish depository receipt.
-  const nordicProbe = (broker === 'avanza' || broker === 'nordnet') && !preferredSuffixes.includes('.ST');
+  // Exclude CA-in-USD, pure US ISINs, and native Nordic ISINs (SE/NO/DK/FI) — those have their
+  // own home exchanges and will never have a meaningful Stockholm cross-listing.
+  const nordicNativeIsin = ['SE', 'NO', 'DK', 'FI'].includes(isinPrefix);
+  const nordicProbe = (broker === 'avanza' || broker === 'nordnet')
+    && !isCanadianInUS
+    && isinPrefix !== 'US'
+    && !nordicNativeIsin
+    && !preferredSuffixes.includes('.ST');
 
   const cleaned = cleanRawTicker(rawTicker);
   // For multi-word tickers like 'VOLV B', also try the first word alone.
@@ -547,10 +554,14 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
         const scored = quotes.map(q => {
           let score = 0;
           if (preferredSuffixes.some(s => q.symbol.endsWith(s))) score += 100;
+          // When the Nordic probe was active (e.g. AZN on Avanza), .ST should still win
+          // in the ISIN-search fallback even though preferUSListing is technically true
+          if (nordicProbe && q.symbol.endsWith('.ST')) score += 200;
           if (preferUSListing && !q.symbol.includes('.')) score += 50;
           if (isCanadianInUS && !q.symbol.includes('.')) score += 200;
           if (isCanadianInUS && q.symbol.endsWith('.TO')) score -= 100;
-          if (preferUSListing && q.symbol.includes('.')) score -= 100;
+          // Don't penalise .ST when we specifically wanted to probe for it
+          if (preferUSListing && q.symbol.includes('.') && !(nordicProbe && q.symbol.endsWith('.ST'))) score -= 100;
           return { symbol: q.symbol, score };
         }).sort((a, b) => b.score - a.score);
         const best = scored[0];
