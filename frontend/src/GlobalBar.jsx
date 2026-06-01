@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
+const TICKER_SPEED = 60; // px/s
+
 export const MARKET_INDEXES = [
   { id: 'sp500',    label: 'S&P 500',              short: 'S&P 500', ticker: '^GSPC',      country: 'us' },
   { id: 'nasdaq100',label: 'NASDAQ 100',            short: 'NASDAQ 100', ticker: '^NDX',       country: 'us' },
@@ -43,10 +45,15 @@ function MarketTicker({ isDark }) {
   });
   const [enabled, setEnabled] = useState(() => localStorage.getItem(BAR_ENABLED_KEY) !== 'false');
   const [paused, setPaused] = useState(false);
-  const containerRef  = useRef(null);
-  const firstCopyRef  = useRef(null);
-  const scrollPxRef   = useRef(0); // kept as ref — no React state, avoids re-rendering the animated div
-  const intervalRef   = useRef(null);
+  const containerRef = useRef(null);
+  const firstCopyRef = useRef(null);
+  const animDivRef   = useRef(null);
+  const posRef       = useRef(0);
+  const widthRef     = useRef(0);
+  const rafRef       = useRef(null);
+  const pausedRef    = useRef(false);
+  const lastTsRef    = useRef(null);
+  const intervalRef  = useRef(null);
 
   useEffect(() => {
     const onUpdate = () => {
@@ -57,26 +64,48 @@ function MarketTicker({ isDark }) {
     return () => window.removeEventListener('marketIndexes-updated', onUpdate);
   }, []);
 
+  // Keep pausedRef in sync so the RAF callback reads the latest value without a stale closure
+  useEffect(() => { pausedRef.current = paused; }, [paused]);
+
+  // Reset lastTs on tab-show so the first frame after hiding doesn't produce a huge delta jump
   useEffect(() => {
-    const check = () => {
-      if (!containerRef.current || !firstCopyRef.current) return;
+    const onVisibility = () => { if (!document.hidden) lastTsRef.current = null; };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  // Measure one-copy width whenever content changes
+  useEffect(() => {
+    const measure = () => {
+      if (!firstCopyRef.current) return;
       const w = firstCopyRef.current.scrollWidth;
-      if (w === scrollPxRef.current) return; // no change — skip to avoid touching animated element
-      scrollPxRef.current = w;
-      // Set both CSS vars on the container (ancestor of the animated div).
-      // Changing a custom property on the animated element itself restarts the animation,
-      // but changing it on an ancestor is safe — the browser re-evaluates mid-animation.
-      containerRef.current.style.setProperty('--marquee-offset', `-${w}px`);
-      containerRef.current.style.setProperty('--marquee-duration', `${Math.round(w / 60)}s`);
+      if (w > 0) widthRef.current = w;
     };
-    check();
-    const t = setTimeout(check, 80);
-    const ro = new ResizeObserver(check);
+    measure();
+    const t = setTimeout(measure, 80);
+    const ro = new ResizeObserver(measure);
     if (containerRef.current) ro.observe(containerRef.current);
     if (firstCopyRef.current) ro.observe(firstCopyRef.current);
-    window.addEventListener('resize', check);
-    return () => { clearTimeout(t); ro.disconnect(); window.removeEventListener('resize', check); };
+    window.addEventListener('resize', measure);
+    return () => { clearTimeout(t); ro.disconnect(); window.removeEventListener('resize', measure); };
   }, [quotes, order]);
+
+  // RAF animation loop — runs once, mutates DOM directly to avoid React re-renders
+  useEffect(() => {
+    function tick(ts) {
+      if (lastTsRef.current !== null) {
+        const delta = Math.min(ts - lastTsRef.current, 100); // cap to avoid large jump after tab switch
+        if (!pausedRef.current && widthRef.current > 0 && animDivRef.current) {
+          posRef.current = (posRef.current + delta * TICKER_SPEED / 1000) % widthRef.current;
+          animDivRef.current.style.transform = `translateX(-${posRef.current}px)`;
+        }
+      }
+      lastTsRef.current = ts;
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, []);
 
   useEffect(() => {
     const allTickers = MARKET_INDEXES.map(m => m.ticker).join(',');
@@ -130,8 +159,9 @@ function MarketTicker({ isDark }) {
     >
       {hasContent && (
         <div
-          className={`flex items-center whitespace-nowrap marquee-scroll ${paused ? 'cursor-pointer' : ''}`}
-          style={{ animationPlayState: paused ? 'paused' : 'running' }}
+          ref={animDivRef}
+          className="flex items-center whitespace-nowrap"
+          style={{ willChange: 'transform' }}
         >
           {/* pr-3 gives each copy a trailing gap equal to the inter-item gap so the loop is seamless */}
           <div ref={firstCopyRef} className="flex items-center gap-3 pr-3">{renderItems()}</div>
