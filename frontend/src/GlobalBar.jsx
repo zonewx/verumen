@@ -60,7 +60,10 @@ function MarketTicker({ isDark }) {
   useEffect(() => {
     const check = () => {
       if (!containerRef.current || !firstCopyRef.current) return;
-      setScrollPx(firstCopyRef.current.scrollWidth);
+      const w = firstCopyRef.current.scrollWidth;
+      setScrollPx(w);
+      // Constant scroll speed: 60px/s so the marquee feels consistent regardless of item count
+      containerRef.current.style.setProperty('--marquee-duration', `${Math.round(w / 60)}s`);
     };
     check();
     const t = setTimeout(check, 80);
@@ -123,11 +126,12 @@ function MarketTicker({ isDark }) {
     >
       {hasContent && (
         <div
-          className={`flex items-center gap-3 whitespace-nowrap marquee-scroll ${paused ? 'cursor-pointer' : ''}`}
+          className={`flex items-center whitespace-nowrap marquee-scroll ${paused ? 'cursor-pointer' : ''}`}
           style={{ '--marquee-offset': `-${scrollPx}px`, animationPlayState: paused ? 'paused' : 'running' }}
         >
-          <div ref={firstCopyRef} className="flex items-center gap-3">{renderItems()}</div>
-          <div className="flex items-center gap-3 pl-3">{renderItems()}</div>
+          {/* pr-3 gives each copy a trailing gap equal to the inter-item gap so the loop is seamless */}
+          <div ref={firstCopyRef} className="flex items-center gap-3 pr-3">{renderItems()}</div>
+          <div className="flex items-center gap-3 pr-3" aria-hidden="true">{renderItems()}</div>
         </div>
       )}
     </div>

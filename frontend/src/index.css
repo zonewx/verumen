@@ -32,5 +32,5 @@ button:disabled { cursor: not-allowed; }
   to   { transform: translateX(var(--marquee-offset, 0px)); }
 }
 .marquee-scroll {
-  animation: marquee 30s linear infinite;
+  animation: marquee var(--marquee-duration, 30s) linear infinite;
 }
