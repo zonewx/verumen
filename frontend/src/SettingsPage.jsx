@@ -31,12 +31,20 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
   const [marketOrder, setMarketOrder] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('marketIndexes')) || [];
-      const valid = saved.filter(id => allIds.includes(id));
-      return [...valid, ...allIds.filter(id => !valid.includes(id))];
-    } catch { return allIds; }
+      const entries = saved.map(e => typeof e === 'string' ? { id: e, on: true } : { id: e.id, on: e.on !== false });
+      const valid   = entries.filter(e => allIds.includes(e.id));
+      const missing = allIds.filter(id => !valid.some(e => e.id === id)).map(id => ({ id, on: true }));
+      return [...valid, ...missing];
+    } catch { return allIds.map(id => ({ id, on: true })); }
   });
   const [dragging, setDragging] = useState(null);
   const dragOverRef = useRef(null);
+
+  const saveOrder = (next) => {
+    setMarketOrder(next);
+    localStorage.setItem('marketIndexes', JSON.stringify(next));
+    window.dispatchEvent(new Event('marketIndexes-updated'));
+  };
 
   const card = `rounded-2xl border p-6 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`;
   const label = `text-xs font-semibold uppercase tracking-wider mb-2 block ${isDark ? 'text-gray-400' : 'text-gray-500'}`;
@@ -105,48 +113,50 @@ export default function SettingsPage({ isDark, baseCurrency, onSetBaseCurrency }
         <div className={card}>
           <h2 className={`text-sm font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Market Bar</h2>
           <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-            All indexes are always shown in the top bar and scroll automatically. Drag to set your preferred order.
+            Toggle indexes on or off and drag to set your preferred order. Enabled indexes scroll in the top bar.
           </p>
           <div className="flex flex-col gap-2">
-            {marketOrder.map(id => {
-              const idx = MARKET_INDEXES.find(m => m.id === id);
+            {marketOrder.map(entry => {
+              const idx = MARKET_INDEXES.find(m => m.id === entry.id);
               if (!idx) return null;
-              const isDraggingThis = dragging === id;
+              const isDraggingThis = dragging === entry.id;
               return (
                 <div
-                  key={id}
+                  key={entry.id}
                   draggable
-                  onDragStart={e => { setDragging(id); e.dataTransfer.effectAllowed = 'move'; }}
+                  onDragStart={e => { setDragging(entry.id); e.dataTransfer.effectAllowed = 'move'; }}
                   onDragEnter={() => {
-                    if (!dragging || dragging === id) return;
-                    dragOverRef.current = id;
-                    const from = marketOrder.indexOf(dragging);
-                    const to   = marketOrder.indexOf(id);
+                    if (!dragging || dragging === entry.id) return;
+                    const from = marketOrder.findIndex(e => e.id === dragging);
+                    const to   = marketOrder.findIndex(e => e.id === entry.id);
                     if (from === -1 || to === -1) return;
                     const next = [...marketOrder];
                     next.splice(from, 1);
-                    next.splice(to, 0, dragging);
+                    next.splice(to, 0, marketOrder[from]);
                     setMarketOrder(next);
                   }}
                   onDragOver={e => e.preventDefault()}
-                  onDragEnd={() => {
-                    setDragging(null);
-                    dragOverRef.current = null;
-                    localStorage.setItem('marketIndexes', JSON.stringify(marketOrder));
-                    window.dispatchEvent(new Event('marketIndexes-updated'));
-                  }}
+                  onDragEnd={() => { setDragging(null); dragOverRef.current = null; saveOrder(marketOrder); }}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border select-none transition ${
                     isDraggingThis ? 'opacity-40' : ''
-                  } ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-200'}`}
+                  } ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
                 >
                   <svg className={`shrink-0 cursor-grab ${isDark ? 'text-gray-500' : 'text-gray-400'}`} width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
                     <circle cx="4" cy="3" r="1.3"/><circle cx="10" cy="3" r="1.3"/>
                     <circle cx="4" cy="7" r="1.3"/><circle cx="10" cy="7" r="1.3"/>
                     <circle cx="4" cy="11" r="1.3"/><circle cx="10" cy="11" r="1.3"/>
                   </svg>
-                  <img src={`https://flagcdn.com/${idx.country}.svg`} alt={idx.country} className="w-5 h-3.5 object-cover rounded-sm shrink-0" />
-                  <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{idx.label}</span>
-                  <span className={`ml-auto text-xs font-mono ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{idx.ticker}</span>
+                  <img src={`https://flagcdn.com/${idx.country}.svg`} alt={idx.country} className={`w-5 h-3.5 object-cover rounded-sm shrink-0 ${!entry.on ? 'opacity-40' : ''}`} />
+                  <span className={`text-sm font-medium transition ${!entry.on ? 'opacity-40' : ''} ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{idx.label}</span>
+                  <span className={`text-xs font-mono transition ${!entry.on ? 'opacity-40' : ''} ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{idx.ticker}</span>
+                  {/* Toggle switch */}
+                  <button
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); saveOrder(marketOrder.map(e2 => e2.id === entry.id ? { ...e2, on: !e2.on } : e2)); }}
+                    className={`ml-auto relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${entry.on ? 'bg-blue-500' : isDark ? 'bg-gray-600' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform duration-200 ${entry.on ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
                 </div>
               );
             })}

@@ -28,8 +28,11 @@ const QUOTES_CACHE_KEY = 'market_quotes_cache';
 const ALL_IDS = MARKET_INDEXES.map(m => m.id);
 
 function normaliseOrder(saved) {
-  const valid = (saved || []).filter(id => ALL_IDS.includes(id));
-  const missing = ALL_IDS.filter(id => !valid.includes(id));
+  const arr = saved || [];
+  // Migrate old format (array of strings) → array of {id, on} objects
+  const entries = arr.map(e => typeof e === 'string' ? { id: e, on: true } : { id: e.id, on: e.on !== false });
+  const valid   = entries.filter(e => ALL_IDS.includes(e.id));
+  const missing = ALL_IDS.filter(id => !valid.some(e => e.id === id)).map(id => ({ id, on: true }));
   return [...valid, ...missing];
 }
 
@@ -38,7 +41,7 @@ function MarketTicker({ isDark }) {
     try { return JSON.parse(localStorage.getItem(QUOTES_CACHE_KEY)) || []; } catch { return []; }
   });
   const [order, setOrder] = useState(() => {
-    try { return normaliseOrder(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch { return ALL_IDS; }
+    try { return normaliseOrder(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch { return ALL_IDS.map(id => ({ id, on: true })); }
   });
   const [scrollPx, setScrollPx] = useState(0);
   const containerRef = useRef(null);
@@ -83,11 +86,13 @@ function MarketTicker({ isDark }) {
     return () => clearInterval(intervalRef.current);
   }, []);
 
-  // Show all indexes in user-defined order
+  // Show only enabled indexes in user-defined order
   const displayQuotes = order
-    .map(id => { const ticker = MARKET_INDEXES.find(m => m.id === id)?.ticker; return quotes.find(q => q.symbol === ticker); })
+    .filter(e => e.on)
+    .map(e => { const ticker = MARKET_INDEXES.find(m => m.id === e.id)?.ticker; return quotes.find(q => q.symbol === ticker); })
     .filter(Boolean);
 
+  const [paused, setPaused] = useState(false);
   const hasContent = displayQuotes.length > 0;
   const divider  = isDark ? 'border-gray-700' : 'border-gray-200';
   const labelCls = isDark ? 'text-gray-100' : 'text-gray-700';
@@ -112,11 +117,17 @@ function MarketTicker({ isDark }) {
   });
 
   return (
-    <div ref={containerRef} className={`hidden md:flex items-center overflow-hidden ${hasContent ? `border-r mr-2 pr-3 ${divider}` : ''}`} style={{ maxWidth: 'calc((100vw - var(--sidebar-w, 240px)) / 2 - 80px)' }}>
+    <div
+      ref={containerRef}
+      className={`hidden md:flex items-center overflow-hidden ${hasContent ? `border-r mr-2 pr-3 ${divider}` : ''}`}
+      style={{ maxWidth: 'calc((100vw - var(--sidebar-w, 240px)) / 2 - 80px)' }}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
       {hasContent && (
         <div
           className="flex items-center gap-3 whitespace-nowrap marquee-scroll"
-          style={{ '--marquee-offset': `-${scrollPx}px` }}
+          style={{ '--marquee-offset': `-${scrollPx}px`, animationPlayState: paused ? 'paused' : 'running' }}
         >
           <div ref={firstCopyRef} className="flex items-center gap-3">{renderItems()}</div>
           <div className="flex items-center gap-3 pl-3">{renderItems()}</div>
