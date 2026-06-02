@@ -512,7 +512,12 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
       }
       if (e?.result?.regularMarketPrice != null) q = e.result;
     }
-    return q?.regularMarketPrice != null ? symbol : null;
+    if (q?.regularMarketPrice != null) {
+      // Warm the price cache so the portfolio fetch immediately after import is all cache hits
+      _priceCache.set(symbol, { q, cachedAt: Date.now() });
+      return symbol;
+    }
+    return null;
   };
 
   // 3a. Avanza/Nordnet: probe .ST before trusting the CSV currency
@@ -1309,7 +1314,29 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   });
   const results = settled.filter(Boolean);
   const totalValue=results.reduce((s,r)=>s+(r.currentValue??0),0), totalCost=results.reduce((s,r)=>s+fromSEK(toSEK((r.avgPrice||0)*r.quantity,r.currency)),0), totalProfit=totalValue-totalCost;
-  res.json({ portfolio:results, totals:{ value:totalValue, cost:totalCost, profit:totalProfit, returnPct:totalCost>0?(totalProfit/totalCost)*100:0 }, hasStalePrices });
+  const totals = { value:totalValue, cost:totalCost, profit:totalProfit, returnPct:totalCost>0?(totalProfit/totalCost)*100:0 };
+  res.json({ portfolio:results, totals, hasStalePrices });
+  // Persist to Supabase so the next login loads instantly with no YF calls
+  supabase.from('portfolio_cache').upsert({
+    user_id: req.user.id, currency: BC,
+    holdings: portfolio,
+    dashboard: { portfolio: results, totals, hasStalePrices },
+    built_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,currency' }).then(() => {}).catch(() => {});
+});
+
+app.get('/api/portfolio/cached', requireUser, async (req, res) => {
+  const BC = (req.query.currency || 'SEK').toUpperCase();
+  const { data } = await supabase.from('portfolio_cache')
+    .select('holdings, dashboard, built_at')
+    .eq('user_id', req.user.id).eq('currency', BC).single();
+  if (!data) return res.json(null);
+  res.json({ ...data.dashboard, holdings: data.holdings, builtAt: data.built_at });
+});
+
+app.delete('/api/portfolio/cached', requireUser, async (req, res) => {
+  await supabase.from('portfolio_cache').delete().eq('user_id', req.user.id);
+  res.json({ success: true });
 });
 
 // ── Dividends ───────────────────────────────────────────────────────────────

@@ -113,6 +113,7 @@ export default function App() {
   const uploadAbortControllerRef = useRef(null);
   const globalFileInputRef = useRef(null);
   const forceRefreshRef = useRef(false);
+  const suppressNextFetch = useRef(false); // prevents re-fetch loop when cache restores portfolio
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -243,6 +244,34 @@ export default function App() {
     const fp = portfolioFingerprint(p, c);
     const hasCached = !isForceRefresh && apiCache.get('/api/portfolio-fingerprint') === fp && apiCache.has('/api/portfolio-dashboard');
     if (!hasCached && p.length > 0) setIsAppLoading(true);
+
+    // Supabase portfolio cache — serves the last saved state instantly with no YF calls.
+    // Skipped when force-refreshing or when in-memory cache is already warm.
+    if (!isForceRefresh && !hasCached) {
+      try {
+        const dbCached = await apiFetch(`/api/portfolio/cached?currency=${c}`).then(r => r.json());
+        if (dbCached?.portfolio?.length > 0) {
+          setDashboardData({ portfolio: dbCached.portfolio, totals: dbCached.totals, hasStalePrices: true, fromCache: true, builtAt: dbCached.builtAt });
+          setIsAppLoading(false);
+          setIsInitializing(false);
+          // Restore holdings into state if we have none (new device / cleared localStorage)
+          if (p.length === 0 && dbCached.holdings?.length > 0) {
+            suppressNextFetch.current = true;
+            setPortfolio(dbCached.holdings);
+          }
+          const [divRes, txRes, overRes] = await Promise.all([
+            apiFetch(`/api/dividends?currency=${c}`).then(r => r.json()).catch(() => null),
+            apiFetch('/api/transactions/count').then(r => r.json()).catch(() => null),
+            apiFetch('/api/overrides').then(r => r.json()).catch(() => null),
+          ]);
+          if (divRes) { setDividends(divRes); apiCache.set(`/api/dividends?currency=${c}`, divRes); }
+          if (txRes) { setTxCount(txRes); apiCache.set('/api/txCount', txRes); }
+          if (overRes) { setOverrides(overRes); apiCache.set('/api/overrides', overRes); }
+          return;
+        }
+      } catch(e) {}
+    }
+
     try {
       const [dashRes, divRes, txRes, overRes, feedRes, friendsRes] = await Promise.all([
         p.length > 0
@@ -278,6 +307,7 @@ export default function App() {
     if (!authUsername || !portfolio) return;
     localStorage.setItem('portfolio', JSON.stringify(portfolio));
     localStorage.setItem('baseCurrency', baseCurrency);
+    if (suppressNextFetch.current) { suppressNextFetch.current = false; return; }
     fetchAllData(portfolio, baseCurrency);
   }, [portfolio, baseCurrency, authUsername, fetchAllData]);
 
@@ -641,6 +671,19 @@ const handleUpload = async (files) => {
     }
   };
 
+  const handleClearPortfolioCache = async () => {
+    try {
+      await apiFetch('/api/portfolio/cached', { method: 'DELETE' });
+      setDashboardData(null);
+      apiCache.del('/api/portfolio-dashboard');
+      apiCache.del('/api/portfolio-fingerprint');
+      setSyncStatus('Portfolio snapshot cleared. Prices will be fetched fresh on next Refresh.');
+      setTimeout(() => setSyncStatus(''), 4000);
+    } catch (err) {
+      setSyncStatus('Error clearing portfolio snapshot: ' + err.message);
+    }
+  };
+
   const toggleRemoval = t => setSelectedForRemoval(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
   const handleRemoveSelected = () => { setPortfolio(p => p.filter(s => !selectedForRemoval.includes(s.ticker))); setSelectedForRemoval([]); };
 
@@ -982,6 +1025,20 @@ const handleUpload = async (files) => {
                           {isAppLoading ? 'Refreshing...' : 'Refresh Prices'}
                         </button>
                       </div>
+                      <div className={`${cardCls} p-6`}>
+                        <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Portfolio Snapshot</h3>
+                        <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {dashboardData?.fromCache || dashboardData?.builtAt
+                            ? `Last saved: ${new Date(dashboardData.builtAt).toLocaleString()}. Clear to force a full re-fetch from Yahoo Finance on next load.`
+                            : 'Your portfolio is saved to the cloud after each price refresh and loads instantly on any device.'}
+                        </p>
+                        <button
+                          onClick={handleClearPortfolioCache}
+                          className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                        >
+                          Clear Snapshot
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1146,7 +1203,9 @@ const handleUpload = async (files) => {
                             {hasStalePrices && (
                               <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-yellow-900/20 border border-yellow-800/40 text-yellow-400' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                                Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.
+                                {dashboardData?.fromCache
+                                  ? `Showing saved snapshot from ${new Date(dashboardData.builtAt).toLocaleString()} — click Refresh Prices to update.`
+                                  : 'Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.'}
                               </div>
                             )}
                             {hasFailedHoldings && (
