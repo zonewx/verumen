@@ -1649,8 +1649,15 @@ function parseSteamStickers(descriptions) {
 
 function fetchJSON(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers:{ 'User-Agent':'Statera/1.0' } }, (res) => {
-      let data=''; res.on('data',d=>data+=d); res.on('end',()=>{ try { resolve(JSON.parse(data)); } catch(e) { reject(new Error('Invalid JSON from '+url)); } });
+    https.get(url, { headers:{ 'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' } }, (res) => {
+      // Follow redirects (Steam sometimes 302s to login page)
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return reject(new Error(`Steam redirected (${res.statusCode}) — inventory may be private or rate-limited`));
+      }
+      if (res.statusCode === 429) return reject(new Error('Steam rate limit — try again in a few minutes'));
+      if (res.statusCode === 403) return reject(new Error('Steam returned 403 — inventory is private or access denied'));
+      if (res.statusCode !== 200) return reject(new Error(`Steam returned HTTP ${res.statusCode}`));
+      let data=''; res.on('data',d=>data+=d); res.on('end',()=>{ try { resolve(JSON.parse(data)); } catch(e) { reject(new Error('Steam returned an unexpected response — may be rate-limited, try again shortly')); } });
     }).on('error', reject);
   });
 }

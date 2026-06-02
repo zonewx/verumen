@@ -251,7 +251,9 @@ export default function App() {
       try {
         const dbCached = await apiFetch(`/api/portfolio/cached?currency=${c}`).then(r => r.json());
         if (dbCached?.portfolio?.length > 0) {
-          setDashboardData({ portfolio: dbCached.portfolio, totals: dbCached.totals, hasStalePrices: true, fromCache: true, builtAt: dbCached.builtAt });
+          const snapshotAgeMs = Date.now() - new Date(dbCached.builtAt).getTime();
+          const snapshotStale = snapshotAgeMs > 30 * 60 * 1000; // only warn if >30 min old
+          setDashboardData({ portfolio: dbCached.portfolio, totals: dbCached.totals, hasStalePrices: snapshotStale, fromCache: true, builtAt: dbCached.builtAt });
           setIsAppLoading(false);
           setIsInitializing(false);
           // Restore holdings into state if we have none (new device / cleared localStorage)
@@ -1204,7 +1206,7 @@ const handleUpload = async (files) => {
                               <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${isDark ? 'bg-yellow-900/20 border border-yellow-800/40 text-yellow-400' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                                 {dashboardData?.fromCache
-                                  ? `Showing saved snapshot from ${new Date(dashboardData.builtAt).toLocaleString()} — click Refresh Prices to update.`
+                                  ? <>Showing saved snapshot from {new Date(dashboardData.builtAt).toLocaleString()} — <button onClick={handleRefreshPrices} className="underline font-semibold hover:opacity-75 transition">Refresh prices</button> to update.</>
                                   : 'Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.'}
                               </div>
                             )}
