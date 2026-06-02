@@ -76,6 +76,12 @@ function MarketTicker({ isDark }) {
 
   // Measure one-copy width and (re)start the WAAPI animation whenever content changes
   useEffect(() => {
+    if (!enabled) {
+      animObjRef.current?.cancel();
+      animObjRef.current = null;
+      widthRef.current = 0; // reset so re-enable always starts fresh
+      return;
+    }
     const start = (w) => {
       if (!animDivRef.current || !w) return;
       if (w === widthRef.current && animObjRef.current) return; // width unchanged — don't restart
@@ -102,7 +108,7 @@ function MarketTicker({ isDark }) {
     if (firstCopyRef.current) ro.observe(firstCopyRef.current);
     window.addEventListener('resize', measure);
     return () => { clearTimeout(t); ro.disconnect(); window.removeEventListener('resize', measure); };
-  }, [quotes, order]);
+  }, [quotes, order, enabled]);
 
   useEffect(() => {
     const allTickers = MARKET_INDEXES.map(m => m.ticker).join(',');
