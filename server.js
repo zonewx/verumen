@@ -1278,8 +1278,8 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     return q;
   };
 
-  // Fetch quotes with a concurrency limit of 5 to avoid tripping YF rate limits.
-  // Full Promise.all (19 simultaneous) reliably triggers rate limiting.
+  // Fetch quotes with a concurrency limit to avoid tripping YF rate limits.
+  // 3 workers + 200ms stagger keeps burst well below the rate-limit threshold.
   const fetchWithLimit = async (items, limit, fn) => {
     const results = new Array(items.length);
     let idx = 0;
@@ -1287,6 +1287,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       while (idx < items.length) {
         const i = idx++;
         results[i] = await fn(items[i]);
+        if (idx < items.length) await new Promise(r => setTimeout(r, 200));
       }
     });
     await Promise.all(workers);
@@ -1294,7 +1295,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   };
 
   let hasStalePrices = false;
-  const settled = await fetchWithLimit(portfolio, 5, async h => {
+  const settled = await fetchWithLimit(portfolio, 3, async h => {
     try {
       const q = await fetchQuote(h.ticker, h.isin, !!forceRefresh);
       if (!q) {
