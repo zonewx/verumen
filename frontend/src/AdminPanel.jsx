@@ -43,7 +43,7 @@ export default function AdminPanel({ isDark, authUsername }) {
   const card = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none transition ${isDark ? 'bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
   const btnRed = 'px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition';
-  const btnBlue = 'px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white text-xs font-semibold rounded-lg transition';
+  const btnBlue = 'px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold rounded-lg transition';
   const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
 
   const flash = (msg, ms = 3000) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), ms); };
@@ -371,7 +371,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                         <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>When disabled, the sign up form is hidden and new accounts cannot be created.</p>
                       </div>
                       <button type="button" onClick={toggleRegistration}
-                        className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${settings.allowRegistration ? 'bg-zinc-500' : isDark ? 'bg-zinc-700' : 'bg-gray-300'}`}
+                        className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${settings.allowRegistration ? 'bg-violet-500' : isDark ? 'bg-zinc-700' : 'bg-gray-300'}`}
                         style={{ width: '44px' }}>
                         <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${settings.allowRegistration ? 'translate-x-5' : 'translate-x-0'}`}/>
                       </button>

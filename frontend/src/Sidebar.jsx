@@ -28,7 +28,7 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
         </select>
       </div>
 
-      <label className={`${btn} cursor-pointer ${pa.uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-zinc-600 hover:bg-zinc-500 text-white'}`}>
+      <label className={`${btn} cursor-pointer ${pa.uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
         {pa.uploadLoading ? <>{spinner}Processing…</> : pa.uploadStatus ? '↺ Re-upload' : '↑ Upload CSV'}
         <input type="file" accept=".csv" multiple className="hidden" disabled={pa.uploadLoading} onChange={e => { const f = Array.from(e.target.files); e.target.value = ''; pa.onUpload(f); }} />
       </label>
@@ -92,7 +92,7 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
             ))}
           </div>
           {pa.selectedForRemoval?.length > 0 && (
-            <button onClick={pa.onRemoveSelected} className={`${btn} bg-orange-600 hover:bg-orange-500 text-white`}>
+            <button onClick={pa.onRemoveSelected} className={`${btn} bg-violet-600 hover:bg-violet-500 text-white`}>
               Remove {pa.selectedForRemoval.length} selected
             </button>
           )}
@@ -108,7 +108,7 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
 
   if (id === 'danger') return (
     <div className="flex flex-col gap-1.5">
-      <button onClick={pa.onClearTickerCache} className={`${btn} border ${isDark ? 'border-orange-800/60 text-orange-400 hover:bg-orange-900/20' : 'border-orange-200 text-orange-600 hover:bg-orange-50'}`}>
+      <button onClick={pa.onClearTickerCache} className={`${btn} border ${isDark ? 'border-violet-800/60 text-violet-400 hover:bg-violet-900/20' : 'border-violet-200 text-violet-600 hover:bg-violet-50'}`}>
         Clear ticker cache
       </button>
       <button onClick={pa.onClearAll} className={`${btn} border ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'}`}>
@@ -134,8 +134,8 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
               onClick={() => pa.onClearBroker(broker)}
               className={`${btn} border ${
                 isDark 
-                  ? 'border-orange-800/60 text-orange-400 hover:bg-orange-900/20' 
-                  : 'border-orange-200 text-orange-600 hover:bg-orange-50'
+                  ? 'border-violet-800/60 text-violet-400 hover:bg-violet-900/20' 
+                  : 'border-violet-200 text-violet-600 hover:bg-violet-50'
               }`}
             >
               Clear {broker.charAt(0).toUpperCase() + broker.slice(1)} ({count})
@@ -277,7 +277,6 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         { id: 'cs-overview',   label: 'Overview',       path: '/cs-skins',          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
         { id: 'cs-inventory',  label: 'My Inventory',   path: '/cs-skins/inventory', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V10a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M9 6V5a3 3 0 0 1 6 0v1"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg> },
         { id: 'cs-tracker',    label: 'Trade Registry',  path: '/cs-skins/tracker',   icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> },
-        { id: 'cs-settings',   label: 'Settings',        path: '/cs-skins/settings',  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> },
       ]
     },
     {

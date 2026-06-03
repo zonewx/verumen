@@ -158,7 +158,7 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
 
   const Toggle = ({ value, onChange }) => (
     <button type="button" onClick={() => onChange(!value)}
-      className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${value ? 'bg-zinc-500' : isDark ? 'bg-zinc-700' : 'bg-gray-300'}`}
+      className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${value ? 'bg-violet-500' : isDark ? 'bg-zinc-700' : 'bg-gray-300'}`}
       style={{ width: '44px' }}>
       <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${value ? 'translate-x5' : 'translate-x-0'}`} />
     </button>
@@ -346,7 +346,7 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
               </div>
 
               <div className="flex items-center gap-3">
-                <button onClick={saveProfile} disabled={saving} className="px-5 py-2 bg-zinc-600 hover:bg-zinc-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50">
+                <button onClick={saveProfile} disabled={saving} className="px-5 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50">
                   {saving ? 'Saving...' : 'Save Profile'}
                 </button>
                 {saveMsg && <span className={`text-sm ${saveMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>{saveMsg}</span>}

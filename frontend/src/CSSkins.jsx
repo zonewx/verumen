@@ -39,8 +39,8 @@ function SteamScreenshotEmbed({ url, isDark }) {
     <a href={url} target="_blank" rel="noreferrer" className="block mt-2 rounded-xl overflow-hidden group">
       {loading && (
         <div className={`flex items-center gap-2 p-3 rounded-xl border ${isDark ? 'bg-zinc-700/50 border-zinc-600' : 'bg-gray-50 border-gray-200'}`}>
-          <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs text-orange-400">Loading preview...</span>
+          <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs text-violet-400">Loading preview...</span>
         </div>
       )}
       {!loading && preview && (
@@ -56,9 +56,9 @@ function SteamScreenshotEmbed({ url, isDark }) {
           <span className="text-xl">📷</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Steam Screenshot</p>
-            <p className="text-xs text-orange-400 truncate">{url}</p>
+            <p className="text-xs text-violet-400 truncate">{url}</p>
           </div>
-          <span className="text-xs text-orange-400 shrink-0">View ↗</span>
+          <span className="text-xs text-violet-400 shrink-0">View ↗</span>
         </div>
       )}
     </a>
@@ -175,7 +175,6 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
   const navigate = useNavigate();
   const tab = location.pathname === '/cs-skins/inventory' ? 'inventory'
     : location.pathname === '/cs-skins/tracker' ? 'tracker'
-    : location.pathname === '/cs-skins/settings' ? 'settings'
     : 'overview';
   const setTab = (t) => navigate(t === 'overview' ? '/cs-skins' : `/cs-skins/${t}`);
 
@@ -221,10 +220,10 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
   const fmtBC = n => fmtCur(n, baseCurrency);
 
   const card = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl`;
-  const input = `w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 ${isDark ? 'bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
+  const input = `w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${isDark ? 'bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
   const label = `text-xs font-semibold uppercase tracking-wider block mb-1.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`;
   const btn = `px-4 py-2 text-sm font-semibold rounded-lg transition`;
-  const btnOrange = `${btn} bg-orange-600 hover:bg-orange-500 text-white`;
+  const btnOrange = `${btn} bg-violet-600 hover:bg-violet-500 text-white`;
   const btnGhost = `${btn} ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
 
   const fetchAll = useCallback(async () => {
@@ -470,7 +469,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
 
   const SortIcon = ({ col }) => {
     if (sortCol !== col) return <span className="opacity-30 ml-1">↕</span>;
-    return <span className="ml-1 text-orange-400">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+    return <span className="ml-1 text-violet-400">{sortDir === 'asc' ? '↑' : '↓'}</span>;
   };
 
   const filteredInv = inventory
@@ -578,7 +577,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                 <div className={`${card} p-5`}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Recent Trades</h3>
-                    <button onClick={() => setTab('tracker')} className={`text-xs text-orange-400 hover:underline`}>View all →</button>
+                    <button onClick={() => setTab('tracker')} className={`text-xs text-violet-400 hover:underline`}>View all →</button>
                   </div>
                   <div className="flex flex-col divide-y ${isDark ? 'divide-zinc-700' : 'divide-gray-100'}">
                     {inventory.slice(0, 5).map(item => {
@@ -686,13 +685,13 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
               {/* Filters & search */}
               <div className="flex flex-wrap gap-2 items-center">
                 {[['all','All'],['active','Holding'],['sold','Sold']].map(([v, l]) => (
-                  <button key={v} onClick={() => setFilterSold(v)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterSold === v ? 'bg-orange-600 text-white' : `${isDark ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}`}>{l}</button>
+                  <button key={v} onClick={() => setFilterSold(v)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterSold === v ? 'bg-violet-600 text-white' : `${isDark ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}`}>{l}</button>
                 ))}
                 <input
                   value={trackerSearch}
                   onChange={e => setTrackerSearch(e.target.value)}
                   placeholder="Search skins..."
-                  className={`ml-auto text-xs px-3 py-1.5 rounded-lg border outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 w-48 ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`}
+                  className={`ml-auto text-xs px-3 py-1.5 rounded-lg border outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 w-48 ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`}
                 />
                 <span className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{filteredInv.length} trades</span>
               </div>
@@ -714,7 +713,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                         <button
                           key={t}
                           onClick={() => setAddModalTab(t)}
-                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${addModalTab === t ? 'border-orange-500 text-orange-500' : `border-transparent ${isDark ? 'text-zinc-400 hover:text-zinc-100' : 'text-gray-400 hover:text-gray-700'}`}`}
+                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${addModalTab === t ? 'border-violet-500 text-violet-500' : `border-transparent ${isDark ? 'text-zinc-400 hover:text-zinc-100' : 'text-gray-400 hover:text-gray-700'}`}`}
                         >
                           {tLabel}
                         </button>
@@ -736,7 +735,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                             <>
                               {/* Selected skin preview */}
                               {selectedModalItem && (
-                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-orange-500 ${isDark ? 'bg-orange-900/20' : 'bg-orange-50'}`}>
+                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-violet-500 ${isDark ? 'bg-violet-900/20' : 'bg-violet-50'}`}>
                                   <img src={selectedModalItem.iconUrl} alt={selectedModalItem.name} className="w-14 h-14 object-contain shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="font-semibold text-sm truncate">{selectedModalItem.name}</p>
@@ -758,7 +757,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                                   />
                                   {modalInvLoading ? (
                                     <div className="flex items-center justify-center py-12">
-                                      <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                                      <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
                                     </div>
                                   ) : modalInventory === null ? (
                                     <div className="text-center py-8">
@@ -774,7 +773,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                                           <button
                                             key={item.assetId}
                                             onClick={() => selectModalSkin(item)}
-                                            className={`p-2 rounded-lg border-2 transition text-left ${isDark ? 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-orange-500/60' : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-orange-400/60'}`}
+                                            className={`p-2 rounded-lg border-2 transition text-left ${isDark ? 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-violet-500/60' : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-violet-400/60'}`}
                                           >
                                             <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-1" />
                                             <p className={`text-xs truncate ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{item.name}</p>
@@ -925,7 +924,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                         <button
                           key={t}
                           onClick={() => setEditModalTab(t)}
-                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${editModalTab === t ? 'border-orange-500 text-orange-500' : `border-transparent ${isDark ? 'text-zinc-400 hover:text-zinc-100' : 'text-gray-400 hover:text-gray-700'}`}`}
+                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${editModalTab === t ? 'border-violet-500 text-violet-500' : `border-transparent ${isDark ? 'text-zinc-400 hover:text-zinc-100' : 'text-gray-400 hover:text-gray-700'}`}`}
                         >
                           {tLabel}
                         </button>
@@ -946,7 +945,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                             <>
                               {/* Currently attached or newly selected skin */}
                               {(selectedEditItem || showEditForm.steam_asset_id) && (
-                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-orange-500 ${isDark ? 'bg-orange-900/20' : 'bg-orange-50'}`}>
+                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-violet-500 ${isDark ? 'bg-violet-900/20' : 'bg-violet-50'}`}>
                                   {selectedEditItem ? (
                                     <>
                                       <img src={selectedEditItem.iconUrl} alt={selectedEditItem.name} className="w-14 h-14 object-contain shrink-0" />
@@ -980,7 +979,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                               />
                               {modalInvLoading ? (
                                 <div className="flex items-center justify-center py-12">
-                                  <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                                  <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
                                 </div>
                               ) : modalInventory === null ? (
                                 <div className="text-center py-8">
@@ -998,7 +997,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                                         <button
                                           key={item.assetId}
                                           onClick={() => selectEditSkin(item)}
-                                          className={`p-2 rounded-lg border-2 transition text-left ${isAttached ? 'border-orange-500 bg-orange-500/10' : isDark ? 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-orange-500/60' : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-orange-400/60'}`}
+                                          className={`p-2 rounded-lg border-2 transition text-left ${isAttached ? 'border-violet-500 bg-violet-500/10' : isDark ? 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-violet-500/60' : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-violet-400/60'}`}
                                         >
                                           <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-1" />
                                           <p className={`text-xs truncate ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{item.name}</p>
@@ -1255,24 +1254,6 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                   })()}
                 </div>
               )}
-            </div>
-          )}
-
-          {/* SETTINGS */}
-          {tab === 'settings' && (
-            <div className="flex flex-col gap-4 max-w-lg">
-              <h2 className="text-lg font-bold">CS Settings</h2>
-
-              <div className={`${card} p-5`}>
-                <h3 className="font-semibold mb-1">Steam Account</h3>
-                <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
-                  Your Steam ID is managed in your <button onClick={() => navigate('/profile/edit')} className="text-orange-400 hover:underline">profile settings</button>. Changes there will sync here automatically.
-                </p>
-                {settings.steam_id
-                  ? <p className="text-xs text-green-400 mt-3">✓ Linked: {settings.steam_id}</p>
-                  : <p className={`text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>No Steam ID linked yet.</p>
-                }
-              </div>
             </div>
           )}
 

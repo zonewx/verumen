@@ -759,7 +759,7 @@ const handleUpload = async (files) => {
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <h3 className="text-lg font-semibold text-zinc-300 mb-2">{title}</h3>
       <p className="text-sm text-zinc-500 max-w-xs mb-6">{desc}</p>
-      {action && <button onClick={action.fn} className="px-5 py-2.5 bg-zinc-600 hover:bg-zinc-500 rounded-lg text-sm font-semibold transition">{action.label}</button>}
+      {action && <button onClick={action.fn} className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-semibold transition">{action.label}</button>}
     </div>
   );
 
@@ -931,7 +931,7 @@ const handleUpload = async (files) => {
                   <div className="flex flex-col gap-5">
                     <h2 className="text-xl font-bold">Import CSV</h2>
                     <div className={`${cardCls} p-5 flex flex-col gap-4`}>
-                      <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-zinc-600 hover:bg-zinc-500 text-white'}`}>
+                      <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
                         {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
                       </button>
                       <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Broker detected automatically. Supports Montrose, Avanza and Nordnet.</p>
@@ -985,7 +985,7 @@ const handleUpload = async (files) => {
                         <input ref={overrideIsinRef} placeholder="ISIN (e.g. SE0025138357)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
                         <input ref={overrideTickerRef} placeholder="YF ticker (e.g. HACK.ST)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
                       </div>
-                      <button onClick={handleAddOverride} className="w-full py-2.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-xl text-sm font-semibold transition mb-3">Save Override</button>
+                      <button onClick={handleAddOverride} className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition mb-3">Save Override</button>
                       {overrideMsg && <p className={`text-xs mb-3 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
                       {(() => {
                         const globalIsins = new Set(overrides.global?.map(o => o.isin) || []);
@@ -1046,7 +1046,7 @@ const handleUpload = async (files) => {
                           onClick={handleRefreshPrices}
                           disabled={isAppLoading}
                           title="Refresh prices from Yahoo Finance"
-                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isAppLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-zinc-600 hover:bg-zinc-500 text-white'}`}
+                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isAppLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isAppLoading ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
                           {isAppLoading ? 'Refreshing...' : 'Refresh Prices'}
@@ -1135,7 +1135,7 @@ const handleUpload = async (files) => {
                             const active = cur >= start && cur <= end;
                             return (
                               <div key={step.label} className="flex items-center gap-2">
-                                {i > 0 && <div className={`w-10 h-px transition-colors ${done ? 'bg-zinc-500' : isDark ? 'bg-zinc-700' : 'bg-gray-300'}`}/>}
+                                {i > 0 && <div className={`w-10 h-px transition-colors ${done ? 'bg-violet-500' : isDark ? 'bg-zinc-700' : 'bg-gray-300'}`}/>}
                                 <div className="flex flex-col items-center gap-1.5">
                                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                                     done   ? 'bg-zinc-600 text-white' :
@@ -1183,7 +1183,7 @@ const handleUpload = async (files) => {
                               <option value="nordnet">Nordnet</option>
                             </select>
                           </div>
-                          <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-zinc-600 hover:bg-zinc-500 text-white'}`}>
+                          <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
                             {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
                           </button>
                           <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Supports Montrose, Avanza and Nordnet. Select a broker manually or use auto-detect.</p>
@@ -1435,7 +1435,7 @@ const handleUpload = async (files) => {
                       <div className="flex items-center gap-3">
                         <input type="text" value={ownershipFilter} onChange={e => setOwnershipFilter(e.target.value)} placeholder="Filter..." className={`flex-1 px-3 py-2 ${isDark ? 'bg-zinc-700 text-white placeholder-zinc-500' : 'bg-gray-100 text-gray-900'} rounded-lg text-sm outline-none`} />
                       </div>
-                      {!Object.keys(ownershipData).length && !ownershipLoading && <button onClick={() => fetchOwnership(allHoldings)} className="w-full py-3 bg-zinc-600 hover:bg-zinc-500 text-white font-bold rounded-xl transition">Load Ownership Data</button>}
+                      {!Object.keys(ownershipData).length && !ownershipLoading && <button onClick={() => fetchOwnership(allHoldings)} className="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-xl transition">Load Ownership Data</button>}
                       <div className="flex flex-col gap-4">{allHoldings.map(h => <OwnershipCard key={h.ticker} ticker={h.ticker} name={h.name}/>)}</div>
                     </div>
                   );
@@ -1569,7 +1569,7 @@ const handleUpload = async (files) => {
                   </div>
                 </div>
               )}
-              <button onClick={handleAuth} disabled={authLoading} className="w-full bg-zinc-600 hover:bg-zinc-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition text-sm">
+              <button onClick={handleAuth} disabled={authLoading} className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition text-sm">
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
               <div className="h-5 flex items-center justify-center">
@@ -1666,7 +1666,6 @@ const handleUpload = async (files) => {
           <Route path="/cs-skins" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/cs-skins/inventory" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/cs-skins/tracker" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
-          <Route path="/cs-skins/settings" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/settings" element={<PageShell {...shellProps}><SettingsPage isDark={isDark} baseCurrency={baseCurrency} onSetBaseCurrency={setBaseCurrency}/></PageShell>}/>
           <Route path="/profile/edit" element={<PageShell {...shellProps}><ProfileEditPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           <Route path="/profile" element={<ProfileRoute/>}/>

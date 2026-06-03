@@ -151,7 +151,7 @@ export default function FriendsPage({ isDark, authUsername }) {
                         {friend.bio && <p className={`text-sm truncate ${textSecondary}`}>{friend.bio}</p>}
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button onClick={() => navigate(`/profile/@${friend.username}`)} className="px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-lg text-sm font-medium transition">View</button>
+                        <button onClick={() => navigate(`/profile/@${friend.username}`)} className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition">View</button>
                         <button onClick={() => handleRemove(friend.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${isDark ? 'bg-zinc-700 hover:bg-red-900/40 hover:text-red-400' : 'bg-gray-200 hover:bg-red-100 hover:text-red-600'}`}>Remove</button>
                       </div>
                     </div>
