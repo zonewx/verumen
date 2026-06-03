@@ -48,16 +48,16 @@ export default function FriendsPage({ isDark, authUsername }) {
     window.dispatchEvent(new Event('friends-updated'));
   }
 
-  const card = isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
-  const textSecondary = isDark ? 'text-gray-400' : 'text-gray-500';
-  const divider = isDark ? 'divide-gray-700' : 'divide-gray-200';
+  const card = isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200';
+  const textSecondary = isDark ? 'text-zinc-400' : 'text-zinc-500';
+  const divider = isDark ? 'divide-zinc-700' : 'divide-gray-200';
 
   const filteredFriends = friends.filter(f =>
     f.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const Avatar = ({ user }) => (
-    <div className="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold overflow-hidden shrink-0">
+    <div className="w-12 h-12 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold overflow-hidden shrink-0">
       {user.avatarBase64
         ? <img src={user.avatarBase64} alt="" className="w-full h-full object-cover"/>
         : user.username[0].toUpperCase()}
@@ -65,7 +65,7 @@ export default function FriendsPage({ isDark, authUsername }) {
   );
 
   return (
-    <div className={`flex-1 overflow-y-auto ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+    <div className={`flex-1 overflow-y-auto ${isDark ? 'bg-zinc-900' : 'bg-gray-100'}`}>
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-1">Friends</h1>
@@ -78,12 +78,12 @@ export default function FriendsPage({ isDark, authUsername }) {
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder="Search friends..."
-          className={`w-full px-4 py-2 rounded-lg border mb-6 text-sm ${isDark ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`}
+          className={`w-full px-4 py-2 rounded-lg border mb-6 text-sm ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`}
         />
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+            <div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
           </div>
         ) : (
           <div className="space-y-6">
@@ -104,7 +104,7 @@ export default function FriendsPage({ isDark, authUsername }) {
                       </div>
                       <div className="flex gap-2 shrink-0">
                         <button onClick={() => handleAccept(req.username)} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">Accept</button>
-                        <button onClick={() => handleDecline(req.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}>Decline</button>
+                        <button onClick={() => handleDecline(req.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600' : 'bg-gray-200 hover:bg-gray-300'}`}>Decline</button>
                       </div>
                     </div>
                   ))}
@@ -121,7 +121,7 @@ export default function FriendsPage({ isDark, authUsername }) {
                 <div className={`${card} border rounded-xl divide-y ${divider}`}>
                   {outgoing.map(username => (
                     <div key={username} className="p-4 flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold shrink-0">
                         {username[0].toUpperCase()}
                       </div>
                       <p className="flex-1 font-semibold">{username}</p>
@@ -151,8 +151,8 @@ export default function FriendsPage({ isDark, authUsername }) {
                         {friend.bio && <p className={`text-sm truncate ${textSecondary}`}>{friend.bio}</p>}
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button onClick={() => navigate(`/profile/@${friend.username}`)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">View</button>
-                        <button onClick={() => handleRemove(friend.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${isDark ? 'bg-gray-700 hover:bg-red-900/40 hover:text-red-400' : 'bg-gray-200 hover:bg-red-100 hover:text-red-600'}`}>Remove</button>
+                        <button onClick={() => navigate(`/profile/@${friend.username}`)} className="px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-lg text-sm font-medium transition">View</button>
+                        <button onClick={() => handleRemove(friend.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${isDark ? 'bg-zinc-700 hover:bg-red-900/40 hover:text-red-400' : 'bg-gray-200 hover:bg-red-100 hover:text-red-600'}`}>Remove</button>
                       </div>
                     </div>
                   ))}

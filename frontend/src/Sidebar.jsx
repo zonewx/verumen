@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 // Inline accordion content for portfolio actions
 function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
   const btn = `w-full py-2 px-3 rounded-lg text-xs font-semibold transition text-center`;
-  const sub = isDark ? 'text-gray-400' : 'text-gray-500';
+  const sub = isDark ? 'text-zinc-400' : 'text-zinc-500';
   const inputCls = `w-full px-2 py-1.5 rounded-lg border text-xs outline-none ${isDark ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-white border-gray-200'}`;
 
   const spinner = <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1 align-middle"/>;

@@ -580,7 +580,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                     <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Recent Trades</h3>
                     <button onClick={() => setTab('tracker')} className={`text-xs text-orange-400 hover:underline`}>View all →</button>
                   </div>
-                  <div className="flex flex-col divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-100'}">
+                  <div className="flex flex-col divide-y ${isDark ? 'divide-zinc-700' : 'divide-gray-100'}">
                     {inventory.slice(0, 5).map(item => {
                       const costPrice = item.purchase_price_display || 0;
                       const currentPrice = item.current_price || 0;

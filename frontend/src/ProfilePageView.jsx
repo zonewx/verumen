@@ -8,9 +8,9 @@ const ROLE_BADGE = {
 };
 
 function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl' }) {
-  if (src) return <img src={src} alt={username} className={`${size} rounded-full object-cover border-4 border-gray-700`} />;
+  if (src) return <img src={src} alt={username} className={`${size} rounded-full object-cover border-4 border-zinc-600`} />;
   const initial = username?.[0]?.toUpperCase() || '?';
-  return <div className={`${size} rounded-full bg-linear-to-br from-blue-600 to-blue-800 flex items-center justify-center ${textSize} font-bold text-white border-4 border-gray-700`}>{initial}</div>;
+  return <div className={`${size} rounded-full bg-zinc-600 flex items-center justify-center ${textSize} font-bold text-white border-4 border-zinc-600`}>{initial}</div>;
 }
 
 // Get Steam level badge colors based on level tier
@@ -228,12 +228,12 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
   if (!profile) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+        <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
       </div>
     );
   }
 
-  const card = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
+  const card = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl`;
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -259,12 +259,12 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                 )}
               </div>
               
-              <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
                 Member since {formatDate(profile.createdAt)}
               </p>
 
               {profile.bio && (
-                <p className={`text-base mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{profile.bio}</p>
+                <p className={`text-base mb-4 ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{profile.bio}</p>
               )}
 
               {/* Steam Verified Badge */}
@@ -310,17 +310,17 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
         {showcaseItems && showcaseItems.length > 0 && (
           <div className={`${card} p-2 mb-2`}>
             <div className="flex items-center justify-between mb-1.5">
-              <h3 className={`text-[10px] font-semibold uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <h3 className={`text-[10px] font-semibold uppercase tracking-wide ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
                 Item Showcase
               </h3>
-              <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
                 {showcaseItems.length} {showcaseItems.length === 1 ? 'item' : 'items'}
               </span>
             </div>
             
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
               {showcaseItems.map(item => (
-                <div key={item.assetId} className={`${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} rounded p-1 transition cursor-pointer border ${isDark ? 'border-gray-600' : 'border-gray-200'}`}>
+                <div key={item.assetId} className={`${isDark ? 'bg-zinc-700/50 hover:bg-zinc-700' : 'bg-gray-50 hover:bg-gray-100'} rounded p-1 transition cursor-pointer border ${isDark ? 'border-zinc-600' : 'border-gray-200'}`}>
                   <img
                     src={item.iconUrl}
                     alt={item.name}
@@ -332,7 +332,7 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                         <div key={i} className="relative group">
                           <img src={s.url} alt={s.name} className="w-6 h-6 object-contain opacity-85 hover:opacity-100 transition" />
                           {s.name && (
-                            <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-gray-900 border border-gray-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
+                            <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
                               <p className="text-xs font-semibold text-white">{s.name}</p>
                             </div>
                           )}
@@ -354,11 +354,11 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
             {/* Portfolio - Left Column */}
             <div className={`${card} p-2.5`}>
               <div className="flex items-center justify-between mb-1.5">
-                <h3 className={`text-[10px] font-semibold uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <h3 className={`text-[10px] font-semibold uppercase tracking-wide ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
                   Portfolio
                 </h3>
                 {viewingHoldings && (
-                  <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
                     {viewingHoldings.length} holdings
                   </span>
                 )}
@@ -366,7 +366,7 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
 
               {loadingHoldings ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                  <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
                 </div>
               ) : viewingHoldings && viewingHoldings.length > 0 ? (
                 <>
@@ -387,21 +387,21 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                       const relativeWidth = maxWeight > 0 ? ((h.weight || 0) / maxWeight) * 100 : 0;
                       
                       return (
-                        <div key={h.ticker} className={`flex flex-col gap-1 p-2 rounded ${isDark ? 'bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-50 hover:bg-gray-100'} transition`}>
+                        <div key={h.ticker} className={`flex flex-col gap-1 p-2 rounded ${isDark ? 'bg-zinc-700/50 hover:bg-zinc-700' : 'bg-gray-50 hover:bg-gray-100'} transition`}>
                           <div className="flex items-center gap-2">
                             <FlagIcon ticker={h.ticker} size="w-6 h-4.5" />
                             <div className="flex-1 min-w-0">
                               <p className="font-semibold text-xs truncate">{cleanCompanyName}</p>
-                              <p className={`text-[10px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{h.ticker}</p>
+                              <p className={`text-[10px] ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{h.ticker}</p>
                             </div>
                             <div className="text-right">
                               <p className="font-bold text-xs">{h.weight?.toFixed(2) || '0.00'}%</p>
                               {profile.showPortfolioValue && h.value && (
-                                <p className={`text-[10px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{h.value.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>
+                                <p className={`text-[10px] ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{h.value.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>
                               )}
                             </div>
                           </div>
-                          <div className={`h-0.5 rounded-full ${isDark ? 'bg-gray-600' : 'bg-gray-200'} overflow-hidden`}>
+                          <div className={`h-0.5 rounded-full ${isDark ? 'bg-zinc-600' : 'bg-gray-200'} overflow-hidden`}>
                             <div className="h-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${relativeWidth}%` }} />
                           </div>
                         </div>
@@ -412,14 +412,14 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                   {viewingHoldings.length > 10 && (
                     <button
                       onClick={() => setShowAllHoldings(!showAllHoldings)}
-                      className={`w-full mt-3 py-2.5 rounded-lg font-semibold transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                      className={`w-full mt-3 py-2.5 rounded-lg font-semibold transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
                     >
                       {showAllHoldings ? 'Show Less' : `View All (${viewingHoldings.length})`}
                     </button>
                   )}
                 </>
               ) : (
-                <p className={`text-center py-8 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                <p className={`text-center py-8 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
                   No holdings to display
                 </p>
               )}
@@ -428,14 +428,14 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
             {/* Recent Activity - Right Column */}
             <div className={`${card} p-2.5`}>
               <div className="flex items-center justify-between mb-1.5">
-                <h3 className={`text-[10px] font-semibold uppercase tracking-wide ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <h3 className={`text-[10px] font-semibold uppercase tracking-wide ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
                   Recent Activity
                 </h3>
               </div>
 
               {loadingActivity ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                  <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
                 </div>
               ) : userActivity.length > 0 ? (
                 <div className="flex flex-col gap-2">
@@ -444,7 +444,7 @@ export default function ProfilePageView({ isDark, authUsername, viewUsername = n
                   ))}
                 </div>
               ) : (
-                <p className={`text-center py-8 text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                <p className={`text-center py-8 text-sm ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
                   No recent activity
                 </p>
               )}
@@ -474,8 +474,8 @@ function ActivityItem({ activity, isDark }) {
     return d.toLocaleDateString('sv-SE');
   };
 
-  const itemBg = isDark ? 'bg-gray-700/30' : 'bg-gray-100';
-  const textSecondary = isDark ? 'text-gray-400' : 'text-gray-500';
+  const itemBg = isDark ? 'bg-zinc-700/30' : 'bg-gray-100';
+  const textSecondary = isDark ? 'text-zinc-400' : 'text-zinc-500';
 
   if (activity.type === 'skin_trade') {
     const isBuy = activity.tradeType === 'buy';

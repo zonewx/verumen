@@ -16,10 +16,10 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
   const [lastPriceSync, setLastPriceSync] = useState(null);
 
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
-  const card = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
-  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
-  const btnBlue = 'px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition';
-  const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
+  const card = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl`;
+  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
+  const btnBlue = 'px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white text-xs font-semibold rounded-lg transition';
+  const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
 
   const flash = (msg, ms = 3000) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), ms); };
   const base = userRole === 'admin' ? '/api/admin' : '/api/mod';
@@ -119,9 +119,9 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
     <div className="flex-1 overflow-y-auto">
       {resetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setResetModal(null)}>
-          <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
+          <div className={`${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
             <h3 className="font-bold mb-1">Reset password</h3>
-            <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{resetModal.username}</p>
+            <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{resetModal.username}</p>
             <input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} placeholder="New password (6+ chars)" className={`${inputCls} mb-3`} />
             <div className="flex gap-2">
               <button onClick={resetPassword} className={btnBlue + ' flex-1 py-2'}>Reset</button>
@@ -139,11 +139,11 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
 
         {/* CS Prices */}
         <div className={`${card} p-5 mb-6`}>
-          <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>CS Item Prices</h2>
-          <div className={`flex items-center justify-between gap-4 p-4 rounded-xl ${isDark ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+          <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>CS Item Prices</h2>
+          <div className={`flex items-center justify-between gap-4 p-4 rounded-xl ${isDark ? 'bg-zinc-700/50' : 'bg-gray-50'}`}>
             <div>
               <p className="text-sm font-semibold">Manual price sync</p>
-              <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
                 Last sync: {fmtAgo(lastPriceSync)} — auto-syncs every 24h. Moderator sync bypasses the 1-hour cooldown.
               </p>
               {syncStatus && (
@@ -156,24 +156,24 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
           </div>
         </div>
 
-        <div className={`flex gap-0 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'} mb-6`}>
+        <div className={`flex gap-0 border-b ${isDark ? 'border-zinc-700' : 'border-gray-200'} mb-6`}>
           {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2.5 text-sm font-semibold transition border-b-2 -mb-px ${tab === t.id ? 'border-blue-500 text-blue-400' : `border-transparent ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}`}>{t.label}</button>
+            <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2.5 text-sm font-semibold transition border-b-2 -mb-px ${tab === t.id ? 'border-zinc-400 text-zinc-300' : `border-transparent ${isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-400 hover:text-gray-900'}`}`}>{t.label}</button>
           ))}
         </div>
 
-        {loading ? <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/></div> : (
+        {loading ? <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div> : (
           <>
             {tab === 'users' && (
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{users.length} user(s)</p>
+                  <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{users.length} user(s)</p>
                   <button onClick={fetchAll} className={btnGhost}>↺ Refresh</button>
                 </div>
                 {users.map(u => (
                   <div key={u.username} className={`${card} p-5`}>
                     <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
+                      <div className="w-10 h-10 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
                         {u.avatarBase64 ? <img src={u.avatarBase64} className="w-full h-full object-cover"/> : u.username[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -200,7 +200,7 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
             {tab === 'announcements' && (
               <div className="flex flex-col gap-5">
                 <div className={`${card} p-5`}>
-                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Post Announcement</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Post Announcement</h2>
                   <div className="flex flex-col gap-3">
                     <input value={annForm.title} onChange={e => setAnnForm(f => ({ ...f, title: e.target.value }))} placeholder="Title..." className={inputCls} />
                     <textarea value={annForm.message} onChange={e => setAnnForm(f => ({ ...f, message: e.target.value }))} rows={3} placeholder="Message..." className={`${inputCls} resize-none`} />
@@ -217,8 +217,8 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
                   </div>
                 </div>
                 <div className={`${card} p-5`}>
-                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Active ({announcements.length})</h2>
-                  {announcements.length === 0 ? <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>None.</p> : (
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Active ({announcements.length})</h2>
+                  {announcements.length === 0 ? <p className={`text-sm ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>None.</p> : (
                     <div className="flex flex-col gap-3">
                       {announcements.map(a => (
                         <div key={a.id} className={`flex items-start gap-3 p-4 rounded-xl border ${typeColors[a.type]}`}>
@@ -239,19 +239,19 @@ export default function ModeratorPanel({ isDark, authUsername, userRole }) {
               <div className={`${card} overflow-hidden`}>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className={`${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'} border-b`}>
-                      <tr>{['Time', 'Moderator', 'Action', 'Target', 'Details'].map(h => <th key={h} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>{h}</th>)}</tr>
+                    <thead className={`${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-gray-50 border-gray-200'} border-b`}>
+                      <tr>{['Time', 'Moderator', 'Action', 'Target', 'Details'].map(h => <th key={h} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-400'}`}>{h}</th>)}</tr>
                     </thead>
                     <tbody>
                       {modLog.length === 0 ? (
-                        <tr><td colSpan="5" className={`px-4 py-8 text-center text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>No actions logged yet.</td></tr>
+                        <tr><td colSpan="5" className={`px-4 py-8 text-center text-sm ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>No actions logged yet.</td></tr>
                       ) : modLog.map((entry, i) => (
-                        <tr key={i} className={`border-t ${isDark ? 'border-gray-700 hover:bg-gray-700/20' : 'border-gray-100 hover:bg-gray-50'}`}>
-                          <td className={`px-4 py-3 text-xs font-mono ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{new Date(entry.createdAt).toLocaleString()}</td>
+                        <tr key={i} className={`border-t ${isDark ? 'border-zinc-700 hover:bg-zinc-700/20' : 'border-gray-100 hover:bg-gray-50'}`}>
+                          <td className={`px-4 py-3 text-xs font-mono ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{new Date(entry.createdAt).toLocaleString()}</td>
                           <td className="px-4 py-3 text-xs font-bold text-blue-400">{entry.moderator}</td>
-                          <td className={`px-4 py-3 text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{entry.action}</td>
+                          <td className={`px-4 py-3 text-xs ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>{entry.action}</td>
                           <td className="px-4 py-3 text-xs font-mono">{entry.targetUser}</td>
-                          <td className={`px-4 py-3 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{entry.details}</td>
+                          <td className={`px-4 py-3 text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{entry.details}</td>
                         </tr>
                       ))}
                     </tbody>
