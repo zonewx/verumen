@@ -629,42 +629,44 @@ const handleUpload = async (files) => {
   };
 
   const handleClearTransactions = async () => {
-    await apiFetch('/api/transactions', { method: 'DELETE' });
-    setTxCount({ total: 0, trades: 0 }); setPortfolio([]); setUploadStatus(null); setDividends(null); setSyncStatus('History cleared.');
+    await Promise.all([
+      apiFetch('/api/transactions', { method: 'DELETE' }),
+      apiFetch('/api/portfolio/cached', { method: 'DELETE' }),
+    ]);
+    setTxCount({ total: 0, trades: 0 }); setPortfolio([]); setDashboardData(null); setUploadStatus(null); setDividends(null); setSyncStatus('History cleared.');
     apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
   };
 
   const handleClearBroker = async (broker) => {
-  if (!confirm(`Delete all ${broker} transactions? This cannot be undone.`)) return;
-  
-  try {
-    await apiFetch(`/api/transactions?broker=${broker}`, { method: 'DELETE' });
-    const res = await apiFetch('/api/transactions/count');
-    setTxCount(await res.json());
-    setPortfolio([]);
-    setSyncStatus(`${broker} transactions cleared. Upload new CSV or sync remaining data.`);
-    setTimeout(() => setSyncStatus(''), 5000);
-  } catch (err) {
-    setSyncStatus('Error clearing transactions: ' + err.message);
-  }
-};
+    if (!confirm(`Delete all ${broker} transactions? This cannot be undone.`)) return;
+    try {
+      await Promise.all([
+        apiFetch(`/api/transactions?broker=${broker}`, { method: 'DELETE' }),
+        apiFetch('/api/portfolio/cached', { method: 'DELETE' }),
+      ]);
+      const res = await apiFetch('/api/transactions/count');
+      setTxCount(await res.json());
+      setPortfolio([]); setDashboardData(null);
+      setSyncStatus(`${broker} transactions cleared. Upload new CSV or sync remaining data.`);
+      setTimeout(() => setSyncStatus(''), 5000);
+    } catch (err) {
+      setSyncStatus('Error clearing transactions: ' + err.message);
+    }
+  };
 
   const handleClearAll = async () => {
     if (!confirm('This will permanently delete all portfolio holdings and transaction history. This cannot be undone. Continue?')) return;
-    
     try {
-      // Clear transactions via API
-      await apiFetch('/api/transactions', { method: 'DELETE' });
-      
-      // Reset all local state
-      setPortfolio([]);
+      await Promise.all([
+        apiFetch('/api/transactions', { method: 'DELETE' }),
+        apiFetch('/api/portfolio/cached', { method: 'DELETE' }),
+      ]);
+      setPortfolio([]); setDashboardData(null);
       setTxCount({ total: 0, trades: 0 });
       setUploadStatus(null);
       setDividends(null);
       setSyncStatus('All data cleared successfully.');
       apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
-      
-      // Clear after 4 seconds
       setTimeout(() => setSyncStatus(''), 4000);
     } catch (err) {
       setSyncStatus('Error clearing data: ' + err.message);
@@ -1624,7 +1626,7 @@ const handleUpload = async (files) => {
         authForm, authError, authLoading,
         onAuthFormChange: (field, val) => setAuthForm(f => ({ ...f, [field]: val })),
         onChangePassword: handleChangePassword,
-        onClearPortfolio: () => setPortfolio([]),
+        onClearPortfolio: () => { apiFetch('/api/portfolio/cached', { method: 'DELETE' }); setPortfolio([]); setDashboardData(null); apiCache.del('/api/portfolio-dashboard'); apiCache.del('/api/portfolio-fingerprint'); },
         onClearTransactions: handleClearTransactions,
         onClearAll: handleClearAll,
         onClearTickerCache: handleClearTickerCache,
