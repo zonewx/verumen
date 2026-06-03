@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
   const btn = `w-full py-2 px-3 rounded-lg text-xs font-semibold transition text-center`;
   const sub = isDark ? 'text-gray-400' : 'text-gray-500';
-  const inputCls = `w-full px-2 py-1.5 rounded-lg border text-xs outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'}`;
+  const inputCls = `w-full px-2 py-1.5 rounded-lg border text-xs outline-none ${isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-white border-gray-200'}`;
 
   const spinner = <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1 align-middle"/>;
 
@@ -18,7 +18,7 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
           value={selectedBroker}
           onChange={(e) => onBrokerChange(e.target.value)}
           className={`w-full px-2 py-1.5 rounded-lg border text-xs outline-none ${
-            isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200'
+            isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-white border-gray-200'
           }`}
         >
           <option value="auto">Auto-detect</option>
@@ -28,13 +28,13 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
         </select>
       </div>
 
-      <label className={`${btn} cursor-pointer ${pa.uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+      <label className={`${btn} cursor-pointer ${pa.uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-800 text-zinc-400' : 'bg-zinc-700 hover:bg-zinc-600 text-white'}`}>
         {pa.uploadLoading ? <>{spinner}Processing…</> : pa.uploadStatus ? '↺ Re-upload' : '↑ Upload CSV'}
         <input type="file" accept=".csv" multiple className="hidden" disabled={pa.uploadLoading} onChange={e => { const f = Array.from(e.target.files); e.target.value = ''; pa.onUpload(f); }} />
       </label>
       <p className={`text-[10px] ${sub}`}>Supports Avanza, Montrose, Nordnet.</p>
       {pa.uploadProgress && (
-        <div className="rounded-lg px-3 py-2.5 text-sm border bg-blue-900/20 border-blue-800/40 text-blue-300">
+        <div className="rounded-lg px-3 py-2.5 text-sm border bg-zinc-800/40 border-zinc-700/40 text-zinc-300">
           <div className="flex items-center gap-2">
             <div className="animate-spin">⏳</div>
             <span className="font-medium flex-1">{pa.uploadProgress.label}</span>
@@ -63,11 +63,11 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
       {pa.txCount?.total > 0 && <p className="text-xs font-bold text-green-400">{pa.txCount.trades} trades · {pa.txCount.total} total</p>}
       {pa.txCount?.trades > 0 && (
         <>
-          <button onClick={pa.onSync} disabled={pa.syncLoading} className={`${btn} ${pa.syncLoading ? 'bg-gray-700 text-gray-400' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
+          <button onClick={pa.onSync} disabled={pa.syncLoading} className={`${btn} ${pa.syncLoading ? 'bg-zinc-800 text-zinc-400' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
             {pa.syncLoading ? <>{spinner}Syncing…</> : '⟳ Sync Portfolio'}
           </button>
           {pa.syncStatus && <p className={`text-[10px] ${pa.syncStatus.startsWith('✓') ? 'text-green-400' : sub}`}>{pa.syncStatus}</p>}
-          <button onClick={pa.onResolve} disabled={pa.resolveLoading} className={`${btn} ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
+          <button onClick={pa.onResolve} disabled={pa.resolveLoading} className={`${btn} ${isDark ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
             {pa.resolveLoading ? <>{spinner}Resolving…</> : '🔍 Resolve Tickers'}
           </button>
           {pa.resolveStatus && <p className={`text-[10px] ${pa.resolveStatus.startsWith('✓') ? 'text-green-400' : sub}`}>{pa.resolveStatus}</p>}
@@ -82,9 +82,9 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
         <p className={`text-xs ${sub}`}>No holdings yet.</p>
       ) : (
         <>
-          <div className={`rounded-lg overflow-hidden max-h-40 overflow-y-auto ${isDark ? 'bg-gray-700/40' : 'bg-gray-100'}`}>
+          <div className={`rounded-lg overflow-hidden max-h-40 overflow-y-auto ${isDark ? 'bg-zinc-800/40' : 'bg-gray-100'}`}>
             {pa.portfolio.map(s => (
-              <label key={s.ticker} className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-200'} border-b ${isDark ? 'border-gray-700/50' : 'border-gray-200'} last:border-0`}>
+              <label key={s.ticker} className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-200'} border-b ${isDark ? 'border-zinc-700/50' : 'border-gray-200'} last:border-0`}>
                 <input type="checkbox" checked={pa.selectedForRemoval?.includes(s.ticker)} onChange={() => pa.onToggleRemoval(s.ticker)} className="accent-blue-500" />
                 <span className="text-xs font-medium">{s.ticker}</span>
                 <span className={`text-[10px] ml-auto ${sub}`}>{s.quantity}</span>
@@ -126,7 +126,7 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
       
       {/* BROKER DELETION BUTTONS */}
       {pa.txCount?.byBroker && Object.keys(pa.txCount.byBroker).length > 0 && (
-        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-gray-700">
+        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-zinc-800">
           <p className={`text-[10px] font-semibold uppercase tracking-wide ${sub}`}>Delete by Broker</p>
           {Object.entries(pa.txCount.byBroker).map(([broker, count]) => (
             <button
@@ -325,12 +325,12 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
   }, [location.pathname]);
 
   const sidebarWidth = isExpanded ? 'w-60' : 'w-16';
-  const bg = isDark ? 'bg-gray-900' : 'bg-white';
-  const borderColor = isDark ? 'bg-gray-800' : 'bg-gray-200';
-  const textPrimary = isDark ? 'text-gray-100' : 'text-gray-900';
-  const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
-  const hoverBg = isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-100';
-  const activeBg = isDark ? 'bg-gray-800' : 'bg-gray-100';
+  const bg = isDark ? 'bg-zinc-950' : 'bg-white';
+  const borderColor = isDark ? 'bg-zinc-800' : 'bg-gray-200';
+  const textPrimary = isDark ? 'text-zinc-100' : 'text-gray-900';
+  const textSecondary = isDark ? 'text-zinc-400' : 'text-gray-600';
+  const hoverBg = isDark ? 'hover:bg-zinc-900' : 'hover:bg-gray-100';
+  const activeBg = isDark ? 'bg-zinc-800' : 'bg-gray-100';
 
   const visibleMenuItems = menuItems.filter(item => {
     if (item.adminOnly) {
@@ -380,7 +380,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                   className={`w-full flex items-center py-2 rounded-lg transition-colors ${active ? activeBg : hoverBg} ${textPrimary} ${isExpanded ? 'gap-3 px-3' : 'justify-center px-2'}`}
                   title={!isExpanded ? item.label : ''}
                 >
-                  <Icon size={20} className={`shrink-0 ${active ? 'text-blue-400' : textSecondary}`} />
+                  <Icon size={20} className={`shrink-0 ${active ? 'text-zinc-200' : textSecondary}`} />
                   <span className={`text-sm text-left whitespace-nowrap transition-all duration-200 ${isExpanded ? 'opacity-100 flex-1 overflow-hidden' : 'opacity-0 w-0 overflow-hidden'}`}>{item.label}</span>
                   {item.subItems && (
                     <ChevronLeft size={15} className={`${textSecondary} transition-transform duration-200 shrink-0 ${isOpen ? '-rotate-90' : 'rotate-180'} ${isExpanded ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`} />
@@ -388,10 +388,10 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                 </button>
 
                 {item.subItems && isOpen && isExpanded && (
-                  <div className={`ml-4 mt-0.5 mb-1 pl-3 border-l ${isDark ? 'border-gray-700' : 'border-gray-200'} space-y-0.5`}>
+                  <div className={`ml-4 mt-0.5 mb-1 pl-3 border-l ${isDark ? 'border-zinc-800' : 'border-gray-200'} space-y-0.5`}>
                     {item.subItems.map(subItem => {
                       if (subItem.isDivider) {
-                        return <div key={subItem.id} className={`my-1.5 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`} />;
+                        return <div key={subItem.id} className={`my-1.5 border-t ${isDark ? 'border-zinc-800' : 'border-gray-200'}`} />;
                       }
 
                       if (subItem.isDirectButton) {
@@ -420,7 +420,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                               <ChevronLeft size={12} className={`transition-transform duration-200 ${isActionOpen ? '-rotate-90' : 'rotate-180'}`} />
                             </button>
                             {isActionOpen && (
-                              <div className={`mt-1 mb-1 rounded-lg p-3 flex flex-col gap-2 ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                              <div className={`mt-1 mb-1 rounded-lg p-3 flex flex-col gap-2 ${isDark ? 'bg-zinc-900' : 'bg-gray-50'}`}>
                                 <ActionContent id={subItem.id} pa={portfolioActions} isDark={isDark} selectedBroker={selectedBroker} onBrokerChange={onBrokerChange} />
                               </div>
                             )}
@@ -436,7 +436,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                             isActive(subItem.path) ? activeBg : hoverBg
                           } ${textPrimary}`}
                         >
-                          {subItem.icon && <span className={`shrink-0 ${isActive(subItem.path) ? 'text-blue-400' : textSecondary}`}>{subItem.icon}</span>}
+                          {subItem.icon && <span className={`shrink-0 ${isActive(subItem.path) ? 'text-zinc-200' : textSecondary}`}>{subItem.icon}</span>}
                           <span className="text-sm">{subItem.label}</span>
                         </button>
                       );
@@ -449,21 +449,21 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         </div>
       </nav>
 
-      <div className="border-t border-gray-800 p-2">
+      <div className="border-t border-zinc-800 p-2">
         <div className="flex items-center gap-1">
           <button
             onClick={() => navigate(`/profile/${currentUser?.username}`)}
             className={`flex items-center py-2 rounded-lg ${hoverBg} transition-colors ${textPrimary} ${isExpanded ? 'flex-1 gap-3 px-3' : 'justify-center px-2'}`}
             title={!isExpanded ? currentUser?.username : ''}
           >
-            <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">
               {avatarBase64
                 ? <img src={avatarBase64} className="w-full h-full object-cover" alt="" />
                 : <User size={16} className="text-white" />}
             </div>
             <div className={`flex-1 text-left min-w-0 overflow-hidden transition-opacity duration-200 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
               <p className="text-sm font-medium truncate">{currentUser?.username}</p>
-              <p className="text-xs text-gray-500">{currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : ''}</p>
+              <p className="text-xs text-zinc-500">{currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : ''}</p>
             </div>
           </button>
           <button

@@ -14,9 +14,9 @@ import apiCache from './apiCache';
 
 function PageShell({ isDark, authUsername, onNavigate, onLogout, userRole, searchInputRef, title, children }) {
   return (
-    <div className={`flex flex-col h-screen pt-12 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+    <div className={`flex flex-col h-screen pt-12 ${isDark ? 'bg-zinc-950 text-white' : 'bg-gray-100 text-gray-900'}`}>
       <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={onNavigate} onLogout={onLogout} userRole={userRole} searchInputRef={searchInputRef} />
-      {title && <div className={`px-8 py-3 border-b shrink-0 ${isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'}`}><h1 className="text-base font-bold">{title}</h1></div>}
+      {title && <div className={`px-8 py-3 border-b shrink-0 ${isDark ? 'border-zinc-800 bg-zinc-950' : 'border-gray-200 bg-white'}`}><h1 className="text-base font-bold">{title}</h1></div>}
       {children}
     </div>
   );
@@ -760,18 +760,18 @@ const handleUpload = async (files) => {
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <h3 className="text-lg font-semibold text-gray-300 mb-2">{title}</h3>
       <p className="text-sm text-gray-500 max-w-xs mb-6">{desc}</p>
-      {action && <button onClick={action.fn} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold transition">{action.label}</button>}
+      {action && <button onClick={action.fn} className="px-5 py-2.5 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm font-semibold transition">{action.label}</button>}
     </div>
   );
 
   const ShortcutsModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShortcuts(false)}>
-      <div className={`${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5"><h3 className="text-base font-bold">Keyboard shortcuts</h3><button onClick={() => setShowShortcuts(false)} className="text-gray-500 hover:text-white text-lg">✕</button></div>
+      <div className={`${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-gray-200'} border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5"><h3 className="text-base font-bold">Keyboard shortcuts</h3><button onClick={() => setShowShortcuts(false)} className="text-zinc-500 hover:text-white text-lg">✕</button></div>
         {[['Space / /','Focus search'],['?','Show shortcuts'],['Esc','Close / unfocus']].map(([key, desc]) => (
-          <div key={key} className={`flex items-center justify-between py-2 border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} last:border-0`}>
-            <span className="text-sm text-gray-300">{desc}</span>
-            <kbd className={`${isDark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-600'} text-xs font-mono px-2 py-1 rounded`}>{key}</kbd>
+          <div key={key} className={`flex items-center justify-between py-2 border-b ${isDark ? 'border-zinc-800' : 'border-gray-100'} last:border-0`}>
+            <span className={`text-sm ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>{desc}</span>
+            <kbd className={`${isDark ? 'bg-zinc-800 text-zinc-200' : 'bg-gray-100 text-gray-600'} text-xs font-mono px-2 py-1 rounded`}>{key}</kbd>
           </div>
         ))}
       </div>
@@ -803,7 +803,7 @@ const handleUpload = async (files) => {
   };
 
   const LineChart = ({ data, loading }) => {
-    if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/></div>;
+    if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div>;
     if (!data?.length) return <div className="flex items-center justify-center h-64 text-gray-500 text-sm">No data for this period.</div>;
     const W = 800, H = 260, PL = 52, PR = 16, PT = 16, PB = 32;
     const cw = W - PL - PR, ch = H - PT - PB;
@@ -839,7 +839,7 @@ const handleUpload = async (files) => {
     const Card = ({ s }) => {
       const pos = s.todayChangePct >= 0;
       return (
-        <div className={`rounded-xl p-4 flex flex-col gap-2.5 border-l-2 ${pos ? 'border-l-emerald-500' : 'border-l-red-500'} ${isDark ? 'bg-zinc-900' : 'bg-gray-50 border border-gray-100'}`}>
+        <div className={`rounded-xl p-4 flex flex-col gap-2.5 border-l-2 ${pos ? 'border-l-emerald-500' : 'border-l-red-500'} ${isDark ? 'bg-zinc-900 border border-zinc-800' : 'bg-gray-50 border border-gray-100'}`}>
           <div className="flex items-center justify-between gap-2">
             <span className={`text-[10px] font-semibold uppercase tracking-[0.12em] truncate ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{s.ticker}</span>
             <span className={`text-xs font-bold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -916,7 +916,7 @@ const handleUpload = async (files) => {
     }, [currentTab]);
 
     return (
-      <div className={`flex flex-col h-screen pt-12 overflow-hidden ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+      <div className={`flex flex-col h-screen pt-12 overflow-hidden ${isDark ? 'bg-zinc-950 text-white' : 'bg-gray-100 text-gray-900'}`}>
         <GlobalBar isDark={isDark} authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
         {showShortcuts && <ShortcutsModal />}
 
@@ -924,7 +924,7 @@ const handleUpload = async (files) => {
           <div className="max-w-7xl mx-auto px-6 py-6">
             {isAppLoading ? (
               <div className="flex flex-col items-center justify-center mt-32 space-y-4">
-                <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+                <div className="w-10 h-10 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
                 <p className={`font-bold tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading user settings...</p>
               </div>
             ) : (
@@ -933,12 +933,12 @@ const handleUpload = async (files) => {
                   <div className="flex flex-col gap-5">
                     <h2 className="text-xl font-bold">Import CSV</h2>
                     <div className={`${cardCls} p-5 flex flex-col gap-4`}>
-                      <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                      <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-800 text-zinc-400' : 'bg-zinc-700 hover:bg-zinc-600 text-white'}`}>
                         {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
                       </button>
                       <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Broker detected automatically. Supports Montrose, Avanza and Nordnet.</p>
                       {uploadProgress && (
-                        <div className={`rounded-lg px-3 py-2.5 text-sm border ${isDark ? 'bg-blue-900/20 border-blue-800/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                        <div className={`rounded-lg px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800/40 border-zinc-700/40 text-zinc-300' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
                           <div className="flex items-center gap-2"><div className="animate-spin">⏳</div><span className="font-medium">{uploadProgress.label}</span></div>
                         </div>
                       )}
@@ -946,7 +946,7 @@ const handleUpload = async (files) => {
                       {!uploadProgress && uploadStatus?.results && (
                         <div className="flex flex-col gap-1.5">
                           {uploadStatus.results.map((r, i) => (
-                            <div key={i} className={`${isDark ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-lg px-3 py-2 text-xs`}>
+                            <div key={i} className={`${isDark ? 'bg-zinc-800/50' : 'bg-gray-50'} rounded-lg px-3 py-2 text-xs`}>
                               {r.error ? <p className="text-red-400">✗ {r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
                             </div>
                           ))}
@@ -954,18 +954,18 @@ const handleUpload = async (files) => {
                         </div>
                       )}
                       {txCount.total > 0 && (
-                        <div className={`${isDark ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-xl px-3 py-2.5 flex items-center justify-between`}>
+                        <div className={`${isDark ? 'bg-zinc-800/50' : 'bg-gray-50'} rounded-xl px-3 py-2.5 flex items-center justify-between`}>
                           <div><p className="text-sm font-bold text-green-400">{txCount.trades} trades</p><p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{txCount.total} total in history</p></div>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-green-400"><polyline points="20 6 9 17 4 12"/></svg>
                         </div>
                       )}
                       {txCount.trades > 0 && (
                         <>
-                          <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
+                          <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
                             {syncLoading ? '⏳ Syncing…' : '⟳ Sync Portfolio'}
                           </button>
                           {syncStatus && <p className={`text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>{syncStatus}</p>}
-                          <button onClick={handleResolveTickers} disabled={resolveLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} disabled:opacity-50`}>
+                          <button onClick={handleResolveTickers} disabled={resolveLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${isDark ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} disabled:opacity-50`}>
                             {resolveLoading ? '⏳ Resolving...' : '🔍 Resolve Tickers'}
                           </button>
                           {resolveStatus && <p className={`text-xs ${resolveStatus.startsWith('✓') ? 'text-green-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>{resolveStatus}</p>}
@@ -984,10 +984,10 @@ const handleUpload = async (files) => {
                         Pin an ISIN to a specific Yahoo Finance ticker. The override takes priority over automatic resolution on every upload.
                       </p>
                       <div className="flex gap-2 mb-3">
-                        <input ref={overrideIsinRef} placeholder="ISIN (e.g. SE0025138357)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
-                        <input ref={overrideTickerRef} placeholder="YF ticker (e.g. HACK.ST)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                        <input ref={overrideIsinRef} placeholder="ISIN (e.g. SE0025138357)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                        <input ref={overrideTickerRef} placeholder="YF ticker (e.g. HACK.ST)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none ${isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-gray-50 border-gray-200'}`} />
                       </div>
-                      <button onClick={handleAddOverride} className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition mb-3">Save Override</button>
+                      <button onClick={handleAddOverride} className="w-full py-2.5 bg-zinc-700 hover:bg-zinc-600 text-white rounded-xl text-sm font-semibold transition mb-3">Save Override</button>
                       {overrideMsg && <p className={`text-xs mb-3 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
                       {(() => {
                         const globalIsins = new Set(overrides.global?.map(o => o.isin) || []);
@@ -999,9 +999,9 @@ const handleUpload = async (files) => {
                                 <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Global overrides</p>
                                 <div className="flex flex-col gap-2">
                                   {overrides.global.map(o => (
-                                    <div key={o.isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/30 border border-gray-600/30' : 'bg-blue-50 border border-blue-200'} rounded-xl px-4 py-2.5`}>
+                                    <div key={o.isin} className={`flex items-center justify-between ${isDark ? 'bg-zinc-800/30 border border-zinc-700/30' : 'bg-gray-50 border border-gray-200'} rounded-xl px-4 py-2.5`}>
                                       <div className="flex items-center gap-2 flex-1">
-                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isDark ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>Global</span>
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${isDark ? 'bg-zinc-700/60 text-zinc-300' : 'bg-gray-200 text-gray-600'}`}>Global</span>
                                         <span className="text-sm font-mono">{o.isin} <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span> <span className="font-bold">{o.ticker}</span></span>
                                       </div>
                                     </div>
@@ -1014,7 +1014,7 @@ const handleUpload = async (files) => {
                                 <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Your overrides</p>
                                 <div className="flex flex-col gap-2">
                                   {userOverridesFiltered.map(o => (
-                                    <div key={o.isin} className={`flex items-center justify-between ${isDark ? 'bg-gray-700/50' : 'bg-gray-100'} rounded-xl px-4 py-2.5`}>
+                                    <div key={o.isin} className={`flex items-center justify-between ${isDark ? 'bg-zinc-800/50' : 'bg-gray-100'} rounded-xl px-4 py-2.5`}>
                                       <span className="text-sm font-mono">{o.isin} <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>→</span> <span className="font-bold">{o.ticker}</span></span>
                                       <button onClick={() => handleDeleteOverride(o.isin)} className="text-red-400 hover:text-red-300 text-xs ml-4 transition font-medium">Remove</button>
                                     </div>
@@ -1048,7 +1048,7 @@ const handleUpload = async (files) => {
                           onClick={handleRefreshPrices}
                           disabled={isAppLoading}
                           title="Refresh prices from Yahoo Finance"
-                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isAppLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
+                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isAppLoading ? 'opacity-50 cursor-not-allowed bg-zinc-800 text-zinc-400' : 'bg-zinc-700 hover:bg-zinc-600 text-white'}`}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isAppLoading ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
                           {isAppLoading ? 'Refreshing...' : 'Refresh Prices'}
@@ -1063,7 +1063,7 @@ const handleUpload = async (files) => {
                         </p>
                         <button
                           onClick={handleClearPortfolioCache}
-                          className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                          className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isDark ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
                         >
                           Clear Snapshot
                         </button>
@@ -1090,7 +1090,7 @@ const handleUpload = async (files) => {
                           </svg>
                           {/* Spinning blue arc - continuous CSS animation */}
                           <svg className="absolute inset-0 w-24 h-24" viewBox="0 0 96 96" style={{ animation: 'spin 2s linear infinite' }}>
-                            <circle cx="48" cy="48" r="40" fill="none" stroke="#3b82f6" strokeWidth="7"
+                            <circle cx="48" cy="48" r="40" fill="none" stroke="#71717a" strokeWidth="7"
                               strokeLinecap="round"
                               strokeDasharray={`${2 * Math.PI * 40}`}
                               strokeDashoffset={`${2 * Math.PI * 40 * 0.75}`}
@@ -1137,16 +1137,16 @@ const handleUpload = async (files) => {
                             const active = cur >= start && cur <= end;
                             return (
                               <div key={step.label} className="flex items-center gap-2">
-                                {i > 0 && <div className={`w-10 h-px transition-colors ${done ? 'bg-blue-500' : isDark ? 'bg-gray-700' : 'bg-gray-300'}`}/>}
+                                {i > 0 && <div className={`w-10 h-px transition-colors ${done ? 'bg-zinc-500' : isDark ? 'bg-zinc-800' : 'bg-gray-300'}`}/>}
                                 <div className="flex flex-col items-center gap-1.5">
                                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                                    done   ? 'bg-blue-600 text-white' :
-                                    active ? 'bg-blue-500/20 border-2 border-blue-500 text-blue-400' :
-                                    isDark ? 'bg-gray-800 border border-gray-700 text-gray-600' : 'bg-gray-100 border border-gray-300 text-gray-400'
+                                    done   ? 'bg-zinc-600 text-white' :
+                                    active ? 'bg-zinc-700/30 border-2 border-zinc-600 text-zinc-300' :
+                                    isDark ? 'bg-zinc-900 border border-zinc-800 text-zinc-600' : 'bg-gray-100 border border-gray-300 text-gray-400'
                                   }`}>
                                     {done ? '✓' : i + 1}
                                   </div>
-                                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${active ? 'text-blue-400' : isDark ? 'text-gray-600' : 'text-gray-400'}`}>{step.label}</span>
+                                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${active ? 'text-zinc-300' : isDark ? 'text-zinc-600' : 'text-gray-400'}`}>{step.label}</span>
                                 </div>
                               </div>
                             );
@@ -1177,7 +1177,7 @@ const handleUpload = async (files) => {
                             <select
                               value={selectedBroker}
                               onChange={e => setSelectedBroker(e.target.value)}
-                              className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                              className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                             >
                               <option value="auto">Auto-detect</option>
                               <option value="montrose">Montrose</option>
@@ -1185,12 +1185,12 @@ const handleUpload = async (files) => {
                               <option value="nordnet">Nordnet</option>
                             </select>
                           </div>
-                          <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-gray-700 text-gray-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                          <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-800 text-zinc-400' : 'bg-zinc-700 hover:bg-zinc-600 text-white'}`}>
                             {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
                           </button>
                           <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Supports Montrose, Avanza and Nordnet. Select a broker manually or use auto-detect.</p>
                           {uploadProgress && (
-                            <div className={`rounded-lg px-3 py-2.5 text-sm border ${isDark ? 'bg-blue-900/20 border-blue-800/40 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-700'}`}>
+                            <div className={`rounded-lg px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-800/40 border-zinc-700/40 text-zinc-300' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
                               <div className="flex items-center gap-2"><div className="animate-spin">⏳</div><span className="font-medium">{uploadProgress.label}</span></div>
                             </div>
                           )}
@@ -1198,7 +1198,7 @@ const handleUpload = async (files) => {
                           {!uploadProgress && uploadStatus?.results && (
                             <div className="flex flex-col gap-1.5">
                               {uploadStatus.results.map((r, i) => (
-                                <div key={i} className={`${isDark ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-lg px-3 py-2 text-xs`}>
+                                <div key={i} className={`${isDark ? 'bg-zinc-800/50' : 'bg-gray-50'} rounded-lg px-3 py-2 text-xs`}>
                                   {r.error ? <p className="text-red-400">✗ {r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
                                 </div>
                               ))}
@@ -1206,18 +1206,18 @@ const handleUpload = async (files) => {
                             </div>
                           )}
                           {txCount.total > 0 && (
-                            <div className={`${isDark ? 'bg-gray-700/50' : 'bg-gray-50'} rounded-xl px-3 py-2.5 flex items-center justify-between`}>
+                            <div className={`${isDark ? 'bg-zinc-800/50' : 'bg-gray-50'} rounded-xl px-3 py-2.5 flex items-center justify-between`}>
                               <div><p className="text-sm font-bold text-green-400">{txCount.trades} trades</p><p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{txCount.total} total in history</p></div>
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-green-400"><polyline points="20 6 9 17 4 12"/></svg>
                             </div>
                           )}
                           {txCount.trades > 0 && (
                             <>
-                              <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
+                              <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
                                 {syncLoading ? '⏳ Syncing…' : '⟳ Sync Portfolio'}
                               </button>
                               {syncStatus && <p className={`text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>{syncStatus}</p>}
-                              <button onClick={handleResolveTickers} disabled={resolveLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} disabled:opacity-50`}>
+                              <button onClick={handleResolveTickers} disabled={resolveLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${isDark ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} disabled:opacity-50`}>
                                 {resolveLoading ? '⏳ Resolving...' : '🔍 Resolve Tickers'}
                               </button>
                               {resolveStatus && <p className={`text-xs ${resolveStatus.startsWith('✓') ? 'text-green-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>{resolveStatus}</p>}
@@ -1310,15 +1310,15 @@ const handleUpload = async (files) => {
                             <div className="flex items-center justify-between mb-6">
                               <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Best &amp; Worst Today</h3>
                               <div className="relative today-cog-dropdown">
-                                <button onClick={() => setTodayCogOpen(o => !o)} className={`p-1.5 rounded-lg border ${isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700 border-gray-700' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100 border-gray-200'} transition`}>
+                                <button onClick={() => setTodayCogOpen(o => !o)} className={`p-1.5 rounded-lg border ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800 border-zinc-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100 border-gray-200'} transition`}>
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
                                 </button>
                                 {todayCogOpen && (
-                                  <div className={`absolute right-0 top-8 z-50 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl shadow-xl overflow-hidden w-44`}>
-                                    <div className={`px-3 py-2 text-xs font-semibold ${isDark ? 'text-gray-500 border-gray-700' : 'text-gray-400 border-gray-200'} uppercase tracking-wider border-b`}>Sort by</div>
+                                  <div className={`absolute right-0 top-8 z-50 ${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-gray-200'} border rounded-xl shadow-xl overflow-hidden w-44`}>
+                                    <div className={`px-3 py-2 text-xs font-semibold ${isDark ? 'text-zinc-500 border-zinc-800' : 'text-gray-400 border-gray-200'} uppercase tracking-wider border-b`}>Sort by</div>
                                     {[['currency',`Amount (${sym})`],['pct','Percentage (%)']].map(([val, label]) => (
-                                      <button key={val} onClick={() => { setTodaySortMode(val); setTodayCogOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center justify-between ${todaySortMode === val ? `${isDark ? 'text-white bg-gray-700' : 'text-gray-900 bg-gray-100'}` : `${isDark ? 'text-gray-400 hover:bg-gray-800 hover:text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}`}>
-                                        {label}{todaySortMode === val && <span className="text-blue-400 text-xs">✓</span>}
+                                      <button key={val} onClick={() => { setTodaySortMode(val); setTodayCogOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center justify-between ${todaySortMode === val ? `${isDark ? 'text-white bg-zinc-800' : 'text-gray-900 bg-gray-100'}` : `${isDark ? 'text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}`}`}>
+                                        {label}{todaySortMode === val && <span className="text-zinc-300 text-xs">✓</span>}
                                       </button>
                                     ))}
                                   </div>
@@ -1352,14 +1352,14 @@ const handleUpload = async (files) => {
                     <div className={`${cardCls} overflow-hidden`}>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
-                          <thead className={`${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'} border-b`}>
-                            <tr>{COLS.map(c => <th key={c.key} onClick={() => handleSort(c.key)} className={`p-4 font-bold ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'} uppercase tracking-wider whitespace-nowrap cursor-pointer select-none transition text-xs`}>{c.label}{sortCol === c.key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</th>)}</tr>
+                          <thead className={`${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-gray-50 border-gray-200'} border-b`}>
+                            <tr>{COLS.map(c => <th key={c.key} onClick={() => handleSort(c.key)} className={`p-4 font-bold ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'} uppercase tracking-wider whitespace-nowrap cursor-pointer select-none transition text-xs`}>{c.label}{sortCol === c.key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</th>)}</tr>
                           </thead>
                           <tbody>
                             {rows.map(s => (
-                              <tr key={s.ticker} className={`border-t ${s.noData ? (isDark ? 'border-red-900/40 bg-red-900/10' : 'border-red-100 bg-red-50/50') : (isDark ? 'border-gray-700 hover:bg-gray-700/30' : 'border-gray-100 hover:bg-gray-50')} transition`}>
+                              <tr key={s.ticker} className={`border-t ${s.noData ? (isDark ? 'border-red-900/40 bg-red-900/10' : 'border-red-100 bg-red-50/50') : (isDark ? 'border-zinc-800 hover:bg-zinc-800/30' : 'border-gray-100 hover:bg-gray-50')} transition`}>
                                 <td className="p-4 font-bold"><span className="flex items-center gap-2"><img src={`https://flagcdn.com/${s.flag}.svg`} alt={s.flag} className="w-4 h-3 object-cover rounded-sm shrink-0" /><span>{s.cleanName || s.name}</span>{s.noData && <span className={`text-xs font-normal ${isDark ? 'text-red-500' : 'text-red-400'}`}>no data</span>}</span></td>
-                                <td className={`p-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{s.ticker}</td>
+                                <td className={`p-4 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{s.ticker}</td>
                                 <td className="p-4 whitespace-nowrap">{fmt(s.nativePrice)} {s.currency}</td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct == null ? '' : s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct == null ? '—' : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</td>
                                 <td className="p-4">{s.quantity}</td>
@@ -1381,10 +1381,10 @@ const handleUpload = async (files) => {
                       <>
                         <div className={`${cardCls} p-6`}>
                           <div className="flex items-center justify-between mb-5">
-                            <h3 className={`text-sm font-bold ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Portfolio Performance</h3>
+                            <h3 className={`text-sm font-bold ${isDark ? 'text-zinc-400' : 'text-gray-500'} uppercase tracking-wider`}>Portfolio Performance</h3>
                             <div className="flex gap-1">
                               {['1W','1M','3M','1Y','3Y'].map(p => (
-                                <button key={p} onClick={() => { setPerfPeriod(p); fetchPerfData(p); }} className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${perfPeriod === p ? 'bg-blue-600 text-white' : `${isDark ? 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-900'}`}`}>{p}</button>
+                                <button key={p} onClick={() => { setPerfPeriod(p); fetchPerfData(p); }} className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${perfPeriod === p ? 'bg-zinc-700 text-white' : `${isDark ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-900'}`}`}>{p}</button>
                               ))}
                             </div>
                           </div>
@@ -1404,7 +1404,7 @@ const handleUpload = async (files) => {
                           { title: 'Sector Exposure', data: getSectorData(dashboardData.portfolio) },
                         ].map(({ title, data }) => (
                           <div key={title} className={`${cardCls} p-6`}>
-                            <h3 className={`text-sm font-bold ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider mb-6`}>{title}</h3>
+                            <h3 className={`text-sm font-bold ${isDark ? 'text-zinc-400' : 'text-gray-500'} uppercase tracking-wider mb-6`}>{title}</h3>
                             <PieChart data={data} />
                           </div>
                         ))}
@@ -1420,10 +1420,10 @@ const handleUpload = async (files) => {
                     return (
                       <div className={`${cardCls} p-5`}>
                         <div className="flex items-center gap-3 mb-4">
-                          <span className={`font-bold text-sm ${isDark ? 'bg-gray-700' : 'bg-gray-100'} px-2 py-1 rounded-lg`}>{ticker}</span>
+                          <span className={`font-bold text-sm ${isDark ? 'bg-zinc-800' : 'bg-gray-100'} px-2 py-1 rounded-lg`}>{ticker}</span>
                           <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{name}</span>
                         </div>
-                        {!data ? <div className="flex items-center justify-center h-16"><div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/></div> : (
+                        {!data ? <div className="flex items-center justify-center h-16"><div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div> : (
                           <div className={`flex gap-6`}>
                             <div><p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Institutional</p><p className="text-xl font-bold">{data.institutionPct ? `${(data.institutionPct * 100).toFixed(1)}%` : '—'}</p></div>
                             <div><p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Insider</p><p className="text-xl font-bold">{data.insiderPct ? `${(data.insiderPct * 100).toFixed(1)}%` : '—'}</p></div>
@@ -1435,9 +1435,9 @@ const handleUpload = async (files) => {
                   return (
                     <div className="flex flex-col gap-6">
                       <div className="flex items-center gap-3">
-                        <input type="text" value={ownershipFilter} onChange={e => setOwnershipFilter(e.target.value)} placeholder="Filter..." className={`flex-1 px-3 py-2 ${isDark ? 'bg-gray-700 text-white placeholder-gray-500' : 'bg-gray-100 text-gray-900'} rounded-lg text-sm outline-none`} />
+                        <input type="text" value={ownershipFilter} onChange={e => setOwnershipFilter(e.target.value)} placeholder="Filter..." className={`flex-1 px-3 py-2 ${isDark ? 'bg-zinc-800 text-white placeholder-zinc-500' : 'bg-gray-100 text-gray-900'} rounded-lg text-sm outline-none`} />
                       </div>
-                      {!Object.keys(ownershipData).length && !ownershipLoading && <button onClick={() => fetchOwnership(allHoldings)} className="w-full py-3 bg-blue-700 hover:bg-blue-600 text-white font-bold rounded-xl transition">Load Ownership Data</button>}
+                      {!Object.keys(ownershipData).length && !ownershipLoading && <button onClick={() => fetchOwnership(allHoldings)} className="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white font-bold rounded-xl transition">Load Ownership Data</button>}
                       <div className="flex flex-col gap-4">{allHoldings.map(h => <OwnershipCard key={h.ticker} ticker={h.ticker} name={h.name}/>)}</div>
                     </div>
                   );
@@ -1447,26 +1447,26 @@ const handleUpload = async (files) => {
                   <div className="flex flex-col gap-6">
                     {!dividends || dividends.totalAllTime === 0 ? <EmptyState icon="💰" title="No dividends" desc="Upload and sync your portfolio to see dividend history." /> : (
                       <div className={`${cardCls} p-6`}>
-                        <h3 className={`text-sm font-bold ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider mb-6`}>Dividend Dashboard</h3>
+                        <h3 className={`text-sm font-bold ${isDark ? 'text-zinc-400' : 'text-gray-500'} uppercase tracking-wider mb-6`}>Dividend Dashboard</h3>
                         <div className="grid grid-cols-2 gap-4 mb-8">
-                          <div className={`${isDark ? 'bg-gray-900' : 'bg-gray-50'} rounded-xl p-4`}><p className={`text-xs font-bold uppercase mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>All-Time</p><p className="text-3xl font-bold">{fmtSym(dividends.totalAllTime)}</p></div>
-                          <div className={`${isDark ? 'bg-gray-900' : 'bg-gray-50'} rounded-xl p-4`}><p className={`text-xs font-bold uppercase mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>This Year</p><p className="text-3xl font-bold">{fmtSym(dividends.totalThisYear)}</p></div>
+                          <div className={`${isDark ? 'bg-zinc-950' : 'bg-gray-50'} rounded-xl p-4`}><p className={`text-xs font-bold uppercase mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>All-Time</p><p className="text-3xl font-bold">{fmtSym(dividends.totalAllTime)}</p></div>
+                          <div className={`${isDark ? 'bg-zinc-950' : 'bg-gray-50'} rounded-xl p-4`}><p className={`text-xs font-bold uppercase mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>This Year</p><p className="text-3xl font-bold">{fmtSym(dividends.totalThisYear)}</p></div>
                         </div>
                         <div className="flex flex-col gap-1 mb-8">
                           {dividends.byYear.map(({ year, total, stocks }) => (
                             <div key={year}>
-                              <div onClick={() => setExpandedYear(expandedYear === year ? null : year)} className={`flex items-center gap-3 py-1 cursor-pointer rounded-lg px-2 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition`}>
+                              <div onClick={() => setExpandedYear(expandedYear === year ? null : year)} className={`flex items-center gap-3 py-1 cursor-pointer rounded-lg px-2 ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-50'} transition`}>
                                 <span className={`text-sm font-bold w-12 shrink-0 text-right ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{year}</span>
-                                <div className={`flex-1 h-6 ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded overflow-hidden`}><div className="h-full bg-slate-500 rounded" style={{ width: `${(total / Math.max(...dividends.byYear.map(y=>y.total))) * 100}%` }} /></div>
+                                <div className={`flex-1 h-6 ${isDark ? 'bg-zinc-800' : 'bg-gray-100'} rounded overflow-hidden`}><div className="h-full bg-slate-500 rounded" style={{ width: `${(total / Math.max(...dividends.byYear.map(y=>y.total))) * 100}%` }} /></div>
                                 <span className={`text-sm font-bold w-28 text-right shrink-0 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{fmtSym(total)}</span>
                                 <span className={`text-xs w-4 shrink-0 text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{expandedYear === year ? '▲' : '▼'}</span>
                               </div>
                               <div style={{ maxHeight: expandedYear === year ? `${(stocks?.length || 0) * 28 + 16}px` : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
-                                <div className={`ml-14 mt-1 mb-2 flex flex-col gap-1 border-l-2 ${isDark ? 'border-gray-700' : 'border-gray-200'} pl-3`}>
+                                <div className={`ml-14 mt-1 mb-2 flex flex-col gap-1 border-l-2 ${isDark ? 'border-zinc-800' : 'border-gray-200'} pl-3`}>
                                   {stocks?.map(({ name, total: sTotal }) => (
                                     <div key={name} className="flex items-center gap-3">
                                       <span className={`text-xs w-44 shrink-0 truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{name}</span>
-                                      <div className={`flex-1 h-4 ${isDark ? 'bg-gray-700' : 'bg-gray-100'} rounded overflow-hidden`}><div className="h-full bg-slate-600 rounded" style={{ width: `${(sTotal / (stocks[0]?.total || 1)) * 100}%` }} /></div>
+                                      <div className={`flex-1 h-4 ${isDark ? 'bg-zinc-800' : 'bg-gray-100'} rounded overflow-hidden`}><div className="h-full bg-slate-600 rounded" style={{ width: `${(sTotal / (stocks[0]?.total || 1)) * 100}%` }} /></div>
                                       <span className={`text-xs w-24 text-right shrink-0 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{fmtSym(sTotal)}</span>
                                     </div>
                                   ))}
@@ -1486,12 +1486,12 @@ const handleUpload = async (files) => {
                       <div className={`${cardCls} overflow-hidden`}>
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-sm">
-                            <thead className={`${isDark ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'} border-b`}>
-                              <tr>{['Date','Type','Ticker','Name','Qty','Price',`Total (${sym})`].map(h => <th key={h} className={`p-3 font-bold text-xs ${isDark ? 'text-gray-400' : 'text-gray-400'} uppercase tracking-wider`}>{h}</th>)}</tr>
+                            <thead className={`${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-gray-50 border-gray-200'} border-b`}>
+                              <tr>{['Date','Type','Ticker','Name','Qty','Price',`Total (${sym})`].map(h => <th key={h} className={`p-3 font-bold text-xs ${isDark ? 'text-zinc-400' : 'text-gray-400'} uppercase tracking-wider`}>{h}</th>)}</tr>
                             </thead>
                             <tbody>
                               {txHistory.slice(0, 500).map((tx, i) => (
-                                <tr key={i} className={`border-t ${isDark ? 'border-gray-700/50 hover:bg-gray-700/20' : 'border-gray-100 hover:bg-gray-50'} transition`}>
+                                <tr key={i} className={`border-t ${isDark ? 'border-zinc-800/50 hover:bg-zinc-800/20' : 'border-gray-100 hover:bg-gray-50'} transition`}>
                                   <td className="p-3 text-xs font-mono">{tx.date}</td>
                                   <td className="p-3">{tx.type}</td>
                                   <td className="p-3 font-bold">{tx.ticker}</td>
@@ -1518,17 +1518,17 @@ const handleUpload = async (files) => {
 
   // ── Auth screens ────────────────────────────────────────────────────────────
   if (authStatus === 'loading') return (
-    <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
-      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+    <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-zinc-950' : 'bg-gray-100'}`}>
+      <div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
     </div>
   );
 
   if (authStatus !== 'logged-in') {
     const isSignup = authMode === 'signup';
     return (
-      <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
-        <div className={`w-full max-w-sm mx-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl shadow-2xl overflow-hidden`}>
-          <div className="bg-linear-to-br from-blue-600 to-blue-800 p-8 text-center">
+      <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-zinc-950 text-white' : 'bg-gray-100 text-gray-900'}`}>
+        <div className={`w-full max-w-sm mx-4 ${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-gray-200'} border rounded-2xl shadow-2xl overflow-hidden`}>
+          <div className={`${isDark ? 'bg-zinc-950 border-b border-zinc-800' : 'bg-gray-50 border-b border-gray-200'} p-8 text-center`}>
             <div className="flex flex-col items-center justify-center gap-3">
               <svg width="32" height="32" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="rgba(255,255,255,0.15)"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               <span className="text-2xl font-bold text-white tracking-tight">Verumen</span>
@@ -1536,7 +1536,7 @@ const handleUpload = async (files) => {
           </div>
           <div className="p-8">
             {sessionExpiredMsg && (
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 mb-5 text-sm text-blue-400">
+              <div className="bg-zinc-800/40 border border-zinc-700/30 rounded-lg px-4 py-3 mb-5 text-sm text-zinc-300">
                 {sessionExpiredMsg}
               </div>
             )}
@@ -1546,7 +1546,7 @@ const handleUpload = async (files) => {
                 <div key={field}>
                   <label className={`text-xs font-semibold uppercase tracking-wider block mb-1.5 ${isDark?'text-gray-400':'text-gray-500'}`}>{field==='confirmPassword'?'Confirm Password':field.charAt(0).toUpperCase()+field.slice(1)}</label>
                   <input type={field==='username'?'text':'password'} value={authForm[field]} onChange={e=>setAuthForm(f=>({...f,[field]:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} autoFocus={field==='username'}
-                    className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition ${isDark?'bg-gray-700 border-gray-600 text-white placeholder-gray-500 focus:border-blue-500':'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-500'} focus:ring-2 focus:ring-blue-500/20`}/>
+                    className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition ${isDark?'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500 focus:border-zinc-600':'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-gray-400'} focus:ring-2 focus:ring-zinc-600/20`}/>
                 </div>
               ))}
               {isSignup && (
@@ -1555,7 +1555,7 @@ const handleUpload = async (files) => {
                   <div className="flex items-center gap-2">
                     <img src={`https://flagcdn.com/${authForm.country||'se'}.svg`} alt="" className="w-8 h-6 rounded-sm shrink-0" />
                     <select value={authForm.country||'se'} onChange={e=>setAuthForm(f=>({...f,country:e.target.value}))}
-                      className={`flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition ${isDark?'bg-gray-700 border-gray-600 text-white':'bg-gray-50 border-gray-200 text-gray-900'}`}>
+                      className={`flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition ${isDark?'bg-zinc-800 border-zinc-700 text-white':'bg-gray-50 border-gray-200 text-gray-900'}`}>
                       {[
                         {code:'se',name:'🇸🇪 Sweden'},{code:'no',name:'🇳🇴 Norway'},{code:'dk',name:'🇩🇰 Denmark'},
                         {code:'fi',name:'🇫🇮 Finland'},{code:'de',name:'🇩🇪 Germany'},{code:'gb',name:'🇬🇧 United Kingdom'},
@@ -1571,7 +1571,7 @@ const handleUpload = async (files) => {
                   </div>
                 </div>
               )}
-              <button onClick={handleAuth} disabled={authLoading} className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition text-sm">
+              <button onClick={handleAuth} disabled={authLoading} className="w-full bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition text-sm">
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
               <div className="h-5 flex items-center justify-center">
@@ -1587,13 +1587,13 @@ const handleUpload = async (files) => {
 
   // ── Initializing screen (shown once after login until first data fetch completes) ──
   if (isInitializing) return (
-    <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+    <div className={`flex h-screen items-center justify-center ${isDark ? 'bg-zinc-950' : 'bg-gray-100'}`}>
       <div className="flex flex-col items-center gap-4">
         <div className="flex items-center gap-3 mb-2">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#3b82f6"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#27272a"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Verumen</span>
         </div>
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"/>
+        <div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
         <p className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Loading user settings…</p>
       </div>
     </div>
