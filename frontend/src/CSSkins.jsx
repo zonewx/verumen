@@ -250,12 +250,13 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Auto-load Steam inventory as soon as Steam ID is known
+  // Fetch Steam inventory whenever the user lands on the inventory tab.
+  // fetchSteamInventory has a 10-min sessionStorage cache so rapid revisits are free.
   useEffect(() => {
-    if (settings.steam_id && !steamInventory) {
+    if (settings.steam_id && tab === 'inventory') {
       fetchSteamInventory();
     }
-  }, [settings.steam_id]);
+  }, [settings.steam_id, tab]);
 
   // Auto-refresh while server signals prices are still being fetched in background.
   // Depends on the steamInventory object reference so it re-evaluates after every refresh,

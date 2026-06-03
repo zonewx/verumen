@@ -408,7 +408,16 @@ export default function App() {
     fetchAllData(portfolio, baseCurrency);
   };
 
-  const [retryingFailed, setRetryingFailed] = useState(false);
+  // Auto-refresh prices every 20 minutes while the user is on the page
+  useEffect(() => {
+    if (!authUsername || portfolio.length === 0) return;
+    const id = setInterval(() => {
+      if (!isAppLoading) handleRefreshPrices();
+    }, 20 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [authUsername, portfolio, baseCurrency, isAppLoading]);
+
+  const [retryingFailed, setRetryingFailed]= useState(false);
   const handleRetryFailed = async () => {
     if (!failedHoldings.length || retryingFailed) return;
     setRetryingFailed(true);
@@ -828,25 +837,41 @@ const handleUpload = async (files) => {
     const Card = ({ s }) => {
       const pos = s.todayChangePct >= 0;
       return (
-        <div className={`bg-gray-900 rounded-xl p-4 border ${pos ? 'border-green-800' : 'border-red-800'} flex flex-col gap-2`}>
+        <div className={`rounded-xl p-4 flex flex-col gap-2.5 border-l-2 ${pos ? 'border-l-emerald-500' : 'border-l-red-500'} ${isDark ? 'bg-zinc-900' : 'bg-gray-50 border border-gray-100'}`}>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-gray-100 font-bold uppercase truncate">{s.ticker}</span>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pos ? 'bg-green-900 text-green-400' : 'bg-red-900 text-red-400'}`}>
-              {`${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}
+            <span className={`text-[10px] font-semibold uppercase tracking-[0.12em] truncate ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{s.ticker}</span>
+            <span className={`text-xs font-bold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
+              {`${pos ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}
             </span>
           </div>
-          <div className="text-sm font-bold text-white truncate flex items-center gap-1.5"><img src={`https://flagcdn.com/${s.flag}.svg`} alt={s.flag} className="w-4 h-3 object-cover rounded-sm shrink-0" />{s.name}</div>
-          <div className="text-xs text-gray-300">{fmt(s.nativePrice)} {s.currency}</div>
-          <div className={`text-xs font-semibold ${pos ? 'text-green-400' : 'text-red-400'}`}>
+          <div className={`text-sm font-semibold truncate flex items-center gap-1.5 ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>
+            <img src={`https://flagcdn.com/${s.flag}.svg`} alt={s.flag} className="w-4 h-3 object-cover rounded-sm shrink-0" />
+            {s.cleanName || s.name}
+          </div>
+          <div className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{fmt(s.nativePrice)} {s.currency}</div>
+          <div className={`text-xs font-semibold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
             {`${s.todayGainBase >= 0 ? '+' : ''}${fmtSym(s.todayGainBase)}`}
           </div>
         </div>
       );
     };
+    const labelCls = `text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-gray-400'}`;
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div><div className="flex items-center gap-2 mb-4"><div className="w-1 h-5 bg-green-500 rounded"/><h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Best Today</h3></div><div className="grid grid-cols-3 gap-3">{best.map(s => <Card key={s.ticker} s={s}/>)}</div></div>
-        <div><div className="flex items-center gap-2 mb-4"><div className="w-1 h-5 bg-red-500 rounded"/><h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider">Worst Today</h3></div><div className="grid grid-cols-3 gap-3">{worst.map(s => <Card key={s.ticker} s={s}/>)}</div></div>
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-0.5 h-4 bg-emerald-500 rounded-full"/>
+            <h3 className={labelCls}>Best Today</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-3">{best.map(s => <Card key={s.ticker} s={s}/>)}</div>
+        </div>
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-0.5 h-4 bg-red-500 rounded-full"/>
+            <h3 className={labelCls}>Worst Today</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-3">{worst.map(s => <Card key={s.ticker} s={s}/>)}</div>
+        </div>
       </div>
     );
   };
@@ -868,7 +893,7 @@ const handleUpload = async (files) => {
 
   const PortfolioView = () => {
     const location = useLocation();
-    const cardCls = `${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl`;
+    const cardCls = `${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-gray-200'} border rounded-xl`;
 
     const pathToTab = {
       '/portfolio':              'overview',
@@ -1245,21 +1270,43 @@ const handleUpload = async (files) => {
                           </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                          {[
-                            { label: 'Total Value', value: fmtSym(totals?.value) },
-                            { label: "Today's Gain", value: todayTotal !== null ? `${todayPositive ? '+' : ''}${fmtSym(todayTotal)}` : '—', color: todayPositive ? 'text-green-400' : 'text-red-400', sub: todayPct != null ? { label: "Today's Return", value: `${todayPositive ? '+' : ''}${todayPct.toFixed(2)}%`, color: todayPositive ? 'text-green-400' : 'text-red-400' } : null },
-                            { label: 'Total Return', value: totals ? `${plSign}${totals.returnPct.toFixed(2)}%` : '—', color: plColor, sub: totals ? { label: 'Profit / Loss', value: `${plSign}${fmtSym(totals.profit)}`, color: plColor } : null },
-                          ].map((card, i) => (
-                            <div key={i} className={`${cardCls} p-5 flex flex-col gap-4`}>
-                              <div><h4 className={`text-xs font-semibold ${isDark ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-wider mb-2`}>{card.label}</h4><p className={`text-3xl font-bold ${card.color || ''}`}>{card.value}</p></div>
-                              {card.sub && <div><h4 className={`text-xs font-semibold ${isDark ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-wider mb-2`}>{card.sub.label}</h4><p className={`text-3xl font-bold ${card.sub.color}`}>{card.sub.value}</p></div>}
-                            </div>
-                          ))}
+                          {(() => {
+                            const statCard = `${isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-gray-200'} border rounded-2xl p-6`;
+                            const statLabel = `text-[10px] font-semibold tracking-[0.14em] uppercase mb-4 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`;
+                            return (<>
+                              <div className={statCard}>
+                                <p className={statLabel}>Total Value</p>
+                                <p className="text-4xl font-bold tracking-tight">{fmtSym(totals?.value)}</p>
+                              </div>
+                              <div className={statCard}>
+                                <p className={statLabel}>Today's Gain</p>
+                                <p className={`text-4xl font-bold tracking-tight ${todayPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {todayTotal !== null ? `${todayPositive ? '+' : ''}${fmtSym(todayTotal)}` : '—'}
+                                </p>
+                                {todayPct != null && (
+                                  <p className={`text-sm font-medium mt-2.5 ${todayPositive ? 'text-emerald-400/60' : 'text-red-400/60'}`}>
+                                    {`${todayPositive ? '+' : ''}${todayPct.toFixed(2)}% today`}
+                                  </p>
+                                )}
+                              </div>
+                              <div className={statCard}>
+                                <p className={statLabel}>Total Return</p>
+                                <p className={`text-4xl font-bold tracking-tight ${plColor}`}>
+                                  {totals ? `${plSign}${totals.returnPct.toFixed(2)}%` : '—'}
+                                </p>
+                                {totals && (
+                                  <p className={`text-sm font-medium mt-2.5 ${plPositive ? 'text-green-400/60' : 'text-red-400/60'}`}>
+                                    {`${plSign}${fmtSym(totals.profit)} profit / loss`}
+                                  </p>
+                                )}
+                              </div>
+                            </>);
+                          })()}
                         </div>
                         {dashboardData.portfolio.length > 0 && (
                           <div className={`${cardCls} p-6`}>
                             <div className="flex items-center justify-between mb-6">
-                              <h3 className={`text-sm font-bold ${isDark ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Best &amp; Worst Today</h3>
+                              <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Best &amp; Worst Today</h3>
                               <div className="relative today-cog-dropdown">
                                 <button onClick={() => setTodayCogOpen(o => !o)} className={`p-1.5 rounded-lg border ${isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700 border-gray-700' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100 border-gray-200'} transition`}>
                                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
