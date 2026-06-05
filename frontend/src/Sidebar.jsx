@@ -436,11 +436,19 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         </div>
       </nav>
 
-      <div className="border-t border-zinc-700 p-2">
+      <div
+        style={{
+          height: '1px',
+          background: isDark ? '#3f3f46' : '#e5e7eb',
+          width: isExpanded ? '240px' : '64px',
+          transition: 'width 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      />
+      <div className="p-2">
         <div className="flex items-center gap-1">
           <button
             onClick={() => navigate(`/profile/${currentUser?.username}`)}
-            className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg ${hoverBg} transition-colors ${textPrimary}`}
+            className={`flex-1 min-w-0 overflow-hidden flex items-center gap-3 px-3 py-2 rounded-lg ${hoverBg} transition-colors ${textPrimary}`}
             title={!isExpanded ? currentUser?.username : ''}
           >
             <div className="w-8 h-8 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">
