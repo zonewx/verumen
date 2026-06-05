@@ -302,7 +302,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
   return (
     <>
     {/* Fixed sidebar header — sits above GlobalBar in the sidebar lane */}
-    <div className={`fixed top-0 left-0 ${sidebarWidth} h-12 z-[51] ${bg} flex items-center px-3 gap-2 transition-all duration-300`}>
+    <div className={`fixed top-0 left-0 ${sidebarWidth} h-12 z-[51] ${bg} flex items-center px-3 gap-2 transition-all duration-300 overflow-hidden`}>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className={`p-2 rounded-lg ${hoverBg} transition-colors shrink-0`}
@@ -314,7 +314,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       <div className={`w-9 shrink-0 transition-opacity duration-200 ${isExpanded ? 'opacity-100 delay-150' : 'opacity-0 delay-0'}`} />
     </div>
 
-    <div className={`${sidebarWidth} ${bg} transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
+    <div className={`${sidebarWidth} ${bg} transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12 overflow-hidden`}>
       <nav className="flex-1 overflow-y-auto p-2">
         <div className="space-y-0.5">
           {visibleMenuItems.map(item => {
