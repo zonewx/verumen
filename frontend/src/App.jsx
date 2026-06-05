@@ -230,7 +230,7 @@ export default function App() {
   };
 
   const handleNavigate = (dest, param = null) => {
-    const map = { home:'/', portfolio:'/portfolio', skins:'/skins', social:'/social', friends:'/friends', profile:'/profile', admin:'/admin', moderator:'/moderator' };
+    const map = { home:'/', portfolio:'/portfolio', skins:'/skins', social:'/home', friends:'/friends', profile:'/profile', admin:'/admin', moderator:'/moderator' };
     if (dest === 'view-profile' && param) navigate(`/profile/@${param}`);
     else navigate(map[dest] || '/');
   };
@@ -753,7 +753,7 @@ const handleUpload = async (files) => {
     if (p === '/') document.title = `Verumen — ${authUsername}`;
     else if (p === '/portfolio') document.title = 'Verumen — Portfolio';
     else if (p === '/skins') document.title = 'Verumen — Skins';
-    else if (p === '/social') document.title = 'Verumen — Social';
+    else if (p === '/home') document.title = 'Verumen — Social';
     else if (p === '/profile') document.title = `Verumen — @${authUsername}`;
     else if (p.startsWith('/profile/@')) document.title = `Verumen — ${p.slice('/profile/'.length)}`;
     else if (p === '/admin') document.title = 'Verumen — Admin';
@@ -1679,8 +1679,8 @@ const handleUpload = async (files) => {
       {/* Main content area */}
       <div className="flex-1 overflow-hidden">
         <Routes>
-          <Route path="/" element={<Navigate to="/social" replace/>}/>
-          <Route path="/social" element={<PageShell {...shellProps}><SocialFeed isDark={isDark} authUsername={authUsername} onViewProfile={u=>navigate(`/profile/@${u}`)}/></PageShell>}/>
+          <Route path="/" element={<Navigate to="/home" replace/>}/>
+          <Route path="/home" element={<PageShell {...shellProps}><SocialFeed isDark={isDark} authUsername={authUsername} onViewProfile={u=>navigate(`/profile/@${u}`)}/></PageShell>}/>
           <Route path="/friends" element={<PageShell {...shellProps}><FriendsPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           
           {/* Portfolio routes */}
@@ -1709,7 +1709,7 @@ const handleUpload = async (files) => {
           <Route path="/admin/announcements" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
 
           <Route path="/moderator" element={<PageShell {...shellProps}><ModeratorPanel isDark={isDark} authUsername={authUsername} userRole={userRole}/></PageShell>}/>
-          <Route path="*" element={<Navigate to="/social" replace/>}/>
+          <Route path="*" element={<Navigate to="/home" replace/>}/>
         </Routes>
       </div>
     </div>

@@ -208,7 +208,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       id: 'home',
       label: 'Home',
       icon: Users,
-      path: '/social',
+      path: '/home',
       subItems: null
     },
     {
