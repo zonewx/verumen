@@ -302,7 +302,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
   return (
     <>
     {/* Fixed sidebar header — sits above GlobalBar in the sidebar lane */}
-    <div className={`fixed top-0 left-0 ${sidebarWidth} h-12 z-[51] ${bg} flex items-center px-3 gap-2 transition-all duration-300 overflow-hidden`}>
+    <div className={`fixed top-0 left-0 ${sidebarWidth} h-12 z-[51] ${bg} flex items-center px-3 gap-2 transition-all duration-300`}>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className={`p-2 rounded-lg ${hoverBg} transition-colors shrink-0`}
@@ -311,15 +311,8 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         <Menu size={20} className={textPrimary} />
       </button>
       <h1
-        className={`text-lg font-bold ${textPrimary} flex-1 text-center overflow-hidden whitespace-nowrap`}
-        style={{
-          opacity: isExpanded ? 1 : 0,
-          transform: isExpanded ? 'none' : 'translateX(-12px)',
-          transition: isExpanded
-            ? 'opacity 200ms ease 150ms, transform 200ms ease 150ms'
-            : 'opacity 150ms ease, transform 150ms ease',
-          pointerEvents: isExpanded ? 'auto' : 'none',
-        }}
+        className={`text-lg font-bold ${textPrimary} flex-1 whitespace-nowrap`}
+        style={{ pointerEvents: 'none', fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}
       >Verumen</h1>
       <div className="w-9 shrink-0" />
     </div>
