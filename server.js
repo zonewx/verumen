@@ -453,19 +453,11 @@ async function resolveSymbolBatch(transactions, userId) {
   console.log(`[resolveSymbolBatch] ${transactions.length} txs → ${pending.size} need YF (${transactions.length - pending.size} pre-resolved)`);
 
   let delayMs = 150;
+  let yfBackoff = 0; // extra ms added after rate-limited tickers; compounds on bursts, recovers on success
   let resolved = 0;
-  let rateLimitPauseUntil = 0;
   const pendingList = Array.from(pending.entries());
 
   for (const [, { tx, ids }] of pendingList) {
-    // Batch-level 429 cooldown — hold the whole queue until the pause expires
-    const now = Date.now();
-    if (rateLimitPauseUntil > now) {
-      const wait = rateLimitPauseUntil - now;
-      console.log(`[resolveSymbolBatch] Rate limit cooldown: ${Math.ceil(wait / 1000)}s remaining`);
-      await new Promise(r => setTimeout(r, wait));
-    }
-
     const ctx = { apiCalls: 0, rateLimited: false };
     const ticker = await resolveSymbolWithContext(
       tx.raw_ticker || null, tx.isin, tx.name, tx.currency, tx.broker,
@@ -475,10 +467,13 @@ async function resolveSymbolBatch(transactions, userId) {
     resolved++;
 
     if (ctx.rateLimited) {
-      // Pause the entire batch for 30s and increase per-request delay
-      rateLimitPauseUntil = Date.now() + 30000;
+      // Compound backoff: 5s → 10s → 20s → 30s cap. Applies as extra delay after the current
+      // ticker so the next request waits longer — avoids stacking a fixed 30s per-ticker pause.
+      yfBackoff = Math.min(30000, Math.max(yfBackoff * 2, 5000));
       delayMs = Math.min(2000, delayMs * 3);
-      console.log(`[resolveSymbolBatch] Rate limited — 30s batch pause, delay=${delayMs}ms`);
+      console.log(`[resolveSymbolBatch] Rate limited — backoff=${yfBackoff}ms, delay=${delayMs}ms`);
+    } else if (ctx.apiCalls > 0 && yfBackoff > 0) {
+      yfBackoff = Math.max(0, yfBackoff - 2000); // slowly recover after successful calls
     }
 
     if (resolved % 10 === 0 || resolved === pendingList.length) {
@@ -487,7 +482,7 @@ async function resolveSymbolBatch(transactions, userId) {
 
     // Only pace when we actually called Yahoo Finance; instant cache hits need no delay
     if (ctx.apiCalls > 0) {
-      await new Promise(r => setTimeout(r, delayMs));
+      await new Promise(r => setTimeout(r, delayMs + yfBackoff));
     }
   }
 
@@ -551,7 +546,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     if (ctx) ctx.apiCalls++;
     let q = null;
     try {
-      q = await withYFRetry(() => yahooFinance.quote(symbol, {}, { validateResult: false }));
+      q = await withYFRetry(() => yahooFinance.quote(symbol, {}, { validateResult: false }), 8000, 0);
     } catch(e) {
       if (e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '')) {
         if (ctx) ctx.rateLimited = true;
@@ -599,7 +594,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   if (isin && !ctx?.rateLimited) {
     try {
       if (ctx) ctx.apiCalls++;
-      const results = await withYFRetry(() => yahooFinance.search(isin, {}, { validateResult: false }), 5000);
+      const results = await withYFRetry(() => yahooFinance.search(isin, {}, { validateResult: false }), 5000, 0);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const scored = quotes.map(q => {
@@ -627,7 +622,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   if (cleaned?.length >= 3 && !ctx?.rateLimited) {
     try {
       if (ctx) ctx.apiCalls++;
-      const results = await withYFRetry(() => yahooFinance.search(cleaned, {}, { validateResult: false }), 5000);
+      const results = await withYFRetry(() => yahooFinance.search(cleaned, {}, { validateResult: false }), 5000, 0);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
@@ -649,7 +644,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     try {
       if (ctx) ctx.apiCalls++;
       const searchName = name.split(/\s+/).slice(0, 3).join(' ');
-      const results = await withYFRetry(() => yahooFinance.search(searchName, {}, { validateResult: false }), 5000);
+      const results = await withYFRetry(() => yahooFinance.search(searchName, {}, { validateResult: false }), 5000, 0);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
