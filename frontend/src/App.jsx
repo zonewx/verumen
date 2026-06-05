@@ -621,13 +621,12 @@ const handleUpload = async (files) => {
       const res = await apiFetch('/api/transactions/resolve', { method: 'POST', body: JSON.stringify({ force: true }) });
       const data = await res.json();
       setResolveStatus(`✓ Re-resolved ${data.resolved}/${data.total} tickers. Syncing...`);
-      // Bust caches before sync — the portfolio state change from sync triggers fetchAllData,
-      // and forceRefreshRef=true ensures it skips the stale Supabase portfolio_cache that
-      // still has old ticker/flag/currency data from before the re-resolve.
+      // Bust in-memory caches; forceRefreshRef=true bypasses the Supabase portfolio_cache
+      // for this session. The Supabase cache is intentionally kept as a per-ticker price
+      // fallback in case YF is temporarily unavailable during the sync.
       apiCache.del('/api/portfolio-dashboard');
       apiCache.del('/api/portfolio-fingerprint');
       forceRefreshRef.current = true;
-      await apiFetch('/api/portfolio/cached', { method: 'DELETE' });
       await handleSyncPortfolio();
       setTimeout(() => setResolveStatus(''), 4000);
     } catch { setResolveStatus('Force re-resolve failed.'); }

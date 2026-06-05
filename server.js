@@ -1354,11 +1354,26 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     return results;
   };
 
+  // Load last-good Supabase snapshot — used as per-ticker fallback when YF is temporarily down
+  const { data: snapForFallback } = await supabase.from('portfolio_cache')
+    .select('dashboard').eq('user_id', req.user.id).eq('currency', BC).single();
+  const cachedRowMap = {};
+  (snapForFallback?.dashboard?.portfolio || []).forEach(r => { if (r.ticker && r.nativePrice) cachedRowMap[r.ticker] = r; });
+
   let hasStalePrices = false;
   const settled = await fetchWithLimit(portfolio, 3, async h => {
     try {
       const q = await fetchQuote(h.ticker, h.isin, !!forceRefresh);
       if (!q) {
+        const cr = cachedRowMap[h.ticker];
+        if (cr) {
+          hasStalePrices = true;
+          const qty = h.quantity;
+          const qtyRatio = cr.quantity > 0 ? qty / cr.quantity : 1;
+          const currentValueBase = fromSEK(toSEK(cr.nativePrice * qty, cr.currency));
+          const costBase = fromSEK(toSEK((h.avgPrice||0) * qty, cr.currency));
+          return { ...cr, quantity: qty, avgPrice: h.avgPrice||0, currentValue: currentValueBase, profit: currentValueBase - costBase, returnPct: costBase > 0 ? ((currentValueBase - costBase) / costBase) * 100 : 0, todayGainBase: cr.todayGainBase != null ? cr.todayGainBase * qtyRatio : 0, stale: true };
+        }
         const fallbackName = h.name || h.ticker;
         return { ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker,h.isin), currency:h.currency||'SEK', isin:h.isin||null, quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null, noData:true };
       }
