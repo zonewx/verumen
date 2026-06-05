@@ -610,6 +610,21 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
         const best = scored[0];
         const hasPreference = preferredSuffixes.length > 0 || preferUSListing;
         if (!hasPreference || best.score > 0) return save(best.symbol);
+
+        // 5b. ISIN search found listings on other exchanges but not the preferred one.
+        // Derive the base ticker from what was found (e.g. AZN from AZN.L) and probe
+        // with the preferred suffix (e.g. AZN.ST). Handles stocks like AstraZeneca where
+        // the Swedish SDR has a different ISIN from the underlying share.
+        if (preferredSuffixes.length > 0 && !ctx?.rateLimited) {
+          for (const hit of quotes.slice(0, 3)) {
+            const base = hit.symbol.replace(/\.[A-Z0-9]{1,4}$/, '');
+            if (!base || base.length < 2) continue;
+            for (const suffix of preferredSuffixes.slice(0, 1)) {
+              const probed = await verifyQuote(`${base}${suffix}`);
+              if (probed) return save(probed);
+            }
+          }
+        }
       }
     } catch(e) {
       if (e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '')) {
