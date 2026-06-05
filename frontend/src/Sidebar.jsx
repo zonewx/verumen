@@ -344,7 +344,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                       navigate(item.path);
                     }
                   }}
-                  className={`w-full flex items-center py-2 rounded-lg transition-colors ${active ? activeBg : hoverBg} ${textPrimary} ${isExpanded ? 'gap-3 px-3' : 'justify-center px-2'}`}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${active ? activeBg : hoverBg} ${textPrimary}`}
                   title={!isExpanded ? item.label : ''}
                 >
                   <Icon size={20} className={`shrink-0 ${active ? 'text-zinc-200' : textSecondary}`} />
@@ -440,7 +440,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         <div className="flex items-center gap-1">
           <button
             onClick={() => navigate(`/profile/${currentUser?.username}`)}
-            className={`flex items-center py-2 rounded-lg ${hoverBg} transition-colors ${textPrimary} ${isExpanded ? 'flex-1 gap-3 px-3' : 'justify-center px-2'}`}
+            className={`flex-1 flex items-center gap-3 px-3 py-2 rounded-lg ${hoverBg} transition-colors ${textPrimary}`}
             title={!isExpanded ? currentUser?.username : ''}
           >
             <div className="w-8 h-8 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">
@@ -449,8 +449,10 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                 : <User size={16} className="text-white" />}
             </div>
             <div
-              className="flex-1 text-left min-w-0 overflow-hidden"
+              className="text-left min-w-0 overflow-hidden"
               style={{
+                flex: isExpanded ? '1 1 0%' : '0 0 0px',
+                width: isExpanded ? undefined : 0,
                 opacity: isExpanded ? 1 : 0,
                 transform: isExpanded ? 'none' : 'translateX(-12px)',
                 transition: isExpanded
