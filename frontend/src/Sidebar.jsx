@@ -324,7 +324,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       <div className="w-9 shrink-0" />
     </div>
 
-    <div className={`${sidebarWidth} ${bg} transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12 overflow-hidden`}>
+    <div className={`${sidebarWidth} ${bg} transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
       <nav className="flex-1 overflow-y-auto p-2">
         <div className="space-y-0.5">
           {visibleMenuItems.map(item => {
