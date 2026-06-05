@@ -291,6 +291,33 @@ app.get('/api/users/:username/inventory', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Global ISIN cache ────────────────────────────────────────────────────────
+// Shared across all users. Any successful ISIN→ticker resolution is stored here
+// so future imports by any user skip Yahoo Finance entirely for that ISIN.
+//
+// One-time Supabase SQL (run in the SQL editor):
+//   CREATE TABLE IF NOT EXISTS global_isin_cache (
+//     isin TEXT PRIMARY KEY,
+//     ticker TEXT NOT NULL,
+//     updated_at TIMESTAMPTZ DEFAULT NOW()
+//   );
+async function loadGlobalIsinCache(isins) {
+  if (!isins?.length) return {};
+  try {
+    const { data } = await supabase.from('global_isin_cache').select('isin, ticker').in('isin', isins);
+    const map = {};
+    (data || []).forEach(r => { if (r.ticker) map[r.isin] = r.ticker; });
+    return map;
+  } catch { return {}; }
+}
+async function saveGlobalIsinCache(isin, ticker) {
+  if (!isin || !ticker) return;
+  try {
+    await supabase.from('global_isin_cache')
+      .upsert({ isin, ticker, updated_at: new Date().toISOString() }, { onConflict: 'isin' });
+  } catch {}
+}
+
 // ── Ticker cache/overrides helpers ──────────────────────────────────────────
 async function loadTickerCache(userId) {
   const { data } = await supabase.from('ticker_cache').select('cache_key, ticker').eq('user_id', userId);
@@ -363,13 +390,23 @@ function getEffectiveCurrency(currency, isin, broker) {
   return currency || 'SEK';
 }
 
-// Wrap a YF promise with a hard timeout so a hanging call doesn't stall the entire resolver
-function withYFTimeout(promise, ms = 8000) {
-  let timer;
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('YF timeout')), ms); })
-  ]).finally(() => clearTimeout(timer));
+// Wrap a YF factory fn with timeout + one retry for transient failures (network blips, slow responses).
+// Takes a factory (() => yahooFinance.quote(...)) so retries can issue a fresh request.
+// Never retries 429s — those need a full cooldown pause at the batch level.
+async function withYFRetry(fn, ms = 8000, retries = 1) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      let timer;
+      return await Promise.race([
+        Promise.resolve().then(fn),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('YF timeout')), ms); }),
+      ]).finally(() => clearTimeout(timer));
+    } catch(e) {
+      const isRateLimit = e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '');
+      if (isRateLimit || attempt >= retries) throw e;
+      await new Promise(r => setTimeout(r, 700 * (attempt + 1)));
+    }
+  }
 }
 
 function cleanRawTicker(raw) {
@@ -391,52 +428,67 @@ async function resolveSymbolBatch(transactions, userId) {
 
   const results = {};
   // Deduplicate: group by cache key so each unique stock makes YF calls only once.
-  // Multiple transactions for the same stock (e.g. 10 AAPL buys) resolve in one pass.
   const pending = new Map(); // cacheKey → { tx, ids[] }
+
+  // Pre-load global ISIN cache for all ISINs in this batch in a single round-trip
+  const allIsins = [...new Set(transactions.map(t => t.isin).filter(Boolean))];
+  const globalIsins = await loadGlobalIsinCache(allIsins);
 
   for (const tx of transactions) {
     const overrideKey = tx.isin || tx.raw_ticker;
     if (overrideKey && overrides[overrideKey]) { results[tx.id] = overrides[overrideKey]; continue; }
     const cacheKey = `${tx.broker || ''}|${tx.currency || ''}|${tx.isin || tx.raw_ticker || tx.name}`;
     if (cache[cacheKey] !== undefined) { results[tx.id] = cache[cacheKey]; continue; }
+    // Global ISIN cache hit — no YF call needed; backfill per-user cache for next import
+    if (tx.isin && globalIsins[tx.isin]) {
+      results[tx.id] = globalIsins[tx.isin];
+      cache[cacheKey] = globalIsins[tx.isin];
+      saveTickerCacheEntry(userId, cacheKey, globalIsins[tx.isin]).catch(() => {});
+      continue;
+    }
     if (!pending.has(cacheKey)) pending.set(cacheKey, { tx, ids: [] });
     pending.get(cacheKey).ids.push(tx.id);
   }
 
-  console.log(`[resolveSymbolBatch] Grouping: ${transactions.length} transactions → ${pending.size} unique securities`);
+  console.log(`[resolveSymbolBatch] ${transactions.length} txs → ${pending.size} need YF (${transactions.length - pending.size} pre-resolved)`);
 
-  // Adaptive backoff: start at 150ms, increase if we detect rate limiting
   let delayMs = 150;
   let resolved = 0;
-  let consecutiveRateLimits = 0;
+  let rateLimitPauseUntil = 0;
   const pendingList = Array.from(pending.entries());
 
   for (const [, { tx, ids }] of pendingList) {
+    // Batch-level 429 cooldown — hold the whole queue until the pause expires
+    const now = Date.now();
+    if (rateLimitPauseUntil > now) {
+      const wait = rateLimitPauseUntil - now;
+      console.log(`[resolveSymbolBatch] Rate limit cooldown: ${Math.ceil(wait / 1000)}s remaining`);
+      await new Promise(r => setTimeout(r, wait));
+    }
+
+    const ctx = { apiCalls: 0, rateLimited: false };
     const ticker = await resolveSymbolWithContext(
       tx.raw_ticker || null, tx.isin, tx.name, tx.currency, tx.broker,
-      userId, cache, overrides, delayMs
+      userId, cache, overrides, ctx, globalIsins
     );
     for (const id of ids) results[id] = ticker;
     resolved++;
 
-    // Log progress every 10 securities or on completion
+    if (ctx.rateLimited) {
+      // Pause the entire batch for 30s and increase per-request delay
+      rateLimitPauseUntil = Date.now() + 30000;
+      delayMs = Math.min(2000, delayMs * 3);
+      console.log(`[resolveSymbolBatch] Rate limited — 30s batch pause, delay=${delayMs}ms`);
+    }
+
     if (resolved % 10 === 0 || resolved === pendingList.length) {
-      console.log(`[resolveSymbolBatch] Progress: ${resolved}/${pendingList.length} resolved`);
+      console.log(`[resolveSymbolBatch] Progress: ${resolved}/${pendingList.length}`);
     }
 
-    // Adaptive delay: if we see rate limiting, back off exponentially
-    // Start at 150ms, jump to 500ms if rate limited, then 2000ms
-    if (!ticker && tx.isin) {
-      consecutiveRateLimits++;
-      if (consecutiveRateLimits >= 2) {
-        delayMs = Math.min(2000, delayMs * 3);
-        console.log(`[resolveSymbolBatch] Rate limit detected, backing off to ${delayMs}ms`);
-      }
-    } else {
-      consecutiveRateLimits = 0;
+    // Only pace when we actually called Yahoo Finance; instant cache hits need no delay
+    if (ctx.apiCalls > 0) {
+      await new Promise(r => setTimeout(r, delayMs));
     }
-
-    await new Promise(r => setTimeout(r, delayMs));
   }
 
   return results;
@@ -444,83 +496,77 @@ async function resolveSymbolBatch(transactions, userId) {
 
 async function resolveSymbol(rawTicker, isin, name, currency, broker, userId) {
   const [cache, overrides] = await Promise.all([loadTickerCache(userId), loadOverrides(userId)]);
-  return resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides);
+  const globalIsins = await loadGlobalIsinCache(isin ? [isin] : []);
+  return resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides, null, globalIsins);
 }
 
-async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides, delayMs = 150) {
+// ctx = { apiCalls: number, rateLimited: boolean } — tracks YF calls made so the batch
+// loop knows whether to insert a pacing delay. globalIsins is the pre-loaded shared cache.
+async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides, ctx = null, globalIsins = {}) {
   // 1. Manual override wins always
   const overrideKey = isin || rawTicker;
   if (overrideKey && overrides[overrideKey]) return overrides[overrideKey];
 
-  // 2. Cache hit
+  // 2. Per-user cache hit
   const cacheKey = `${broker || ''}|${currency || ''}|${isin || rawTicker || name}`;
   if (cache[cacheKey] !== undefined) return cache[cacheKey];
 
   const save = async (symbol) => {
     if (symbol) {
       await saveTickerCacheEntry(userId, cacheKey, symbol);
-      cache[cacheKey] = symbol; // update local cache
+      cache[cacheKey] = symbol;
+      // Propagate to global ISIN cache so future users skip YF entirely for this ISIN
+      if (isin) {
+        globalIsins[isin] = symbol;
+        saveGlobalIsinCache(isin, symbol).catch(() => {});
+      }
     }
     return symbol;
   };
 
-  // Rate limit handler: if we detect 429 or timeout, signal to increase delay
-  let rateLimited = false;
-  const handleRateLimit = () => { rateLimited = true; };
+  // 3. Global ISIN cache — resolved by any user previously, zero YF calls needed
+  if (isin && globalIsins[isin]) return save(globalIsins[isin]);
 
   const effectiveCurrency = getEffectiveCurrency(currency, isin, broker);
   const isinPrefix = isin ? isin.substring(0, 2).toUpperCase() : null;
-  
+
   // Dual-listing detection: CA companies often dual-list on TSX and NYSE
-  // If trading in USD (raw OR effective), strongly prefer US listing over .TO (Toronto)
   const rawCurrency = (currency || '').toUpperCase();
   const isCanadianInUS = isinPrefix === 'CA' && (rawCurrency === 'USD' || effectiveCurrency === 'USD');
-  
-  // CA ISINs only prefer the US listing when the transaction currency is USD (i.e. user holds
-  // the NYSE cross-listing). A CA ISIN traded in CAD should resolve to .TO instead.
   const preferUSListing = effectiveCurrency === 'USD' || isinPrefix === 'US' || isCanadianInUS;
   const preferredSuffixes = preferUSListing ? [] : (CURRENCY_SUFFIX_MAP[effectiveCurrency] || []);
-  // For Avanza/Nordnet: always probe .ST first — many international stocks (e.g. AZN, BRK) are
-  // cross-listed on Nasdaq Stockholm and the CSV may export the home-market currency (GBP, USD)
-  // even when the user holds the Swedish depository receipt.
-  // Exclude CA-in-USD, pure US ISINs, and native Nordic ISINs (SE/NO/DK/FI) — those have their
-  // own home exchanges and will never have a meaningful Stockholm cross-listing.
+
+  // For Avanza/Nordnet: probe .ST first for cross-listed internationals (e.g. AZN, BRK)
   const nordicNativeIsin = ['SE', 'NO', 'DK', 'FI'].includes(isinPrefix);
   const nordicProbe = (broker === 'avanza' || broker === 'nordnet')
-    && !isCanadianInUS
-    && isinPrefix !== 'US'
-    && !nordicNativeIsin
+    && !isCanadianInUS && isinPrefix !== 'US' && !nordicNativeIsin
     && !preferredSuffixes.includes('.ST');
 
   const cleaned = cleanRawTicker(rawTicker);
-  // For multi-word tickers like 'VOLV B', also try the first word alone.
-  // Apply cleanRawTicker so Reuters suffixes ('BN.N' → 'BN') don't corrupt the variant.
   const rawFirstWord = rawTicker ? rawTicker.trim().split(/\s+/)[0] : null;
   const firstWord = rawFirstWord ? cleanRawTicker(rawFirstWord) : null;
   const variants = [...new Set([cleaned, firstWord].filter(Boolean))];
 
   const verifyQuote = async (symbol) => {
+    if (ctx) ctx.apiCalls++;
     let q = null;
     try {
-      q = await withYFTimeout(yahooFinance.quote(symbol, {}, { validateResult: false }));
-    }
-    catch(e) {
-      // Detect rate limiting
-      if (e?.status === 429 || e?.message?.includes('429') || e?.message?.includes('Too Many Requests')) {
-        handleRateLimit();
+      q = await withYFRetry(() => yahooFinance.quote(symbol, {}, { validateResult: false }));
+    } catch(e) {
+      if (e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '')) {
+        if (ctx) ctx.rateLimited = true;
         return null;
       }
       if (e?.result?.regularMarketPrice != null) q = e.result;
     }
     if (q?.regularMarketPrice != null) {
-      // Warm the price cache so the portfolio fetch immediately after import is all cache hits
       _priceCache.set(symbol, { q, cachedAt: Date.now() });
       return symbol;
     }
     return null;
   };
 
-  // 3a. Avanza/Nordnet: probe .ST before trusting the CSV currency
+  // 4a. Avanza/Nordnet: probe .ST before trusting the CSV currency
   if (nordicProbe && variants.length) {
     for (const v of variants) {
       const result = await verifyQuote(`${v}.ST`);
@@ -528,10 +574,9 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     }
   }
 
-  // 3b. Fast path: try ticker + preferred suffixes.
-  // When an ISIN is available, only try the primary suffix (e.g. .ST) — if it doesn't match
-  // the YF symbol exactly (e.g. Montrose "VOLVO B" vs YF "VOLV-B.ST"), the ISIN search below
-  // is more reliable than exhausting all 7 suffix variants (14 wasted API calls).
+  // 4b. Fast path: ticker + preferred suffixes.
+  // When an ISIN is available, only try the primary suffix — if it doesn't match exactly
+  // (e.g. "VOLVO B" vs "VOLV-B.ST") the ISIN search below is more reliable.
   if (!preferUSListing && variants.length && preferredSuffixes.length) {
     const suffixesToTry = isin ? preferredSuffixes.slice(0, 1) : preferredSuffixes;
     for (const suffix of suffixesToTry) {
@@ -542,7 +587,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     }
   }
 
-  // 4. For US listings, try direct ticker first
+  // 4c. US direct ticker
   if (preferUSListing && variants.length) {
     for (const v of variants) {
       const result = await verifyQuote(v);
@@ -550,22 +595,20 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     }
   }
 
-  // 5. ISIN search — use Yahoo search and score results
-  if (isin && !rateLimited) {
+  // 5. ISIN search — unambiguous, scores candidates by preferred exchange
+  if (isin && !ctx?.rateLimited) {
     try {
-      const results = await withYFTimeout(yahooFinance.search(isin, {}, { validateResult: false }), 5000);
+      if (ctx) ctx.apiCalls++;
+      const results = await withYFRetry(() => yahooFinance.search(isin, {}, { validateResult: false }), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const scored = quotes.map(q => {
           let score = 0;
           if (preferredSuffixes.some(s => q.symbol.endsWith(s))) score += 100;
-          // When the Nordic probe was active (e.g. AZN on Avanza), .ST should still win
-          // in the ISIN-search fallback even though preferUSListing is technically true
           if (nordicProbe && q.symbol.endsWith('.ST')) score += 200;
           if (preferUSListing && !q.symbol.includes('.')) score += 50;
           if (isCanadianInUS && !q.symbol.includes('.')) score += 200;
           if (isCanadianInUS && q.symbol.endsWith('.TO')) score -= 100;
-          // Don't penalise .ST when we specifically wanted to probe for it
           if (preferUSListing && q.symbol.includes('.') && !(nordicProbe && q.symbol.endsWith('.ST'))) score -= 100;
           return { symbol: q.symbol, score };
         }).sort((a, b) => b.score - a.score);
@@ -574,17 +617,17 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
         if (!hasPreference || best.score > 0) return save(best.symbol);
       }
     } catch(e) {
-      if (e?.status === 429 || e?.message?.includes('429') || e?.message?.includes('Too Many Requests')) {
-        handleRateLimit();
+      if (e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '')) {
+        if (ctx) ctx.rateLimited = true;
       }
     }
   }
 
-  // 6. Ticker-string search — for stocks where the exchange ticker differs from the YF symbol
-  // (e.g. Nordnet exports "HACKSAW" but YF symbol is "HACK.ST").
-  if (cleaned?.length >= 3 && !rateLimited) {
+  // 6. Ticker-string search (e.g. Nordnet exports "HACKSAW" but YF symbol is "HACK.ST")
+  if (cleaned?.length >= 3 && !ctx?.rateLimited) {
     try {
-      const results = await withYFTimeout(yahooFinance.search(cleaned, {}, { validateResult: false }), 5000);
+      if (ctx) ctx.apiCalls++;
+      const results = await withYFRetry(() => yahooFinance.search(cleaned, {}, { validateResult: false }), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
@@ -595,17 +638,18 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
         }
       }
     } catch(e) {
-      if (e?.status === 429 || e?.message?.includes('429') || e?.message?.includes('Too Many Requests')) {
-        handleRateLimit();
+      if (e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '')) {
+        if (ctx) ctx.rateLimited = true;
       }
     }
   }
 
   // 7. Name-based search as last resort
-  if (name?.length > 2 && !rateLimited) {
+  if (name?.length > 2 && !ctx?.rateLimited) {
     try {
+      if (ctx) ctx.apiCalls++;
       const searchName = name.split(/\s+/).slice(0, 3).join(' ');
-      const results = await withYFTimeout(yahooFinance.search(searchName, {}, { validateResult: false }), 5000);
+      const results = await withYFRetry(() => yahooFinance.search(searchName, {}, { validateResult: false }), 5000);
       const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
@@ -615,8 +659,8 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
         if (!preferUSListing && preferredSuffixes.some(s => first.symbol.endsWith(s))) return save(first.symbol);
       }
     } catch(e) {
-      if (e?.status === 429 || e?.message?.includes('429') || e?.message?.includes('Too Many Requests')) {
-        handleRateLimit();
+      if (e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '')) {
+        if (ctx) ctx.rateLimited = true;
       }
     }
   }
@@ -1129,7 +1173,7 @@ function cacheEntry(q, fallbackSymbol) {
 async function refreshMarketIndexes() {
   // Try batch first
   try {
-    const raw = await withYFTimeout(yahooFinance.quote(ALL_INDEX_SYMBOLS, {}, { validateResult: false }), 15000);
+    const raw = await withYFRetry(() => yahooFinance.quote(ALL_INDEX_SYMBOLS, {}, { validateResult: false }), 15000);
     const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
     if (arr.some(q => q?.regularMarketPrice)) {
       arr.forEach(q => cacheEntry(q));
@@ -1148,7 +1192,7 @@ async function refreshMarketIndexes() {
   // Batch failed — fetch each symbol individually with a small gap
   for (const s of ALL_INDEX_SYMBOLS) {
     try {
-      const q = await withYFTimeout(yahooFinance.quote(s, {}, { validateResult: false }), 8000);
+      const q = await withYFRetry(() => yahooFinance.quote(s, {}, { validateResult: false }), 8000);
       cacheEntry(q, s);
     } catch(err) {
       cacheEntry(err.result ?? err.data, s);
@@ -1160,6 +1204,12 @@ async function refreshMarketIndexes() {
 
 refreshMarketIndexes();
 setInterval(refreshMarketIndexes, 60 * 1000).unref();
+
+// Probe for global_isin_cache table on startup — log a clear message if it hasn't been created yet
+supabase.from('global_isin_cache').select('isin').limit(1).then(({ error }) => {
+  if (error) log.warn('global_isin_cache table missing — cross-user ISIN caching disabled. Create it with:\n  CREATE TABLE global_isin_cache (isin TEXT PRIMARY KEY, ticker TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW());');
+  else log.info('global_isin_cache ready');
+}).catch(() => {});
 
 app.get('/api/market-indexes', requireUser, (req, res) => {
   const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 15);
@@ -1220,7 +1270,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     const tryQuote = async (sym) => {
       let q = null;
       try {
-        q = await withYFTimeout(yahooFinance.quote(sym, {}, { validateResult: false }), 6000);
+        q = await withYFRetry(() => yahooFinance.quote(sym, {}, { validateResult: false }), 6000);
       } catch(e) {
         // Timeout or network error — check both result and data for partial payload
         const r = e?.result ?? e?.data;
@@ -1259,7 +1309,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       if (!q && suffixes.length) {
         for (const searchTerm of [isin, ticker].filter(Boolean)) {
           try {
-            const sr = await withYFTimeout(yahooFinance.search(searchTerm));
+            const sr = await withYFRetry(() => yahooFinance.search(searchTerm));
             const candidates = (sr?.quotes || []).filter(r => r.symbol && r.quoteType !== 'OPTION' && r.quoteType !== 'FUTURE');
             const hit = candidates.find(r => suffixes.some(s => r.symbol.endsWith(s)));
             if (hit) { q = await tryQuote(hit.symbol); if (q) break; }
@@ -1413,7 +1463,7 @@ app.get('/api/admin/global-overrides', requireModerator, async (req, res) => {
   const enriched = await Promise.all((data || []).map(async o => {
     try {
       const cached = _priceCache.get(o.ticker);
-      const q = cached ? cached.q : await withYFTimeout(yahooFinance.quote(o.ticker, {}, { validateResult: false }), 5000);
+      const q = cached ? cached.q : await withYFRetry(() => yahooFinance.quote(o.ticker, {}, { validateResult: false }), 5000);
       return { ...o, name: q?.longName || q?.shortName || null };
     } catch(e) {
       const q = e?.result ?? e?.data;
