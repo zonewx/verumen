@@ -1558,7 +1558,7 @@ const handleUpload = async (files) => {
           <div className={`${isDark ? 'bg-zinc-900 border-b border-zinc-700' : 'bg-gray-50 border-b border-gray-200'} p-8 text-center`}>
             <div className="flex flex-col items-center justify-center gap-3">
               <svg width="32" height="32" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="rgba(255,255,255,0.15)"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <span className="text-2xl font-bold text-white tracking-tight">Verumen</span>
+              <span className="text-2xl font-bold text-white" style={{ fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}>Verumen</span>
             </div>
           </div>
           <div className="p-8">
@@ -1618,7 +1618,7 @@ const handleUpload = async (files) => {
       <div className="flex flex-col items-center gap-4">
         <div className="flex items-center gap-3 mb-2">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#27272a"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Verumen</span>
+          <span className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`} style={{ fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}>Verumen</span>
         </div>
         <div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
         <p className={`text-sm font-medium ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Loading user settings…</p>

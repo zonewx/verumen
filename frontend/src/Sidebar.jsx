@@ -302,19 +302,18 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
   return (
     <>
     {/* Fixed sidebar header — sits above GlobalBar in the sidebar lane */}
-    <div className={`fixed top-0 left-0 ${sidebarWidth} h-12 z-[51] ${bg} flex items-center px-3 gap-2 transition-all duration-300`}>
+    <div className={`fixed top-0 left-0 ${sidebarWidth} h-12 z-[51] ${bg} flex items-center px-3 transition-all duration-300`}>
+      <h1
+        className={`absolute inset-0 flex items-center justify-center text-lg font-bold ${textPrimary} whitespace-nowrap`}
+        style={{ pointerEvents: 'none', fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}
+      >Verumen</h1>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`p-2 rounded-lg ${hoverBg} transition-colors shrink-0`}
+        className={`p-2 rounded-lg ${hoverBg} transition-colors shrink-0 relative`}
         title={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
       >
         <Menu size={20} className={textPrimary} />
       </button>
-      <h1
-        className={`text-lg font-bold ${textPrimary} flex-1 whitespace-nowrap`}
-        style={{ pointerEvents: 'none', fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}
-      >Verumen</h1>
-      <div className="w-9 shrink-0" />
     </div>
 
     <div className={`${sidebarWidth} ${bg} transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
