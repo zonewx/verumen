@@ -96,8 +96,8 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
               Remove {pa.selectedForRemoval.length} selected
             </button>
           )}
-          <button onClick={pa.onForceResolve} disabled={pa.resolveLoading} className={`${btn} bg-purple-700 hover:bg-purple-600 text-white disabled:opacity-50`}>
-            {pa.resolveLoading ? <>{spinner}Re-resolving…</> : '🔄 Force Re-Resolve'}
+          <button onClick={pa.onForceResolve} disabled={pa.resolveLoading} className={`${btn} bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50`}>
+            {pa.resolveLoading ? <>{spinner}Re-resolving…</> : 'Force Re-Resolve'}
           </button>
         </>
       )}
@@ -105,46 +105,6 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
   );
 
   if (id === 'settings') return null;
-
-  if (id === 'danger') return (
-    <div className="flex flex-col gap-1.5">
-      <button onClick={pa.onClearTickerCache} className={`${btn} border ${isDark ? 'border-violet-800/60 text-violet-400 hover:bg-violet-900/20' : 'border-violet-200 text-violet-600 hover:bg-violet-50'}`}>
-        Clear ticker cache
-      </button>
-      <button onClick={pa.onClearAll} className={`${btn} border ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-600 hover:bg-red-50'}`}>
-        Clear all data
-      </button>
-    </div>
-  );
-
-  if (id === 'danger') return (
-    <div className="flex flex-col gap-2">
-      <p className={`text-[10px] ${sub}`}>Cannot be undone.</p>
-      <button onClick={pa.onClearAll} className={`${btn} border ${isDark ? 'border-red-800/60 text-red-400 hover:bg-red-900/20' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
-        Clear All Data
-      </button>
-      
-      {/* BROKER DELETION BUTTONS */}
-      {pa.txCount?.byBroker && Object.keys(pa.txCount.byBroker).length > 0 && (
-        <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-zinc-700">
-          <p className={`text-[10px] font-semibold uppercase tracking-wide ${sub}`}>Delete by Broker</p>
-          {Object.entries(pa.txCount.byBroker).map(([broker, count]) => (
-            <button
-              key={broker}
-              onClick={() => pa.onClearBroker(broker)}
-              className={`${btn} border ${
-                isDark 
-                  ? 'border-violet-800/60 text-violet-400 hover:bg-violet-900/20' 
-                  : 'border-violet-200 text-violet-600 hover:bg-violet-50'
-              }`}
-            >
-              Clear {broker.charAt(0).toUpperCase() + broker.slice(1)} ({count})
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 
   return null;
 }
@@ -264,8 +224,6 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         { id: 'ownership',    label: 'Ownership',         path: '/portfolio/ownership',    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
         { id: 'divider1', isDivider: true },
         { id: 'overrides',    label: 'Portfolio Settings', path: '/portfolio/overrides',   icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> },
-        { id: 'divider2', isDivider: true },
-        { id: 'danger', label: 'Data Management', isAction: true, isDanger: true, icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> },
       ]
     },
     {
@@ -474,7 +432,31 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         </div>
       </div>
     </div>
-    <div className={`fixed top-0 bottom-0 w-px ${isExpanded ? 'left-60' : 'left-16'} ${borderColor} z-[51] pointer-events-none transition-all duration-300`} />
+    {/* Sidebar right edge — starts at topbar bottom so corner arc handles the junction */}
+    <div className={`fixed top-12 bottom-0 w-px ${isExpanded ? 'left-60' : 'left-16'} ${borderColor} z-[51] pointer-events-none transition-all duration-300`} />
+    {/* Quarter-circle arc connecting sidebar border → topbar border */}
+    <div
+      className="fixed z-[51] pointer-events-none"
+      style={{
+        top: '35px',
+        left: isExpanded ? '240px' : '64px',
+        width: '13px',
+        height: '13px',
+        transition: 'left 300ms',
+        borderLeft: `1px solid ${isDark ? '#3f3f46' : '#e5e7eb'}`,
+        borderBottom: `1px solid ${isDark ? '#3f3f46' : '#e5e7eb'}`,
+        borderBottomLeftRadius: '12px',
+      }}
+    />
+    {/* Topbar bottom-edge border — starts after arc endpoint so no sharp corner */}
+    <div
+      className={`fixed h-px right-0 ${borderColor} z-[49] pointer-events-none`}
+      style={{
+        top: '48px',
+        left: isExpanded ? '252px' : '76px',
+        transition: 'left 300ms',
+      }}
+    />
     </>
   );
 }

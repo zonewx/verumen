@@ -1032,8 +1032,8 @@ const handleUpload = async (files) => {
                         <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
                           Re-runs ticker resolution for all holdings using cached results where available. Use this if holdings are showing incorrect or missing data after an upload.
                         </p>
-                        <button onClick={handleForceResolve} disabled={resolveLoading} className="w-full px-4 py-2.5 bg-purple-700 hover:bg-purple-600 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
-                          {resolveLoading ? '⏳ Re-resolving...' : '🔄 Force Re-Resolve All Tickers'}
+                        <button onClick={handleForceResolve} disabled={resolveLoading} className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
+                          {resolveLoading ? 'Re-resolving...' : 'Force Re-Resolve All Tickers'}
                         </button>
                         {resolveStatus && <p className={`text-xs mt-3 ${resolveStatus.startsWith('✓') ? 'text-green-400' : (isDark ? 'text-zinc-400' : 'text-zinc-500')}`}>{resolveStatus}</p>}
                       </div>
@@ -1061,10 +1061,33 @@ const handleUpload = async (files) => {
                         </p>
                         <button
                           onClick={handleClearPortfolioCache}
-                          className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                          className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition"
                         >
                           Clear Snapshot
                         </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Data Management</h3>
+                      <div className="grid grid-cols-2 gap-5">
+                        <div className={`${cardCls} p-6`}>
+                          <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Clear Ticker Cache</h3>
+                          <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                            Clears all cached ticker resolutions. Transaction data is kept, but tickers will be re-resolved on next upload.
+                          </p>
+                          <button onClick={handleClearTickerCache} className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition">
+                            Clear Ticker Cache
+                          </button>
+                        </div>
+                        <div className={`${cardCls} p-6`}>
+                          <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-red-400' : 'text-red-500'}`}>Clear All Data</h3>
+                          <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                            Permanently deletes all portfolio holdings and transaction history. This cannot be undone.
+                          </p>
+                          <button onClick={handleClearAll} className="w-full px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-semibold transition">
+                            Clear All Data
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
