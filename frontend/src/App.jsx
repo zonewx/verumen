@@ -918,6 +918,7 @@ const handleUpload = async (files) => {
       if (currentTab === 'ownership' && dashboardData && Object.keys(ownershipData).length === 0 && !ownershipLoading) fetchOwnership(dashboardData.portfolio);
       if (currentTab === 'performance') fetchPerfData(perfPeriod);
       if (currentTab === 'history') fetchTxHistory();
+      if (currentTab === 'overview' && txHistory.length === 0 && !txHistoryLoading) fetchTxHistory();
     }, [currentTab]);
 
     return (
@@ -1332,6 +1333,134 @@ const handleUpload = async (files) => {
                             </>);
                           })()}
                         </div>
+                        {dashboardData.portfolio.filter(h => !h.noData && h.currentValue != null).length > 0 && (() => {
+                          const validHoldings = dashboardData.portfolio
+                            .filter(h => !h.noData && h.currentValue != null && h.quantity > 0)
+                            .sort((a, b) => b.currentValue - a.currentValue);
+                          const holdingsTotal = validHoldings.reduce((s, h) => s + h.currentValue, 0);
+                          const maxHoldingValue = validHoldings[0]?.currentValue || 1;
+
+                          const countryNames = { se:'Sweden', us:'United States', no:'Norway', dk:'Denmark', fi:'Finland', nl:'Netherlands', fr:'France', de:'Germany', gb:'United Kingdom', it:'Italy', es:'Spain', ch:'Switzerland', ca:'Canada', au:'Australia', hk:'Hong Kong', jp:'Japan', sg:'Singapore' };
+                          const byCountry = {};
+                          validHoldings.forEach(h => { const cc = h.flag || 'us'; byCountry[cc] = (byCountry[cc] || 0) + h.currentValue; });
+                          const geoTotal = Object.values(byCountry).reduce((s, v) => s + v, 0);
+                          const geoCountries = Object.entries(byCountry).map(([cc, value]) => ({ cc, value, weight: geoTotal > 0 ? (value / geoTotal) * 100 : 0 })).sort((a, b) => b.value - a.value);
+                          const maxGeoValue = geoCountries[0]?.value || 1;
+
+                          return (
+                            <>
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <div className={`${cardCls} p-6`}>
+                                  <div className="flex items-center justify-between mb-4">
+                                    <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Top Holdings</h3>
+                                    <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{dashboardData.portfolio.length} total</span>
+                                  </div>
+                                  <div className="flex flex-col gap-2">
+                                    {validHoldings.slice(0, 10).map(h => {
+                                      const weight = holdingsTotal > 0 ? (h.currentValue / holdingsTotal) * 100 : 0;
+                                      const relW = (h.currentValue / maxHoldingValue) * 100;
+                                      return (
+                                        <div key={h.ticker} className={`flex flex-col gap-1 p-2 rounded-lg ${isDark ? 'bg-zinc-700/50 hover:bg-zinc-700' : 'bg-gray-50 hover:bg-gray-100'} transition`}>
+                                          <div className="flex items-center gap-2">
+                                            <img src={`https://flagcdn.com/${h.flag || 'us'}.svg`} alt={h.flag || 'us'} className="w-6 h-4 object-cover rounded shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                              <p className="font-semibold text-xs truncate">{h.cleanName}</p>
+                                              <p className={`text-[10px] ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{h.ticker}</p>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                              <p className="font-bold text-xs">{weight.toFixed(2)}%</p>
+                                              <p className={`text-[10px] ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{fmtSym(h.currentValue)}</p>
+                                            </div>
+                                          </div>
+                                          <div className={`h-0.5 rounded-full ${isDark ? 'bg-zinc-600' : 'bg-gray-200'} overflow-hidden`}>
+                                            <div className="h-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${relW}%` }} />
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                <div className={`${cardCls} p-6`}>
+                                  <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'} mb-4`}>Recent Transactions</h3>
+                                  {txHistoryLoading ? (
+                                    <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div>
+                                  ) : txHistory.length === 0 ? (
+                                    <p className={`text-center py-12 text-sm ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>No transactions yet.</p>
+                                  ) : (
+                                    <div className="flex flex-col gap-2">
+                                      {txHistory.filter(tx => ['buy','sell','dividend'].includes(tx.type)).slice(0, 8).map((tx, i) => {
+                                        const isBuy = tx.type === 'buy';
+                                        const isSell = tx.type === 'sell';
+                                        const isDividend = tx.type === 'dividend';
+                                        const pillCls = isBuy ? (isDark ? 'bg-emerald-900/40 text-emerald-400' : 'bg-emerald-100 text-emerald-700') : isSell ? (isDark ? 'bg-red-900/40 text-red-400' : 'bg-red-100 text-red-700') : (isDark ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-700');
+                                        const typeLabel = isBuy ? 'Buy' : isSell ? 'Sell' : 'Div';
+                                        return (
+                                          <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg ${isDark ? 'bg-zinc-700/50' : 'bg-gray-50'}`}>
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${pillCls}`}>{typeLabel}</span>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="text-xs font-semibold truncate">{tx.name || tx.ticker || tx.raw_ticker || '—'}</p>
+                                              <p className={`text-[10px] ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{tx.date ? tx.date.slice(0, 10) : '—'}</p>
+                                            </div>
+                                            {tx.quantity != null && <p className={`text-xs font-semibold shrink-0 ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{tx.quantity > 0 ? '+' : ''}{tx.quantity}</p>}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                {dividends?.byYear?.length > 0 && (() => {
+                                  const maxDiv = Math.max(...dividends.byYear.map(y => y.total));
+                                  return (
+                                    <div className={`${cardCls} p-6`}>
+                                      <div className="flex items-center justify-between mb-4">
+                                        <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Dividend Income</h3>
+                                        <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>All time: {fmtSym(dividends.totalAllTime)}</span>
+                                      </div>
+                                      <div className="flex flex-col gap-3">
+                                        {dividends.byYear.map(y => (
+                                          <div key={y.year} className="flex items-center gap-3">
+                                            <span className={`text-xs font-bold w-10 shrink-0 ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{y.year}</span>
+                                            <div className={`flex-1 h-5 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-100'} overflow-hidden`}>
+                                              <div className="h-full rounded-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${maxDiv > 0 ? (y.total / maxDiv) * 100 : 0}%`, transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)' }} />
+                                            </div>
+                                            <span className={`text-xs font-bold w-24 text-right shrink-0 ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{fmtSym(y.total)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+
+                                {geoCountries.length > 0 && (
+                                  <div className={`${cardCls} p-6`}>
+                                    <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'} mb-4`}>Geographic Exposure</h3>
+                                    <div className="flex flex-col gap-2">
+                                      {geoCountries.map(({ cc, value, weight }) => (
+                                        <div key={cc} className="flex items-center gap-3">
+                                          <img src={`https://flagcdn.com/${cc}.svg`} alt={cc} className="w-6 h-4 object-cover rounded shrink-0" />
+                                          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                                            <div className="flex items-center justify-between gap-2">
+                                              <span className={`text-xs font-semibold truncate ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>{countryNames[cc] || cc.toUpperCase()}</span>
+                                              <span className="text-xs font-bold shrink-0">{weight.toFixed(1)}%</span>
+                                            </div>
+                                            <div className={`h-1 rounded-full ${isDark ? 'bg-zinc-700' : 'bg-gray-100'} overflow-hidden`}>
+                                              <div className="h-full rounded-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${(value / maxGeoValue) * 100}%` }} />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
+
                         {dashboardData.portfolio.length > 0 && (
                           <div className={`${cardCls} p-6`}>
                             <div className="flex items-center justify-between mb-6">
