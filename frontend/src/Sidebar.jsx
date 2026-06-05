@@ -432,23 +432,26 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         </div>
       </div>
     </div>
-    {/* Sidebar right edge — starts at topbar bottom so corner arc handles the junction */}
-    <div className={`fixed top-12 bottom-0 w-px ${isExpanded ? 'left-60' : 'left-16'} ${borderColor} z-[51] pointer-events-none transition-all duration-300`} />
-    {/* Quarter-circle arc connecting sidebar border → topbar border */}
+    {/* Sidebar right edge — starts 12px below topbar so the arc fills the gap */}
+    <div
+      className={`fixed bottom-0 w-px ${isExpanded ? 'left-60' : 'left-16'} ${borderColor} z-[51] pointer-events-none transition-all duration-300`}
+      style={{ top: '60px' }}
+    />
+    {/* Quarter-circle arc — borderTopLeftRadius creates the convex Railway-style corner */}
     <div
       className="fixed z-[51] pointer-events-none"
       style={{
-        top: '35px',
+        top: '48px',
         left: isExpanded ? '240px' : '64px',
         width: '13px',
         height: '13px',
         transition: 'left 300ms',
+        borderTop: `1px solid ${isDark ? '#3f3f46' : '#e5e7eb'}`,
         borderLeft: `1px solid ${isDark ? '#3f3f46' : '#e5e7eb'}`,
-        borderBottom: `1px solid ${isDark ? '#3f3f46' : '#e5e7eb'}`,
-        borderBottomLeftRadius: '12px',
+        borderTopLeftRadius: '12px',
       }}
     />
-    {/* Topbar bottom-edge border — starts after arc endpoint so no sharp corner */}
+    {/* Topbar bottom-edge border — starts after arc endpoint */}
     <div
       className={`fixed h-px right-0 ${borderColor} z-[49] pointer-events-none`}
       style={{
