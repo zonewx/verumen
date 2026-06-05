@@ -432,12 +432,12 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         </div>
       </div>
     </div>
-    {/* Sidebar right edge — starts 12px below topbar so the arc fills the gap */}
+    {/* Sidebar right edge — all three pieces share the same easing so they move in lockstep */}
     <div
-      className={`fixed bottom-0 w-px ${isExpanded ? 'left-60' : 'left-16'} ${borderColor} z-[51] pointer-events-none transition-all duration-300`}
-      style={{ top: '60px' }}
+      className={`fixed bottom-0 w-px ${borderColor} z-[51] pointer-events-none`}
+      style={{ top: '60px', left: isExpanded ? '240px' : '64px', transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)' }}
     />
-    {/* Quarter-circle arc — borderTopLeftRadius creates the convex Railway-style corner */}
+    {/* Quarter-circle arc */}
     <div
       className="fixed z-[51] pointer-events-none"
       style={{
@@ -445,19 +445,19 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         left: isExpanded ? '240px' : '64px',
         width: '13px',
         height: '13px',
-        transition: 'left 300ms',
+        transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
         borderTop: `1px solid ${isDark ? '#3f3f46' : '#e5e7eb'}`,
         borderLeft: `1px solid ${isDark ? '#3f3f46' : '#e5e7eb'}`,
         borderTopLeftRadius: '12px',
       }}
     />
-    {/* Topbar bottom-edge border — starts after arc endpoint */}
+    {/* Topbar bottom-edge border */}
     <div
       className={`fixed h-px right-0 ${borderColor} z-[49] pointer-events-none`}
       style={{
         top: '48px',
         left: isExpanded ? '252px' : '76px',
-        transition: 'left 300ms',
+        transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     />
     </>
