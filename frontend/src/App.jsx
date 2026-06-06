@@ -339,11 +339,20 @@ export default function App() {
         !apiCache.has(`/api/users/${authUsername}/profile`) ? apiFetch(`/api/users/${authUsername}/profile`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
       ]);
       // Don't replace valid dashboard data with an all-noData result (YF rate-limit burst after upload).
+      // BUT: if holdings composition changed (new sell/buy added), always accept the new dashRes so
+      // quantities update immediately even when prices are temporarily unavailable.
       // Functional update lets us inspect previous state without adding dashboardData to useCallback deps.
       setDashboardData(prev => {
         if (!dashRes) return prev;
         const allNoData = dashRes.portfolio?.length > 0 && dashRes.portfolio.every(h => h.noData);
-        if (allNoData && prev?.portfolio?.some(h => !h.noData)) return { ...prev, hasStalePrices: true };
+        if (allNoData && prev?.portfolio?.some(h => !h.noData)) {
+          const sameHoldings = dashRes.portfolio?.length === prev.portfolio?.length &&
+            dashRes.portfolio?.every(h => {
+              const p = prev.portfolio?.find(p => p.ticker === h.ticker);
+              return p && p.quantity === h.quantity;
+            });
+          if (sameHoldings) return { ...prev, hasStalePrices: true };
+        }
         return dashRes;
       });
       setDividends(divRes); setTxCount(txRes); setOverrides(overRes);
