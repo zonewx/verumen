@@ -28,6 +28,12 @@ function RetryCountdown({ onRetry }) {
   return <span className="shrink-0 font-semibold opacity-70">Retrying in {secs}s…</span>;
 }
 
+function ProfileRoute({ authUsername, shellProps }) {
+  const { username } = useParams();
+  const viewUser = username ? username.replace('@', '') : null;
+  return <PageShell {...shellProps}><ProfilePageView authUsername={authUsername} viewUsername={viewUser}/></PageShell>;
+}
+
 function PageShell({ title, children }) {
   return (
     <div className={`flex flex-col h-screen pt-12 bg-zinc-900 text-white`}>
@@ -1020,35 +1026,31 @@ const handleUpload = async (files) => {
   // resetting the CSS spinner animation on every tick.
   const displayedResolved = uploadProgress?.resolvedCount ?? 0;
 
-  const ProfileRoute = () => {
-    const { username } = useParams();
-    const viewUser = username ? username.replace('@','') : null;
-    return <PageShell {...shellProps}><ProfilePageView authUsername={authUsername} viewUsername={viewUser}/></PageShell>;
+  // Derived outside the render function so the useEffect can depend on it
+  const _portfolioPathToTab = {
+    '/stockportfolio/overview':         'overview',
+    '/stockportfolio/holdings':         'holdings',
+    '/stockportfolio/transactions':     'history',
+    '/stockportfolio/dividends':        'dividends',
+    '/stockportfolio/ownership':        'ownership',
+    '/stockportfolio/import':           'import',
+    '/stockportfolio/import-dividends': 'importDividends',
+    '/stockportfolio/settings':         'overrides',
   };
+  const currentTab = _portfolioPathToTab[location.pathname] || 'overview';
 
-  const PortfolioView = () => {
-    const location = useLocation();
+  useEffect(() => {
+    if (currentTab === 'ownership' && dashboardData && Object.keys(ownershipData).length === 0 && !ownershipLoading) fetchOwnership(dashboardData.portfolio);
+    if (currentTab === 'performance') fetchPerfData(perfPeriod);
+    if (currentTab === 'history') fetchTxHistory();
+    if (currentTab === 'overview' && txHistory.length === 0 && !txHistoryLoading) fetchTxHistory();
+  }, [currentTab]);
+
+  // Plain render function — no hooks, so React never unmounts/remounts it on re-renders.
+  // This preserves scroll position across state updates.
+  const renderPortfolioView = () => {
     const cardCls = `bg-zinc-800 border-zinc-700 border rounded-xl`;
-
-    const pathToTab = {
-      '/stockportfolio/overview':      'overview',
-      '/stockportfolio/holdings':      'holdings',
-      '/stockportfolio/transactions':  'history',
-      '/stockportfolio/dividends':     'dividends',
-      '/stockportfolio/ownership':     'ownership',
-      '/stockportfolio/import':            'import',
-      '/stockportfolio/import-dividends':  'importDividends',
-      '/stockportfolio/settings':          'overrides',
-    };
-    const currentTab = pathToTab[location.pathname] || 'overview';
     const dividendsOnly = currentTab === 'importDividends';
-
-    useEffect(() => {
-      if (currentTab === 'ownership' && dashboardData && Object.keys(ownershipData).length === 0 && !ownershipLoading) fetchOwnership(dashboardData.portfolio);
-      if (currentTab === 'performance') fetchPerfData(perfPeriod);
-      if (currentTab === 'history') fetchTxHistory();
-      if (currentTab === 'overview' && txHistory.length === 0 && !txHistoryLoading) fetchTxHistory();
-    }, [currentTab]);
 
     return (
       <div className={`flex flex-col h-screen pt-12 overflow-hidden bg-zinc-900 text-white`}>
@@ -2146,15 +2148,8 @@ const handleUpload = async (files) => {
           <Route path="/home" element={<PageShell {...shellProps}><SocialFeed authUsername={authUsername} onViewProfile={u=>navigate(`/profile/@${u}`)}/></PageShell>}/>
           <Route path="/friends" element={<PageShell {...shellProps}><FriendsPage authUsername={authUsername}/></PageShell>}/>
           
-          {/* Portfolio routes */}
-          <Route path="/stockportfolio/overview" element={<PortfolioView/>}/>
-          <Route path="/stockportfolio/holdings" element={<PortfolioView/>}/>
-          <Route path="/stockportfolio/transactions" element={<PortfolioView/>}/>
-          <Route path="/stockportfolio/dividends" element={<PortfolioView/>}/>
-          <Route path="/stockportfolio/ownership" element={<PortfolioView/>}/>
-          <Route path="/stockportfolio/import" element={<PortfolioView/>}/>
-          <Route path="/stockportfolio/import-dividends" element={<PortfolioView/>}/>
-          <Route path="/stockportfolio/settings" element={<PortfolioView/>}/>
+          {/* Portfolio routes — single wildcard so React reconciles in place (no remount = scroll preserved) */}
+          <Route path="/stockportfolio/*" element={renderPortfolioView()}/>
 
           {/* Skins routes */}
           <Route path="/skins/overview" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
@@ -2162,8 +2157,8 @@ const handleUpload = async (files) => {
           <Route path="/skins/traderegistry" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/settings" element={<PageShell {...shellProps}><SettingsPage baseCurrency={baseCurrency} onSetBaseCurrency={setBaseCurrency}/></PageShell>}/>
           <Route path="/profile/:username/edit" element={<PageShell {...shellProps}><ProfileEditPage authUsername={authUsername}/></PageShell>}/>
-          <Route path="/profile" element={<ProfileRoute/>}/>
-          <Route path="/profile/:username" element={<ProfileRoute/>}/>
+          <Route path="/profile" element={<ProfileRoute authUsername={authUsername} shellProps={shellProps}/>}/>
+          <Route path="/profile/:username" element={<ProfileRoute authUsername={authUsername} shellProps={shellProps}/>}/>
 
           {/* Admin routes */}
           <Route path="/adminpanel" element={<PageShell {...shellProps}><AdminPanel authUsername={authUsername}/></PageShell>}/>
