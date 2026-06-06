@@ -450,31 +450,6 @@ export default function App() {
     return () => clearInterval(id);
   }, [authUsername, portfolio, baseCurrency, isAppLoading]);
 
-  // Reset auto-retry guard when all prices load successfully (e.g. after re-upload).
-  useEffect(() => {
-    if (!hasFailedHoldings && !isAppLoading) priceRetryDoneRef.current = false;
-  }, [hasFailedHoldings, isAppLoading]);
-
-  // Auto-retry price fetch once after 25 s when holdings fail to load.
-  // YF rate limits from preceding ticker resolution typically reset within 30–60 s.
-  useEffect(() => {
-    if (!hasFailedHoldings || isAppLoading || priceRetryDoneRef.current) return;
-    priceRetryDoneRef.current = true;
-    let secs = 25;
-    setPriceRetryIn(secs);
-    const tick = setInterval(() => {
-      secs--;
-      if (secs <= 0) {
-        clearInterval(tick);
-        setPriceRetryIn(null);
-        handleRefreshPrices();
-      } else {
-        setPriceRetryIn(secs);
-      }
-    }, 1000);
-    return () => clearInterval(tick);
-  }, [hasFailedHoldings, isAppLoading]);
-
   const [retryingFailed, setRetryingFailed]= useState(false);
   const handleRetryFailed = async () => {
     if (!failedHoldings.length || retryingFailed) return;
@@ -833,6 +808,32 @@ const handleUpload = async (files) => {
   const hasStalePrices = dashboardData?.hasStalePrices === true;
   const failedHoldings = dashboardData?.portfolio?.filter(h => h.noData) ?? [];
   const hasFailedHoldings = failedHoldings.length > 0;
+
+  // Reset auto-retry guard when all prices load successfully (e.g. after re-upload).
+  useEffect(() => {
+    if (!hasFailedHoldings && !isAppLoading) priceRetryDoneRef.current = false;
+  }, [hasFailedHoldings, isAppLoading]);
+
+  // Auto-retry price fetch once after 25 s when holdings fail to load.
+  // YF rate limits from preceding ticker resolution typically reset within 30–60 s.
+  useEffect(() => {
+    if (!hasFailedHoldings || isAppLoading || priceRetryDoneRef.current) return;
+    priceRetryDoneRef.current = true;
+    let secs = 25;
+    setPriceRetryIn(secs);
+    const tick = setInterval(() => {
+      secs--;
+      if (secs <= 0) {
+        clearInterval(tick);
+        setPriceRetryIn(null);
+        handleRefreshPrices();
+      } else {
+        setPriceRetryIn(secs);
+      }
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [hasFailedHoldings, isAppLoading]);
+
   const plPositive = totals?.profit >= 0;
   const plColor = plPositive ? 'text-green-400' : 'text-red-400';
   const plSign = plPositive ? '+' : '';
