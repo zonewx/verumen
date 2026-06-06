@@ -170,6 +170,15 @@ app.post('/api/auth/change-password', requireUser, async (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/api/auth/verify-password', requireUser, async (req, res) => {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ error: 'Password required.' });
+  const email = `${req.username.toLowerCase()}@statera.local`;
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return res.status(401).json({ error: 'Incorrect password.' });
+  res.json({ success: true });
+});
+
 // ── Profile routes ──────────────────────────────────────────────────────────
 app.get('/api/users', requireUser, async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('username, role, bio, public_inventory, public_holdings, public_dividends, avatar_base64, created_at, steam_id');

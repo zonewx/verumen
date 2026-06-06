@@ -86,6 +86,10 @@ export default function App() {
   const [uploadProgress, setUploadProgress] = useState(null); // { phase, pct, label }
   const [syncStatus, setSyncStatus] = useState('');
   const [syncLoading, setSyncLoading] = useState(false);
+  const [clearAllModal, setClearAllModal] = useState(false);
+  const [clearAllPw, setClearAllPw] = useState('');
+  const [clearAllError, setClearAllError] = useState('');
+  const [clearAllLoading, setClearAllLoading] = useState(false);
   const [resolveLoading, setResolveLoading] = useState(false);
   const [resolveStatus, setResolveStatus] = useState('');
   const [todaySortMode, setTodaySortMode] = useState('currency');
@@ -686,9 +690,19 @@ const handleUpload = async (files) => {
     }
   };
 
-  const handleClearAll = async () => {
-    if (!confirm('This will permanently delete all portfolio holdings and transaction history. This cannot be undone. Continue?')) return;
+  const handleClearAll = () => {
+    setClearAllPw('');
+    setClearAllError('');
+    setClearAllModal(true);
+  };
+
+  const confirmClearAll = async () => {
+    if (!clearAllPw) { setClearAllError('Password required.'); return; }
+    setClearAllLoading(true);
+    setClearAllError('');
     try {
+      const verifyRes = await apiFetch('/api/auth/verify-password', { method: 'POST', body: JSON.stringify({ password: clearAllPw }) });
+      if (!verifyRes.ok) { const d = await verifyRes.json(); setClearAllError(d.error || 'Incorrect password.'); setClearAllLoading(false); return; }
       await Promise.all([
         apiFetch('/api/transactions', { method: 'DELETE' }),
         apiFetch('/api/portfolio/cached', { method: 'DELETE' }),
@@ -697,12 +711,14 @@ const handleUpload = async (files) => {
       setTxCount({ total: 0, trades: 0 });
       setUploadStatus(null);
       setDividends(null);
-      setSyncStatus('All data cleared successfully.');
       apiCache.bust('/api/portfolio'); apiCache.bust('/api/cs/'); apiCache.bust('/api/users/'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides'); apiCache.del('/api/transactions'); apiCache.del('/api/announcements'); apiCache.del('/api/feed'); apiCache.del('/api/friends');
+      setClearAllModal(false);
+      setSyncStatus('All data cleared successfully.');
       setTimeout(() => setSyncStatus(''), 4000);
     } catch (err) {
-      setSyncStatus('Error clearing data: ' + err.message);
+      setClearAllError('Error: ' + err.message);
     }
+    setClearAllLoading(false);
   };
 
   const handleClearHoldings = async () => {
@@ -952,8 +968,7 @@ const handleUpload = async (files) => {
       '/stockportfolio/dividends':     'dividends',
       '/stockportfolio/ownership':     'ownership',
       '/stockportfolio/import':        'import',
-      '/stockportfolio/overrides':     'overrides',
-      '/stockportfolio/settings':      'settings',
+      '/stockportfolio/settings':      'overrides',
     };
     const currentTab = pathToTab[location.pathname] || 'overview';
 
@@ -1120,30 +1135,30 @@ const handleUpload = async (files) => {
                     <div className="flex flex-col gap-3">
                       <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Data Management</h3>
                       <div className="grid grid-cols-3 gap-5">
-                        <div className={`${cardCls} p-6`}>
+                        <div className={`${cardCls} p-6 flex flex-col`}>
                           <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Clear Ticker Cache</h3>
-                          <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                            Clears all cached ticker resolutions. Transaction data is kept, but tickers will be re-resolved on next upload.
+                          <p className={`text-sm flex-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                            Removes saved ticker-to-symbol mappings. Holdings and transaction history are untouched — tickers will be re-resolved on the next CSV upload.
                           </p>
-                          <button onClick={handleClearTickerCache} className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition">
+                          <button onClick={handleClearTickerCache} className="mt-4 w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition">
                             Clear Ticker Cache
                           </button>
                         </div>
-                        <div className={`${cardCls} p-6`}>
+                        <div className={`${cardCls} p-6 flex flex-col`}>
                           <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>Clear Holdings</h3>
-                          <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                            Clears current portfolio holdings only. Transaction history and ticker cache are kept — re-uploading a CSV will be fast.
+                          <p className={`text-sm flex-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                            Resets your portfolio to empty. Transaction history and ticker mappings are preserved — re-uploading the same CSV will skip ticker resolution entirely.
                           </p>
-                          <button onClick={handleClearHoldings} className="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-semibold transition">
+                          <button onClick={handleClearHoldings} className="mt-4 w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-semibold transition">
                             Clear Holdings
                           </button>
                         </div>
-                        <div className={`${cardCls} p-6`}>
+                        <div className={`${cardCls} p-6 flex flex-col`}>
                           <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-red-400' : 'text-red-500'}`}>Clear All Data</h3>
-                          <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                            Permanently deletes all portfolio holdings and transaction history. This cannot be undone.
+                          <p className={`text-sm flex-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                            Wipes everything: holdings, all imported transactions, and ticker resolutions. Nothing can be recovered after this.
                           </p>
-                          <button onClick={handleClearAll} className="w-full px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-semibold transition">
+                          <button onClick={handleClearAll} className="mt-4 w-full px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-semibold transition">
                             Clear All Data
                           </button>
                         </div>
@@ -1329,7 +1344,7 @@ const handleUpload = async (files) => {
                                       {retryingFailed ? 'Retrying…' : 'Retry'}
                                     </button>
                                   ) : (
-                                    <button onClick={() => navigate('/stockportfolio/overrides')} className="shrink-0 font-semibold underline underline-offset-2">
+                                    <button onClick={() => navigate('/stockportfolio/settings')} className="shrink-0 font-semibold underline underline-offset-2">
                                       Force re-resolve →
                                     </button>
                                   )}
@@ -1339,7 +1354,7 @@ const handleUpload = async (files) => {
                                     <div key={h.ticker} className="flex items-center justify-between gap-2 pl-3">
                                       <span className="font-mono">{h.ticker}{h.isin ? <span className={`ml-1.5 font-sans ${isDark ? 'text-red-500/70' : 'text-red-400'}`}>{h.isin}</span> : ''}</span>
                                       {h.isin && (
-                                        <button onClick={() => { navigate('/stockportfolio/overrides'); setTimeout(() => { if (overrideIsinRef.current) overrideIsinRef.current.value = h.isin; }, 50); }} className="shrink-0 font-semibold underline underline-offset-2">
+                                        <button onClick={() => { navigate('/stockportfolio/settings'); setTimeout(() => { if (overrideIsinRef.current) overrideIsinRef.current.value = h.isin; }, 50); }} className="shrink-0 font-semibold underline underline-offset-2">
                                           Set ticker →
                                         </button>
                                       )}
@@ -1870,7 +1885,6 @@ const handleUpload = async (files) => {
           <Route path="/stockportfolio/dividends" element={<PortfolioView/>}/>
           <Route path="/stockportfolio/ownership" element={<PortfolioView/>}/>
           <Route path="/stockportfolio/import" element={<PortfolioView/>}/>
-          <Route path="/stockportfolio/overrides" element={<PortfolioView/>}/>
           <Route path="/stockportfolio/settings" element={<PortfolioView/>}/>
 
           {/* Skins routes */}
@@ -1893,6 +1907,43 @@ const handleUpload = async (files) => {
           <Route path="*" element={<Navigate to="/home" replace/>}/>
         </Routes>
       </div>
+
+      {/* Clear All Data password modal */}
+      {clearAllModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60" onClick={() => setClearAllModal(false)}>
+          <div className={`${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold mb-1">Clear All Data</h3>
+            <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+              This will permanently delete all portfolio holdings and transaction history. Enter your password to confirm.
+            </p>
+            <input
+              type="password"
+              value={clearAllPw}
+              onChange={e => setClearAllPw(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && confirmClearAll()}
+              placeholder="Your password"
+              autoFocus
+              className={`w-full px-3 py-2 rounded-lg border text-sm outline-none mb-2 ${isDark ? 'bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+            />
+            {clearAllError && <p className="text-xs text-red-400 mb-2">{clearAllError}</p>}
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={confirmClearAll}
+                disabled={clearAllLoading}
+                className="flex-1 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition"
+              >
+                {clearAllLoading ? 'Verifying…' : 'Clear All Data'}
+              </button>
+              <button
+                onClick={() => setClearAllModal(false)}
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
