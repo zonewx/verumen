@@ -173,10 +173,11 @@ function SkinCard({ item, isDark, onClick, onSetPrice, onClearPrice, baseCurrenc
 export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const tab = location.pathname === '/cs-skins/inventory' ? 'inventory'
-    : location.pathname === '/cs-skins/tracker' ? 'tracker'
+  const tab = location.pathname === '/skins/inventory' ? 'inventory'
+    : location.pathname === '/skins/traderegistry' ? 'tracker'
     : 'overview';
-  const setTab = (t) => navigate(t === 'overview' ? '/cs-skins' : `/cs-skins/${t}`);
+  const tabPaths = { overview: '/skins/overview', inventory: '/skins/inventory', tracker: '/skins/traderegistry' };
+  const setTab = (t) => navigate(tabPaths[t] || '/skins/overview');
 
   const [settings, setSettings] = useState(() => apiCache.get('/api/cs/settings') || {});
   const [steamInventory, setSteamInventory] = useState(null);

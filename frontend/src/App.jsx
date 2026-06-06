@@ -231,7 +231,7 @@ export default function App() {
   };
 
   const handleNavigate = (dest, param = null) => {
-    const map = { home:'/', portfolio:'/portfolio', skins:'/skins', social:'/home', friends:'/friends', profile:'/profile', admin:'/admin', moderator:'/moderator' };
+    const map = { home:'/', portfolio:'/stockportfolio/overview', skins:'/skins/overview', social:'/home', friends:'/friends', profile:'/profile', admin:'/adminpanel', moderator:'/moderatorpanel' };
     if (dest === 'view-profile' && param) navigate(`/profile/@${param}`);
     else navigate(map[dest] || '/');
   };
@@ -776,13 +776,13 @@ const handleUpload = async (files) => {
     if (authStatus !== 'logged-in') { document.title = 'Verumen'; return; }
     const p = location.pathname;
     if (p === '/') document.title = `Verumen — ${authUsername}`;
-    else if (p === '/portfolio') document.title = 'Verumen — Portfolio';
-    else if (p === '/skins') document.title = 'Verumen — Skins';
+    else if (p.startsWith('/stockportfolio')) document.title = 'Verumen — Portfolio';
+    else if (p.startsWith('/skins')) document.title = 'Verumen — Skins';
     else if (p === '/home') document.title = 'Verumen — Social';
     else if (p === '/profile') document.title = `Verumen — @${authUsername}`;
     else if (p.startsWith('/profile/@')) document.title = `Verumen — ${p.slice('/profile/'.length)}`;
-    else if (p === '/admin') document.title = 'Verumen — Admin';
-    else if (p === '/moderator') document.title = 'Verumen — Moderator';
+    else if (p.startsWith('/adminpanel')) document.title = 'Verumen — Admin';
+    else if (p === '/moderatorpanel') document.title = 'Verumen — Moderator';
     else document.title = 'Verumen';
   }, [location.pathname, authStatus, authUsername]);
 
@@ -929,14 +929,14 @@ const handleUpload = async (files) => {
     const cardCls = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl`;
 
     const pathToTab = {
-      '/portfolio':              'overview',
-      '/portfolio/holdings':     'holdings',
-      '/portfolio/transactions': 'history',
-      '/portfolio/dividends':    'dividends',
-      '/portfolio/ownership':    'ownership',
-      '/portfolio/import':       'import',
-      '/portfolio/overrides':    'overrides',
-      '/portfolio/settings':     'settings',
+      '/stockportfolio/overview':      'overview',
+      '/stockportfolio/holdings':      'holdings',
+      '/stockportfolio/transactions':  'history',
+      '/stockportfolio/dividends':     'dividends',
+      '/stockportfolio/ownership':     'ownership',
+      '/stockportfolio/import':        'import',
+      '/stockportfolio/overrides':     'overrides',
+      '/stockportfolio/settings':      'settings',
     };
     const currentTab = pathToTab[location.pathname] || 'overview';
 
@@ -1303,7 +1303,7 @@ const handleUpload = async (files) => {
                                       {retryingFailed ? 'Retrying…' : 'Retry'}
                                     </button>
                                   ) : (
-                                    <button onClick={() => navigate('/portfolio/overrides')} className="shrink-0 font-semibold underline underline-offset-2">
+                                    <button onClick={() => navigate('/stockportfolio/overrides')} className="shrink-0 font-semibold underline underline-offset-2">
                                       Force re-resolve →
                                     </button>
                                   )}
@@ -1313,7 +1313,7 @@ const handleUpload = async (files) => {
                                     <div key={h.ticker} className="flex items-center justify-between gap-2 pl-3">
                                       <span className="font-mono">{h.ticker}{h.isin ? <span className={`ml-1.5 font-sans ${isDark ? 'text-red-500/70' : 'text-red-400'}`}>{h.isin}</span> : ''}</span>
                                       {h.isin && (
-                                        <button onClick={() => { navigate('/portfolio/overrides'); setTimeout(() => { if (overrideIsinRef.current) overrideIsinRef.current.value = h.isin; }, 50); }} className="shrink-0 font-semibold underline underline-offset-2">
+                                        <button onClick={() => { navigate('/stockportfolio/overrides'); setTimeout(() => { if (overrideIsinRef.current) overrideIsinRef.current.value = h.isin; }, 50); }} className="shrink-0 font-semibold underline underline-offset-2">
                                           Set ticker →
                                         </button>
                                       )}
@@ -1838,31 +1838,32 @@ const handleUpload = async (files) => {
           <Route path="/friends" element={<PageShell {...shellProps}><FriendsPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           
           {/* Portfolio routes */}
-          <Route path="/portfolio" element={<PortfolioView/>}/>
-          <Route path="/portfolio/holdings" element={<PortfolioView/>}/>
-          <Route path="/portfolio/transactions" element={<PortfolioView/>}/>
-          <Route path="/portfolio/dividends" element={<PortfolioView/>}/>
-          <Route path="/portfolio/ownership" element={<PortfolioView/>}/>
-          <Route path="/portfolio/import" element={<PortfolioView/>}/>
-          <Route path="/portfolio/overrides" element={<PortfolioView/>}/>
-          <Route path="/portfolio/settings" element={<PortfolioView/>}/>
-          
-          <Route path="/cs-skins" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
-          <Route path="/cs-skins/inventory" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
-          <Route path="/cs-skins/tracker" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/stockportfolio/overview" element={<PortfolioView/>}/>
+          <Route path="/stockportfolio/holdings" element={<PortfolioView/>}/>
+          <Route path="/stockportfolio/transactions" element={<PortfolioView/>}/>
+          <Route path="/stockportfolio/dividends" element={<PortfolioView/>}/>
+          <Route path="/stockportfolio/ownership" element={<PortfolioView/>}/>
+          <Route path="/stockportfolio/import" element={<PortfolioView/>}/>
+          <Route path="/stockportfolio/overrides" element={<PortfolioView/>}/>
+          <Route path="/stockportfolio/settings" element={<PortfolioView/>}/>
+
+          {/* Skins routes */}
+          <Route path="/skins/overview" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/skins/inventory" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
+          <Route path="/skins/traderegistry" element={<PageShell {...shellProps}><CSSkins isDark={isDark} authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/settings" element={<PageShell {...shellProps}><SettingsPage isDark={isDark} baseCurrency={baseCurrency} onSetBaseCurrency={setBaseCurrency}/></PageShell>}/>
-          <Route path="/profile/edit" element={<PageShell {...shellProps}><ProfileEditPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/profile/:username/edit" element={<PageShell {...shellProps}><ProfileEditPage isDark={isDark} authUsername={authUsername}/></PageShell>}/>
           <Route path="/profile" element={<ProfileRoute/>}/>
           <Route path="/profile/:username" element={<ProfileRoute/>}/>
 
           {/* Admin routes */}
-          <Route path="/admin" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/users" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/roles" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/ticker-failures" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
-          <Route path="/admin/announcements" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/adminpanel" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/adminpanel/users" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/adminpanel/roles" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/adminpanel/ticker-failures" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
+          <Route path="/adminpanel/announcements" element={<PageShell {...shellProps}><AdminPanel isDark={isDark} authUsername={authUsername}/></PageShell>}/>
 
-          <Route path="/moderator" element={<PageShell {...shellProps}><ModeratorPanel isDark={isDark} authUsername={authUsername} userRole={userRole}/></PageShell>}/>
+          <Route path="/moderatorpanel" element={<PageShell {...shellProps}><ModeratorPanel isDark={isDark} authUsername={authUsername} userRole={userRole}/></PageShell>}/>
           <Route path="*" element={<Navigate to="/home" replace/>}/>
         </Routes>
       </div>
