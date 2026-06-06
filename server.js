@@ -1543,6 +1543,38 @@ app.get('/api/dividends', requireUser, async (req, res) => {
       } catch {}
     }));
   }
+  // Third pass: dividend rows whose name is still ticker-like but have no matching buy transaction.
+  // Use the row's ISIN (if present) or the raw name to query YF directly.
+  {
+    const seenKeys = new Set();
+    const divNeedingLookup = [];
+    for (const t of divs) {
+      if (t.isin && isinToName[t.isin]) continue;
+      const cleaned = cleanDivName(t.name);
+      if (rawTickerToName[cleaned] || baseTickerToName[cleaned.toUpperCase()]) continue;
+      if (!/^[A-Z0-9]{1,7}$/.test(cleaned)) continue;
+      const key = t.isin || cleaned;
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      divNeedingLookup.push(t);
+    }
+    if (divNeedingLookup.length > 0) {
+      await Promise.all(divNeedingLookup.map(async (t) => {
+        const cleaned = cleanDivName(t.name);
+        const query = t.isin || cleaned;
+        try {
+          const q = await yahooFinance.quote(query);
+          if (q?.longName || q?.shortName) {
+            const name = cleanYFName(q.longName || q.shortName);
+            if (t.isin) isinToName[t.isin] = name;
+            rawTickerToName[cleaned] = name;
+            baseTickerToName[cleaned.toUpperCase()] = name;
+            if (q.symbol) _priceCache.set(q.symbol, { q, cachedAt: Date.now() });
+          }
+        } catch {}
+      }));
+    }
+  }
   const resolveName = (t) => {
     if (t.isin && isinToName[t.isin]) return isinToName[t.isin];
     const cleaned = cleanDivName(t.name);
