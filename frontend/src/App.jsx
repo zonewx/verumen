@@ -475,6 +475,7 @@ export default function App() {
 const handleUpload = async (files) => {
   const fileList = Array.from(files);
   if (!fileList.length) return;
+  const dividendsOnly = location.pathname === '/stockportfolio/import-dividends';
   uploadAbortRef.current = false;
   uploadAbortControllerRef.current = new AbortController();
   setUploadLoading(true); setUploadStatus(null); setSyncStatus(''); setUploadProgress(null);
