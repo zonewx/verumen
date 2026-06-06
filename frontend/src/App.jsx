@@ -116,7 +116,9 @@ export default function App() {
   const uploadAbortControllerRef = useRef(null);
   const globalFileInputRef = useRef(null);
   const forceRefreshRef = useRef(false);
-  const suppressNextFetch = useRef(false); // prevents re-fetch loop when cache restores portfolio
+  const suppressNextFetch = useRef(false);
+  const priceRetryDoneRef = useRef(false);
+  const [priceRetryIn, setPriceRetryIn] = useState(null); // prevents re-fetch loop when cache restores portfolio
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -254,7 +256,7 @@ export default function App() {
         const cachedFp = portfolioFingerprint(dbCached?.holdings, c);
         if (dbCached?.portfolio?.length > 0 && cachedFp === fp) {
           const snapshotAgeMs = Date.now() - new Date(dbCached.builtAt).getTime();
-          const snapshotStale = snapshotAgeMs > 30 * 60 * 1000; // only warn if >30 min old
+          const snapshotStale = snapshotAgeMs > 6 * 60 * 60 * 1000; // only warn if >6 h old
           setDashboardData({ portfolio: dbCached.portfolio, totals: dbCached.totals, hasStalePrices: snapshotStale, fromCache: true, builtAt: dbCached.builtAt });
           setIsAppLoading(false);
           // Restore holdings into state if we have none (new device / cleared localStorage)
@@ -447,6 +449,31 @@ export default function App() {
     }, 20 * 60 * 1000);
     return () => clearInterval(id);
   }, [authUsername, portfolio, baseCurrency, isAppLoading]);
+
+  // Reset auto-retry guard when all prices load successfully (e.g. after re-upload).
+  useEffect(() => {
+    if (!hasFailedHoldings && !isAppLoading) priceRetryDoneRef.current = false;
+  }, [hasFailedHoldings, isAppLoading]);
+
+  // Auto-retry price fetch once after 25 s when holdings fail to load.
+  // YF rate limits from preceding ticker resolution typically reset within 30–60 s.
+  useEffect(() => {
+    if (!hasFailedHoldings || isAppLoading || priceRetryDoneRef.current) return;
+    priceRetryDoneRef.current = true;
+    let secs = 25;
+    setPriceRetryIn(secs);
+    const tick = setInterval(() => {
+      secs--;
+      if (secs <= 0) {
+        clearInterval(tick);
+        setPriceRetryIn(null);
+        handleRefreshPrices();
+      } else {
+        setPriceRetryIn(secs);
+      }
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [hasFailedHoldings, isAppLoading]);
 
   const [retryingFailed, setRetryingFailed]= useState(false);
   const handleRetryFailed = async () => {
@@ -1492,7 +1519,9 @@ const handleUpload = async (files) => {
                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                                     {failedHoldings.length} holding{failedHoldings.length > 1 ? 's' : ''} not found on Yahoo Finance
                                   </div>
-                                  {failedHoldings.length <= 5 ? (
+                                  {priceRetryIn != null ? (
+                                    <span className="shrink-0 font-semibold opacity-70">Retrying in {priceRetryIn}s…</span>
+                                  ) : failedHoldings.length <= 5 ? (
                                     <button onClick={handleRetryFailed} disabled={retryingFailed} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">
                                       {retryingFailed ? 'Retrying…' : 'Retry'}
                                     </button>

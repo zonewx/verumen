@@ -8,10 +8,33 @@ const { promisify } = require('util');
 const brotliDecompress = promisify(zlib.brotliDecompress);
 const { supabase } = require('./supabase');
 
-// In-memory price cache — survives YF outages/rate-limits (cleared on restart, which is fine)
+// In-memory price cache — populated from Supabase on startup so restarts don't force a YF burst
 const _priceCache = new Map(); // ticker -> { q: quoteObject, cachedAt: timestamp }
 const _fxRateCache = {};       // 'USDSEK=X' -> { rate, cachedAt }
 const PRICE_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+
+// Write-through helper: keeps _priceCache and Supabase price_cache in sync
+function setPriceCache(ticker, data) {
+  _priceCache.set(ticker, data);
+  supabase.from('price_cache').upsert(
+    { ticker, quote: data.q, cached_at: new Date(data.cachedAt).toISOString() },
+    { onConflict: 'ticker' }
+  ).then(() => {}).catch(() => {});
+}
+
+// Load persisted prices from Supabase on startup — avoids a cold-cache YF burst after restart
+;(async () => {
+  try {
+    const cutoff = new Date(Date.now() - PRICE_CACHE_TTL).toISOString();
+    const { data } = await supabase.from('price_cache').select('ticker, quote, cached_at').gt('cached_at', cutoff);
+    if (data?.length) {
+      data.forEach(({ ticker, quote, cached_at }) =>
+        _priceCache.set(ticker, { q: quote, cachedAt: new Date(cached_at).getTime() })
+      );
+      console.log(`[price_cache] Loaded ${data.length} entries from Supabase`);
+    }
+  } catch(e) { console.warn('[price_cache] Failed to load from Supabase:', e.message); }
+})();
 
 // Simple in-memory rate limiter for auth routes
 const rateLimitMap = new Map();
@@ -475,7 +498,7 @@ async function resolveSymbolBatch(transactions, userId) {
 
   console.log(`[resolveSymbolBatch] ${transactions.length} txs → ${pending.size} need YF (${transactions.length - pending.size} pre-resolved)`);
 
-  let delayMs = 150;
+  let delayMs = 350;
   let yfBackoff = 0; // extra ms added after rate-limited tickers; compounds on bursts, recovers on success
   let resolved = 0;
   const pendingList = Array.from(pending.entries());
@@ -578,7 +601,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
       if (e?.result?.regularMarketPrice != null) q = e.result;
     }
     if (q?.regularMarketPrice != null) {
-      _priceCache.set(symbol, { q, cachedAt: Date.now() });
+      setPriceCache(symbol, { q, cachedAt: Date.now() });
       return symbol;
     }
     return null;
@@ -1351,7 +1374,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       }
       if (q?.regularMarketPrice != null) {
         resolvedTicker = sym; // track which ticker actually worked
-        _priceCache.set(sym, { q, cachedAt: Date.now() });
+        setPriceCache(sym, { q, cachedAt: Date.now() });
         return q;
       }
       return null;
@@ -1430,7 +1453,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         );
         (Array.isArray(bulkResult) ? bulkResult : [bulkResult]).forEach(q => {
           if (q?.symbol && q.regularMarketPrice != null) {
-            _priceCache.set(q.symbol, { q, cachedAt: Date.now() });
+            setPriceCache(q.symbol, { q, cachedAt: Date.now() });
           }
         });
       } catch(e) { /* bulk failed — per-ticker fallbacks will handle individually */ }
@@ -1569,7 +1592,7 @@ app.get('/api/dividends', requireUser, async (req, res) => {
       try {
         const q = await yahooFinance.quote(ticker);
         if (q?.longName || q?.shortName) {
-          _priceCache.set(ticker, { q, cachedAt: Date.now() });
+          setPriceCache(ticker, { q, cachedAt: Date.now() });
           const name = cleanYFName(q.longName || q.shortName);
           rawTickerToName[base] = name;
           baseTickerToName[base] = name;
@@ -1607,7 +1630,7 @@ app.get('/api/dividends', requireUser, async (req, res) => {
             if (t.isin) isinToName[t.isin] = name;
             rawTickerToName[cleaned] = name;
             baseTickerToName[cleaned.toUpperCase()] = name;
-            if (q.symbol) _priceCache.set(q.symbol, { q, cachedAt: Date.now() });
+            if (q.symbol) setPriceCache(q.symbol, { q, cachedAt: Date.now() });
           }
         } catch {}
       }));
