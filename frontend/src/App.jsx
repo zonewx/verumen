@@ -545,12 +545,21 @@ const handleUpload = async (files) => {
       return;
     }
 
-    // Dividends-only: skip ticker resolution and portfolio sync — just bust the dividends cache and redirect
+    // Dividends-only: skip ticker resolution and portfolio sync — fetch fresh dividends and redirect
     if (dividendsOnly) {
-      apiCache.del('/api/dividends');
+      apiCache.bust('/api/dividends');
       updateProgress('done', 100, `✓ Imported ${totalNewAdded} dividend transaction${totalNewAdded !== 1 ? 's' : ''}`);
-      setAppLoadingLabel('Loading dividend data...');
-      setTimeout(() => { setUploadProgress(null); navigate('/stockportfolio/dividends'); }, 3000);
+      setTimeout(async () => {
+        setUploadProgress(null);
+        navigate('/stockportfolio/dividends');
+        try {
+          const divRes = await apiFetch(`/api/dividends?currency=${baseCurrency}`).then(r => r.json());
+          if (divRes) {
+            setDividends(divRes);
+            apiCache.set(`/api/dividends?currency=${baseCurrency}`, divRes);
+          }
+        } catch(e) {}
+      }, 3000);
       setUploadLoading(false);
       return;
     }
@@ -1267,9 +1276,9 @@ const handleUpload = async (files) => {
                         </button>
                         {resolveStatus && <p className={`text-xs mt-3 ${resolveStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{resolveStatus}</p>}
                       </div>
-                      <div className={`${cardCls} p-6`}>
+                      <div className={`${cardCls} p-6 flex flex-col`}>
                         <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Refresh Prices</h3>
-                        <p className={`text-sm mb-4 text-zinc-300`}>
+                        <p className={`text-sm mb-4 text-zinc-300 flex-1`}>
                           Update all stock prices from Yahoo Finance to reflect current market values.
                         </p>
                         <button
