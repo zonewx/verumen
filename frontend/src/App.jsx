@@ -257,7 +257,6 @@ export default function App() {
           const snapshotStale = snapshotAgeMs > 30 * 60 * 1000; // only warn if >30 min old
           setDashboardData({ portfolio: dbCached.portfolio, totals: dbCached.totals, hasStalePrices: snapshotStale, fromCache: true, builtAt: dbCached.builtAt });
           setIsAppLoading(false);
-          setIsInitializing(false);
           // Restore holdings into state if we have none (new device / cleared localStorage)
           if (p.length === 0 && dbCached.holdings?.length > 0) {
             suppressNextFetch.current = true;
@@ -287,6 +286,7 @@ export default function App() {
           if (csSetRes && typeof csSetRes === 'object') apiCache.set('/api/cs/settings', csSetRes);
           if (Array.isArray(annRes)) apiCache.set('/api/announcements', annRes);
           if (profRes && typeof profRes === 'object' && !profRes.error) apiCache.set(`/api/users/${authUsername}/profile`, profRes);
+          setIsInitializing(false);
           return;
         }
       } catch(e) {}

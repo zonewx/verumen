@@ -350,6 +350,20 @@ async function loadOverrides(userId) {
   return overrides;
 }
 
+// ── Shared name cleaner (used by portfolio builder and dividend resolver) ────
+const cleanYFName = (name) => {
+  if (!name) return name;
+  return name
+    .replace(/\s*\(publ\.?\)/gi, '')
+    .replace(/\s*\(AB\)/gi, '')
+    .replace(/\bAB\b(?!\w)/gi, '')
+    .replace(/\bpubl\.?\b/gi, '')
+    .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
+    .replace(/\s*[.,;]\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 // ── Ticker resolution ───────────────────────────────────────────────────────
 const YahooFinance = require('yahoo-finance2').default;
 const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
@@ -1494,16 +1508,41 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     .eq('user_id', req.user.id)
     .in('type', ['buy', 'sell'])
     .not('name', 'is', null);
+  // First pass: build maps using whatever is in _priceCache right now
+  const tickersNeedingLookup = new Map(); // base → full ticker (e.g. "EVO" → "EVO.ST")
   (buyTxs || []).forEach(t => {
     const cached = t.ticker ? _priceCache.get(t.ticker) : null;
-    const displayName = cached?.q?.longName || cached?.q?.shortName || t.name;
+    const rawDisplayName = cached?.q?.longName || cached?.q?.shortName || t.name;
+    const displayName = cached ? cleanYFName(rawDisplayName) : rawDisplayName;
     if (t.isin && !isinToName[t.isin]) isinToName[t.isin] = displayName;
     if (t.raw_ticker && !rawTickerToName[t.raw_ticker]) rawTickerToName[t.raw_ticker] = displayName;
     if (t.ticker) {
       const base = t.ticker.split('.')[0].toUpperCase();
       if (!baseTickerToName[base]) baseTickerToName[base] = displayName;
+      // Queue a YF lookup if the best name is still ticker-like (all-caps, no spaces, ≤7 chars)
+      if (!cached && /^[A-Z0-9]{1,7}$/.test(displayName) && !tickersNeedingLookup.has(base)) {
+        tickersNeedingLookup.set(base, t.ticker);
+      }
     }
   });
+  // Second pass: fetch real names from YF for any ticker-like names not yet in price cache
+  if (tickersNeedingLookup.size > 0) {
+    await Promise.all([...tickersNeedingLookup.entries()].map(async ([base, ticker]) => {
+      try {
+        const q = await yahooFinance.quote(ticker);
+        if (q?.longName || q?.shortName) {
+          _priceCache.set(ticker, { q, cachedAt: Date.now() });
+          const name = cleanYFName(q.longName || q.shortName);
+          rawTickerToName[base] = name;
+          baseTickerToName[base] = name;
+          // Update isinToName too if we have a matching ISIN entry that was ticker-like
+          for (const [isin, n] of Object.entries(isinToName)) {
+            if (/^[A-Z0-9]{1,7}$/.test(n)) isinToName[isin] = name;
+          }
+        }
+      } catch {}
+    }));
+  }
   const resolveName = (t) => {
     if (t.isin && isinToName[t.isin]) return isinToName[t.isin];
     const cleaned = cleanDivName(t.name);
