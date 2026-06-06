@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiCache from './apiCache';
 
-function SteamScreenshotPreview({ url, isDark }) {
+function SteamScreenshotPreview({ url }) {
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +21,7 @@ function SteamScreenshotPreview({ url, isDark }) {
   return (
     <a href={url} target="_blank" rel="noreferrer" className="block mt-2 rounded-xl overflow-hidden group">
       {loading && (
-        <div className={`flex items-center gap-2 p-3 rounded-xl border ${isDark ? 'bg-zinc-700/50 border-zinc-600' : 'bg-gray-50 border-gray-200'}`}>
+        <div className={`flex items-center gap-2 p-3 rounded-xl border bg-zinc-700/50 border-zinc-600`}>
           <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           <span className="text-xs text-violet-400">Loading preview...</span>
         </div>
@@ -35,7 +35,7 @@ function SteamScreenshotPreview({ url, isDark }) {
         </div>
       )}
       {!loading && !preview && (
-        <div className={`flex items-center gap-3 p-3 rounded-xl border ${isDark ? 'bg-zinc-700/50 border-zinc-600 hover:bg-zinc-700' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}>
+        <div className={`flex items-center gap-3 p-3 rounded-xl border bg-zinc-700/50 border-zinc-600 hover:bg-zinc-700`}>
           <span className="text-xl">📷</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Steam Screenshot</p>
@@ -69,9 +69,9 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function ActivityCard({ item, isDark, onDelete, isOwn }) {
+function ActivityCard({ item, onDelete, isOwn }) {
   const [expanded, setExpanded] = useState(false);
-  const card = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl p-4`;
+  const card = `bg-zinc-800 border-zinc-700 border rounded-xl p-4`;
 
   const badge = ROLE_BADGE[item.role];
 
@@ -83,10 +83,10 @@ function ActivityCard({ item, isDark, onDelete, isOwn }) {
           <span className="font-semibold text-sm">{item.username}</span>
           {badge && <span className={`text-xs px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>}
         </div>
-        <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{timeAgo(item.createdAt)}</p>
+        <p className={`text-xs mt-0.5 text-zinc-400`}>{timeAgo(item.createdAt)}</p>
       </div>
       {isOwn && (
-        <button onClick={() => onDelete(item.id)} className={`text-xs ${isDark ? 'text-zinc-600 hover:text-red-400' : 'text-zinc-300 hover:text-red-400'} transition shrink-0`}>✕</button>
+        <button onClick={() => onDelete(item.id)} className={`text-xs text-zinc-600 hover:text-red-400 transition shrink-0`}>✕</button>
       )}
     </div>
   );
@@ -100,7 +100,7 @@ function ActivityCard({ item, isDark, onDelete, isOwn }) {
           <span className={`text-lg font-bold ${isBuy ? 'text-green-400' : 'text-red-400'}`}>{isBuy ? '↓' : '↑'}</span>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm truncate">{item.skinName}</p>
-            <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+            <p className={`text-xs text-zinc-400`}>
               {isBuy ? `Bought for ${item.price} ${item.currency}` : `Sold for ${item.sellPrice} ${item.currency} (bought ${item.buyPrice} ${item.currency})`}
               {item.exterior && <span className="ml-1 opacity-70">· {item.exterior}</span>}
             </p>
@@ -118,7 +118,7 @@ function ActivityCard({ item, isDark, onDelete, isOwn }) {
       <div className={card}>
         <Header />
         <p className="text-sm font-semibold mb-2">{item.skinName}</p>
-        <SteamScreenshotPreview url={item.screenshotUrl} isDark={isDark} />
+        <SteamScreenshotPreview url={item.screenshotUrl} />
       </div>
     );
   }
@@ -127,11 +127,11 @@ function ActivityCard({ item, isDark, onDelete, isOwn }) {
     return (
       <div className={card}>
         <Header />
-        <div className={`flex items-center gap-3 p-3 rounded-lg ${isDark ? 'bg-zinc-700/20 border border-zinc-600/40' : 'bg-blue-50 border border-blue-200'}`}>
+        <div className={`flex items-center gap-3 p-3 rounded-lg bg-zinc-700/20 border border-zinc-600/40`}>
           <span className="text-xl">📊</span>
           <div>
             <p className="font-semibold text-sm">Portfolio updated</p>
-            <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+            <p className={`text-xs text-zinc-400`}>
               {item.holdingCount} holding{item.holdingCount !== 1 ? 's' : ''}
               {item.tickers?.length > 0 && <span className="ml-1 opacity-70">· {item.tickers.join(', ')}{item.holdingCount > 5 ? '...' : ''}</span>}
             </p>
@@ -146,13 +146,13 @@ function ActivityCard({ item, isDark, onDelete, isOwn }) {
       <div className={card}>
         <Header />
         <p className="text-sm font-semibold mb-2">{item.skinName}</p>
-        {item.caption && <p className={`text-sm mb-3 ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>{item.caption}</p>}
+        {item.caption && <p className={`text-sm mb-3 text-zinc-300`}>{item.caption}</p>}
         {item.imageBase64 && (
           <div className="rounded-xl overflow-hidden cursor-pointer" onClick={() => setExpanded(!expanded)}>
             <img src={item.imageBase64} alt={item.skinName} className={`w-full object-cover transition-all ${expanded ? 'max-h-none' : 'max-h-64'}`} />
           </div>
         )}
-        {!expanded && item.imageBase64 && <button onClick={() => setExpanded(true)} className={`text-xs mt-1 ${isDark ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-gray-900'} transition`}>View full</button>}
+        {!expanded && item.imageBase64 && <button onClick={() => setExpanded(true)} className={`text-xs mt-1 text-zinc-500 hover:text-white transition`}>View full</button>}
       </div>
     );
   }
@@ -161,7 +161,7 @@ function ActivityCard({ item, isDark, onDelete, isOwn }) {
     return (
       <div className={card}>
         <Header />
-        <p className={`text-sm ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>
+        <p className={`text-sm text-zinc-300`}>
           Became friends with <span className="font-semibold">{item.targetUser}</span> 🤝
         </p>
       </div>
@@ -171,7 +171,7 @@ function ActivityCard({ item, isDark, onDelete, isOwn }) {
   return null;
 }
 
-export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
+export default function SocialFeed({ authUsername, onViewProfile }) {
   const [tab, setTab] = useState('feed');
   const [feed, setFeed] = useState(() => apiCache.get('/api/feed') || []);
   const [friends, setFriends] = useState(() => apiCache.get('/api/friends') || { friends: [], incoming: [], outgoing: [] });
@@ -187,10 +187,10 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
   const [uploading, setUploading] = useState(false);
 
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
-  const card = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl`;
-  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
+  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
+  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
   const btnPrimary = 'px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50';
-  const btnGhost = `px-3 py-1.5 text-sm font-semibold rounded-lg transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
+  const btnGhost = `px-3 py-1.5 text-sm font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const flash = (msg, ms = 3000) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), ms); };
 
@@ -310,7 +310,7 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
   };
 
   const FriendRow = ({ user, actions }) => (
-    <div className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-zinc-700/50' : 'bg-gray-50'}`}>
+    <div className={`flex items-center gap-3 p-3 rounded-xl bg-zinc-700/50`}>
       <button onClick={() => onViewProfile(user.username)} className="shrink-0">
         <Avatar src={user.avatarBase64} username={user.username} />
       </button>
@@ -319,7 +319,7 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
           <button onClick={() => onViewProfile(user.username)} className={`font-semibold text-sm hover:underline`}>{user.username}</button>
           {user.role && ROLE_BADGE[user.role] && <span className={`text-xs px-1.5 py-0.5 rounded-full ${ROLE_BADGE[user.role].cls}`}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span>}
         </div>
-        {user.bio && <p className={`text-xs truncate ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{user.bio}</p>}
+        {user.bio && <p className={`text-xs truncate text-zinc-400`}>{user.bio}</p>}
       </div>
       <div className="flex gap-2 shrink-0">{actions}</div>
     </div>
@@ -362,9 +362,9 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
               </div>
             )}
             <div className="flex items-center justify-between mb-4">
-              <div className={`flex gap-0 border-b ${isDark ? 'border-zinc-700' : 'border-gray-200'}`}>
+              <div className={`flex gap-0 border-b border-zinc-700`}>
                 {[['feed','Feed'],['mine','My Posts']].map(([id, label]) => (
-                  <button key={id} onClick={() => setTab(id)} className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${tab === id ? 'border-violet-500 text-violet-400' : `border-transparent ${isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-400 hover:text-gray-900'}`}`}>{label}</button>
+                  <button key={id} onClick={() => setTab(id)} className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${tab === id ? 'border-violet-500 text-violet-400' : `border-transparent text-zinc-400 hover:text-white`}`}>{label}</button>
                 ))}
               </div>
               <div className="flex gap-2">
@@ -378,9 +378,9 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
             {/* Post form */}
             {showUpload && (
               <div className={`${card} mb-4 overflow-hidden`}>
-                <div className={`px-5 py-3 border-b ${isDark ? 'border-zinc-700 bg-zinc-800/50' : 'border-gray-100 bg-gray-50'} flex items-center justify-between`}>
+                <div className={`px-5 py-3 border-b border-zinc-700 bg-zinc-800/50 flex items-center justify-between`}>
                   <h3 className="font-semibold text-sm">New Post</h3>
-                  <button onClick={() => { setShowUpload(false); setUploadForm({ skinName: '', caption: '', imageBase64: null }); }} className={`text-xs ${isDark ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-gray-900'} transition`}>✕</button>
+                  <button onClick={() => { setShowUpload(false); setUploadForm({ skinName: '', caption: '', imageBase64: null }); }} className={`text-xs text-zinc-500 hover:text-white transition`}>✕</button>
                 </div>
                 <div className="p-5 flex flex-col gap-3">
                   <input
@@ -395,7 +395,7 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
                     placeholder="Information"
                     className={inputCls}
                   />
-                  <label className={`flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed cursor-pointer transition ${isDark ? 'border-zinc-700 hover:border-zinc-500 hover:bg-zinc-700/10 text-zinc-500' : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-zinc-400'}`}>
+                  <label className={`flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed cursor-pointer transition border-zinc-700 hover:border-zinc-500 hover:bg-zinc-700/10 text-zinc-500`}>
                     {uploadForm.imageBase64 ? (
                       <img src={uploadForm.imageBase64} className="max-h-48 rounded-lg object-contain" />
                     ) : (
@@ -404,13 +404,13 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
                           <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
                         </svg>
                         <span className="text-sm">Click to select image</span>
-                        <span className={`text-xs ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>Optional</span>
+                        <span className={`text-xs text-zinc-600`}>Optional</span>
                       </>
                     )}
                     <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e.target.files[0])} />
                   </label>
                   {uploadForm.imageBase64 && (
-                    <button onClick={() => setUploadForm(f => ({ ...f, imageBase64: null }))} className={`text-xs ${isDark ? 'text-zinc-500 hover:text-red-400' : 'text-zinc-400 hover:text-red-500'} transition text-left`}>
+                    <button onClick={() => setUploadForm(f => ({ ...f, imageBase64: null }))} className={`text-xs text-zinc-500 hover:text-red-400 transition text-left`}>
                       Remove image
                     </button>
                   )}
@@ -435,11 +435,11 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
                     <div className={`${card} p-10 text-center`}>
                       <p className="text-3xl mb-3">{tab === 'mine' ? '📝' : '👥'}</p>
                       <p className="font-semibold mb-1">{tab === 'mine' ? 'No activity yet' : 'Your feed is empty'}</p>
-                      <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{tab === 'mine' ? 'Your CS trades, portfolio updates and screenshots will appear here.' : 'Add friends to see their activity here.'}</p>
+                      <p className={`text-sm text-zinc-400`}>{tab === 'mine' ? 'Your CS trades, portfolio updates and screenshots will appear here.' : 'Add friends to see their activity here.'}</p>
                     </div>
                   );
                   return items.map(item => (
-                    <ActivityCard key={item.id} item={item} isDark={isDark} onDelete={deleteActivity} isOwn={item.username === authUsername} />
+                    <ActivityCard key={item.id} item={item} onDelete={deleteActivity} isOwn={item.username === authUsername} />
                   ));
                 })()}
               </div>
@@ -454,7 +454,7 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
                 className="w-full text-left mb-3 hover:opacity-80 transition"
               >
                 <h3 className="font-bold text-sm">
-                  Friends {friends.friends?.length > 0 && <span className={`ml-1 text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>({friends.friends.length})</span>}
+                  Friends {friends.friends?.length > 0 && <span className={`ml-1 text-xs text-zinc-400`}>({friends.friends.length})</span>}
                 </h3>
               </button>
 
@@ -462,17 +462,17 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
               <div className="relative mb-4">
                 <input value={searchQuery} onChange={e => searchUsers(e.target.value)} placeholder="Find users..." className={`${inputCls} pr-3`} />
                 {searchResults.length > 0 && (
-                  <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-xl overflow-hidden z-20 ${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'}`}>
+                  <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-xl overflow-hidden z-20 bg-zinc-800 border-zinc-700`}>
                     {searchResults.map(u => {
                       const isFriend = friends.friends?.some(f => f.username === u.username);
                       const isPending = friends.outgoing?.includes(u.username);
                       return (
-                        <div key={u.username} className={`flex items-center gap-3 px-3 py-2.5 border-b ${isDark ? 'border-zinc-700' : 'border-gray-100'} last:border-0`}>
+                        <div key={u.username} className={`flex items-center gap-3 px-3 py-2.5 border-b border-zinc-700 last:border-0`}>
                           <button onClick={() => { onViewProfile(u.username); setSearchQuery(''); setSearchResults([]); }} className="shrink-0">
                             <Avatar src={u.avatarBase64} username={u.username} size="w-7 h-7" text="text-xs" />
                           </button>
                           <span className="flex-1 text-sm font-semibold truncate">{u.username}</span>
-                          {isFriend ? <span className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Friends</span>
+                          {isFriend ? <span className={`text-xs text-zinc-400`}>Friends</span>
                             : isPending ? <span className="text-xs text-blue-400">Sent</span>
                             : <button onClick={() => { sendRequest(u.username); setSearchQuery(''); setSearchResults([]); }} className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition">Add</button>}
                         </div>
@@ -485,12 +485,12 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
               {/* Incoming requests */}
               {friends.incoming?.length > 0 && (
                 <div className="mb-4">
-                  <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Requests ({friends.incoming.length})</p>
+                  <p className={`text-xs font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Requests ({friends.incoming.length})</p>
                   <div className="flex flex-col gap-2">
                     {friends.incoming.map(u => (
                       <FriendRow key={u.username} user={u} actions={<>
                         <button onClick={() => acceptRequest(u.username)} className="text-xs px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded-lg transition">Accept</button>
-                        <button onClick={() => declineRequest(u.username)} className={`text-xs px-2 py-1 ${isDark ? 'bg-zinc-700 hover:bg-zinc-600' : 'bg-gray-200 hover:bg-gray-300'} rounded-lg transition`}>✕</button>
+                        <button onClick={() => declineRequest(u.username)} className={`text-xs px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded-lg transition`}>✕</button>
                       </>} />
                     ))}
                   </div>
@@ -500,10 +500,10 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
               {/* Outgoing */}
               {friends.outgoing?.length > 0 && (
                 <div className="mb-4">
-                  <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Sent</p>
+                  <p className={`text-xs font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Sent</p>
                   <div className="flex flex-col gap-2">
                     {friends.outgoing.map(u => (
-                      <div key={u} className={`flex items-center gap-2 px-3 py-2 rounded-xl ${isDark ? 'bg-zinc-700/50' : 'bg-gray-50'}`}>
+                      <div key={u} className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-700/50`}>
                         <span className="text-sm font-semibold flex-1">{u}</span>
                         <span className="text-xs text-blue-400">Pending</span>
                       </div>
@@ -514,16 +514,16 @@ export default function SocialFeed({ isDark, authUsername, onViewProfile }) {
 
               {/* Friends list */}
               {friends.friends?.length === 0 && friends.incoming?.length === 0 ? (
-                <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'} text-center py-4`}>Search for users above to add friends.</p>
+                <p className={`text-xs text-zinc-400 text-center py-4`}>Search for users above to add friends.</p>
               ) : (
                 <div>
                   {friends.friends?.length > 0 && (
                     <>
-                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Friends</p>
+                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Friends</p>
                       <div className="flex flex-col gap-2">
                         {friends.friends.map(u => (
                           <FriendRow key={u.username} user={u} actions={
-                            <button onClick={() => onViewProfile(u.username)} className={`text-xs ${isDark ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-gray-900'} transition`}>View →</button>
+                            <button onClick={() => onViewProfile(u.username)} className={`text-xs text-zinc-500 hover:text-white transition`}>View →</button>
                           } />
                         ))}
                       </div>

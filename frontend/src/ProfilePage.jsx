@@ -5,7 +5,7 @@ const ROLE_BADGE = {
   moderator: { label: 'Moderator', cls: 'bg-blue-900/40 text-blue-400 border border-blue-800' },
 };
 
-export default function ProfilePage({ isDark, authUsername, viewUsername = null }) {
+export default function ProfilePage({ authUsername, viewUsername = null }) {
   const isViewing = viewUsername && viewUsername !== authUsername;
   const targetUser = isViewing ? viewUsername : authUsername;
 
@@ -25,9 +25,9 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
-  const card = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl`;
-  const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition focus:ring-2 focus:ring-zinc-500/30 focus:border-zinc-500 ${isDark ? 'bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
-  const labelCls = `text-xs font-semibold uppercase tracking-wider block mb-1.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`;
+  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
+  const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition focus:ring-2 focus:ring-zinc-500/30 focus:border-zinc-500 bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
+  const labelCls = `text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-400`;
 
   useEffect(() => {
     fetchProfile();
@@ -158,7 +158,7 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
 
   const Toggle = ({ value, onChange }) => (
     <button type="button" onClick={() => onChange(!value)}
-      className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${value ? 'bg-violet-500' : isDark ? 'bg-zinc-700' : 'bg-gray-300'}`}
+      className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${value ? 'bg-violet-500' : 'bg-zinc-700'}`}
       style={{ width: '44px' }}>
       <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${value ? 'translate-x5' : 'translate-x-0'}`} />
     </button>
@@ -189,8 +189,8 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
                   {profile.role && ROLE_BADGE[profile.role] && (
                     <span className={`text-xs px-2.5 py-1 rounded-full mb-2 ${ROLE_BADGE[profile.role].cls}`}>{ROLE_BADGE[profile.role].label}</span>
                   )}
-                  <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Member since {formatDate(profile.createdAt)}</p>
-                  {profile.bio && <p className={`text-sm mt-3 leading-relaxed ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>{profile.bio}</p>}
+                  <p className={`text-sm text-zinc-400`}>Member since {formatDate(profile.createdAt)}</p>
+                  {profile.bio && <p className={`text-sm mt-3 leading-relaxed text-zinc-300`}>{profile.bio}</p>}
                   <div className="flex flex-wrap gap-2 mt-3 justify-center">
                     {profile.steamId && (
                       <a href={`https://steamcommunity.com/profiles/${profile.steamId}`} target="_blank" rel="noopener noreferrer"
@@ -208,22 +208,22 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
               <div className="lg:col-span-2 flex flex-col gap-4">
                 {/* CS Inventory */}
                 <div className={`${card} p-5`}>
-                  <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>CS Inventory</h3>
+                  <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>CS Inventory</h3>
                   {!profile.publicInventory ? (
-                    <p className={`text-sm ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>🔒 Private</p>
+                    <p className={`text-sm text-zinc-400`}>🔒 Private</p>
                   ) : loadingInventory ? (
-                    <div className="flex items-center gap-2 py-2"><div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/><span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Loading...</span></div>
+                    <div className="flex items-center gap-2 py-2"><div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/><span className={`text-sm text-zinc-400`}>Loading...</span></div>
                   ) : inventoryError ? (
                     <p className="text-sm text-red-400">{inventoryError}</p>
                   ) : viewingInventory ? (
                     <>
                       <div className="flex gap-6 mb-4">
-                        <div><p className={`text-xs mb-0.5 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Items</p><p className="font-bold text-lg">{viewingInventory.count}</p></div>
-                        <div><p className={`text-xs mb-0.5 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Est. Value</p><p className="font-bold text-lg text-green-400">{viewingInventory.totalValue.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p></div>
+                        <div><p className={`text-xs mb-0.5 text-zinc-400`}>Items</p><p className="font-bold text-lg">{viewingInventory.count}</p></div>
+                        <div><p className={`text-xs mb-0.5 text-zinc-400`}>Est. Value</p><p className="font-bold text-lg text-green-400">{viewingInventory.totalValue.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p></div>
                       </div>
                       <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-72 overflow-y-auto">
                         {viewingInventory.items.slice(0, 24).map((item, i) => (
-                          <div key={i} className={`${isDark ? 'bg-zinc-700' : 'bg-gray-50'} rounded-lg p-2 text-center`}>
+                          <div key={i} className={`bg-zinc-700 rounded-lg p-2 text-center`}>
                             {item.iconUrl && <img src={item.iconUrl} alt={item.name} className="w-full h-12 object-contain mb-1"/>}
                             <p className="text-xs truncate" title={item.name}>{item.name}</p>
                             {item.priceSEK > 0 && <p className="text-xs text-green-400 font-bold">{item.priceSEK.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>}
@@ -236,21 +236,21 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
 
                 {/* Stock holdings */}
                 <div className={`${card} p-5`}>
-                  <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Portfolio</h3>
+                  <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Portfolio</h3>
                   {!profile.publicHoldings ? (
-                    <p className={`text-sm ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>🔒 Private</p>
+                    <p className={`text-sm text-zinc-400`}>🔒 Private</p>
                   ) : loadingHoldings ? (
                     <div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
                   ) : viewingHoldings?.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {viewingHoldings.map(h => (
-                        <div key={h.ticker} className={`${isDark ? 'bg-zinc-700' : 'bg-gray-100'} rounded-lg px-3 py-1.5`}>
+                        <div key={h.ticker} className={`bg-zinc-700 rounded-lg px-3 py-1.5`}>
                           <span className="text-sm font-bold">{h.ticker}</span>
-                          <span className={`ml-1.5 text-xs ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{h.quantity} shares</span>
+                          <span className={`ml-1.5 text-xs text-zinc-400`}>{h.quantity} shares</span>
                         </div>
                       ))}
                     </div>
-                  ) : <p className={`text-sm ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>No holdings.</p>}
+                  ) : <p className={`text-sm text-zinc-400`}>No holdings.</p>}
                 </div>
               </div>
             </div>
@@ -284,9 +284,9 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
               {profile?.role && ROLE_BADGE[profile.role] && (
                 <span className={`text-xs px-2.5 py-1 rounded-full mt-1 mb-1 ${ROLE_BADGE[profile.role].cls}`}>{ROLE_BADGE[profile.role].label}</span>
               )}
-              <p className={`text-sm mt-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Member since {formatDate(profile?.createdAt)}</p>
+              <p className={`text-sm mt-1 text-zinc-400`}>Member since {formatDate(profile?.createdAt)}</p>
               {editForm.avatarBase64 && (
-                <button onClick={() => setEditForm(f => ({ ...f, avatarBase64: null }))} className={`text-xs mt-2 ${isDark ? 'text-zinc-500 hover:text-red-400' : 'text-zinc-400 hover:text-red-500'} transition`}>Remove photo</button>
+                <button onClick={() => setEditForm(f => ({ ...f, avatarBase64: null }))} className={`text-xs mt-2 text-zinc-500 hover:text-red-400 transition`}>Remove photo</button>
               )}
             </div>
 
@@ -298,10 +298,10 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
                   { key: 'publicInventory', title: 'Public CS Inventory', desc: 'Show Steam CS inventory on profile' },
                   { key: 'publicHoldings', title: 'Public Portfolio', desc: 'Show stock holdings on profile' },
                 ].map(({ key, title, desc }) => (
-                  <div key={key} className={`flex items-center justify-between gap-3 p-3 rounded-xl ${isDark ? 'bg-zinc-700/50' : 'bg-gray-50'}`}>
+                  <div key={key} className={`flex items-center justify-between gap-3 p-3 rounded-xl bg-zinc-700/50`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold">{title}</p>
-                      <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{desc}</p>
+                      <p className={`text-xs mt-0.5 text-zinc-400`}>{desc}</p>
                     </div>
                     <Toggle value={editForm[key]} onChange={v => setEditForm(f => ({ ...f, [key]: v }))} />
                   </div>
@@ -320,25 +320,25 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Bio</label>
                   <textarea value={editForm.bio} onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))} rows={3} maxLength={200} placeholder="Tell the community about yourself..." className={`${inputCls} resize-none`} />
-                  <p className={`text-xs mt-1 ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>{editForm.bio.length}/200</p>
+                  <p className={`text-xs mt-1 text-zinc-600`}>{editForm.bio.length}/200</p>
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Steam Account</label>
                   {steamVerified && editForm.steamId ? (
-                    <div className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-green-900/20 border border-green-800/40' : 'bg-green-50 border border-green-200'}`}>
+                    <div className={`flex items-center gap-3 p-3 rounded-xl bg-green-900/20 border border-green-800/40`}>
                       <img src="https://store.steampowered.com/favicon.ico" alt="Steam" className="w-5 h-5 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-green-400">✓ Steam linked & verified</p>
-                        <a href={`https://steamcommunity.com/profiles/${editForm.steamId}`} target="_blank" rel="noopener noreferrer" className={`text-xs hover:underline ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{editForm.steamId} ↗</a>
+                        <a href={`https://steamcommunity.com/profiles/${editForm.steamId}`} target="_blank" rel="noopener noreferrer" className={`text-xs hover:underline text-zinc-400`}>{editForm.steamId} ↗</a>
                       </div>
-                      <button onClick={unlinkSteam} className={`text-xs px-2 py-1 rounded-lg transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-gray-100 hover:bg-gray-200 text-zinc-600'}`}>Unlink</button>
+                      <button onClick={unlinkSteam} className={`text-xs px-2 py-1 rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300`}>Unlink</button>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2">
                       <button onClick={handleSteamLogin} disabled={steamLookupLoading} className="self-start hover:opacity-90 transition disabled:opacity-50">
                         <img src="https://community.cloudflare.steamstatic.com/public/images/signinthroughsteam/sits_01.png" alt="Sign in through Steam" className="h-10" />
                       </button>
-                      <p className={`text-xs ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>You'll be redirected to Steam to verify your account.</p>
+                      <p className={`text-xs text-zinc-600`}>You'll be redirected to Steam to verify your account.</p>
                       {steamLookupError && <p className="text-xs text-red-400">{steamLookupError}</p>}
                     </div>
                   )}
@@ -355,7 +355,7 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
 
             {/* Live preview */}
             <div className={`${card} p-5`}>
-              <p className={`text-xs font-semibold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>How others see you</p>
+              <p className={`text-xs font-semibold uppercase tracking-wider mb-4 text-zinc-400`}>How others see you</p>
               <div className="flex items-start gap-5">
                 <AvatarDisplay src={editForm.avatarBase64} username={authUsername} size="w-16 h-16" textSize="text-2xl" />
                 <div className="flex-1 min-w-0">
@@ -365,18 +365,18 @@ export default function ProfilePage({ isDark, authUsername, viewUsername = null 
                       <span className={`text-xs px-2 py-0.5 rounded-full ${ROLE_BADGE[profile.role].cls}`}>{ROLE_BADGE[profile.role].label}</span>
                     )}
                   </div>
-                  <p className={`text-xs mb-2 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Joined {formatDate(profile?.createdAt)}</p>
+                  <p className={`text-xs mb-2 text-zinc-400`}>Joined {formatDate(profile?.createdAt)}</p>
                   {editForm.bio ? (
-                    <p className={`text-sm leading-relaxed mb-3 ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>{editForm.bio}</p>
+                    <p className={`text-sm leading-relaxed mb-3 text-zinc-300`}>{editForm.bio}</p>
                   ) : (
-                    <p className={`text-sm italic mb-3 ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>No bio yet</p>
+                    <p className={`text-sm italic mb-3 text-zinc-600`}>No bio yet</p>
                   )}
                   <div className="flex flex-wrap gap-2">
                     {editForm.steamId && <span className={`text-xs px-2 py-0.5 rounded-full ${steamVerified ? 'text-green-400 bg-green-900/30' : 'text-orange-400 bg-orange-900/30'}`}>{steamVerified ? '✓ Steam verified' : 'Steam (unverified)'}</span>}
                     {editForm.publicInventory && <span className="text-xs text-green-400 bg-green-900/30 px-2 py-0.5 rounded-full">Public CS inv.</span>}
                     {editForm.publicHoldings && <span className="text-xs text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-full">Public portfolio</span>}
                     {!editForm.steamId && !editForm.publicInventory && !editForm.publicHoldings && (
-                      <span className={`text-xs ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>No badges yet</span>
+                      <span className={`text-xs text-zinc-600`}>No badges yet</span>
                     )}
                   </div>
                 </div>

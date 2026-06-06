@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiCache from './apiCache';
 
-export default function AdminPanel({ isDark, authUsername }) {
+export default function AdminPanel({ authUsername }) {
   const [tab, setTab] = useState('overview');
   const [stats, setStats] = useState(() => apiCache.get('/api/admin/stats'));
   const [failures, setFailures] = useState([]);
@@ -40,11 +40,11 @@ export default function AdminPanel({ isDark, authUsername }) {
 
   const token = sessionStorage.getItem('auth_token');
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
-  const card = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl`;
-  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none transition ${isDark ? 'bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
+  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
+  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none transition bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
   const btnRed = 'px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition';
   const btnBlue = 'px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold rounded-lg transition';
-  const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
+  const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const flash = (msg, ms = 3000) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), ms); };
 
@@ -282,10 +282,10 @@ export default function AdminPanel({ isDark, authUsername }) {
       {/* Delete user modal */}
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDeleteModal(null)}>
-          <div className={`${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
+          <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
             <h3 className="font-bold mb-1">Delete user</h3>
-            <p className={`text-sm mb-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>This will permanently delete <span className="font-semibold text-white">{deleteModal}</span> and all their data.</p>
-            <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Enter your password to confirm.</p>
+            <p className={`text-sm mb-1 text-zinc-400`}>This will permanently delete <span className="font-semibold text-white">{deleteModal}</span> and all their data.</p>
+            <p className={`text-sm mb-4 text-zinc-300`}>Enter your password to confirm.</p>
             <input type="password" value={deletePw} onChange={e => setDeletePw(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDeleteUser()} placeholder="Your password" className={`${inputCls} mb-2`} autoFocus />
             {deleteError && <p className="text-xs text-red-400 mb-2">{deleteError}</p>}
             <div className="flex gap-2 mt-1">
@@ -299,9 +299,9 @@ export default function AdminPanel({ isDark, authUsername }) {
       {/* Reset password modal */}
       {resetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setResetModal(null)}>
-          <div className={`${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
+          <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
             <h3 className="font-bold mb-1">Reset password</h3>
-            <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{resetModal.username}</p>
+            <p className={`text-sm mb-4 text-zinc-300`}>{resetModal.username}</p>
             <input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} placeholder="New password (6+ chars)" className={`${inputCls} mb-3`} />
             <div className="flex gap-2">
               <button onClick={resetPassword} className={btnBlue + ' flex-1 py-2'}>Reset</button>
@@ -316,26 +316,26 @@ export default function AdminPanel({ isDark, authUsername }) {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">🛡️ Admin Panel</h1>
-            <p className={`text-sm mt-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Logged in as <span className="font-semibold text-red-400">Admin</span></p>
+            <p className={`text-sm mt-1 text-zinc-400`}>Logged in as <span className="font-semibold text-red-400">Admin</span></p>
           </div>
           {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : actionMsg.includes('Error') ? 'bg-red-900/40 text-red-400 border-red-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg}</div>}
         </div>
 
         {/* Tabs */}
-        <div className={`flex gap-0 border-b ${isDark ? 'border-zinc-700' : 'border-gray-200'} mb-6`}>
+        <div className={`flex gap-0 border-b border-zinc-700 mb-6`}>
           {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2.5 text-sm font-semibold transition border-b-2 -mb-px ${tab === t.id ? 'border-red-500 text-red-400' : `border-transparent ${isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-400 hover:text-gray-900'}`}`}>{t.label}</button>
+            <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2.5 text-sm font-semibold transition border-b-2 -mb-px ${tab === t.id ? 'border-red-500 text-red-400' : `border-transparent text-zinc-400 hover:text-white`}`}>{t.label}</button>
           ))}
         </div>
 
         {loading && tab === 'overview' ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin"/>
-            <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Loading admin data...</p>
+            <p className={`text-sm text-zinc-400`}>Loading admin data...</p>
           </div>
         ) : !stats && tab === 'overview' ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Failed to load stats.</p>
+            <p className={`text-sm text-zinc-400`}>Failed to load stats.</p>
             <button onClick={fetchStats} className={btnGhost}>↺ Try again</button>
           </div>
         ) : (
@@ -345,7 +345,7 @@ export default function AdminPanel({ isDark, authUsername }) {
               <div className="flex flex-col gap-5">
                 {/* System stats */}
                 <div className={`${card} p-5`}>
-                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>System</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>System</h2>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {[
                       { label: 'Uptime', value: formatUptime(stats.system.uptime) },
@@ -353,8 +353,8 @@ export default function AdminPanel({ isDark, authUsername }) {
                       { label: 'Heap Used', value: `${stats.system.heapUsedMB} MB` },
                       { label: 'Node', value: stats.system.nodeVersion },
                     ].map(({ label, value }) => (
-                      <div key={label} className={`${isDark ? 'bg-zinc-700' : 'bg-gray-50'} rounded-lg p-3`}>
-                        <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'} mb-1`}>{label}</p>
+                      <div key={label} className={`bg-zinc-700 rounded-lg p-3`}>
+                        <p className={`text-xs text-zinc-400 mb-1`}>{label}</p>
                         <p className="font-bold text-sm">{value}</p>
                       </div>
                     ))}
@@ -363,30 +363,30 @@ export default function AdminPanel({ isDark, authUsername }) {
 
                 {/* Registration toggle */}
                 <div className={`${card} p-5`}>
-                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Registration</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Registration</h2>
                   <div className="flex flex-col gap-3">
-                    <div className={`flex items-center justify-between gap-4 p-4 rounded-xl ${isDark ? 'bg-zinc-700/50' : 'bg-gray-50'}`}>
+                    <div className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-zinc-700/50`}>
                       <div>
                         <p className="text-sm font-semibold">Allow new registrations</p>
-                        <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>When disabled, the sign up form is hidden and new accounts cannot be created.</p>
+                        <p className={`text-xs mt-0.5 text-zinc-400`}>When disabled, the sign up form is hidden and new accounts cannot be created.</p>
                       </div>
                       <button type="button" onClick={toggleRegistration}
-                        className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${settings.allowRegistration ? 'bg-violet-500' : isDark ? 'bg-zinc-700' : 'bg-gray-300'}`}
+                        className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${settings.allowRegistration ? 'bg-violet-500' : 'bg-zinc-700'}`}
                         style={{ width: '44px' }}>
                         <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${settings.allowRegistration ? 'translate-x-5' : 'translate-x-0'}`}/>
                       </button>
                     </div>
-                    <div className={`flex items-center justify-between gap-4 p-4 rounded-xl ${isDark ? 'bg-zinc-700/50' : 'bg-gray-50'}`}>
+                    <div className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-zinc-700/50`}>
                       <div>
                         <p className="text-sm font-semibold">User limit</p>
-                        <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Maximum number of accounts. Set to 0 for unlimited.</p>
+                        <p className={`text-xs mt-0.5 text-zinc-400`}>Maximum number of accounts. Set to 0 for unlimited.</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <input
                           type="number" min="0" value={userLimitInput}
                           onChange={e => setUserLimitInput(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && saveUserLimit()}
-                          className={`w-20 px-2 py-1.5 rounded-lg border text-sm text-center outline-none ${isDark ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                          className={`w-20 px-2 py-1.5 rounded-lg border text-sm text-center outline-none bg-zinc-700 border-zinc-600 text-white`}
                         />
                         <button onClick={saveUserLimit} className={btnBlue}>Save</button>
                       </div>
@@ -396,11 +396,11 @@ export default function AdminPanel({ isDark, authUsername }) {
 
                 {/* CS Prices */}
                 <div className={`${card} p-5`}>
-                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>CS Item Prices</h2>
-                  <div className={`flex items-center justify-between gap-4 p-4 rounded-xl ${isDark ? 'bg-zinc-700/50' : 'bg-gray-50'}`}>
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>CS Item Prices</h2>
+                  <div className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-zinc-700/50`}>
                     <div>
                       <p className="text-sm font-semibold">Manual price sync</p>
-                      <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                      <p className={`text-xs mt-0.5 text-zinc-400`}>
                         Last sync: {fmtAgo(lastPriceSync)} — auto-syncs every 24h. Admin sync bypasses the 1-hour cooldown.
                       </p>
                       {syncStatus && (
@@ -415,15 +415,15 @@ export default function AdminPanel({ isDark, authUsername }) {
 
                 {/* User totals */}
                 <div className={`${card} p-5`}>
-                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Totals</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Totals</h2>
                   <div className="grid grid-cols-3 gap-4">
                     {[
                       { label: 'Users', value: stats.totals.userCount },
                       { label: 'Total Transactions', value: stats.totals.totalTx.toLocaleString() },
                       { label: 'Total Trades', value: (stats.totals.totalTrades ?? stats.totals.totalTx ?? 0).toLocaleString() },
                     ].map(({ label, value }) => (
-                      <div key={label} className={`${isDark ? 'bg-zinc-700' : 'bg-gray-50'} rounded-lg p-3`}>
-                        <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'} mb-1`}>{label}</p>
+                      <div key={label} className={`bg-zinc-700 rounded-lg p-3`}>
+                        <p className={`text-xs text-zinc-400 mb-1`}>{label}</p>
                         <p className="font-bold text-2xl">{value}</p>
                       </div>
                     ))}
@@ -433,7 +433,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                 {/* Ticker cache stats */}
                 <div className={`${card} p-5`}>
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Ticker Cache</h2>
+                    <h2 className={`text-xs font-bold uppercase tracking-wider text-zinc-400`}>Ticker Cache</h2>
                     <button onClick={() => clearCache()} className={btnGhost}>Clear All Caches</button>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
@@ -442,8 +442,8 @@ export default function AdminPanel({ isDark, authUsername }) {
                       { label: 'Resolved', value: stats.tickerCache.resolved, color: 'text-green-400' },
                       { label: 'Failed', value: stats.tickerCache.failed, color: 'text-red-400' },
                     ].map(({ label, value, color }) => (
-                      <div key={label} className={`${isDark ? 'bg-zinc-700' : 'bg-gray-50'} rounded-lg p-3`}>
-                        <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'} mb-1`}>{label}</p>
+                      <div key={label} className={`bg-zinc-700 rounded-lg p-3`}>
+                        <p className={`text-xs text-zinc-400 mb-1`}>{label}</p>
                         <p className={`font-bold text-2xl ${color || ''}`}>{value}</p>
                       </div>
                     ))}
@@ -453,7 +453,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                 {/* Active announcements */}
                 {announcements.length > 0 && (
                   <div className={`${card} p-5`}>
-                    <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Active Announcements</h2>
+                    <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Active Announcements</h2>
                     <div className="flex flex-col gap-2">
                       {announcements.map(a => (
                         <div key={a.id} className={`flex items-start gap-3 p-3 rounded-lg border ${typeColors[a.type] || typeColors.info}`}>
@@ -475,7 +475,7 @@ export default function AdminPanel({ isDark, authUsername }) {
               <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-3">
                   <input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search users…" className={`${inputCls} flex-1`} />
-                  <p className={`text-sm shrink-0 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{stats.users.length} user(s)</p>
+                  <p className={`text-sm shrink-0 text-zinc-400`}>{stats.users.length} user(s)</p>
                   <button onClick={fetchStats} className={`${btnGhost} shrink-0`}>↺ Refresh</button>
                 </div>
                 {[...stats.users]
@@ -499,11 +499,11 @@ export default function AdminPanel({ isDark, authUsername }) {
                       </div>
                       <div className="flex items-center gap-4 shrink-0 text-right">
                         <div>
-                          <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Joined</p>
+                          <p className={`text-xs text-zinc-400`}>Joined</p>
                           <p className="text-xs font-semibold">{new Date(u.createdAt).toLocaleDateString()}</p>
                         </div>
                         <div>
-                          <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Transactions</p>
+                          <p className={`text-xs text-zinc-400`}>Transactions</p>
                           <p className="text-xs font-semibold">{u.transactionCount.toLocaleString()}</p>
                         </div>
                       </div>
@@ -533,33 +533,33 @@ export default function AdminPanel({ isDark, authUsername }) {
             {tab === 'tickers' && (
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                  <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{failures.length} unique unresolved tickers</p>
+                  <p className={`text-sm text-zinc-400`}>{failures.length} unique unresolved tickers</p>
                   <button onClick={fetchFailures} className={btnGhost}>↺ Refresh</button>
                 </div>
                 {failures.length === 0 ? (
                   <div className={`${card} p-10 text-center`}>
                     <p className="text-3xl mb-3">✅</p>
                     <p className="font-semibold">No ticker failures</p>
-                    <p className={`text-sm mt-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>All tickers resolved successfully.</p>
+                    <p className={`text-sm mt-1 text-zinc-400`}>All tickers resolved successfully.</p>
                   </div>
                 ) : (
                   <div className={`${card} overflow-hidden`}>
                     <table className="w-full text-sm">
-                      <thead className={`${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-gray-50 border-gray-200'} border-b`}>
+                      <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
                         <tr>
                           {['Raw Ticker', 'ISIN', 'Name', 'Count', 'Users'].map(h => (
-                            <th key={h} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-400'}`}>{h}</th>
+                            <th key={h} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400`}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {failures.map((f, i) => (
-                          <tr key={i} className={`border-t ${isDark ? 'border-zinc-700 hover:bg-zinc-700/20' : 'border-gray-100 hover:bg-gray-50'}`}>
+                          <tr key={i} className={`border-t border-zinc-700 hover:bg-zinc-700/20`}>
                             <td className="px-4 py-3 font-mono text-xs font-bold text-red-400">{f.key || '—'}</td>
-                            <td className={`px-4 py-3 text-xs font-mono ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{f.isin || '—'}</td>
-                            <td className={`px-4 py-3 text-xs ${isDark ? 'text-zinc-300' : 'text-zinc-600'} max-w-xs truncate`}>{f.name || '—'}</td>
+                            <td className={`px-4 py-3 text-xs font-mono text-zinc-400`}>{f.isin || '—'}</td>
+                            <td className={`px-4 py-3 text-xs text-zinc-300 max-w-xs truncate`}>{f.name || '—'}</td>
                             <td className="px-4 py-3 text-xs font-bold">{f.count}</td>
-                            <td className={`px-4 py-3 text-xs ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{f.users.join(', ')}</td>
+                            <td className={`px-4 py-3 text-xs text-zinc-400`}>{f.users.join(', ')}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -573,7 +573,7 @@ export default function AdminPanel({ isDark, authUsername }) {
             {tab === 'global-overrides' && (
               <div className="flex flex-col gap-4">
                 <div className={`${card} p-5`}>
-                  <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  <p className={`text-sm mb-4 text-zinc-300`}>
                     Global overrides apply to <strong>all users</strong> and take priority over per-user overrides. Use this to pin commonly misresolved ISINs to the correct Yahoo Finance ticker.
                   </p>
                   <div className="flex gap-2 mb-3">
@@ -585,7 +585,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                   {goLoading ? (
                     <div className="flex items-center gap-3 py-6 justify-center">
                       <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                      <span className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Loading overrides…</span>
+                      <span className={`text-sm text-zinc-400`}>Loading overrides…</span>
                     </div>
                   ) : globalOverrides.length > 0 ? (
                     <div className="flex flex-col gap-3">
@@ -595,12 +595,12 @@ export default function AdminPanel({ isDark, authUsername }) {
                         placeholder="Search ISIN, ticker or added by…"
                         className={inputCls}
                       />
-                      <div className={`rounded-xl overflow-hidden border ${isDark ? 'border-zinc-700' : 'border-gray-200'}`}>
+                      <div className={`rounded-xl overflow-hidden border border-zinc-700`}>
                         <table className="w-full text-sm">
-                          <thead className={`${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-gray-50 border-gray-200'} border-b`}>
+                          <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
                             <tr>
                               {['ISIN', 'Ticker', 'Name', 'Added by', 'Status', ''].map(col => (
-                                <th key={col} className={`px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-400'}`}>{col}</th>
+                                <th key={col} className={`px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-zinc-400`}>{col}</th>
                               ))}
                             </tr>
                           </thead>
@@ -612,7 +612,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                                 (o.name||'').toLowerCase().includes(q) ||
                                 (o.created_by||'').toLowerCase().includes(q);
                             }).map(o => (
-                              <tr key={o.isin} className={`border-t ${isDark ? 'border-zinc-700 hover:bg-zinc-700/20' : 'border-gray-100 hover:bg-gray-50'}`}>
+                              <tr key={o.isin} className={`border-t border-zinc-700 hover:bg-zinc-700/20`}>
                                 <td className={`px-4 py-2.5 font-mono text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.isin}</td>
                                 <td className={`px-4 py-2.5 font-mono text-xs font-bold text-white ${!o.active ? 'opacity-50' : ''}`}>{o.ticker}</td>
                                 <td className={`px-4 py-2.5 text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.name || <span className="text-zinc-500">—</span>}</td>
@@ -637,7 +637,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                       </div>
                     </div>
                   ) : (
-                    <p className={`text-sm ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>No global overrides saved yet.</p>
+                    <p className={`text-sm text-zinc-600`}>No global overrides saved yet.</p>
                   )}
                   {globalOverrides.length > 0 && (
                     <button onClick={() => { setClearAllModal(true); setClearAllPw(''); setClearAllError(''); }} className={`mt-4 ${btnRed}`}>
@@ -651,7 +651,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
                     <div className={`${card} p-6 w-full max-w-sm mx-4`}>
                       <h3 className="font-bold text-lg mb-2">Confirm deletion</h3>
-                      <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                      <p className={`text-sm mb-4 text-zinc-300`}>
                         This will delete all global ticker overrides for every user. Enter your password to confirm.
                       </p>
                       <input type="password" value={clearAllPw} onChange={e => setClearAllPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && clearAllGlobalOverrides()} placeholder="Your password" className={`${inputCls} mb-3`} autoFocus />
@@ -668,10 +668,10 @@ export default function AdminPanel({ isDark, authUsername }) {
                   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
                     <div className={`${card} p-6 w-full max-w-sm mx-4`}>
                       <h3 className="font-bold text-lg mb-2">Confirm removal</h3>
-                      <p className={`text-sm mb-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                      <p className={`text-sm mb-1 text-zinc-400`}>
                         Remove global override for <span className="font-mono font-bold">{removeModal}</span>?
                       </p>
-                      <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Enter your password to confirm.</p>
+                      <p className={`text-sm mb-4 text-zinc-300`}>Enter your password to confirm.</p>
                       <input type="password" value={removePw} onChange={e => setRemovePw(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDeleteGlobalOverride()} placeholder="Your password" className={`${inputCls} mb-3`} autoFocus />
                       {removeError && <p className="text-xs text-red-400 mb-3">{removeError}</p>}
                       <div className="flex gap-2">
@@ -690,7 +690,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                 <div className="flex items-center gap-3">
                   <input value={roleSearch} onChange={e => setRoleSearch(e.target.value)} placeholder="Search users…" className={`${inputCls} flex-1`} />
                 </div>
-                <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                <p className={`text-sm text-zinc-400`}>
                   Promote users to moderator or demote them back.
                   {authUsername?.toLowerCase() === 'admin' && <span className="ml-1">As the root admin you can also grant or revoke admin access.</span>}
                 </p>
@@ -699,7 +699,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                   .sort((a, b) => a.username.localeCompare(b.username))
                   .map(u => {
                   const role = u.role || 'user';
-                  const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800', user: `${isDark ? 'bg-zinc-700 text-zinc-400' : 'bg-gray-100 text-zinc-500'}` };
+                  const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800', user: `bg-zinc-700 text-zinc-400` };
                   const isRootAdmin = u.username === 'admin';
                   const isSelf = u.username === authUsername;
 
@@ -720,7 +720,7 @@ export default function AdminPanel({ isDark, authUsername }) {
                           <span className="font-bold">{u.username}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadge[role]}`}>{role.charAt(0).toUpperCase() + role.slice(1)}</span>
                         </div>
-                        <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Joined {new Date(u.createdAt).toLocaleDateString()}</p>
+                        <p className={`text-xs text-zinc-400`}>Joined {new Date(u.createdAt).toLocaleDateString()}</p>
                       </div>
                       <div className="flex gap-2 shrink-0">
                         {/* Mod promote/demote — visible to all admins, not for root admin account */}
@@ -747,7 +747,7 @@ export default function AdminPanel({ isDark, authUsername }) {
               <div className="flex flex-col gap-5">
                 {/* Post new */}
                 <div className={`${card} p-5`}>
-                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Post Announcement</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Post Announcement</h2>
                   <div className="flex flex-col gap-3">
                     <input value={annForm.title} onChange={e => setAnnForm(f => ({ ...f, title: e.target.value }))} placeholder="Title..." className={inputCls} />
                     <textarea value={annForm.message} onChange={e => setAnnForm(f => ({ ...f, message: e.target.value }))} rows={3} placeholder="Message..." className={`${inputCls} resize-none`} />
@@ -772,9 +772,9 @@ export default function AdminPanel({ isDark, authUsername }) {
 
                 {/* Existing */}
                 <div className={`${card} p-5`}>
-                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Active Announcements ({announcements.length})</h2>
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Active Announcements ({announcements.length})</h2>
                   {announcements.length === 0 ? (
-                    <p className={`text-sm ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>No announcements posted.</p>
+                    <p className={`text-sm text-zinc-400`}>No announcements posted.</p>
                   ) : (
                     <div className="flex flex-col gap-3">
                       {announcements.map(a => (

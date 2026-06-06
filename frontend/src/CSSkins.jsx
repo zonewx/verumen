@@ -17,7 +17,7 @@ function fmtCur(n, bc = 'SEK') {
 
 const _screenshotCache = {};
 
-function SteamScreenshotEmbed({ url, isDark }) {
+function SteamScreenshotEmbed({ url }) {
   const match = url?.match(/id=(\d+)/);
   const cacheKey = match?.[1];
   const [preview, setPreview] = useState(() => (cacheKey ? _screenshotCache[cacheKey] ?? null : null));
@@ -38,7 +38,7 @@ function SteamScreenshotEmbed({ url, isDark }) {
   return (
     <a href={url} target="_blank" rel="noreferrer" className="block mt-2 rounded-xl overflow-hidden group">
       {loading && (
-        <div className={`flex items-center gap-2 p-3 rounded-xl border ${isDark ? 'bg-zinc-700/50 border-zinc-600' : 'bg-gray-50 border-gray-200'}`}>
+        <div className={`flex items-center gap-2 p-3 rounded-xl border bg-zinc-700/50 border-zinc-600`}>
           <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           <span className="text-xs text-violet-400">Loading preview...</span>
         </div>
@@ -52,7 +52,7 @@ function SteamScreenshotEmbed({ url, isDark }) {
         </div>
       )}
       {!loading && !preview && (
-        <div className={`flex items-center gap-3 p-3 rounded-xl border ${isDark ? 'bg-zinc-700/50 border-zinc-600 hover:bg-zinc-600' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}>
+        <div className={`flex items-center gap-3 p-3 rounded-xl border bg-zinc-700/50 border-zinc-600 hover:bg-zinc-600`}>
           <span className="text-xl">📷</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Steam Screenshot</p>
@@ -70,7 +70,7 @@ function authHeaders(extra = {}) {
   return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extra };
 }
 
-function SkinCard({ item, isDark, onClick, onSetPrice, onClearPrice, baseCurrency = 'SEK' }) {
+function SkinCard({ item, onClick, onSetPrice, onClearPrice, baseCurrency = 'SEK' }) {
   const [editing, setEditing] = useState(false);
   const [inputVal, setInputVal] = useState('');
   const isSpecial = item.quality && (item.quality.includes('StatTrak') || item.quality.includes('Souvenir'));
@@ -88,7 +88,7 @@ function SkinCard({ item, isDark, onClick, onSetPrice, onClearPrice, baseCurrenc
   return (
     <div
       onClick={onClick}
-      className={`rounded-xl border flex flex-col transition-transform hover:scale-[1.02] ${onClick ? 'cursor-pointer' : ''} ${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'}`}
+      className={`rounded-xl border flex flex-col transition-transform hover:scale-[1.02] ${onClick ? 'cursor-pointer' : ''} bg-zinc-800 border-zinc-700`}
     >
       {/* Image area with rarity tint */}
       <div className="relative p-3 pb-2" style={item.rarityColor ? { background: `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 70%)` } : {}}>
@@ -131,7 +131,7 @@ function SkinCard({ item, isDark, onClick, onSetPrice, onClearPrice, baseCurrenc
 
         {/* Exterior */}
         {item.exterior && (
-          <p className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{item.exterior}</p>
+          <p className={`text-[10px] text-zinc-400`}>{item.exterior}</p>
         )}
 
         <div className="mt-auto pt-1.5 flex items-center justify-between gap-1">
@@ -146,10 +146,10 @@ function SkinCard({ item, isDark, onClick, onSetPrice, onClearPrice, baseCurrenc
                 value={inputVal}
                 onChange={e => setInputVal(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveEdit(e); if (e.key === 'Escape') cancelEdit(e); }}
-                className={`w-full text-xs px-2 py-1 rounded border ${isDark ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'} outline-none`}
+                className={`w-full text-xs px-2 py-1 rounded border bg-zinc-700 border-zinc-600 text-white outline-none`}
               />
               <button onClick={saveEdit} className="text-[10px] px-1.5 py-1 rounded bg-green-600 text-white hover:bg-green-500 shrink-0">✓</button>
-              <button onClick={cancelEdit} className={`text-[10px] px-1.5 py-1 rounded shrink-0 ${isDark ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}>✕</button>
+              <button onClick={cancelEdit} className={`text-[10px] px-1.5 py-1 rounded shrink-0 bg-zinc-700 text-zinc-400 hover:bg-zinc-600`}>✕</button>
             </div>
           ) : item.price > 0 ? (
             <div className="flex items-center gap-1">
@@ -159,7 +159,7 @@ function SkinCard({ item, isDark, onClick, onSetPrice, onClearPrice, baseCurrenc
               )}
             </div>
           ) : (
-            <button onClick={startEdit} className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition ${isDark ? 'border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200' : 'border-gray-300 text-gray-500 hover:border-gray-500 hover:text-gray-700'}`}>
+            <button onClick={startEdit} className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200`}>
               Set price
             </button>
           )}
@@ -170,7 +170,7 @@ function SkinCard({ item, isDark, onClick, onSetPrice, onClearPrice, baseCurrenc
   );
 }
 
-export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) {
+export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const location = useLocation();
   const navigate = useNavigate();
   const tab = location.pathname === '/skins/inventory' ? 'inventory'
@@ -220,12 +220,12 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
 
   const fmtBC = n => fmtCur(n, baseCurrency);
 
-  const card = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl`;
-  const input = `w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 ${isDark ? 'bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
-  const label = `text-xs font-semibold uppercase tracking-wider block mb-1.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`;
+  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
+  const input = `w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
+  const label = `text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-400`;
   const btn = `px-4 py-2 text-sm font-semibold rounded-lg transition`;
   const btnOrange = `${btn} bg-violet-600 hover:bg-violet-500 text-white`;
-  const btnGhost = `${btn} ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`;
+  const btnGhost = `${btn} bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const fetchAll = useCallback(async () => {
     try {
@@ -497,14 +497,14 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
 
   const PnlCard = ({ label, value, positive, sub }) => (
     <div className={`${card} p-5`}>
-      <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{label}</p>
+      <p className={`text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-400`}>{label}</p>
       <p className={`text-2xl font-bold ${positive === undefined ? '' : positive ? 'text-green-400' : 'text-red-400'}`}>{value}</p>
-      {sub && <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{sub}</p>}
+      {sub && <p className={`text-xs mt-1 text-zinc-400`}>{sub}</p>}
     </div>
   );
 
   return (
-    <div className={`flex flex-col flex-1 overflow-y-auto ${isDark ? 'bg-zinc-900 text-white' : 'bg-gray-100 text-gray-900'}`}>
+    <div className={`flex flex-col flex-1 overflow-y-auto bg-zinc-900 text-white`}>
       <div className="max-w-7xl mx-auto px-6 py-8 w-full">
 
           {/* OVERVIEW */}
@@ -520,7 +520,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                     <PnlCard label="Realised P&L" value={`${pnl.realised >= 0 ? '+' : ''}${fmtBC(pnl.realised)}`} positive={pnl.realised >= 0} sub={`${pnl.soldCount} skins sold`} />
                   </div>
                   <div className={`${card} p-5`}>
-                    <p className={`text-xs font-semibold uppercase tracking-wider mb-2 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Total P&L</p>
+                    <p className={`text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-400`}>Total P&L</p>
                     <p className={`text-4xl font-bold ${pnl.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>{pnl.totalPnl >= 0 ? '+' : ''}{fmtBC(pnl.totalPnl)}</p>
                   </div>
                 </>
@@ -529,11 +529,11 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
               {settings.steam_id && (
                 <div className={`${card} p-5`}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Steam Inventory</h3>
+                    <h3 className={`text-sm font-bold uppercase tracking-wider text-zinc-400`}>Steam Inventory</h3>
                     <select
                       value={invSort}
                       onChange={e => setInvSort(e.target.value)}
-                      className={`px-2 py-1.5 rounded-lg border text-xs outline-none ${isDark ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                      className={`px-2 py-1.5 rounded-lg border text-xs outline-none bg-zinc-700 border-zinc-600 text-white`}
                     >
                       <option value="default">Inventory order</option>
                       <option value="price-desc">Price: High → Low</option>
@@ -542,7 +542,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                   </div>
                   {steamError && <p className="text-red-400 text-sm">{steamError}</p>}
                   {steamInventory?.pricingPending && (
-                    <p className={`text-xs mb-3 px-3 py-2 rounded-lg ${isDark ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-50 text-yellow-700'}`}>
+                    <p className={`text-xs mb-3 px-3 py-2 rounded-lg bg-yellow-900/30 text-yellow-400`}>
                       Fetching prices for new items in background — updating automatically in ~20s
                     </p>
                   )}
@@ -554,12 +554,12 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                     return (
                       <div>
                         <div className="flex gap-6 mb-4">
-                          <div><p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'} mb-1`}>Tradable items</p><p className="text-xl font-bold">{tradable.length}</p></div>
-                          <div><p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'} mb-1`}>Est. Value</p><p className="text-xl font-bold text-green-400">{fmtBC(tradable.reduce((s,i)=>s+i.price,0))}</p></div>
+                          <div><p className={`text-xs text-zinc-400 mb-1`}>Tradable items</p><p className="text-xl font-bold">{tradable.length}</p></div>
+                          <div><p className={`text-xs text-zinc-400 mb-1`}>Est. Value</p><p className="text-xl font-bold text-green-400">{fmtBC(tradable.reduce((s,i)=>s+i.price,0))}</p></div>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                           {sorted.map((item, i) => (
-                            <SkinCard key={i} item={item} isDark={isDark} baseCurrency={baseCurrency}
+                            <SkinCard key={i} item={item} baseCurrency={baseCurrency}
                               onSetPrice={p => saveOverride(item.name, p)}
                               onClearPrice={() => clearOverride(item.name)} />
                           ))}
@@ -568,7 +568,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                     );
                   })()}
                   {!steamInventory && !steamLoading && !steamError && (
-                    <p className={`text-sm ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Click "Fetch Inventory" to load your Steam CS inventory.</p>
+                    <p className={`text-sm text-zinc-400`}>Click "Fetch Inventory" to load your Steam CS inventory.</p>
                   )}
                 </div>
               )}
@@ -577,10 +577,10 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
               {inventory.length > 0 && (
                 <div className={`${card} p-5`}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Recent Trades</h3>
+                    <h3 className={`text-sm font-bold uppercase tracking-wider text-zinc-400`}>Recent Trades</h3>
                     <button onClick={() => setTab('tracker')} className={`text-xs text-violet-400 hover:underline`}>View all →</button>
                   </div>
-                  <div className="flex flex-col divide-y ${isDark ? 'divide-zinc-700' : 'divide-gray-100'}">
+                  <div className="flex flex-col divide-y divide-zinc-700">
                     {inventory.slice(0, 5).map(item => {
                       const costPrice = item.purchase_price_display || 0;
                       const currentPrice = item.current_price || 0;
@@ -588,23 +588,23 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                       const pnlPos = pnlVal >= 0;
                       return (
                         <div key={item.id} className={`flex items-center gap-4 py-3 first:pt-0 last:pb-0`}>
-                          <div className={`w-2 h-2 rounded-full shrink-0 ${item.sold ? (isDark ? 'bg-gray-500' : 'bg-gray-300') : 'bg-green-400'}`} />
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${item.sold ? 'bg-gray-500' : 'bg-green-400'}`} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate">{item.skin_name}</p>
-                            <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+                            <p className={`text-xs text-zinc-400`}>
                               {item.purchase_date}
                               {item.exterior && <span className="ml-1">· {item.exterior}</span>}
                             </p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className={`text-sm font-bold ${currentPrice === 0 && !item.sold ? (isDark ? 'text-zinc-500' : 'text-gray-400') : pnlPos ? 'text-green-400' : 'text-red-400'}`}>
+                            <p className={`text-sm font-bold ${currentPrice === 0 && !item.sold ? 'text-zinc-400' : pnlPos ? 'text-green-400' : 'text-red-400'}`}>
                               {currentPrice === 0 && !item.sold ? '—' : `${pnlPos ? '+' : ''}${fmtBC(pnlVal)}`}
                             </p>
-                            <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+                            <p className={`text-xs text-zinc-400`}>
                               {fmtBC(item.purchase_price_display)}
                             </p>
                           </div>
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${item.sold ? (isDark ? 'bg-zinc-700 text-zinc-400' : 'bg-gray-100 text-gray-500') : 'bg-green-900/40 text-green-400'}`}>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${item.sold ? 'bg-zinc-700 text-zinc-400' : 'bg-green-900/40 text-green-400'}`}>
                             {item.sold ? 'Sold' : 'Holding'}
                           </span>
                         </div>
@@ -623,12 +623,12 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
               {!settings.steam_id && (
                 <div className={`${card} p-6 text-center`}>
                   <p className={`text-sm mb-1 font-semibold`}>No Steam account linked</p>
-                  <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Link your Steam ID in your profile settings to fetch your inventory.</p>
+                  <p className={`text-sm mb-4 text-zinc-300`}>Link your Steam ID in your profile settings to fetch your inventory.</p>
                 </div>
               )}
               {steamError && <div className={`${card} p-4`}><p className="text-red-400 text-sm">{steamError}</p></div>}
               {steamInventory?.pricingPending && (
-                <p className={`text-xs px-3 py-2 rounded-lg ${isDark ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-50 text-yellow-700'}`}>
+                <p className={`text-xs px-3 py-2 rounded-lg bg-yellow-900/30 text-yellow-400`}>
                   Fetching prices for new items in background — updating automatically in ~20s
                 </p>
               )}
@@ -641,13 +641,13 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                   <>
                     <div className={`${card} p-4 flex items-center justify-between`}>
                       <div className="flex gap-6">
-                        <div><p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'} mb-1`}>Tradable items</p><p className="text-2xl font-bold">{tradable.length}</p></div>
-                        <div><p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'} mb-1`}>Estimated value</p><p className="text-2xl font-bold text-green-400">{fmtBC(tradable.reduce((s,i)=>s+i.price,0))}</p></div>
+                        <div><p className={`text-xs text-zinc-400 mb-1`}>Tradable items</p><p className="text-2xl font-bold">{tradable.length}</p></div>
+                        <div><p className={`text-xs text-zinc-400 mb-1`}>Estimated value</p><p className="text-2xl font-bold text-green-400">{fmtBC(tradable.reduce((s,i)=>s+i.price,0))}</p></div>
                       </div>
                       <select
                         value={invSort}
                         onChange={e => setInvSort(e.target.value)}
-                        className={`px-2 py-1.5 rounded-lg border text-xs outline-none ${isDark ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                        className={`px-2 py-1.5 rounded-lg border text-xs outline-none bg-zinc-700 border-zinc-600 text-white`}
                       >
                         <option value="default">Inventory order</option>
                         <option value="price-desc">Price: High → Low</option>
@@ -656,7 +656,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                       {sorted.map((item, i) => (
-                        <SkinCard key={i} item={item} isDark={isDark} baseCurrency={baseCurrency}
+                        <SkinCard key={i} item={item} baseCurrency={baseCurrency}
                           onSetPrice={p => saveOverride(item.name, p)}
                           onClearPrice={() => clearOverride(item.name)} />
                       ))}
@@ -666,7 +666,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
               })()}
               {!steamInventory && !steamLoading && settings.steam_id && (
                 <div className={`${card} p-6 text-center`}>
-                  <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Loading your Steam inventory...</p>
+                  <p className={`text-sm text-zinc-400`}>Loading your Steam inventory...</p>
                 </div>
               )}
             </div>
@@ -678,7 +678,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold">Trade Registry</h2>
-                  <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Track every skin you've bought and sold</p>
+                  <p className={`text-xs mt-0.5 text-zinc-400`}>Track every skin you've bought and sold</p>
                 </div>
                 <button onClick={openAddModal} className={btnOrange}>+ Register Trade</button>
               </div>
@@ -686,35 +686,35 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
               {/* Filters & search */}
               <div className="flex flex-wrap gap-2 items-center">
                 {[['all','All'],['active','Holding'],['sold','Sold']].map(([v, l]) => (
-                  <button key={v} onClick={() => setFilterSold(v)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterSold === v ? 'bg-violet-600 text-white' : `${isDark ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}`}>{l}</button>
+                  <button key={v} onClick={() => setFilterSold(v)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterSold === v ? 'bg-violet-600 text-white' : `bg-zinc-700 text-zinc-400 hover:bg-zinc-600`}`}>{l}</button>
                 ))}
                 <input
                   value={trackerSearch}
                   onChange={e => setTrackerSearch(e.target.value)}
                   placeholder="Search skins..."
-                  className={`ml-auto text-xs px-3 py-1.5 rounded-lg border outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 w-48 ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`}
+                  className={`ml-auto text-xs px-3 py-1.5 rounded-lg border outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 w-48 bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500`}
                 />
-                <span className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{filteredInv.length} trades</span>
+                <span className={`text-xs text-zinc-400`}>{filteredInv.length} trades</span>
               </div>
 
               {/* Add trade modal */}
               {showAddForm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-                  <div className={`${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col`} style={{ maxHeight: '90vh' }}>
+                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col`} style={{ maxHeight: '90vh' }}>
 
                     {/* Header */}
-                    <div className={`flex items-center justify-between px-6 py-4 border-b ${isDark ? 'border-zinc-700' : 'border-gray-100'} shrink-0`}>
+                    <div className={`flex items-center justify-between px-6 py-4 border-b border-zinc-700 shrink-0`}>
                       <h3 className="font-bold text-base">Register Trade</h3>
-                      <button onClick={closeAddModal} className={`text-xl leading-none ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>✕</button>
+                      <button onClick={closeAddModal} className={`text-xl leading-none text-zinc-400 hover:text-white`}>✕</button>
                     </div>
 
                     {/* Tabs */}
-                    <div className={`flex border-b ${isDark ? 'border-zinc-700' : 'border-gray-100'} shrink-0`}>
+                    <div className={`flex border-b border-zinc-700 shrink-0`}>
                       {[['inventory', 'From Steam Inventory'], ['manual', 'Enter Manually']].map(([t, tLabel]) => (
                         <button
                           key={t}
                           onClick={() => setAddModalTab(t)}
-                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${addModalTab === t ? 'border-violet-500 text-violet-500' : `border-transparent ${isDark ? 'text-zinc-400 hover:text-zinc-100' : 'text-gray-400 hover:text-gray-700'}`}`}
+                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${addModalTab === t ? 'border-violet-500 text-violet-500' : `border-transparent text-zinc-400 hover:text-zinc-100`}`}
                         >
                           {tLabel}
                         </button>
@@ -730,20 +730,20 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                           {!settings.steam_id ? (
                             <div className="text-center py-8">
                               <p className={`text-sm mb-1 font-semibold`}>No Steam account linked</p>
-                              <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Link your Steam ID in profile settings to use this feature.</p>
+                              <p className={`text-sm text-zinc-400`}>Link your Steam ID in profile settings to use this feature.</p>
                             </div>
                           ) : (
                             <>
                               {/* Selected skin preview */}
                               {selectedModalItem && (
-                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-violet-500 ${isDark ? 'bg-violet-900/20' : 'bg-violet-50'}`}>
+                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-violet-500 bg-violet-900/20`}>
                                   <img src={selectedModalItem.iconUrl} alt={selectedModalItem.name} className="w-14 h-14 object-contain shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="font-semibold text-sm truncate">{selectedModalItem.name}</p>
-                                    <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{selectedModalItem.type}</p>
+                                    <p className={`text-xs text-zinc-400`}>{selectedModalItem.type}</p>
                                     {selectedModalItem.price > 0 && <p className="text-xs text-green-400 font-bold mt-0.5">Market: {fmtBC(selectedModalItem.price)}</p>}
                                   </div>
-                                  <button onClick={() => { setSelectedModalItem(null); setAddForm(f => ({ ...f, skin_name: '' })); }} className={`text-xs px-2 py-1 rounded ${isDark ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} transition shrink-0`}>Change</button>
+                                  <button onClick={() => { setSelectedModalItem(null); setAddForm(f => ({ ...f, skin_name: '' })); }} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition shrink-0`}>Change</button>
                                 </div>
                               )}
 
@@ -765,7 +765,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                                       <button onClick={loadModalInventory} className={btnOrange}>Load Inventory</button>
                                     </div>
                                   ) : modalInventory.length === 0 ? (
-                                    <p className={`text-center py-8 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>No CS items found in your inventory.</p>
+                                    <p className={`text-center py-8 text-sm text-zinc-400`}>No CS items found in your inventory.</p>
                                   ) : (
                                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-64 overflow-y-auto">
                                       {modalInventory
@@ -774,10 +774,10 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                                           <button
                                             key={item.assetId}
                                             onClick={() => selectModalSkin(item)}
-                                            className={`p-2 rounded-lg border-2 transition text-left ${isDark ? 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-violet-500/60' : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-violet-400/60'}`}
+                                            className={`p-2 rounded-lg border-2 transition text-left border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-violet-500/60`}
                                           >
                                             <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-1" />
-                                            <p className={`text-xs truncate ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{item.name}</p>
+                                            <p className={`text-xs truncate text-zinc-300`}>{item.name}</p>
                                             {item.price > 0 && <p className="text-xs text-green-400 font-bold">{fmtBC(item.price)}</p>}
                                           </button>
                                         ))
@@ -824,7 +824,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                                   <div className="sm:col-span-2">
                                     <label className={label}>Steam screenshot URL</label>
                                     <input value={addForm.screenshot_url} onChange={e => setAddForm(f => ({ ...f, screenshot_url: e.target.value }))} placeholder="https://steamcommunity.com/sharedfiles/filedetails/?id=..." className={input} />
-                                    <p className={`text-xs mt-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Upload to Steam (Public), paste the share link here.</p>
+                                    <p className={`text-xs mt-1.5 text-zinc-400`}>Upload to Steam (Public), paste the share link here.</p>
                                   </div>
                                 </div>
                               )}
@@ -840,9 +840,9 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                             <label className={label}>Skin name *</label>
                             <input value={skinSearch} onChange={e => { setSkinSearch(e.target.value); setAddForm(f => ({ ...f, skin_name: e.target.value })); searchSkins(e.target.value); }} placeholder="e.g. AK-47 | Redline" className={input} />
                             {skinSearchResults.length > 0 && (
-                              <div className={`absolute z-50 w-full mt-1 ${isDark ? 'bg-zinc-800 border-zinc-600' : 'bg-white border-gray-200'} border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto`}>
+                              <div className={`absolute z-50 w-full mt-1 bg-zinc-800 border-zinc-600 border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto`}>
                                 {skinSearchResults.map((r, i) => (
-                                  <div key={i} onClick={() => { setAddForm(f => ({ ...f, skin_name: r.skin_name })); setSkinSearch(r.skin_name); setSkinSearchResults([]); }} className={`flex items-center justify-between px-4 py-2.5 cursor-pointer ${isDark ? 'hover:bg-zinc-600' : 'hover:bg-gray-50'} border-b ${isDark ? 'border-zinc-700' : 'border-gray-100'} last:border-0`}>
+                                  <div key={i} onClick={() => { setAddForm(f => ({ ...f, skin_name: r.skin_name })); setSkinSearch(r.skin_name); setSkinSearchResults([]); }} className={`flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-zinc-600 border-b border-zinc-700 last:border-0`}>
                                     <span className="text-sm">{r.skin_name}</span>
                                     <span className="text-xs text-green-400 font-bold">{fmtBC(r.price)}</span>
                                   </div>
@@ -884,14 +884,14 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                           <div className="sm:col-span-2">
                             <label className={label}>Steam screenshot URL</label>
                             <input value={addForm.screenshot_url} onChange={e => setAddForm(f => ({ ...f, screenshot_url: e.target.value }))} placeholder="https://steamcommunity.com/sharedfiles/filedetails/?id=..." className={input} />
-                            <p className={`text-xs mt-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Upload to Steam (Public), paste the share link here.</p>
+                            <p className={`text-xs mt-1.5 text-zinc-400`}>Upload to Steam (Public), paste the share link here.</p>
                           </div>
                         </div>
                       )}
                     </div>
 
                     {/* Footer */}
-                    <div className={`flex gap-2 px-6 py-4 border-t ${isDark ? 'border-zinc-700' : 'border-gray-100'} shrink-0`}>
+                    <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
                       <button
                         onClick={addItem}
                         disabled={!addForm.skin_name || !addForm.purchase_price || !addForm.purchase_date}
@@ -908,24 +908,24 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
               {/* Edit trade modal */}
               {showEditForm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-                  <div className={`${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col`} style={{ maxHeight: '90vh' }}>
+                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col`} style={{ maxHeight: '90vh' }}>
 
                     {/* Header */}
-                    <div className={`flex items-center justify-between px-6 py-4 border-b ${isDark ? 'border-zinc-700' : 'border-gray-100'} shrink-0`}>
+                    <div className={`flex items-center justify-between px-6 py-4 border-b border-zinc-700 shrink-0`}>
                       <div>
                         <h3 className="font-bold text-base">Edit Trade</h3>
-                        <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{showEditForm.skin_name}</p>
+                        <p className={`text-xs mt-0.5 text-zinc-400`}>{showEditForm.skin_name}</p>
                       </div>
-                      <button onClick={closeEditModal} className={`text-xl leading-none ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>✕</button>
+                      <button onClick={closeEditModal} className={`text-xl leading-none text-zinc-400 hover:text-white`}>✕</button>
                     </div>
 
                     {/* Tabs */}
-                    <div className={`flex border-b ${isDark ? 'border-zinc-700' : 'border-gray-100'} shrink-0`}>
+                    <div className={`flex border-b border-zinc-700 shrink-0`}>
                       {[['skin', 'Attached Skin'], ['details', 'Trade Details']].map(([t, tLabel]) => (
                         <button
                           key={t}
                           onClick={() => setEditModalTab(t)}
-                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${editModalTab === t ? 'border-violet-500 text-violet-500' : `border-transparent ${isDark ? 'text-zinc-400 hover:text-zinc-100' : 'text-gray-400 hover:text-gray-700'}`}`}
+                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${editModalTab === t ? 'border-violet-500 text-violet-500' : `border-transparent text-zinc-400 hover:text-zinc-100`}`}
                         >
                           {tLabel}
                         </button>
@@ -940,31 +940,31 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                           {!settings.steam_id ? (
                             <div className="text-center py-8">
                               <p className="text-sm font-semibold mb-1">No Steam account linked</p>
-                              <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Link your Steam ID in profile settings to attach a skin.</p>
+                              <p className={`text-sm text-zinc-400`}>Link your Steam ID in profile settings to attach a skin.</p>
                             </div>
                           ) : (
                             <>
                               {/* Currently attached or newly selected skin */}
                               {(selectedEditItem || showEditForm.steam_asset_id) && (
-                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-violet-500 ${isDark ? 'bg-violet-900/20' : 'bg-violet-50'}`}>
+                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-violet-500 bg-violet-900/20`}>
                                   {selectedEditItem ? (
                                     <>
                                       <img src={selectedEditItem.iconUrl} alt={selectedEditItem.name} className="w-14 h-14 object-contain shrink-0" />
                                       <div className="flex-1 min-w-0">
                                         <p className="font-semibold text-sm truncate">{selectedEditItem.name}</p>
-                                        <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{selectedEditItem.type}</p>
+                                        <p className={`text-xs text-zinc-400`}>{selectedEditItem.type}</p>
                                         {selectedEditItem.price > 0 && <p className="text-xs text-green-400 font-bold mt-0.5">Market: {fmtBC(selectedEditItem.price)}</p>}
                                       </div>
                                     </>
                                   ) : (
                                     <div className="flex-1 min-w-0">
                                       <p className="font-semibold text-sm truncate">{editForm.skin_name}</p>
-                                      <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Previously attached — select from inventory to change</p>
+                                      <p className={`text-xs text-zinc-400`}>Previously attached — select from inventory to change</p>
                                     </div>
                                   )}
                                   <button
                                     onClick={() => { setSelectedEditItem(null); setEditForm(f => ({ ...f, steam_asset_id: null })); }}
-                                    className={`text-xs px-2 py-1 rounded ${isDark ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} transition shrink-0`}
+                                    className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition shrink-0`}
                                   >
                                     Detach
                                   </button>
@@ -987,7 +987,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                                   <button onClick={loadModalInventory} className={btnOrange}>Load Inventory</button>
                                 </div>
                               ) : modalInventory.length === 0 ? (
-                                <p className={`text-center py-8 text-sm ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>No CS items found in your inventory.</p>
+                                <p className={`text-center py-8 text-sm text-zinc-400`}>No CS items found in your inventory.</p>
                               ) : (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-64 overflow-y-auto">
                                   {modalInventory
@@ -998,10 +998,10 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                                         <button
                                           key={item.assetId}
                                           onClick={() => selectEditSkin(item)}
-                                          className={`p-2 rounded-lg border-2 transition text-left ${isAttached ? 'border-violet-500 bg-violet-500/10' : isDark ? 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-violet-500/60' : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-violet-400/60'}`}
+                                          className={`p-2 rounded-lg border-2 transition text-left ${isAttached ? 'border-violet-500 bg-violet-500/10' : 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-violet-500/60'}`}
                                         >
                                           <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-1" />
-                                          <p className={`text-xs truncate ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{item.name}</p>
+                                          <p className={`text-xs truncate text-zinc-300`}>{item.name}</p>
                                           {item.price > 0 && <p className="text-xs text-green-400 font-bold">{fmtBC(item.price)}</p>}
                                         </button>
                                       );
@@ -1055,14 +1055,14 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                           <div className="sm:col-span-2">
                             <label className={label}>Steam screenshot URL</label>
                             <input value={editForm.screenshot_url} onChange={e => setEditForm(f => ({ ...f, screenshot_url: e.target.value }))} placeholder="https://steamcommunity.com/sharedfiles/filedetails/?id=..." className={input} />
-                            <p className={`text-xs mt-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Upload to Steam (Public), paste the share link here.</p>
+                            <p className={`text-xs mt-1.5 text-zinc-400`}>Upload to Steam (Public), paste the share link here.</p>
                           </div>
                         </div>
                       )}
                     </div>
 
                     {/* Footer */}
-                    <div className={`flex gap-2 px-6 py-4 border-t ${isDark ? 'border-zinc-700' : 'border-gray-100'} shrink-0`}>
+                    <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
                       <button
                         onClick={saveEdit}
                         disabled={!editForm.skin_name || !editForm.purchase_price || !editForm.purchase_date}
@@ -1079,13 +1079,13 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
               {/* Sell modal */}
               {showSellForm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-                  <div className={`${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl shadow-2xl w-full max-w-lg`}>
-                    <div className={`flex items-center justify-between px-6 py-4 border-b ${isDark ? 'border-zinc-700' : 'border-gray-100'}`}>
+                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-lg`}>
+                    <div className={`flex items-center justify-between px-6 py-4 border-b border-zinc-700`}>
                       <div>
                         <h3 className="font-bold text-base">Mark as Sold</h3>
-                        <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{showSellForm.skin_name}</p>
+                        <p className={`text-sm text-zinc-400`}>{showSellForm.skin_name}</p>
                       </div>
-                      <button onClick={() => setShowSellForm(null)} className={`text-xl leading-none ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>✕</button>
+                      <button onClick={() => setShowSellForm(null)} className={`text-xl leading-none text-zinc-400 hover:text-white`}>✕</button>
                     </div>
                     <div className="p-6 grid grid-cols-2 gap-4">
                       <div>
@@ -1113,10 +1113,10 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                           placeholder="https://steamcommunity.com/sharedfiles/filedetails/?id=..."
                           className={input}
                         />
-                        <p className={`text-xs mt-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Link a Steam screenshot of the sale (optional)</p>
+                        <p className={`text-xs mt-1.5 text-zinc-400`}>Link a Steam screenshot of the sale (optional)</p>
                       </div>
                     </div>
-                    <div className={`flex gap-2 px-6 py-4 border-t ${isDark ? 'border-zinc-700' : 'border-gray-100'}`}>
+                    <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700`}>
                       <button onClick={() => sellItem(showSellForm.id)} className={`${btn} bg-red-600 hover:bg-red-500 text-white`}>Confirm Sale</button>
                       <button onClick={() => setShowSellForm(null)} className={btnGhost}>Cancel</button>
                     </div>
@@ -1129,7 +1129,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                 <div className={`${card} p-10 text-center`}>
                   <p className="text-3xl mb-3">📋</p>
                   <p className="font-semibold mb-1">{trackerSearch ? 'No matching trades' : 'No trades registered yet'}</p>
-                  <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+                  <p className={`text-sm mb-4 text-zinc-300`}>
                     {trackerSearch ? 'Try a different search term.' : 'Register skins you\'ve bought to track their value and P&L over time.'}
                   </p>
                   {!trackerSearch && <button onClick={() => setShowAddForm(true)} className={btnOrange}>+ Register First Trade</button>}
@@ -1138,7 +1138,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                 <div className={`${card} overflow-hidden`}>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className={`${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-gray-50 border-gray-200'} border-b`}>
+                      <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
                         <tr>
                           {[
                             { key: 'skin_name', label: 'Skin' },
@@ -1153,7 +1153,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                             <th
                               key={key}
                               onClick={() => toggleSort(key)}
-                              className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap ${isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-gray-400 hover:text-gray-600'} transition`}
+                              className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap text-zinc-400 hover:text-zinc-200 transition`}
                             >
                               {colLabel}<SortIcon col={key} />
                             </th>
@@ -1173,22 +1173,22 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                             <tr
                               key={item.id}
                               onClick={() => setExpandedRow(isExpanded ? null : item.id)}
-                              className={`border-t ${isExpanded ? (isDark ? 'bg-zinc-700/40' : 'bg-gray-50') : ''} ${isDark ? 'border-zinc-700 hover:bg-zinc-600/30' : 'border-gray-100 hover:bg-gray-50'} transition cursor-pointer`}
+                              className={`border-t ${isExpanded ? 'bg-zinc-700/40' : ''} border-zinc-700 hover:bg-zinc-600/30 transition cursor-pointer`}
                             >
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
                                   <span className="font-semibold max-w-xs truncate">{item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')}</span>
                                 </div>
                               </td>
-                              <td className={`px-4 py-3 text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'} whitespace-nowrap`}>{item.exterior || '—'}</td>
-                              <td className={`px-4 py-3 text-xs font-mono ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
-                              <td className={`px-4 py-3 text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{item.purchase_date}</td>
+                              <td className={`px-4 py-3 text-xs text-zinc-400 whitespace-nowrap`}>{item.exterior || '—'}</td>
+                              <td className={`px-4 py-3 text-xs font-mono text-zinc-400`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
+                              <td className={`px-4 py-3 text-xs text-zinc-400`}>{item.purchase_date}</td>
                               <td className="px-4 py-3 whitespace-nowrap font-mono text-xs">
                                 {fmtBC(item.purchase_price_display)}
                               </td>
                               <td className="px-4 py-3 whitespace-nowrap font-mono text-xs">
                                 {item.sold
-                                  ? <span className={isDark ? 'text-zinc-500' : 'text-gray-400'}>{fmtBC(item.sale_price_display)}</span>
+                                  ? <span className="text-zinc-400">{fmtBC(item.sale_price_display)}</span>
                                   : (currentPrice > 0 ? fmtBC(currentPrice) : '—')
                                 }
                               </td>
@@ -1196,15 +1196,15 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                                 {pnlPos ? '+' : ''}{fmtBC(pnlVal)}
                               </td>
                               <td className="px-4 py-3">
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${item.sold ? `${isDark ? 'bg-zinc-700 text-zinc-400' : 'bg-gray-100 text-gray-500'}` : 'bg-green-900/40 text-green-400'}`}>
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${item.sold ? `bg-zinc-700 text-zinc-400` : 'bg-green-900/40 text-green-400'}`}>
                                   {item.sold ? `Sold ${item.sale_date || ''}` : 'Holding'}
                                 </span>
                               </td>
                               <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                                 <div className="flex gap-1">
-                                  {!item.sold && <button onClick={() => setShowSellForm(item)} className={`text-xs px-2 py-1 rounded ${isDark ? 'bg-red-900/40 text-red-400 hover:bg-red-900/60' : 'bg-red-50 text-red-600 hover:bg-red-100'} transition`}>Sell</button>}
-                                  <button onClick={() => openEditModal(item)} className={`text-xs px-2 py-1 rounded ${isDark ? 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'} transition`}>Edit</button>
-                                  <button onClick={() => deleteItem(item.id)} className={`text-xs px-2 py-1 rounded ${isDark ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} transition`}>✕</button>
+                                  {!item.sold && <button onClick={() => setShowSellForm(item)} className={`text-xs px-2 py-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition`}>Sell</button>}
+                                  <button onClick={() => openEditModal(item)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition`}>Edit</button>
+                                  <button onClick={() => deleteItem(item.id)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition`}>✕</button>
                                 </div>
                               </td>
                             </tr>
@@ -1220,7 +1220,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                     if (!item) return null;
                     const screenshotUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url;
                     return (
-                      <div className={`border-t ${isDark ? 'border-zinc-700 bg-zinc-800/60' : 'border-gray-100 bg-gray-50/60'} px-6 py-5`}>
+                      <div className={`border-t border-zinc-700 bg-zinc-800/60 px-6 py-5`}>
                         <div className="flex gap-6">
                           {/* Left: item details */}
                           <div className="w-48 shrink-0 flex flex-col gap-3">
@@ -1237,7 +1237,7 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                               ['Notes',    item.notes],
                             ].filter(([, v]) => v).map(([label, value]) => (
                               <div key={label}>
-                                <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>{label}</p>
+                                <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 text-zinc-400`}>{label}</p>
                                 <p className="text-sm">{value}</p>
                               </div>
                             ))}
@@ -1245,8 +1245,8 @@ export default function CSSkins({ isDark, authUsername, baseCurrency = 'SEK' }) 
                           {/* Right: screenshot — grows to fill remaining space */}
                           <div className="flex-1 min-w-0">
                             {screenshotUrl
-                              ? <SteamScreenshotEmbed url={screenshotUrl} isDark={isDark} />
-                              : <div className={`h-full flex items-center justify-center rounded-xl border ${isDark ? 'border-zinc-700 text-zinc-600' : 'border-gray-200 text-gray-400'}`}><p className="text-xs">No screenshot linked.</p></div>
+                              ? <SteamScreenshotEmbed url={screenshotUrl} />
+                              : <div className={`h-full flex items-center justify-center rounded-xl border border-zinc-700 text-zinc-600`}><p className="text-xs">No screenshot linked.</p></div>
                             }
                           </div>
                         </div>

@@ -1459,14 +1459,21 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     } catch(e) {}
   }
   const conv = (sek) => parseFloat((Math.abs(sek) * bcRate).toFixed(2));
+  // Strip Montrose raw description names like "Utdelning EVO 2.8 EUR/aktie" → "EVO"
+  const cleanDivName = (name) => {
+    if (!name) return 'Unknown';
+    let n = name.replace(/^Utdelning\s+/i, '').replace(/^Källskatt\s+/i, '');
+    n = n.replace(/\s+[\d,.]+\s+[A-Z]{3}\/aktie.*$/i, '').replace(/\s+-\s+.*$/, '');
+    return n.trim() || name;
+  };
   const thisYear = new Date().getFullYear().toString();
   const totalAllTime = divs.reduce((s,t)=>s+conv(t.total_sek),0);
   const totalThisYear = divs.filter(t=>t.date?.startsWith(thisYear)).reduce((s,t)=>s+conv(t.total_sek),0);
   const byYear = {};
-  divs.forEach(t => { const y=t.date?.substring(0,4); if(!y) return; if(!byYear[y]) byYear[y]={year:y,total:0,stocks:{}}; byYear[y].total+=conv(t.total_sek); const n=t.name||'Unknown'; byYear[y].stocks[n]=(byYear[y].stocks[n]||0)+conv(t.total_sek); });
+  divs.forEach(t => { const y=t.date?.substring(0,4); if(!y) return; if(!byYear[y]) byYear[y]={year:y,total:0,stocks:{}}; byYear[y].total+=conv(t.total_sek); const n=cleanDivName(t.name); byYear[y].stocks[n]=(byYear[y].stocks[n]||0)+conv(t.total_sek); });
   const byYearArr = Object.values(byYear).sort((a,b)=>b.year.localeCompare(a.year)).map(y=>({...y,stocks:Object.entries(y.stocks).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total)}));
   const byStock = {};
-  divs.forEach(t => { const n=t.name||'Unknown'; byStock[n]=(byStock[n]||0)+conv(t.total_sek); });
+  divs.forEach(t => { const n=cleanDivName(t.name); byStock[n]=(byStock[n]||0)+conv(t.total_sek); });
   res.json({ totalAllTime, totalThisYear, byYear:byYearArr, byStock:Object.entries(byStock).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total), display_currency: BC });
 });
 

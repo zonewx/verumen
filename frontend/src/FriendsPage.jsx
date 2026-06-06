@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
 
-export default function FriendsPage({ isDark, authUsername }) {
+export default function FriendsPage({ authUsername }) {
   const [friends, setFriends] = useState(() => apiCache.get('/api/friends')?.friends || []);
   const [incoming, setIncoming] = useState(() => apiCache.get('/api/friends')?.incoming || []);
   const [outgoing, setOutgoing] = useState(() => apiCache.get('/api/friends')?.outgoing || []);
@@ -48,9 +48,9 @@ export default function FriendsPage({ isDark, authUsername }) {
     window.dispatchEvent(new Event('friends-updated'));
   }
 
-  const card = isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200';
-  const textSecondary = isDark ? 'text-zinc-400' : 'text-zinc-500';
-  const divider = isDark ? 'divide-zinc-700' : 'divide-gray-200';
+  const card = 'bg-zinc-800 border-zinc-700';
+  const textSecondary = 'text-zinc-400';
+  const divider = 'divide-zinc-700';
 
   const filteredFriends = friends.filter(f =>
     f.username.toLowerCase().includes(searchQuery.toLowerCase())
@@ -65,7 +65,7 @@ export default function FriendsPage({ isDark, authUsername }) {
   );
 
   return (
-    <div className={`flex-1 overflow-y-auto ${isDark ? 'bg-zinc-900' : 'bg-gray-100'}`}>
+    <div className={`flex-1 overflow-y-auto bg-zinc-900`}>
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-1">Friends</h1>
@@ -78,7 +78,7 @@ export default function FriendsPage({ isDark, authUsername }) {
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder="Search friends..."
-          className={`w-full px-4 py-2 rounded-lg border mb-6 text-sm ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'}`}
+          className={`w-full px-4 py-2 rounded-lg border mb-6 text-sm bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500`}
         />
 
         {loading ? (
@@ -104,7 +104,7 @@ export default function FriendsPage({ isDark, authUsername }) {
                       </div>
                       <div className="flex gap-2 shrink-0">
                         <button onClick={() => handleAccept(req.username)} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">Accept</button>
-                        <button onClick={() => handleDecline(req.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600' : 'bg-gray-200 hover:bg-gray-300'}`}>Decline</button>
+                        <button onClick={() => handleDecline(req.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition bg-zinc-700 hover:bg-zinc-600`}>Decline</button>
                       </div>
                     </div>
                   ))}
@@ -152,7 +152,7 @@ export default function FriendsPage({ isDark, authUsername }) {
                       </div>
                       <div className="flex gap-2 shrink-0">
                         <button onClick={() => navigate(`/profile/@${friend.username}`)} className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition">View</button>
-                        <button onClick={() => handleRemove(friend.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${isDark ? 'bg-zinc-700 hover:bg-red-900/40 hover:text-red-400' : 'bg-gray-200 hover:bg-red-100 hover:text-red-600'}`}>Remove</button>
+                        <button onClick={() => handleRemove(friend.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition bg-zinc-700 hover:bg-red-900/40 hover:text-red-400`}>Remove</button>
                       </div>
                     </div>
                   ))}

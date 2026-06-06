@@ -32,7 +32,7 @@ const Toggle = ({ value, onChange }) => (
   </button>
 );
 
-export default function ProfileEditPage({ isDark, authUsername }) {
+export default function ProfileEditPage({ authUsername }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [editForm, setEditForm] = useState({ bio: '', steamId: '', publicInventory: false, publicHoldings: false, publicDividends: false, showPortfolioValue: false, avatarBase64: null, showcaseItems: [], country: 'se' });
@@ -53,9 +53,9 @@ export default function ProfileEditPage({ isDark, authUsername }) {
   const [selectedShowcaseItems, setSelectedShowcaseItems] = useState([]);
 
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
-  const card = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl`;
-  const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition focus:ring-2 focus:ring-zinc-500/30 focus:border-zinc-500 ${isDark ? 'bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`;
-  const labelCls = `text-xs font-semibold uppercase tracking-wider block mb-1.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`;
+  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
+  const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition focus:ring-2 focus:ring-zinc-500/30 focus:border-zinc-500 bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
+  const labelCls = `text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-400`;
 
   useEffect(() => {
     fetchProfile();
@@ -224,11 +224,11 @@ export default function ProfileEditPage({ isDark, authUsername }) {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold mb-1">Edit Profile</h1>
-            <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Manage your profile settings and privacy</p>
+            <p className={`text-sm text-zinc-400`}>Manage your profile settings and privacy</p>
           </div>
           <button
             onClick={() => navigate('/profile')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300`}
           >
             Cancel
           </button>
@@ -252,7 +252,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                   {avatarUploading && <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center"><div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"/></div>}
                 </div>
                 {editForm.avatarBase64 && (
-                  <button onClick={() => setEditForm(f => ({ ...f, avatarBase64: null }))} className={`text-xs ${isDark ? 'text-zinc-500 hover:text-red-400' : 'text-zinc-400 hover:text-red-500'} transition`}>Remove photo</button>
+                  <button onClick={() => setEditForm(f => ({ ...f, avatarBase64: null }))} className={`text-xs text-zinc-500 hover:text-red-400 transition`}>Remove photo</button>
                 )}
               </div>
             </div>
@@ -267,10 +267,10 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                   { key: 'publicDividends', title: 'Public Dividends', desc: 'Show dividend data on profile' },
                   { key: 'showPortfolioValue', title: 'Show Portfolio Value', desc: 'Display currency values of holdings' },
                 ].map(({ key, title, desc }) => (
-                  <div key={key} className={`flex items-center justify-between gap-3 p-3 rounded-xl ${isDark ? 'bg-zinc-700/50' : 'bg-gray-50'}`}>
+                  <div key={key} className={`flex items-center justify-between gap-3 p-3 rounded-xl bg-zinc-700/50`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold">{title}</p>
-                      <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{desc}</p>
+                      <p className={`text-xs mt-0.5 text-zinc-400`}>{desc}</p>
                     </div>
                     <Toggle value={editForm[key]} onChange={v => setEditForm(f => ({ ...f, [key]: v }))} />
                   </div>
@@ -285,7 +285,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
             {/* Username */}
             <div className={`${card} p-6`}>
               <label className={labelCls}>Username</label>
-              <p className={`text-xs mb-3 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+              <p className={`text-xs mb-3 text-zinc-400`}>
                 Current: <span className="font-semibold text-white">{authUsername}</span>
               </p>
               <div className="flex gap-2">
@@ -304,7 +304,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                   {usernameLoading ? 'Saving...' : 'Change'}
                 </button>
               </div>
-              <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>3–20 characters, letters, numbers and underscores only.</p>
+              <p className={`text-xs mt-1 text-zinc-400`}>3–20 characters, letters, numbers and underscores only.</p>
               {usernameMsg && (
                 <p className={`text-xs mt-2 font-medium ${usernameMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
                   {usernameMsg}
@@ -316,7 +316,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
             <div className={`${card} p-6`}>
               <label className={labelCls}>Bio</label>
               <textarea value={editForm.bio} onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))} rows={4} maxLength={200} placeholder="Tell the community about yourself..." className={`${inputCls} resize-none`} />
-              <p className={`text-xs mt-1 ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>{editForm.bio.length}/200</p>
+              <p className={`text-xs mt-1 text-zinc-600`}>{editForm.bio.length}/200</p>
             </div>
 
             {/* Country */}
@@ -338,20 +338,20 @@ export default function ProfileEditPage({ isDark, authUsername }) {
             <div className={`${card} p-6`}>
               <label className={labelCls}>Steam Account</label>
               {steamVerified && editForm.steamId ? (
-                <div className={`flex items-center gap-3 p-4 rounded-xl ${isDark ? 'bg-green-900/20 border border-green-800/40' : 'bg-green-50 border border-green-200'}`}>
+                <div className={`flex items-center gap-3 p-4 rounded-xl bg-green-900/20 border border-green-800/40`}>
                   <img src="https://store.steampowered.com/favicon.ico" alt="Steam" className="w-6 h-6 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-green-400">✓ Steam linked & verified{steamLevel > 0 && <span className="ml-2 text-xs font-normal text-zinc-400">Level {steamLevel}</span>}</p>
-                    <a href={`https://steamcommunity.com/profiles/${editForm.steamId}`} target="_blank" rel="noopener noreferrer" className={`text-xs hover:underline ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{editForm.steamId} ↗</a>
+                    <a href={`https://steamcommunity.com/profiles/${editForm.steamId}`} target="_blank" rel="noopener noreferrer" className={`text-xs hover:underline text-zinc-400`}>{editForm.steamId} ↗</a>
                   </div>
-                  <button onClick={unlinkSteam} className={`text-xs px-3 py-1.5 rounded-lg transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-gray-100 hover:bg-gray-200 text-zinc-600'}`}>Unlink</button>
+                  <button onClick={unlinkSteam} className={`text-xs px-3 py-1.5 rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300`}>Unlink</button>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
                   <button onClick={handleSteamLogin} disabled={steamLookupLoading} className="self-start hover:opacity-90 transition disabled:opacity-50">
                     <img src="https://community.cloudflare.steamstatic.com/public/images/signinthroughsteam/sits_01.png" alt="Sign in through Steam" className="h-10" />
                   </button>
-                  <p className={`text-xs ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>You'll be redirected to Steam to verify your account.</p>
+                  <p className={`text-xs text-zinc-600`}>You'll be redirected to Steam to verify your account.</p>
                   {steamLookupError && <p className="text-xs text-red-400">{steamLookupError}</p>}
                 </div>
               )}
@@ -363,7 +363,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <label className={labelCls}>Item Showcase</label>
-                    <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    <p className={`text-xs mt-1 text-zinc-400`}>
                       Select up to 10 items from your CS inventory to display on your profile
                     </p>
                   </div>
@@ -387,9 +387,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                           className={`relative p-2 rounded-lg transition border-2 ${
                             isSelected 
                               ? 'border-zinc-400 bg-zinc-400/20' 
-                              : isDark 
-                                ? 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-700 hover:border-zinc-500' 
-                                : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300'
+                              : 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-700 hover:border-zinc-500'
                           }`}
                           disabled={!isSelected && selectedShowcaseItems.length >= 10}
                         >
@@ -398,7 +396,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                             alt={item.name}
                             className="w-full aspect-square object-contain mb-1"
                           />
-                          <p className={`text-xs text-center truncate ${isSelected ? 'font-semibold text-zinc-400' : isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                          <p className={`text-xs text-center truncate ${isSelected ? 'font-semibold text-zinc-400' : 'text-zinc-400'}`}>
                             {item.name}
                           </p>
                           {isSelected && (
@@ -411,7 +409,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                     })}
                   </div>
                 ) : (
-                  <p className={`text-center py-8 text-sm ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                  <p className={`text-center py-8 text-sm text-zinc-400`}>
                     No CS items found in your inventory
                   </p>
                 )}
@@ -419,7 +417,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
                 {selectedShowcaseItems.length > 0 && (
                   <button
                     onClick={() => setSelectedShowcaseItems([])}
-                    className={`mt-3 text-xs px-3 py-1.5 rounded-lg transition ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-gray-100 hover:bg-gray-200 text-zinc-600'}`}
+                    className={`mt-3 text-xs px-3 py-1.5 rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300`}
                   >
                     Clear Selection
                   </button>
@@ -431,7 +429,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
         </div>
 
         {/* Save Button (sticky at bottom) */}
-        <div className={`sticky bottom-0 mt-6 p-6 ${isDark ? 'bg-zinc-900/95 border-zinc-700' : 'bg-white/95 border-gray-200'} border-t backdrop-blur-sm`}>
+        <div className={`sticky bottom-0 mt-6 p-6 bg-zinc-900/95 border-zinc-700 border-t backdrop-blur-sm`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button onClick={saveProfile} disabled={saving} className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-lg transition disabled:opacity-50">
@@ -439,7 +437,7 @@ export default function ProfileEditPage({ isDark, authUsername }) {
               </button>
               {saveMsg && <span className={`text-sm ${saveMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>{saveMsg}</span>}
             </div>
-            <button onClick={() => navigate('/profile')} className={`text-sm ${isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-gray-900'} transition`}>
+            <button onClick={() => navigate('/profile')} className={`text-sm text-zinc-400 hover:text-white transition`}>
               Discard changes
             </button>
           </div>

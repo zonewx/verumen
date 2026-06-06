@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // Inline accordion content for portfolio actions
-function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
+function ActionContent({ id, pa, selectedBroker, onBrokerChange }) {
   const btn = `w-full py-2 px-3 rounded-lg text-xs font-semibold transition text-center`;
-  const sub = isDark ? 'text-zinc-400' : 'text-zinc-500';
-  const inputCls = `w-full px-2 py-1.5 rounded-lg border text-xs outline-none ${isDark ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-white border-gray-200'}`;
+  const sub = 'text-zinc-400';
+  const inputCls = `w-full px-2 py-1.5 rounded-lg border text-xs outline-none bg-zinc-700 border-zinc-600 text-white`;
 
   const spinner = <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin mr-1 align-middle"/>;
 
@@ -18,7 +18,7 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
           value={selectedBroker}
           onChange={(e) => onBrokerChange(e.target.value)}
           className={`w-full px-2 py-1.5 rounded-lg border text-xs outline-none ${
-            isDark ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-white border-gray-200'
+            'bg-zinc-700 border-zinc-600 text-white'
           }`}
         >
           <option value="auto">Auto-detect</option>
@@ -67,7 +67,7 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
             {pa.syncLoading ? <>{spinner}Syncing…</> : '⟳ Sync Portfolio'}
           </button>
           {pa.syncStatus && <p className={`text-[10px] ${pa.syncStatus.startsWith('✓') ? 'text-green-400' : sub}`}>{pa.syncStatus}</p>}
-          <button onClick={pa.onResolve} disabled={pa.resolveLoading} className={`${btn} ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
+          <button onClick={pa.onResolve} disabled={pa.resolveLoading} className={`${btn} bg-zinc-700 hover:bg-zinc-600 text-zinc-200`}>
             {pa.resolveLoading ? <>{spinner}Resolving…</> : '🔍 Resolve Tickers'}
           </button>
           {pa.resolveStatus && <p className={`text-[10px] ${pa.resolveStatus.startsWith('✓') ? 'text-green-400' : sub}`}>{pa.resolveStatus}</p>}
@@ -82,9 +82,9 @@ function ActionContent({ id, pa, isDark, selectedBroker, onBrokerChange }) {
         <p className={`text-xs ${sub}`}>No holdings yet.</p>
       ) : (
         <>
-          <div className={`rounded-lg overflow-hidden max-h-40 overflow-y-auto ${isDark ? 'bg-zinc-700/40' : 'bg-gray-100'}`}>
+          <div className={`rounded-lg overflow-hidden max-h-40 overflow-y-auto bg-zinc-700/40`}>
             {pa.portfolio.map(s => (
-              <label key={s.ticker} className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer ${isDark ? 'hover:bg-zinc-600' : 'hover:bg-gray-200'} border-b ${isDark ? 'border-zinc-600/50' : 'border-gray-200'} last:border-0`}>
+              <label key={s.ticker} className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-zinc-600 border-b border-zinc-600/50 last:border-0`}>
                 <input type="checkbox" checked={pa.selectedForRemoval?.includes(s.ticker)} onChange={() => pa.onToggleRemoval(s.ticker)} className="accent-blue-500" />
                 <span className="text-xs font-medium">{s.ticker}</span>
                 <span className={`text-[10px] ml-auto ${sub}`}>{s.quantity}</span>
@@ -167,7 +167,7 @@ const ChevronLeft = ({ size = 20, className }) => (
   </svg>
 );
 
-export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker, onBrokerChange, portfolioActions = {} }) {
+export default function Sidebar({ currentUser, onLogout, selectedBroker, onBrokerChange, portfolioActions = {} }) {
   const [isExpanded, setIsExpanded] = useState(true);
 
   useEffect(() => {
@@ -282,12 +282,12 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
   }, [location.pathname]);
 
   const sidebarWidth = isExpanded ? 'w-60' : 'w-16';
-  const bg = isDark ? 'bg-zinc-900' : 'bg-white';
-  const borderColor = isDark ? 'bg-zinc-700' : 'bg-gray-200';
-  const textPrimary = isDark ? 'text-zinc-100' : 'text-gray-900';
-  const textSecondary = isDark ? 'text-zinc-400' : 'text-gray-600';
-  const hoverBg = isDark ? 'hover:bg-zinc-700' : 'hover:bg-gray-100';
-  const activeBg = isDark ? 'bg-zinc-700' : 'bg-gray-100';
+  const bg = 'bg-zinc-900';
+  const borderColor = 'bg-zinc-700';
+  const textPrimary = 'text-zinc-100';
+  const textSecondary = 'text-zinc-400';
+  const hoverBg = 'hover:bg-zinc-700';
+  const activeBg = 'bg-zinc-700';
 
   const visibleMenuItems = menuItems.filter(item => {
     if (item.adminOnly) {
@@ -367,10 +367,10 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                 </button>
 
                 {item.subItems && isOpen && isExpanded && (
-                  <div className={`ml-4 mt-0.5 mb-1 pl-3 border-l ${isDark ? 'border-zinc-700' : 'border-gray-200'} space-y-0.5`}>
+                  <div className={`ml-4 mt-0.5 mb-1 pl-3 border-l border-zinc-700 space-y-0.5`}>
                     {item.subItems.map(subItem => {
                       if (subItem.isDivider) {
-                        return <div key={subItem.id} className={`my-1.5 border-t ${isDark ? 'border-zinc-700' : 'border-gray-200'}`} />;
+                        return <div key={subItem.id} className={`my-1.5 border-t border-zinc-700`} />;
                       }
 
                       if (subItem.isDirectButton) {
@@ -378,7 +378,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                           <button
                             key={subItem.id}
                             onClick={() => portfolioActions?.[subItem.actionKey]?.()}
-                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-left text-red-400 ${isDark ? 'hover:bg-red-900/20' : 'hover:bg-red-50'}`}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-left text-red-400 hover:bg-red-900/20`}
                           >
                             {subItem.icon && <span className="shrink-0 opacity-70">{subItem.icon}</span>}
                             <span className="text-sm">{subItem.label}</span>
@@ -399,8 +399,8 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
                               <ChevronLeft size={12} className={`transition-transform duration-200 ${isActionOpen ? '-rotate-90' : 'rotate-180'}`} />
                             </button>
                             {isActionOpen && (
-                              <div className={`mt-1 mb-1 rounded-lg p-3 flex flex-col gap-2 ${isDark ? 'bg-zinc-800' : 'bg-gray-50'}`}>
-                                <ActionContent id={subItem.id} pa={portfolioActions} isDark={isDark} selectedBroker={selectedBroker} onBrokerChange={onBrokerChange} />
+                              <div className={`mt-1 mb-1 rounded-lg p-3 flex flex-col gap-2 bg-zinc-800`}>
+                                <ActionContent id={subItem.id} pa={portfolioActions} selectedBroker={selectedBroker} onBrokerChange={onBrokerChange} />
                               </div>
                             )}
                           </div>
@@ -431,7 +431,7 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
       <div
         style={{
           height: '1px',
-          background: isDark ? '#3f3f46' : '#e5e7eb',
+          background: '#3f3f46',
           width: isExpanded ? '240px' : '64px',
           transition: 'width 300ms cubic-bezier(0.4, 0, 0.2, 1)',
         }}
@@ -499,8 +499,8 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
         width: '13px',
         height: '13px',
         transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-        borderTop: `1px solid ${isDark ? '#3f3f46' : '#e5e7eb'}`,
-        borderLeft: `1px solid ${isDark ? '#3f3f46' : '#e5e7eb'}`,
+        borderTop: `1px solid #3f3f46`,
+        borderLeft: `1px solid #3f3f46`,
         borderTopLeftRadius: '12px',
       }}
     />
