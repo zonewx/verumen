@@ -250,7 +250,8 @@ export default function App() {
     if (!isForceRefresh && !hasCached) {
       try {
         const dbCached = await apiFetch(`/api/portfolio/cached?currency=${c}`).then(r => r.json());
-        if (dbCached?.portfolio?.length > 0) {
+        const cachedFp = portfolioFingerprint(dbCached?.holdings, c);
+        if (dbCached?.portfolio?.length > 0 && cachedFp === fp) {
           const snapshotAgeMs = Date.now() - new Date(dbCached.builtAt).getTime();
           const snapshotStale = snapshotAgeMs > 30 * 60 * 1000; // only warn if >30 min old
           setDashboardData({ portfolio: dbCached.portfolio, totals: dbCached.totals, hasStalePrices: snapshotStale, fromCache: true, builtAt: dbCached.builtAt });
@@ -704,6 +705,22 @@ const handleUpload = async (files) => {
     }
   };
 
+  const handleClearHoldings = async () => {
+    if (!confirm('This will clear your current portfolio holdings. Transaction history and ticker cache are kept — you can re-upload a CSV without re-resolving tickers. Continue?')) return;
+    try {
+      await apiFetch('/api/portfolio/cached', { method: 'DELETE' });
+      setPortfolio([]);
+      setDashboardData(null);
+      setUploadStatus(null);
+      apiCache.del('/api/portfolio-dashboard');
+      apiCache.del('/api/portfolio-fingerprint');
+      setSyncStatus('Holdings cleared. Transaction history and ticker cache kept.');
+      setTimeout(() => setSyncStatus(''), 4000);
+    } catch (err) {
+      setSyncStatus('Error clearing holdings: ' + err.message);
+    }
+  };
+
   const handleClearTickerCache = async () => {
     if (!confirm('This will clear all cached ticker resolutions. Your transaction data is kept, but tickers will be re-resolved on next upload. Continue?')) return;
     try {
@@ -1102,7 +1119,7 @@ const handleUpload = async (files) => {
                     </div>
                     <div className="flex flex-col gap-3">
                       <h3 className={`text-sm font-bold uppercase tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Data Management</h3>
-                      <div className="grid grid-cols-2 gap-5">
+                      <div className="grid grid-cols-3 gap-5">
                         <div className={`${cardCls} p-6`}>
                           <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Clear Ticker Cache</h3>
                           <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
@@ -1110,6 +1127,15 @@ const handleUpload = async (files) => {
                           </p>
                           <button onClick={handleClearTickerCache} className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition">
                             Clear Ticker Cache
+                          </button>
+                        </div>
+                        <div className={`${cardCls} p-6`}>
+                          <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>Clear Holdings</h3>
+                          <p className={`text-sm mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                            Clears current portfolio holdings only. Transaction history and ticker cache are kept — re-uploading a CSV will be fast.
+                          </p>
+                          <button onClick={handleClearHoldings} className="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-semibold transition">
+                            Clear Holdings
                           </button>
                         </div>
                         <div className={`${cardCls} p-6`}>
