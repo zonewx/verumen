@@ -118,7 +118,10 @@ export default function App() {
   const forceRefreshRef = useRef(false);
   const suppressNextFetch = useRef(false);
   const priceRetryDoneRef = useRef(false);
-  const [priceRetryIn, setPriceRetryIn] = useState(null); // prevents re-fetch loop when cache restores portfolio
+  const backgroundRefreshRef = useRef(false);
+  const [priceRetryIn, setPriceRetryIn] = useState(null);
+  const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
+  const [isClearingSnapshot, setIsClearingSnapshot] = useState(false); // prevents re-fetch loop when cache restores portfolio
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -244,9 +247,11 @@ export default function App() {
     if (!authUsername) return;
     const isForceRefresh = forceRefreshRef.current;
     forceRefreshRef.current = false;
+    const isBackgroundRefresh = backgroundRefreshRef.current;
+    backgroundRefreshRef.current = false;
     const fp = portfolioFingerprint(p, c);
     const hasCached = !isForceRefresh && apiCache.get('/api/portfolio-fingerprint') === fp && apiCache.has('/api/portfolio-dashboard');
-    if (!hasCached && p.length > 0) setIsAppLoading(true);
+    if (!hasCached && p.length > 0 && !isBackgroundRefresh) setIsAppLoading(true);
 
     // Supabase portfolio cache — serves the last saved state instantly with no YF calls.
     // Skipped when force-refreshing or when in-memory cache is already warm.
@@ -335,6 +340,7 @@ export default function App() {
     } catch(e) { console.error(e); }
     setIsAppLoading(false);
     setIsInitializing(false);
+    setIsRefreshingPrices(false);
   }, [authUsername, apiFetch]);
 
   useEffect(() => {
@@ -437,7 +443,8 @@ export default function App() {
     apiCache.del('/api/portfolio-dashboard');
     apiCache.del('/api/portfolio-fingerprint');
     forceRefreshRef.current = true;
-    setAppLoadingLabel('Fetching latest prices...');
+    backgroundRefreshRef.current = true;
+    setIsRefreshingPrices(true);
     fetchAllData(portfolio, baseCurrency);
   };
 
@@ -768,6 +775,7 @@ const handleUpload = async (files) => {
   };
 
   const handleClearPortfolioCache = async () => {
+    setIsClearingSnapshot(true);
     try {
       await apiFetch('/api/portfolio/cached', { method: 'DELETE' });
       setDashboardData(null);
@@ -778,6 +786,7 @@ const handleUpload = async (files) => {
     } catch (err) {
       setSyncStatus('Error clearing portfolio snapshot: ' + err.message);
     }
+    setIsClearingSnapshot(false);
   };
 
   const toggleRemoval = t => setSelectedForRemoval(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
@@ -1252,8 +1261,9 @@ const handleUpload = async (files) => {
                         <p className={`text-sm mb-4 text-zinc-300`}>
                           Re-runs ticker resolution for all holdings using cached results where available. Use this if holdings are showing incorrect or missing data after an upload.
                         </p>
-                        <button onClick={handleForceResolve} disabled={resolveLoading} className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
-                          {resolveLoading ? 'Re-resolving...' : 'Force Re-Resolve All Tickers'}
+                        <button onClick={handleForceResolve} disabled={resolveLoading} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
+                          {resolveLoading && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>}
+                          {resolveLoading ? 'Re-resolving…' : 'Force Re-Resolve All Tickers'}
                         </button>
                         {resolveStatus && <p className={`text-xs mt-3 ${resolveStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{resolveStatus}</p>}
                       </div>
@@ -1264,12 +1274,12 @@ const handleUpload = async (files) => {
                         </p>
                         <button
                           onClick={handleRefreshPrices}
-                          disabled={isAppLoading}
+                          disabled={isRefreshingPrices}
                           title="Refresh prices from Yahoo Finance"
-                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isAppLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}
+                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isRefreshingPrices ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}
                         >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isAppLoading ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
-                          {isAppLoading ? 'Refreshing...' : 'Refresh Prices'}
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isRefreshingPrices ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
+                          {isRefreshingPrices ? 'Refreshing…' : 'Refresh Prices'}
                         </button>
                       </div>
                       <div className={`${cardCls} p-6`}>
@@ -1281,9 +1291,11 @@ const handleUpload = async (files) => {
                         </p>
                         <button
                           onClick={handleClearPortfolioCache}
-                          className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition"
+                          disabled={isClearingSnapshot}
+                          className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isClearingSnapshot ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}
                         >
-                          Clear Snapshot
+                          {isClearingSnapshot && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>}
+                          {isClearingSnapshot ? 'Clearing…' : 'Clear Snapshot'}
                         </button>
                       </div>
                     </div>
