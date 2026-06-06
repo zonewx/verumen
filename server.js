@@ -698,6 +698,14 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     }
   }
 
+  // 8. Last resort for US/CA listings: if cleaned ticker is a bare alphanumeric symbol
+  // (e.g. "BN" from "BN.N" after Reuters-suffix strip), store it without YF verification.
+  // fetchQuote in /api/portfolio will confirm the price; better than returning null which
+  // leaves ticker='' and forces the client to fall back to the raw Reuters-suffixed form.
+  if (preferUSListing && cleaned && /^[A-Z][A-Z0-9]{0,6}$/.test(cleaned)) {
+    return save(cleaned);
+  }
+
   return save(null);
 }
 

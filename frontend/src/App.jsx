@@ -74,7 +74,7 @@ export default function App() {
   const [sortCol, setSortCol] = useState('value');
   const [sortDir, setSortDir] = useState('desc');
   const [expandedYear, setExpandedYear] = useState(null);
-  const [appLoadingLabel, setAppLoadingLabel] = useState('Loading user settings...');
+  const [appLoadingLabel, setAppLoadingLabel] = useState('Loading your data...');
   const [isAppLoading, setIsAppLoading] = useState(() => {
     const saved = JSON.parse(localStorage.getItem('portfolio')) || [];
     const cur = localStorage.getItem('baseCurrency') || 'SEK';
@@ -540,6 +540,7 @@ const handleUpload = async (files) => {
     if (dividendsOnly) {
       apiCache.del('/api/dividends');
       updateProgress('done', 100, `✓ Imported ${totalNewAdded} dividend transaction${totalNewAdded !== 1 ? 's' : ''}`);
+      setAppLoadingLabel('Loading dividend data...');
       setTimeout(() => { setUploadProgress(null); navigate('/stockportfolio/dividends'); }, 3000);
       setUploadLoading(false);
       return;
@@ -638,6 +639,7 @@ const handleUpload = async (files) => {
       updateProgress('done', 100, `✓ Imported ${data.newAdded} transactions`);
     }
     
+    setAppLoadingLabel('Loading your portfolio...');
     setTimeout(() => { setUploadProgress(null); navigate('/stockportfolio/overview'); }, 4000);
   } catch (err) {
     setUploadStatus({ error: 'Upload failed: ' + err.message });
@@ -2027,7 +2029,7 @@ const handleUpload = async (files) => {
           <span className={`text-xl font-bold text-white`} style={{ fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}>Verumen</span>
         </div>
         <div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-        <p className={`text-sm font-medium text-zinc-400`}>Loading user settings…</p>
+        <p className={`text-sm font-medium text-zinc-400`}>{appLoadingLabel}</p>
       </div>
     </div>
   );
