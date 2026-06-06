@@ -304,8 +304,8 @@ export default function Sidebar({ currentUser, onLogout, isDark, selectedBroker,
     {/* Fixed sidebar header — sits above GlobalBar in the sidebar lane */}
     <div className={`fixed top-0 left-0 ${sidebarWidth} h-12 z-[51] ${bg} flex items-center px-3 transition-all duration-300`}>
       <h1
-        className={`absolute inset-0 flex items-center justify-center text-lg font-bold ${textPrimary} whitespace-nowrap`}
-        style={{ pointerEvents: 'none', fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}
+        className={`absolute top-0 h-full flex items-center justify-center text-lg font-bold ${textPrimary} whitespace-nowrap`}
+        style={{ left: 0, width: '240px', pointerEvents: 'none', fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}
       >Verumen</h1>
       <button
         onClick={() => setIsExpanded(!isExpanded)}

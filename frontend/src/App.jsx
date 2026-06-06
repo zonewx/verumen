@@ -99,7 +99,7 @@ export default function App() {
   const [perfData, setPerfData] = useState([]);
   const [perfPeriod, setPerfPeriod] = useState('3M');
   const [perfLoading, setPerfLoading] = useState(false);
-  const [txHistory, setTxHistory] = useState([]);
+  const [txHistory, setTxHistory] = useState(() => apiCache.get('/api/transactions') || []);
   const [txHistoryLoading, setTxHistoryLoading] = useState(false);
   const [txSearch, setTxSearch] = useState('');
   const [txTypeFilter, setTxTypeFilter] = useState('all');
@@ -214,7 +214,7 @@ export default function App() {
     setAuthForm({ username: '', password: '', confirmPassword: '', newPassword: '' });
     navigate('/');
     setPortfolio([]); setDashboardData(null); setUserRole('user');
-    apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
+    apiCache.bust('/api/portfolio'); apiCache.bust('/api/cs/'); apiCache.bust('/api/users/'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides'); apiCache.del('/api/transactions'); apiCache.del('/api/announcements'); apiCache.del('/api/feed'); apiCache.del('/api/friends');
     sessionStorage.removeItem('auth_role'); sessionStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_refresh');
     if (msg) setSessionExpiredMsg(msg);
   };
@@ -260,21 +260,33 @@ export default function App() {
             suppressNextFetch.current = true;
             setPortfolio(dbCached.holdings);
           }
-          const [divRes, txRes, overRes] = await Promise.all([
+          const [divRes, txRes, overRes, txHistRes, csInvRes, csPnlRes, csSetRes, annRes, profRes] = await Promise.all([
             apiFetch(`/api/dividends?currency=${c}`).then(r => r.json()).catch(() => null),
             apiFetch('/api/transactions/count').then(r => r.json()).catch(() => null),
             apiFetch('/api/overrides').then(r => r.json()).catch(() => null),
+            !apiCache.has('/api/transactions') ? apiFetch('/api/transactions').then(r => r.json()).catch(() => null) : Promise.resolve(null),
+            !apiCache.has(`/api/cs/inventory?currency=${c}`) ? apiFetch(`/api/cs/inventory?currency=${c}`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+            !apiCache.has(`/api/cs/pnl?currency=${c}`) ? apiFetch(`/api/cs/pnl?currency=${c}`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+            !apiCache.has('/api/cs/settings') ? apiFetch('/api/cs/settings').then(r => r.json()).catch(() => null) : Promise.resolve(null),
+            !apiCache.has('/api/announcements') ? apiFetch('/api/announcements').then(r => r.json()).catch(() => null) : Promise.resolve(null),
+            !apiCache.has(`/api/users/${authUsername}/profile`) ? apiFetch(`/api/users/${authUsername}/profile`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
           ]);
           if (divRes) { setDividends(divRes); apiCache.set(`/api/dividends?currency=${c}`, divRes); }
           if (txRes) { setTxCount(txRes); apiCache.set('/api/txCount', txRes); }
           if (overRes) { setOverrides(overRes); apiCache.set('/api/overrides', overRes); }
+          if (Array.isArray(txHistRes)) { setTxHistory(txHistRes); apiCache.set('/api/transactions', txHistRes); }
+          if (Array.isArray(csInvRes)) apiCache.set(`/api/cs/inventory?currency=${c}`, csInvRes);
+          if (csPnlRes && typeof csPnlRes === 'object') apiCache.set(`/api/cs/pnl?currency=${c}`, csPnlRes);
+          if (csSetRes && typeof csSetRes === 'object') apiCache.set('/api/cs/settings', csSetRes);
+          if (Array.isArray(annRes)) apiCache.set('/api/announcements', annRes);
+          if (profRes && typeof profRes === 'object' && !profRes.error) apiCache.set(`/api/users/${authUsername}/profile`, profRes);
           return;
         }
       } catch(e) {}
     }
 
     try {
-      const [dashRes, divRes, txRes, overRes, feedRes, friendsRes] = await Promise.all([
+      const [dashRes, divRes, txRes, overRes, feedRes, friendsRes, txHistRes, csInvRes, csPnlRes, csSetRes, annRes, profRes] = await Promise.all([
         p.length > 0
           ? apiFetch('/api/portfolio', { method: 'POST', body: JSON.stringify({ portfolio: p, baseCurrency: c, forceRefresh: isForceRefresh }) }).then(r => r.json())
           : Promise.resolve(null),
@@ -283,6 +295,12 @@ export default function App() {
         apiFetch('/api/overrides').then(r => r.json()),
         !apiCache.has('/api/feed') ? apiFetch('/api/feed').then(r => r.json()).catch(() => null) : Promise.resolve(null),
         !apiCache.has('/api/friends') ? apiFetch('/api/friends').then(r => r.json()).catch(() => null) : Promise.resolve(null),
+        !apiCache.has('/api/transactions') ? apiFetch('/api/transactions').then(r => r.json()).catch(() => null) : Promise.resolve(null),
+        !apiCache.has(`/api/cs/inventory?currency=${c}`) ? apiFetch(`/api/cs/inventory?currency=${c}`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+        !apiCache.has(`/api/cs/pnl?currency=${c}`) ? apiFetch(`/api/cs/pnl?currency=${c}`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+        !apiCache.has('/api/cs/settings') ? apiFetch('/api/cs/settings').then(r => r.json()).catch(() => null) : Promise.resolve(null),
+        !apiCache.has('/api/announcements') ? apiFetch('/api/announcements').then(r => r.json()).catch(() => null) : Promise.resolve(null),
+        !apiCache.has(`/api/users/${authUsername}/profile`) ? apiFetch(`/api/users/${authUsername}/profile`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
       ]);
       setDashboardData(dashRes); setDividends(divRes); setTxCount(txRes); setOverrides(overRes);
       if (dashRes) { apiCache.set('/api/portfolio-dashboard', dashRes); apiCache.set('/api/portfolio-fingerprint', fp); }
@@ -291,6 +309,12 @@ export default function App() {
       apiCache.set('/api/overrides', overRes);
       if (Array.isArray(feedRes)) apiCache.set('/api/feed', feedRes);
       if (friendsRes && typeof friendsRes === 'object') apiCache.set('/api/friends', friendsRes);
+      if (Array.isArray(txHistRes)) { setTxHistory(txHistRes); apiCache.set('/api/transactions', txHistRes); }
+      if (Array.isArray(csInvRes)) apiCache.set(`/api/cs/inventory?currency=${c}`, csInvRes);
+      if (csPnlRes && typeof csPnlRes === 'object') apiCache.set(`/api/cs/pnl?currency=${c}`, csPnlRes);
+      if (csSetRes && typeof csSetRes === 'object') apiCache.set('/api/cs/settings', csSetRes);
+      if (Array.isArray(annRes)) apiCache.set('/api/announcements', annRes);
+      if (profRes && typeof profRes === 'object' && !profRes.error) apiCache.set(`/api/users/${authUsername}/profile`, profRes);
 
       // Auto-sync: portfolio is empty but trades exist in DB (e.g. fresh login from new device/session)
       if (p.length === 0 && txRes?.trades > 0) {
@@ -365,7 +389,7 @@ export default function App() {
   const fetchTxHistory = useCallback(async () => {
     if (!authUsername) return;
     setTxHistoryLoading(true);
-    try { const res = await apiFetch(`/api/transactions?currency=${baseCurrency}`); setTxHistory(await res.json()); }
+    try { const res = await apiFetch(`/api/transactions?currency=${baseCurrency}`); const data = await res.json(); setTxHistory(data); apiCache.set('/api/transactions', data); }
     catch(e) {} finally { setTxHistoryLoading(false); }
   }, [authUsername, baseCurrency, apiFetch]);
 
@@ -460,7 +484,7 @@ const handleUpload = async (files) => {
       updateProgress('clearing', 5, 'Clearing previous data...');
       await apiFetch('/api/transactions', { method: 'DELETE' });
       setTxCount({ total: 0, trades: 0 });
-      apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
+      apiCache.bust('/api/portfolio'); apiCache.bust('/api/cs/'); apiCache.bust('/api/users/'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides'); apiCache.del('/api/transactions'); apiCache.del('/api/announcements'); apiCache.del('/api/feed'); apiCache.del('/api/friends');
     }
 
     const allResults = [];
@@ -639,7 +663,7 @@ const handleUpload = async (files) => {
       apiFetch('/api/portfolio/cached', { method: 'DELETE' }),
     ]);
     setTxCount({ total: 0, trades: 0 }); setPortfolio([]); setDashboardData(null); setUploadStatus(null); setDividends(null); setSyncStatus('History cleared.');
-    apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
+    apiCache.bust('/api/portfolio'); apiCache.bust('/api/cs/'); apiCache.bust('/api/users/'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides'); apiCache.del('/api/transactions'); apiCache.del('/api/announcements'); apiCache.del('/api/feed'); apiCache.del('/api/friends');
   };
 
   const handleClearBroker = async (broker) => {
@@ -671,7 +695,7 @@ const handleUpload = async (files) => {
       setUploadStatus(null);
       setDividends(null);
       setSyncStatus('All data cleared successfully.');
-      apiCache.bust('/api/portfolio'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides');
+      apiCache.bust('/api/portfolio'); apiCache.bust('/api/cs/'); apiCache.bust('/api/users/'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides'); apiCache.del('/api/transactions'); apiCache.del('/api/announcements'); apiCache.del('/api/feed'); apiCache.del('/api/friends');
       setTimeout(() => setSyncStatus(''), 4000);
     } catch (err) {
       setSyncStatus('Error clearing data: ' + err.message);
@@ -1333,6 +1357,30 @@ const handleUpload = async (files) => {
                             </>);
                           })()}
                         </div>
+                        {dashboardData.portfolio.length > 0 && (
+                          <div className={`${cardCls} p-6`}>
+                            <div className="flex items-center justify-between mb-6">
+                              <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Best &amp; Worst Today</h3>
+                              <div className="relative today-cog-dropdown">
+                                <button onClick={() => setTodayCogOpen(o => !o)} className={`p-1.5 rounded-lg border ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-600 border-zinc-700' : 'text-zinc-400 hover:text-gray-900 hover:bg-gray-100 border-gray-200'} transition`}>
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                                </button>
+                                {todayCogOpen && (
+                                  <div className={`absolute right-0 top-8 z-50 ${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl shadow-xl overflow-hidden w-44`}>
+                                    <div className={`px-3 py-2 text-xs font-semibold ${isDark ? 'text-zinc-500 border-zinc-700' : 'text-zinc-400 border-gray-200'} uppercase tracking-wider border-b`}>Sort by</div>
+                                    {[['currency',`Amount (${sym})`],['pct','Percentage (%)']].map(([val, label]) => (
+                                      <button key={val} onClick={() => { setTodaySortMode(val); setTodayCogOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center justify-between ${todaySortMode === val ? `${isDark ? 'text-white bg-zinc-700' : 'text-gray-900 bg-gray-100'}` : `${isDark ? 'text-zinc-400 hover:bg-zinc-700 hover:text-white' : 'text-zinc-500 hover:bg-gray-50 hover:text-gray-900'}`}`}>
+                                        {label}{todaySortMode === val && <span className="text-zinc-300 text-xs">✓</span>}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} />
+                          </div>
+                        )}
+
                         {dashboardData.portfolio.filter(h => !h.noData && h.currentValue != null).length > 0 && (() => {
                           const validHoldings = dashboardData.portfolio
                             .filter(h => !h.noData && h.currentValue != null && h.quantity > 0)
@@ -1460,30 +1508,6 @@ const handleUpload = async (files) => {
                             </>
                           );
                         })()}
-
-                        {dashboardData.portfolio.length > 0 && (
-                          <div className={`${cardCls} p-6`}>
-                            <div className="flex items-center justify-between mb-6">
-                              <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Best &amp; Worst Today</h3>
-                              <div className="relative today-cog-dropdown">
-                                <button onClick={() => setTodayCogOpen(o => !o)} className={`p-1.5 rounded-lg border ${isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-600 border-zinc-700' : 'text-zinc-400 hover:text-gray-900 hover:bg-gray-100 border-gray-200'} transition`}>
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-                                </button>
-                                {todayCogOpen && (
-                                  <div className={`absolute right-0 top-8 z-50 ${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-gray-200'} border rounded-xl shadow-xl overflow-hidden w-44`}>
-                                    <div className={`px-3 py-2 text-xs font-semibold ${isDark ? 'text-zinc-500 border-zinc-700' : 'text-zinc-400 border-gray-200'} uppercase tracking-wider border-b`}>Sort by</div>
-                                    {[['currency',`Amount (${sym})`],['pct','Percentage (%)']].map(([val, label]) => (
-                                      <button key={val} onClick={() => { setTodaySortMode(val); setTodayCogOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center justify-between ${todaySortMode === val ? `${isDark ? 'text-white bg-zinc-700' : 'text-gray-900 bg-gray-100'}` : `${isDark ? 'text-zinc-400 hover:bg-zinc-700 hover:text-white' : 'text-zinc-500 hover:bg-gray-50 hover:text-gray-900'}`}`}>
-                                        {label}{todaySortMode === val && <span className="text-zinc-300 text-xs">✓</span>}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} />
-                          </div>
-                        )}
                       </>
                     )}
                   </div>
