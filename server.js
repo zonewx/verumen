@@ -966,8 +966,8 @@ app.delete('/api/ticker-cache', requireUser, async (req, res) => {
 });
 
 app.post('/api/transactions/upload', requireUser, async (req, res) => {
-  const { files, broker: brokerKey, forceBroker } = req.body;
-  console.log('[upload] received files:', files?.length, 'forceBroker:', forceBroker, 'brokerKey:', brokerKey);
+  const { files, broker: brokerKey, forceBroker, dividendsOnly } = req.body;
+  console.log('[upload] received files:', files?.length, 'forceBroker:', forceBroker, 'brokerKey:', brokerKey, 'dividendsOnly:', dividendsOnly);
   if (files?.length) console.log('[upload] file[0] name:', files[0]?.name, 'content length:', files[0]?.content?.length, 'content start:', (files[0]?.content||'').substring(0,80));
   const forcedBroker = brokerKey || forceBroker || null;
   if (!files?.length) return res.status(400).json({ error: 'No files provided' });
@@ -975,7 +975,8 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
   let allNew = [];
   for (const { name, content } of files) {
     try {
-      const { broker, rows } = detectBrokerAndParse(name, content, forcedBroker);
+      const { broker, rows: allRows } = detectBrokerAndParse(name, content, forcedBroker);
+      const rows = dividendsOnly ? allRows.filter(r => r.type === 'dividend' || r.type === 'foreign-tax') : allRows;
       const typeCounts = rows.reduce((a, r) => { a[r.type]=(a[r.type]||0)+1; return a; }, {});
       const sampleTypes = rows.slice(0,5).map(r => r.type+'('+r.name.slice(0,15)+')');
       results.push({ file:name, broker, count:rows.length, typeCounts, sampleTypes });
@@ -1466,24 +1467,36 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     n = n.replace(/\s+[\d,.]+\s+[A-Z]{3}\/aktie.*$/i, '').replace(/\s+-\s+.*$/, '');
     return n.trim() || name;
   };
-  // Build ISIN → display name from buy/sell transactions (which carry the proper company name).
-  // Prefer YF longName from price cache (hot for held stocks), then fall back to the stored CSV name.
-  const uniqueIsins = [...new Set(divs.map(t => t.isin).filter(Boolean))];
+  // Build name lookup maps from buy/sell transactions (which carry proper company names).
+  // Three maps covering all broker combinations:
+  //   isinToName      — primary, works whenever dividend row has ISIN (all brokers)
+  //   rawTickerToName — Montrose buy/sell rows have raw_ticker; matches Montrose dividends without ISIN
+  //   baseTickerToName — keyed by ticker prefix before "." (e.g. "EVO" from "EVO.ST");
+  //                      covers Avanza/Nordnet buy rows (raw_ticker='') paired with Montrose dividends
+  // Prefer YF longName from price cache (hot for held stocks), then the stored CSV name.
   const isinToName = {};
-  if (uniqueIsins.length > 0) {
-    const { data: buyTxs } = await supabase.from('transactions')
-      .select('isin, name, ticker')
-      .eq('user_id', req.user.id)
-      .in('type', ['buy', 'sell'])
-      .in('isin', uniqueIsins)
-      .not('name', 'is', null);
-    (buyTxs || []).forEach(t => {
-      if (isinToName[t.isin]) return;
-      const cached = t.ticker ? _priceCache.get(t.ticker) : null;
-      isinToName[t.isin] = cached?.q?.longName || cached?.q?.shortName || t.name;
-    });
-  }
-  const resolveName = (t) => (t.isin && isinToName[t.isin]) ? isinToName[t.isin] : cleanDivName(t.name);
+  const rawTickerToName = {};
+  const baseTickerToName = {};
+  const { data: buyTxs } = await supabase.from('transactions')
+    .select('isin, raw_ticker, name, ticker')
+    .eq('user_id', req.user.id)
+    .in('type', ['buy', 'sell'])
+    .not('name', 'is', null);
+  (buyTxs || []).forEach(t => {
+    const cached = t.ticker ? _priceCache.get(t.ticker) : null;
+    const displayName = cached?.q?.longName || cached?.q?.shortName || t.name;
+    if (t.isin && !isinToName[t.isin]) isinToName[t.isin] = displayName;
+    if (t.raw_ticker && !rawTickerToName[t.raw_ticker]) rawTickerToName[t.raw_ticker] = displayName;
+    if (t.ticker) {
+      const base = t.ticker.split('.')[0].toUpperCase();
+      if (!baseTickerToName[base]) baseTickerToName[base] = displayName;
+    }
+  });
+  const resolveName = (t) => {
+    if (t.isin && isinToName[t.isin]) return isinToName[t.isin];
+    const cleaned = cleanDivName(t.name);
+    return rawTickerToName[cleaned] || baseTickerToName[cleaned.toUpperCase()] || cleaned;
+  };
   const thisYear = new Date().getFullYear().toString();
   const totalAllTime = divs.reduce((s,t)=>s+conv(t.total_sek),0);
   const totalThisYear = divs.filter(t=>t.date?.startsWith(thisYear)).reduce((s,t)=>s+conv(t.total_sek),0);

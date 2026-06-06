@@ -111,6 +111,7 @@ export default function App() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const globalSearchRef = useRef(null);
   const [selectedBroker, setSelectedBroker] = useState('auto');
+  const [dividendsOnly, setDividendsOnly] = useState(false);
   const [txCount, setTxCount] = useState(() => apiCache.get('/api/txCount') || { total: 0, trades: 0, byBroker: {} });
   const uploadAbortRef = useRef(false);
   const uploadAbortControllerRef = useRef(null);
@@ -487,8 +488,8 @@ const handleUpload = async (files) => {
     }));
 
   try {
-    // Auto-clear existing data before uploading new CSV
-    if (txCount.total > 0) {
+    // Auto-clear existing data before uploading new CSV (skipped in dividends-only mode)
+    if (!dividendsOnly && txCount.total > 0) {
       updateProgress('clearing', 5, 'Clearing previous data...');
       await apiFetch('/api/transactions', { method: 'DELETE' });
       setTxCount({ total: 0, trades: 0 });
@@ -517,7 +518,8 @@ const handleUpload = async (files) => {
         method: 'POST',
         body: JSON.stringify({
           files: [payload],
-          forceBroker: selectedBroker !== 'auto' ? selectedBroker : null
+          forceBroker: selectedBroker !== 'auto' ? selectedBroker : null,
+          dividendsOnly,
         })
       });
       const data = await res.json();
@@ -534,8 +536,17 @@ const handleUpload = async (files) => {
       return;
     }
 
+    // Dividends-only: skip ticker resolution and portfolio sync — just bust the dividends cache and redirect
+    if (dividendsOnly) {
+      apiCache.del('/api/dividends');
+      updateProgress('done', 100, `✓ Imported ${totalNewAdded} dividend transaction${totalNewAdded !== 1 ? 's' : ''}`);
+      setTimeout(() => { setUploadProgress(null); setDividendsOnly(false); navigate('/stockportfolio/dividends'); }, 3000);
+      setUploadLoading(false);
+      return;
+    }
+
     const data = { newAdded: totalNewAdded };
-    
+
     // Resolve tickers — no chunk limit so the server deduplicates all transactions to unique
     // stocks in one pass. With caching, each subsequent call is instant (all cache hits).
     updateProgress('resolving', 40, 'Resolving tickers...');
@@ -627,9 +638,9 @@ const handleUpload = async (files) => {
       updateProgress('done', 100, `✓ Imported ${data.newAdded} transactions`);
     }
     
-    setTimeout(() => setUploadProgress(null), 4000);
-  } catch (err) { 
-    setUploadStatus({ error: 'Upload failed: ' + err.message }); 
+    setTimeout(() => { setUploadProgress(null); navigate('/stockportfolio/overview'); }, 4000);
+  } catch (err) {
+    setUploadStatus({ error: 'Upload failed: ' + err.message });
     setUploadProgress(null);
   }
   setUploadLoading(false);
@@ -997,9 +1008,20 @@ const handleUpload = async (files) => {
             ) : (
               <>
                 {currentTab === 'import' && (
-                  <div className="flex flex-col gap-5">
-                    <h2 className="text-xl font-bold">Import CSV</h2>
-                    <div className={`${cardCls} p-5 flex flex-col gap-4 max-w-lg`}>
+                  <div className="flex flex-col gap-5 items-center">
+                    <h2 className="text-xl font-bold w-full max-w-lg">Import CSV</h2>
+                    <div className={`${cardCls} p-5 flex flex-col gap-4 w-full max-w-lg`}>
+                      {txCount.total > 0 && (
+                        <button
+                          onClick={() => setDividendsOnly(v => !v)}
+                          className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition ${dividendsOnly ? 'bg-pink-600/20 border-pink-500/50 text-pink-300' : 'bg-zinc-700/50 border-zinc-600 text-zinc-300 hover:bg-zinc-700'}`}
+                        >
+                          <span>Dividends only</span>
+                          <span className={`w-8 h-4 rounded-full transition-colors relative ${dividendsOnly ? 'bg-pink-500' : 'bg-zinc-600'}`}>
+                            <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${dividendsOnly ? 'left-4' : 'left-0.5'}`}/>
+                          </span>
+                        </button>
+                      )}
                       <div className="flex flex-col gap-1.5">
                         <label className={`text-xs font-semibold uppercase tracking-wide text-zinc-400`}>Broker</label>
                         <select
@@ -1038,18 +1060,6 @@ const handleUpload = async (files) => {
                           <div><p className="text-sm font-bold text-green-400">{txCount.trades} trades</p><p className={`text-xs text-zinc-400`}>{txCount.total} total in history</p></div>
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-green-400"><polyline points="20 6 9 17 4 12"/></svg>
                         </div>
-                      )}
-                      {txCount.trades > 0 && (
-                        <>
-                          <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
-                            {syncLoading ? '⏳ Syncing…' : '⟳ Sync Portfolio'}
-                          </button>
-                          {syncStatus && <p className={`text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{syncStatus}</p>}
-                          <button onClick={handleResolveTickers} disabled={resolveLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200 disabled:opacity-50`}>
-                            {resolveLoading ? '⏳ Resolving...' : '🔍 Resolve Tickers'}
-                          </button>
-                          {resolveStatus && <p className={`text-xs ${resolveStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{resolveStatus}</p>}
-                        </>
                       )}
                     </div>
                   </div>
@@ -1378,7 +1388,7 @@ const handleUpload = async (files) => {
                                     </div>
                                   ))}
                                 </div>
-                                <p className={`mt-1.5 pl-3 text-red-500/60`}>Use "Set ticker" to pin this ISIN to a Yahoo Finance ticker (e.g. HACKSAW.ST), then re-upload.</p>
+                                <p className={`mt-1.5 pl-3 text-red-500/60`}>Use "Set ticker" to pin ISIN to a Yahoo Finance ticker, then re-upload.</p>
                               </div>
                             )}
                           </div>
@@ -1712,7 +1722,10 @@ const handleUpload = async (files) => {
 
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             <div className={`${cardCls} p-6`}>
-                              <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400 mb-5`}>By Year</h3>
+                              <div className="flex items-center justify-between mb-5">
+                                <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>By Year</h3>
+                                <button onClick={() => { setDividendsOnly(true); navigate('/stockportfolio/import'); }} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 transition">+ Import Dividends</button>
+                              </div>
                               <div className="flex flex-col gap-1">
                                 {dividends.byYear.map(({ year, total, stocks }) => (
                                   <div key={year}>
