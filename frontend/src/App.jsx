@@ -998,11 +998,24 @@ const handleUpload = async (files) => {
                 {currentTab === 'import' && (
                   <div className="flex flex-col gap-5">
                     <h2 className="text-xl font-bold">Import CSV</h2>
-                    <div className={`${cardCls} p-5 flex flex-col gap-4`}>
+                    <div className={`${cardCls} p-5 flex flex-col gap-4 max-w-lg`}>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={`text-xs font-semibold uppercase tracking-wide ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Broker</label>
+                        <select
+                          value={selectedBroker}
+                          onChange={e => setSelectedBroker(e.target.value)}
+                          className={`w-full px-3 py-2 rounded-xl border text-sm outline-none ${isDark ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                        >
+                          <option value="auto">Auto-detect</option>
+                          <option value="montrose">Montrose</option>
+                          <option value="avanza">Avanza</option>
+                          <option value="nordnet">Nordnet</option>
+                        </select>
+                      </div>
                       <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
                         {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
                       </button>
-                      <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Broker detected automatically. Supports Montrose, Avanza and Nordnet.</p>
+                      <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Supports Montrose, Avanza and Nordnet.</p>
                       {uploadProgress && (
                         <div className={`rounded-lg px-3 py-2.5 text-sm border ${isDark ? 'bg-zinc-700/40 border-zinc-600/40 text-zinc-300' : 'bg-gray-50 border-gray-200 text-zinc-600'}`}>
                           <div className="flex items-center gap-2"><div className="animate-spin">⏳</div><span className="font-medium">{uploadProgress.label}</span></div>
@@ -1670,39 +1683,95 @@ const handleUpload = async (files) => {
                 })()}
 
                 {currentTab === 'dividends' && (
-                  <div className="flex flex-col gap-6">
-                    {!dividends || dividends.totalAllTime === 0 ? <EmptyState icon="💰" title="No dividends" desc="Upload and sync your portfolio to see dividend history." /> : (
-                      <div className={`${cardCls} p-6`}>
-                        <h3 className={`text-sm font-bold ${isDark ? 'text-zinc-400' : 'text-zinc-500'} uppercase tracking-wider mb-6`}>Dividend Dashboard</h3>
-                        <div className="grid grid-cols-2 gap-4 mb-8">
-                          <div className={`${isDark ? 'bg-zinc-900' : 'bg-gray-50'} rounded-xl p-4`}><p className={`text-xs font-bold uppercase mb-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>All-Time</p><p className="text-3xl font-bold">{fmtSym(dividends.totalAllTime)}</p></div>
-                          <div className={`${isDark ? 'bg-zinc-900' : 'bg-gray-50'} rounded-xl p-4`}><p className={`text-xs font-bold uppercase mb-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>This Year</p><p className="text-3xl font-bold">{fmtSym(dividends.totalThisYear)}</p></div>
-                        </div>
-                        <div className="flex flex-col gap-1 mb-8">
-                          {dividends.byYear.map(({ year, total, stocks }) => (
-                            <div key={year}>
-                              <div onClick={() => setExpandedYear(expandedYear === year ? null : year)} className={`flex items-center gap-3 py-1 cursor-pointer rounded-lg px-2 ${isDark ? 'hover:bg-zinc-600' : 'hover:bg-gray-50'} transition`}>
-                                <span className={`text-sm font-bold w-12 shrink-0 text-right ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>{year}</span>
-                                <div className={`flex-1 h-6 ${isDark ? 'bg-zinc-700' : 'bg-gray-100'} rounded overflow-hidden`}><div className="h-full bg-emerald-700/80 rounded" style={{ width: `${(total / Math.max(...dividends.byYear.map(y=>y.total))) * 100}%` }} /></div>
-                                <span className={`text-sm font-bold w-28 text-right shrink-0 ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>{fmtSym(total)}</span>
-                                <span className={`text-xs w-4 shrink-0 text-center ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{expandedYear === year ? '▲' : '▼'}</span>
-                              </div>
-                              <div style={{ maxHeight: expandedYear === year ? `${(stocks?.length || 0) * 28 + 16}px` : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
-                                <div className={`ml-14 mt-1 mb-2 flex flex-col gap-1 border-l-2 ${isDark ? 'border-zinc-700' : 'border-gray-200'} pl-3`}>
-                                  {stocks?.map(({ name, total: sTotal }) => (
-                                    <div key={name} className="flex items-center gap-3">
-                                      <span className={`text-xs w-44 shrink-0 truncate ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{name}</span>
-                                      <div className={`flex-1 h-4 ${isDark ? 'bg-zinc-700' : 'bg-gray-100'} rounded overflow-hidden`}><div className="h-full bg-emerald-800/70 rounded" style={{ width: `${(sTotal / (stocks[0]?.total || 1)) * 100}%` }} /></div>
-                                      <span className={`text-xs w-24 text-right shrink-0 ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>{fmtSym(sTotal)}</span>
+                  <div className="flex flex-col gap-4">
+                    {!dividends || dividends.totalAllTime === 0 ? <EmptyState icon="💰" title="No dividends" desc="Upload and sync your portfolio to see dividend history." /> : (() => {
+                      const statCard = `${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl p-6`;
+                      const statLabel = `text-[10px] font-semibold tracking-[0.14em] uppercase mb-4 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`;
+                      const maxDiv = Math.max(...dividends.byYear.map(y => y.total));
+                      const avgPerYear = dividends.byYear.length > 0 ? dividends.totalAllTime / dividends.byYear.length : 0;
+                      return (
+                        <>
+                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div className={statCard}>
+                              <p className={statLabel}>All-Time</p>
+                              <p className="text-4xl font-bold tracking-tight">{fmtSym(dividends.totalAllTime)}</p>
+                              <p className={`text-sm font-medium mt-2.5 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{dividends.byYear.length} year{dividends.byYear.length !== 1 ? 's' : ''} of data</p>
+                            </div>
+                            <div className={statCard}>
+                              <p className={statLabel}>This Year</p>
+                              <p className="text-4xl font-bold tracking-tight text-pink-400">{fmtSym(dividends.totalThisYear)}</p>
+                              {dividends.totalAllTime > 0 && <p className={`text-sm font-medium mt-2.5 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{((dividends.totalThisYear / dividends.totalAllTime) * 100).toFixed(1)}% of all time</p>}
+                            </div>
+                            <div className={statCard}>
+                              <p className={statLabel}>Avg per Year</p>
+                              <p className="text-4xl font-bold tracking-tight">{fmtSym(avgPerYear)}</p>
+                              {dividends.byStock.length > 0 && <p className={`text-sm font-medium mt-2.5 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>from {dividends.byStock.length} stock{dividends.byStock.length !== 1 ? 's' : ''}</p>}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div className={`${cardCls} p-6`}>
+                              <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'} mb-5`}>By Year</h3>
+                              <div className="flex flex-col gap-1">
+                                {dividends.byYear.map(({ year, total, stocks }) => (
+                                  <div key={year}>
+                                    <div onClick={() => setExpandedYear(expandedYear === year ? null : year)} className={`flex items-center gap-3 py-1.5 px-2 cursor-pointer rounded-lg ${isDark ? 'hover:bg-zinc-700/50' : 'hover:bg-gray-50'} transition`}>
+                                      <span className={`text-sm font-bold w-12 shrink-0 ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>{year}</span>
+                                      <div className={`flex-1 h-5 ${isDark ? 'bg-zinc-700' : 'bg-gray-100'} rounded-full overflow-hidden`}>
+                                        <div className="h-full rounded-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${maxDiv > 0 ? (total / maxDiv) * 100 : 0}%`, transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)' }} />
+                                      </div>
+                                      <span className={`text-sm font-bold w-24 text-right shrink-0 ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>{fmtSym(total)}</span>
+                                      <span className={`text-xs w-4 shrink-0 text-center ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{expandedYear === year ? '▲' : '▼'}</span>
                                     </div>
-                                  ))}
-                                </div>
+                                    <div style={{ maxHeight: expandedYear === year ? `${(stocks?.length || 0) * 28 + 16}px` : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
+                                      <div className={`ml-14 mt-1 mb-2 flex flex-col gap-1 border-l-2 ${isDark ? 'border-zinc-700' : 'border-gray-200'} pl-3`}>
+                                        {stocks?.map(({ name, total: sTotal }) => (
+                                          <div key={name} className="flex items-center gap-3">
+                                            <span className={`text-xs w-44 shrink-0 truncate ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{name}</span>
+                                            <div className={`flex-1 h-3 ${isDark ? 'bg-zinc-700' : 'bg-gray-100'} rounded-full overflow-hidden`}>
+                                              <div className="h-full rounded-full bg-linear-to-r from-red-500/60 to-pink-500/60" style={{ width: `${(sTotal / (stocks[0]?.total || 1)) * 100}%` }} />
+                                            </div>
+                                            <span className={`text-xs w-20 text-right shrink-0 ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>{fmtSym(sTotal)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+
+                            <div className={`${cardCls} p-6`}>
+                              <div className="flex items-center justify-between mb-5">
+                                <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Top Payers</h3>
+                                <span className={`text-[10px] ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{dividends.byStock.length} stocks</span>
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                {dividends.byStock.slice(0, 10).map(({ name, total }, idx) => {
+                                  const maxPayer = dividends.byStock[0]?.total || 1;
+                                  const pct = dividends.totalAllTime > 0 ? (total / dividends.totalAllTime) * 100 : 0;
+                                  return (
+                                    <div key={name} className={`flex flex-col gap-1 p-2 rounded-lg ${isDark ? 'bg-zinc-700/50 hover:bg-zinc-700' : 'bg-gray-50 hover:bg-gray-100'} transition`}>
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-[10px] font-bold w-4 shrink-0 text-center ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>{idx + 1}</span>
+                                        <p className="flex-1 font-semibold text-xs truncate min-w-0">{name}</p>
+                                        <div className="text-right shrink-0">
+                                          <p className="font-bold text-xs">{pct.toFixed(1)}%</p>
+                                          <p className={`text-[10px] ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{fmtSym(total)}</p>
+                                        </div>
+                                      </div>
+                                      <div className={`h-0.5 rounded-full ${isDark ? 'bg-zinc-600' : 'bg-gray-200'} overflow-hidden`}>
+                                        <div className="h-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${(total / maxPayer) * 100}%` }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
 

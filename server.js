@@ -742,7 +742,17 @@ function parseMontrose(content) {
       'other';
     const qty = Math.abs(parseNum(cols[iAntal]));
     if (txType === 'other' && !cols[iIsin]?.trim()) return null; // skip empty rows
-    return { broker:'montrose', date:cols[iDatum]?.trim()||'', type:txType, name:cols[iNamn]?.trim()||'', isin:cols[iIsin]?.trim()||'', rawTicker:cols[iTicker]?.trim()||'', ticker:'', quantity:qty, price:parseNum(cols[iKurs]), currency:cols[iKursvaluta]?.trim()||'SEK', totalSEK:parseNum(cols[iTotalt]), account:cols[iKonto]?.trim()||'' };
+    const name = cols[iNamn]?.trim() || '';
+    const isin = cols[iIsin]?.trim() || '';
+    let rawTicker = cols[iTicker]?.trim() || '';
+    // Montrose omits Ticker/ISIN for some dividend and foreign-tax rows, embedding the
+    // ticker in the name instead (e.g. "Utdelning ADDT B 3.2 SEK/aktie" → rawTicker "ADDT B").
+    if (!rawTicker && !isin && (txType === 'dividend' || txType === 'foreign-tax')) {
+      const stripped = name.replace(/^Utdelning\s+/i, '');
+      const m = stripped.match(/^([A-ZÅÄÖ][A-ZÅÄÖ0-9]*(?:[.\-][A-ZÅÄÖ0-9]+)*(?:\s+[A-Z])?)\s+[\d,.]/);
+      if (m) rawTicker = m[1].trim();
+    }
+    return { broker:'montrose', date:cols[iDatum]?.trim()||'', type:txType, name, isin, rawTicker, ticker:'', quantity:qty, price:parseNum(cols[iKurs]), currency:cols[iKursvaluta]?.trim()||'SEK', totalSEK:parseNum(cols[iTotalt]), account:cols[iKonto]?.trim()||'' };
   }).filter(Boolean);
   const typeCounts = rows.reduce((acc, r) => { acc[r.type] = (acc[r.type]||0)+1; return acc; }, {});
   console.log('[parseMontrose] parsed', rows.length, 'rows, types:', typeCounts);
