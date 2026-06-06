@@ -1321,6 +1321,16 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   };
   // Resolve a ticker to a live quote, with fallback to ISIN-based suffix variants, then to price cache
   const fetchQuote = async (ticker, isin, skipCache = false) => {
+    // Fast path: return very recent _priceCache entry (populated by bulk pre-fetch above).
+    // Entries < 60s old are from this request and should be treated as live, not stale.
+    if (!skipCache) {
+      const cached = _priceCache.get(ticker);
+      if (cached) {
+        const age = Date.now() - cached.cachedAt;
+        if (age < 60000) return { ...cached.q, _resolvedTicker: ticker };
+        if (age < PRICE_CACHE_TTL) return { ...cached.q, _fromCache: true, _resolvedTicker: ticker };
+      }
+    }
     let resolvedTicker = ticker;
     const tryQuote = async (sym) => {
       let q = null;
@@ -1398,6 +1408,26 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     await Promise.all(workers);
     return results;
   };
+
+  // Bulk pre-fetch: one YF call for all tickers → fills _priceCache before the per-ticker loop.
+  // This collapses N individual YF calls into 1, dramatically reducing rate-limit exposure on
+  // initial loads when _priceCache is cold. Only on normal loads (not force-refresh).
+  if (!forceRefresh && portfolio.length > 0) {
+    const allTickers = portfolio.map(h => h.ticker).filter(Boolean);
+    if (allTickers.length > 0) {
+      try {
+        const bulkResult = await withYFRetry(
+          () => yahooFinance.quote(allTickers, {}, { validateResult: false }),
+          12000, 0
+        );
+        (Array.isArray(bulkResult) ? bulkResult : [bulkResult]).forEach(q => {
+          if (q?.symbol && q.regularMarketPrice != null) {
+            _priceCache.set(q.symbol, { q, cachedAt: Date.now() });
+          }
+        });
+      } catch(e) { /* bulk failed — per-ticker fallbacks will handle individually */ }
+    }
+  }
 
   // Load last-good Supabase snapshot — used as per-ticker fallback when YF is temporarily down
   const { data: snapForFallback } = await supabase.from('portfolio_cache')
