@@ -526,53 +526,6 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                 </>
               )}
 
-              {settings.steam_id && (
-                <div className={`${card} p-5`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className={`text-sm font-bold uppercase tracking-wider text-zinc-400`}>Steam Inventory</h3>
-                    <select
-                      value={invSort}
-                      onChange={e => setInvSort(e.target.value)}
-                      className={`px-2 py-1.5 rounded-lg border text-xs outline-none bg-zinc-700 border-zinc-600 text-white`}
-                    >
-                      <option value="default">Inventory order</option>
-                      <option value="price-desc">Price: High → Low</option>
-                      <option value="price-asc">Price: Low → High</option>
-                    </select>
-                  </div>
-                  {steamError && <p className="text-red-400 text-sm">{steamError}</p>}
-                  {steamInventory?.pricingPending && (
-                    <p className={`text-xs mb-3 px-3 py-2 rounded-lg bg-yellow-900/30 text-yellow-400`}>
-                      Fetching prices for new items in background — updating automatically in ~20s
-                    </p>
-                  )}
-                  {steamInventory && (() => {
-                    const tradable = steamInventory.items.filter(i=>i.tradable);
-                    const sorted = invSort === 'price-desc' ? [...tradable].sort((a,b)=>b.price-a.price)
-                      : invSort === 'price-asc' ? [...tradable].sort((a,b)=>a.price-b.price)
-                      : tradable;
-                    return (
-                      <div>
-                        <div className="flex gap-6 mb-4">
-                          <div><p className={`text-xs text-zinc-400 mb-1`}>Tradable items</p><p className="text-xl font-bold">{tradable.length}</p></div>
-                          <div><p className={`text-xs text-zinc-400 mb-1`}>Est. Value</p><p className="text-xl font-bold text-green-400">{fmtBC(tradable.reduce((s,i)=>s+i.price,0))}</p></div>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                          {sorted.map((item, i) => (
-                            <SkinCard key={i} item={item} baseCurrency={baseCurrency}
-                              onSetPrice={p => saveOverride(item.name, p)}
-                              onClearPrice={() => clearOverride(item.name)} />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  {!steamInventory && !steamLoading && !steamError && (
-                    <p className={`text-sm text-zinc-400`}>Click "Fetch Inventory" to load your Steam CS inventory.</p>
-                  )}
-                </div>
-              )}
-
               {/* Recent trades */}
               {inventory.length > 0 && (
                 <div className={`${card} p-5`}>
@@ -664,6 +617,12 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                   </>
                 );
               })()}
+              {steamLoading && (
+                <div className={`${card} p-10 flex flex-col items-center gap-3`}>
+                  <div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                  <p className={`text-sm text-zinc-400`}>Fetching your Steam inventory…</p>
+                </div>
+              )}
               {!steamInventory && !steamLoading && settings.steam_id && (
                 <div className={`${card} p-6 text-center`}>
                   <p className={`text-sm text-zinc-400`}>Loading your Steam inventory...</p>

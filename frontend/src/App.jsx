@@ -263,10 +263,12 @@ export default function App() {
             suppressNextFetch.current = true;
             setPortfolio(dbCached.holdings);
           }
-          const [divRes, txRes, overRes, txHistRes, csInvRes, csPnlRes, csSetRes, annRes, profRes] = await Promise.all([
+          const [divRes, txRes, overRes, feedRes, friendsRes, txHistRes, csInvRes, csPnlRes, csSetRes, annRes, profRes] = await Promise.all([
             apiFetch(`/api/dividends?currency=${c}`).then(r => r.json()).catch(() => null),
             apiFetch('/api/transactions/count').then(r => r.json()).catch(() => null),
             apiFetch('/api/overrides').then(r => r.json()).catch(() => null),
+            !apiCache.has('/api/feed') ? apiFetch('/api/feed').then(r => r.json()).catch(() => null) : Promise.resolve(null),
+            !apiCache.has('/api/friends') ? apiFetch('/api/friends').then(r => r.json()).catch(() => null) : Promise.resolve(null),
             !apiCache.has('/api/transactions') ? apiFetch('/api/transactions').then(r => r.json()).catch(() => null) : Promise.resolve(null),
             !apiCache.has(`/api/cs/inventory?currency=${c}`) ? apiFetch(`/api/cs/inventory?currency=${c}`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
             !apiCache.has(`/api/cs/pnl?currency=${c}`) ? apiFetch(`/api/cs/pnl?currency=${c}`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
@@ -277,6 +279,8 @@ export default function App() {
           if (divRes) { setDividends(divRes); apiCache.set(`/api/dividends?currency=${c}`, divRes); }
           if (txRes) { setTxCount(txRes); apiCache.set('/api/txCount', txRes); }
           if (overRes) { setOverrides(overRes); apiCache.set('/api/overrides', overRes); }
+          if (Array.isArray(feedRes)) apiCache.set('/api/feed', feedRes);
+          if (friendsRes && typeof friendsRes === 'object') apiCache.set('/api/friends', friendsRes);
           if (Array.isArray(txHistRes)) { setTxHistory(txHistRes); apiCache.set('/api/transactions', txHistRes); }
           if (Array.isArray(csInvRes)) apiCache.set(`/api/cs/inventory?currency=${c}`, csInvRes);
           if (csPnlRes && typeof csPnlRes === 'object') apiCache.set(`/api/cs/pnl?currency=${c}`, csPnlRes);

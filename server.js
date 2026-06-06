@@ -1448,7 +1448,7 @@ app.delete('/api/portfolio/cached', requireUser, async (req, res) => {
 // ── Dividends ───────────────────────────────────────────────────────────────
 app.get('/api/dividends', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data: txs } = await supabase.from('transactions').select('date, name, total_sek').eq('user_id', req.user.id).eq('type', 'dividend');
+  const { data: txs } = await supabase.from('transactions').select('date, name, total_sek, isin').eq('user_id', req.user.id).eq('type', 'dividend');
   const divs = (txs||[]).filter(t => t.total_sek);
   let bcRate = 1;
   if (BC !== 'SEK') {
@@ -1459,21 +1459,39 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     } catch(e) {}
   }
   const conv = (sek) => parseFloat((Math.abs(sek) * bcRate).toFixed(2));
-  // Strip Montrose raw description names like "Utdelning EVO 2.8 EUR/aktie" → "EVO"
+  // Fallback: strip Montrose raw description to bare ticker symbol
   const cleanDivName = (name) => {
     if (!name) return 'Unknown';
     let n = name.replace(/^Utdelning\s+/i, '').replace(/^Källskatt\s+/i, '');
     n = n.replace(/\s+[\d,.]+\s+[A-Z]{3}\/aktie.*$/i, '').replace(/\s+-\s+.*$/, '');
     return n.trim() || name;
   };
+  // Build ISIN → display name from buy/sell transactions (which carry the proper company name).
+  // Prefer YF longName from price cache (hot for held stocks), then fall back to the stored CSV name.
+  const uniqueIsins = [...new Set(divs.map(t => t.isin).filter(Boolean))];
+  const isinToName = {};
+  if (uniqueIsins.length > 0) {
+    const { data: buyTxs } = await supabase.from('transactions')
+      .select('isin, name, ticker')
+      .eq('user_id', req.user.id)
+      .in('type', ['buy', 'sell'])
+      .in('isin', uniqueIsins)
+      .not('name', 'is', null);
+    (buyTxs || []).forEach(t => {
+      if (isinToName[t.isin]) return;
+      const cached = t.ticker ? _priceCache.get(t.ticker) : null;
+      isinToName[t.isin] = cached?.q?.longName || cached?.q?.shortName || t.name;
+    });
+  }
+  const resolveName = (t) => (t.isin && isinToName[t.isin]) ? isinToName[t.isin] : cleanDivName(t.name);
   const thisYear = new Date().getFullYear().toString();
   const totalAllTime = divs.reduce((s,t)=>s+conv(t.total_sek),0);
   const totalThisYear = divs.filter(t=>t.date?.startsWith(thisYear)).reduce((s,t)=>s+conv(t.total_sek),0);
   const byYear = {};
-  divs.forEach(t => { const y=t.date?.substring(0,4); if(!y) return; if(!byYear[y]) byYear[y]={year:y,total:0,stocks:{}}; byYear[y].total+=conv(t.total_sek); const n=cleanDivName(t.name); byYear[y].stocks[n]=(byYear[y].stocks[n]||0)+conv(t.total_sek); });
+  divs.forEach(t => { const y=t.date?.substring(0,4); if(!y) return; if(!byYear[y]) byYear[y]={year:y,total:0,stocks:{}}; byYear[y].total+=conv(t.total_sek); const n=resolveName(t); byYear[y].stocks[n]=(byYear[y].stocks[n]||0)+conv(t.total_sek); });
   const byYearArr = Object.values(byYear).sort((a,b)=>b.year.localeCompare(a.year)).map(y=>({...y,stocks:Object.entries(y.stocks).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total)}));
   const byStock = {};
-  divs.forEach(t => { const n=cleanDivName(t.name); byStock[n]=(byStock[n]||0)+conv(t.total_sek); });
+  divs.forEach(t => { const n=resolveName(t); byStock[n]=(byStock[n]||0)+conv(t.total_sek); });
   res.json({ totalAllTime, totalThisYear, byYear:byYearArr, byStock:Object.entries(byStock).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total), display_currency: BC });
 });
 
