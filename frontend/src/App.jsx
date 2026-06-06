@@ -74,6 +74,7 @@ export default function App() {
   const [sortCol, setSortCol] = useState('value');
   const [sortDir, setSortDir] = useState('desc');
   const [expandedYear, setExpandedYear] = useState(null);
+  const [appLoadingLabel, setAppLoadingLabel] = useState('Loading user settings...');
   const [isAppLoading, setIsAppLoading] = useState(() => {
     const saved = JSON.parse(localStorage.getItem('portfolio')) || [];
     const cur = localStorage.getItem('baseCurrency') || 'SEK';
@@ -428,6 +429,7 @@ export default function App() {
     apiCache.del('/api/portfolio-dashboard');
     apiCache.del('/api/portfolio-fingerprint');
     forceRefreshRef.current = true;
+    setAppLoadingLabel('Fetching latest prices...');
     fetchAllData(portfolio, baseCurrency);
   };
 
@@ -954,7 +956,7 @@ const handleUpload = async (files) => {
             {isAppLoading ? (
               <div className="flex flex-col items-center justify-center mt-32 space-y-4">
                 <div className="w-10 h-10 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                <p className={`font-bold tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Loading user settings...</p>
+                <p className={`font-bold tracking-wider ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{appLoadingLabel}</p>
               </div>
             ) : (
               <>

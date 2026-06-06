@@ -1245,10 +1245,9 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       }
     });
   } catch(e) {
-    // Fall back to cached FX rates so currency conversion still works
-    Object.entries(_fxRateCache).forEach(([sym, { rate, cachedAt }]) => {
-      if (Date.now() - cachedAt < PRICE_CACHE_TTL) fxRates[sym] = rate;
-    });
+    // Fall back to cached FX rates — use any cached rate regardless of age,
+    // since a stale rate is always better than treating USD/NOK as 1:1 SEK.
+    Object.entries(_fxRateCache).forEach(([sym, { rate }]) => { if (rate) fxRates[sym] = rate; });
   }
   const toSEK=(amount,currency)=>{ if(!currency||currency==='SEK') return amount; return fxRates[`${currency}SEK=X`]?amount*fxRates[`${currency}SEK=X`]:amount; };
   const fromSEK=(amount)=>{ if(BC==='SEK') return amount; return fxRates[`${BC}SEK=X`]?amount/fxRates[`${BC}SEK=X`]:amount; };
@@ -1370,9 +1369,21 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
           hasStalePrices = true;
           const qty = h.quantity;
           const qtyRatio = cr.quantity > 0 ? qty / cr.quantity : 1;
-          const currentValueBase = fromSEK(toSEK(cr.nativePrice * qty, cr.currency));
-          const costBase = fromSEK(toSEK((h.avgPrice||0) * qty, cr.currency));
-          return { ...cr, quantity: qty, avgPrice: h.avgPrice||0, currentValue: currentValueBase, profit: currentValueBase - costBase, returnPct: costBase > 0 ? ((currentValueBase - costBase) / costBase) * 100 : 0, todayGainBase: cr.todayGainBase != null ? cr.todayGainBase * qtyRatio : 0, stale: true };
+          // Prefer FX-rate-based calculation when rates are available; otherwise scale
+          // cached per-unit values directly to avoid the 1:1 USD=SEK silent fallback.
+          const hasFx = !cr.currency || cr.currency === 'SEK' || !!fxRates[`${cr.currency}SEK=X`];
+          let currentValueBase, costBase;
+          if (hasFx) {
+            currentValueBase = fromSEK(toSEK(cr.nativePrice * qty, cr.currency));
+            costBase = fromSEK(toSEK((h.avgPrice||0) * qty, cr.currency));
+          } else {
+            const valuePerUnit = cr.quantity > 0 ? cr.currentValue / cr.quantity : 0;
+            const cachedCostPerUnit = cr.quantity > 0 ? (cr.currentValue - (cr.profit || 0)) / cr.quantity : 0;
+            currentValueBase = valuePerUnit * qty;
+            costBase = cachedCostPerUnit * qty;
+          }
+          const profitBase = currentValueBase - costBase;
+          return { ...cr, quantity: qty, avgPrice: h.avgPrice||0, currentValue: currentValueBase, profit: profitBase, returnPct: costBase > 0 ? (profitBase / costBase) * 100 : 0, todayGainBase: cr.todayGainBase != null ? cr.todayGainBase * qtyRatio : 0, stale: true };
         }
         const fallbackName = h.name || h.ticker;
         return { ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker,h.isin), currency:h.currency||'SEK', isin:h.isin||null, quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null, noData:true };
