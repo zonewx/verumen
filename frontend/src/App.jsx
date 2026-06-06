@@ -338,7 +338,15 @@ export default function App() {
         !apiCache.has('/api/announcements') ? apiFetch('/api/announcements').then(r => r.json()).catch(() => null) : Promise.resolve(null),
         !apiCache.has(`/api/users/${authUsername}/profile`) ? apiFetch(`/api/users/${authUsername}/profile`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
       ]);
-      setDashboardData(dashRes); setDividends(divRes); setTxCount(txRes); setOverrides(overRes);
+      // Don't replace valid dashboard data with an all-noData result (YF rate-limit burst after upload).
+      // Functional update lets us inspect previous state without adding dashboardData to useCallback deps.
+      setDashboardData(prev => {
+        if (!dashRes) return prev;
+        const allNoData = dashRes.portfolio?.length > 0 && dashRes.portfolio.every(h => h.noData);
+        if (allNoData && prev?.portfolio?.some(h => !h.noData)) return { ...prev, hasStalePrices: true };
+        return dashRes;
+      });
+      setDividends(divRes); setTxCount(txRes); setOverrides(overRes);
       if (dashRes) { apiCache.set('/api/portfolio-dashboard', dashRes); apiCache.set('/api/portfolio-fingerprint', fp); }
       apiCache.set(`/api/dividends?currency=${c}`, divRes);
       apiCache.set('/api/txCount', txRes);
@@ -716,10 +724,9 @@ const handleUpload = async (files) => {
   const handleClearBroker = async (broker) => {
     if (!confirm(`Delete all ${broker} transactions? This cannot be undone.`)) return;
     try {
-      await Promise.all([
-        apiFetch(`/api/transactions?broker=${broker}`, { method: 'DELETE' }),
-        apiFetch('/api/portfolio/cached', { method: 'DELETE' }),
-      ]);
+      await apiFetch(`/api/transactions?broker=${broker}`, { method: 'DELETE' });
+      // Keep the portfolio snapshot — the server uses it as a price fallback when YF is
+      // rate-limited right after a re-upload. It gets overwritten once fresh prices arrive.
       const res = await apiFetch('/api/transactions/count');
       setTxCount(await res.json());
       setPortfolio([]); setDashboardData(null);

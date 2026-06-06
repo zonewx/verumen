@@ -1186,8 +1186,16 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
     if (!t.isin) return;
     if (overrides[t.isin]) {
       isinToTicker[t.isin] = overrides[t.isin];
-    } else if (t.ticker && (!isinToTicker[t.isin] || t.ticker.includes('.'))) {
-      isinToTicker[t.isin] = t.ticker;
+    } else if (t.ticker) {
+      const existing = isinToTicker[t.isin];
+      // Prefer proper YF exchange-suffixed tickers (e.g. EVO.ST) over bare or Reuters tickers.
+      // Reuters suffixes (.N .O .OQ .K .US) are NOT valid YF tickers — don't let them
+      // overwrite already-resolved clean tickers like BN → BN.N would wrongly win otherwise.
+      const isReutersTicker = /\.(N|O|OQ|NQ|NY|K|US)$/i.test(t.ticker);
+      const isProperSuffix = t.ticker.includes('.') && !isReutersTicker;
+      if (!existing || (isProperSuffix && !existing.includes('.'))) {
+        isinToTicker[t.isin] = t.ticker;
+      }
     }
   });
 
