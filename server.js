@@ -1367,16 +1367,18 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     let resolvedTicker = ticker;
     const tryQuote = async (sym) => {
       let q = null;
+      let fromException = false;
       try {
         q = await withYFRetry(() => yahooFinance.quote(sym, {}, { validateResult: false }), 6000);
       } catch(e) {
         // Timeout or network error — check both result and data for partial payload
         const r = e?.result ?? e?.data;
-        if (r?.regularMarketPrice != null) q = r;
+        if (r?.regularMarketPrice != null) { q = r; fromException = true; }
       }
       if (q?.regularMarketPrice != null) {
         resolvedTicker = sym; // track which ticker actually worked
-        setPriceCache(sym, { q, cachedAt: Date.now() });
+        // Don't cache partial exception results missing currency — they'd poison the cache
+        if (!fromException || q.currency) setPriceCache(sym, { q, cachedAt: Date.now() });
         return q;
       }
       return null;
@@ -1503,7 +1505,9 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
           .eq('user_id', req.user.id).eq('raw_ticker', h.ticker).then(() => {});
       }
       if (q._fromCache) hasStalePrices = true;
-      const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice, currency=q.currency||'SEK';
+      const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice;
+      const _isinCcy=h.isin?ISIN_CURRENCY_MAP[h.isin.substring(0,2).toUpperCase()]:null;
+      const currency=q.currency||_isinCcy||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
       return { ticker:resolvedTicker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,resolvedTicker), flag:getFlag(resolvedTicker,h.isin), currency, isin:h.isin||null, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache };
     } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); return null; }

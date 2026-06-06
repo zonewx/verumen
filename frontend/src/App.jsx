@@ -1218,8 +1218,8 @@ const handleUpload = async (files) => {
                         Pin an ISIN to a specific Yahoo Finance ticker. The override takes priority over automatic resolution on every upload.
                       </p>
                       <div className="flex gap-2 mb-3">
-                        <input ref={overrideIsinRef} placeholder="ISIN (e.g. SE0025138357)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
-                        <input ref={overrideTickerRef} placeholder="YF ticker (e.g. HACK.ST)" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
+                        <input ref={overrideIsinRef} placeholder="ISIN" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
+                        <input ref={overrideTickerRef} placeholder="Yahoo Finance ticker" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
                       </div>
                       <button onClick={handleAddOverride} className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition mb-3">Save Override</button>
                       {overrideMsg && <p className={`text-xs mb-3 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
