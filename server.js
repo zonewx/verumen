@@ -1452,6 +1452,24 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     return results;
   };
 
+  // Warm _priceCache from Supabase for any tickers not already in memory.
+  // This handles server restarts and race conditions where the startup load hasn't
+  // finished yet. A single batch query covers all cold tickers before any YF calls,
+  // so if the bulk pre-fetch below fails (rate-limit), individual fetchQuote calls
+  // still have cached data to fall back on instead of making 19 separate YF requests.
+  if (!forceRefresh && portfolio.length > 0) {
+    const coldTickers = portfolio.map(h => h.ticker).filter(t => t && !_priceCache.has(t));
+    if (coldTickers.length > 0) {
+      const cutoff = new Date(Date.now() - PRICE_CACHE_TTL).toISOString();
+      const { data: dbPrices } = await supabase.from('price_cache')
+        .select('ticker, quote, cached_at').in('ticker', coldTickers).gt('cached_at', cutoff);
+      (dbPrices || []).forEach(({ ticker, quote, cached_at }) => {
+        if (!_priceCache.has(ticker))
+          _priceCache.set(ticker, { q: quote, cachedAt: new Date(cached_at).getTime() });
+      });
+    }
+  }
+
   // Bulk pre-fetch: one YF call for all tickers → fills _priceCache before the per-ticker loop.
   // This collapses N individual YF calls into 1, dramatically reducing rate-limit exposure on
   // initial loads when _priceCache is cold. Only on normal loads (not force-refresh).
@@ -1468,7 +1486,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
             setPriceCache(q.symbol, { q, cachedAt: Date.now() });
           }
         });
-      } catch(e) { /* bulk failed — per-ticker fallbacks will handle individually */ }
+      } catch(e) { /* bulk failed — Supabase-warmed _priceCache serves as stale fallback */ }
     }
   }
 
