@@ -869,7 +869,7 @@ function parseNordnet(content) {
   return lines.slice(1).map(line => {
     const cols = line.split('\t');
     if (cols.length < 4) return null;
-    const txType = TYPE_MAP[col(cols,'transaktionstype').toLowerCase()] || 'other';
+    const txType = TYPE_MAP[(col(cols,'transaktionstyp')||col(cols,'transaktionstype')).toLowerCase()] || 'other';
     const rawQty = parseFloat(col(cols,'antal').replace(',','.').replace(/\s/g,''));
     const qty = isNaN(rawQty) ? 0 : Math.abs(rawQty);
     const currency = (instrumentValutaIdx >= 0 ? (cols[instrumentValutaIdx]||'').trim().replace(/"/g,'') : '') || col(cols,'valuta') || 'SEK';
@@ -965,7 +965,10 @@ app.get('/api/transactions/count', requireUser, async (req, res) => {
 });
 
 app.delete('/api/transactions', requireUser, async (req, res) => {
-  await supabase.from('transactions').delete().eq('user_id', req.user.id);
+  const { broker } = req.query;
+  let query = supabase.from('transactions').delete().eq('user_id', req.user.id);
+  if (broker) query = query.eq('broker', broker);
+  await query;
   res.json({ success: true });
 });
 
