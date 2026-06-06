@@ -111,7 +111,6 @@ export default function App() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const globalSearchRef = useRef(null);
   const [selectedBroker, setSelectedBroker] = useState('auto');
-  const [dividendsOnly, setDividendsOnly] = useState(false);
   const [txCount, setTxCount] = useState(() => { const c = apiCache.get('/api/txCount'); return { total: 0, trades: 0, byBroker: {}, ...c }; });
   const uploadAbortRef = useRef(false);
   const uploadAbortControllerRef = useRef(null);
@@ -540,7 +539,7 @@ const handleUpload = async (files) => {
     if (dividendsOnly) {
       apiCache.del('/api/dividends');
       updateProgress('done', 100, `✓ Imported ${totalNewAdded} dividend transaction${totalNewAdded !== 1 ? 's' : ''}`);
-      setTimeout(() => { setUploadProgress(null); setDividendsOnly(false); navigate('/stockportfolio/dividends'); }, 3000);
+      setTimeout(() => { setUploadProgress(null); navigate('/stockportfolio/dividends'); }, 3000);
       setUploadLoading(false);
       return;
     }
@@ -982,10 +981,12 @@ const handleUpload = async (files) => {
       '/stockportfolio/transactions':  'history',
       '/stockportfolio/dividends':     'dividends',
       '/stockportfolio/ownership':     'ownership',
-      '/stockportfolio/import':        'import',
-      '/stockportfolio/settings':      'overrides',
+      '/stockportfolio/import':            'import',
+      '/stockportfolio/import-dividends':  'importDividends',
+      '/stockportfolio/settings':          'overrides',
     };
     const currentTab = pathToTab[location.pathname] || 'overview';
+    const dividendsOnly = currentTab === 'importDividends';
 
     useEffect(() => {
       if (currentTab === 'ownership' && dashboardData && Object.keys(ownershipData).length === 0 && !ownershipLoading) fetchOwnership(dashboardData.portfolio);
@@ -1011,17 +1012,6 @@ const handleUpload = async (files) => {
                   <div className="flex flex-col gap-5 items-center">
                     <h2 className="text-xl font-bold w-full max-w-lg">Import CSV</h2>
                     <div className={`${cardCls} p-5 flex flex-col gap-4 w-full max-w-lg`}>
-                      {txCount.total > 0 && (
-                        <button
-                          onClick={() => setDividendsOnly(v => !v)}
-                          className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition ${dividendsOnly ? 'bg-pink-600/20 border-pink-500/50 text-pink-300' : 'bg-zinc-700/50 border-zinc-600 text-zinc-300 hover:bg-zinc-700'}`}
-                        >
-                          <span>Dividends only</span>
-                          <span className={`w-8 h-4 rounded-full transition-colors relative ${dividendsOnly ? 'bg-pink-500' : 'bg-zinc-600'}`}>
-                            <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${dividendsOnly ? 'left-4' : 'left-0.5'}`}/>
-                          </span>
-                        </button>
-                      )}
                       <div className="flex flex-col gap-1.5">
                         <label className={`text-xs font-semibold uppercase tracking-wide text-zinc-400`}>Broker</label>
                         <select
@@ -1079,7 +1069,7 @@ const handleUpload = async (files) => {
                                   <div>
                                     <p className="text-sm font-semibold capitalize">{broker}</p>
                                     <p className={`text-[10px] text-zinc-400`}>
-                                      {[hasTrades && 'trades', hasDivs && 'dividends'].filter(Boolean).join(' · ')}
+                                      {[hasTrades && 'Trades', hasDivs && 'Dividends'].filter(Boolean).join(' · ')}
                                     </p>
                                   </div>
                                   <span className={`text-xs font-bold text-right text-zinc-300`}>{info.total}</span>
@@ -1097,6 +1087,81 @@ const handleUpload = async (files) => {
                   </div>
                 )}
 
+                {currentTab === 'importDividends' && (
+                  <div className="flex flex-col gap-5 items-center">
+                    <h2 className="text-xl font-bold w-full max-w-lg">Import Dividends</h2>
+                    <div className={`${cardCls} p-5 flex flex-col gap-4 w-full max-w-lg`}>
+                      <p className="text-xs text-zinc-400">Import dividend history without affecting existing holdings or trade data. Only dividend and foreign-tax rows will be added.</p>
+                      <div className="flex flex-col gap-1.5">
+                        <label className={`text-xs font-semibold uppercase tracking-wide text-zinc-400`}>Broker</label>
+                        <select
+                          value={selectedBroker}
+                          onChange={e => setSelectedBroker(e.target.value)}
+                          className={`w-full px-3 py-2 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`}
+                        >
+                          <option value="auto">Auto-detect</option>
+                          <option value="montrose">Montrose</option>
+                          <option value="avanza">Avanza</option>
+                          <option value="nordnet">Nordnet</option>
+                        </select>
+                      </div>
+                      <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-pink-600 hover:bg-pink-500 text-white'}`}>
+                        {uploadLoading ? '⏳ Processing…' : '↑ Upload CSV files'}
+                      </button>
+                      <p className={`text-xs text-zinc-400`}>Supports Montrose, Avanza and Nordnet.</p>
+                      {uploadProgress && (
+                        <div className={`rounded-lg px-3 py-2.5 text-sm border bg-zinc-700/40 border-zinc-600/40 text-zinc-300`}>
+                          <div className="flex items-center gap-2"><div className="animate-spin">⏳</div><span className="font-medium">{uploadProgress.label}</span></div>
+                        </div>
+                      )}
+                      {uploadStatus?.error && <div className="rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400">✗ {uploadStatus.error}</div>}
+                      {!uploadProgress && uploadStatus?.results && (
+                        <div className="flex flex-col gap-1.5">
+                          {uploadStatus.results.map((r, i) => (
+                            <div key={i} className={`bg-zinc-700/50 rounded-lg px-3 py-2 text-xs`}>
+                              {r.error ? <p className="text-red-400">✗ {r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
+                            </div>
+                          ))}
+                          <p className="text-xs text-green-400 font-semibold">+{uploadStatus.newAdded} new · {uploadStatus.total} total</p>
+                        </div>
+                      )}
+                      {txCount.total > 0 && (
+                        <div className={`bg-zinc-700/50 rounded-xl px-3 py-2.5 flex items-center justify-between`}>
+                          <div><p className="text-sm font-bold text-green-400">{txCount.trades} trades</p><p className={`text-xs text-zinc-400`}>{txCount.total} total in history</p></div>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-green-400"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                      )}
+                      {txCount.byBroker && Object.keys(txCount.byBroker).length > 0 && (
+                        <div className="flex flex-col gap-1">
+                          <p className={`text-[10px] font-semibold uppercase tracking-wider text-zinc-400 px-1`}>Data sources</p>
+                          <div className="flex flex-col divide-y divide-zinc-700 rounded-xl overflow-hidden border border-zinc-700">
+                            <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-3 py-1.5 bg-zinc-700/40">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Broker</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 text-right">Rows</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 w-12"></span>
+                            </div>
+                            {Object.entries(txCount.byBroker).map(([broker, info]) => {
+                              const hasTrades = info.types.buy || info.types.sell;
+                              const hasDivs = info.types.dividend;
+                              return (
+                                <div key={broker} className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-3 py-2 bg-zinc-800 hover:bg-zinc-750 transition">
+                                  <div>
+                                    <p className="text-sm font-semibold capitalize">{broker}</p>
+                                    <p className={`text-[10px] text-zinc-400`}>
+                                      {[hasTrades && 'Trades', hasDivs && 'Dividends'].filter(Boolean).join(' · ')}
+                                    </p>
+                                  </div>
+                                  <span className={`text-xs font-bold text-right text-zinc-300`}>{info.total}</span>
+                                  <button onClick={() => handleClearBroker(broker)} className="text-[11px] font-semibold text-red-400 hover:text-red-300 transition w-12 text-right">Remove</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {currentTab === 'overrides' && (
                   <div className="flex flex-col gap-5">
@@ -1194,26 +1259,29 @@ const handleUpload = async (files) => {
                     <div className="flex flex-col gap-3">
                       <h3 className={`text-sm font-bold uppercase tracking-wider text-zinc-400`}>Data Management</h3>
                       {txCount.byBroker && Object.keys(txCount.byBroker).length > 0 && (
-                        <div className={`${cardCls} overflow-hidden`}>
-                          <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2 bg-zinc-700/40 border-b border-zinc-700">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Broker</span>
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 text-right">Rows</span>
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 w-14"></span>
-                          </div>
-                          {Object.entries(txCount.byBroker).map(([broker, info]) => {
-                            const hasTrades = info.types.buy || info.types.sell;
-                            const hasDivs = info.types.dividend;
-                            return (
-                              <div key={broker} className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-4 py-2.5 border-b border-zinc-700/50 last:border-0 hover:bg-zinc-700/20 transition">
-                                <div>
-                                  <p className="text-sm font-semibold capitalize">{broker}</p>
-                                  <p className={`text-[10px] text-zinc-400`}>{[hasTrades && 'trades', hasDivs && 'dividends'].filter(Boolean).join(' · ')}</p>
+                        <div className={`${cardCls} p-5 flex flex-col gap-3`}>
+                          <h4 className="text-sm font-bold">Imported CSVs</h4>
+                          <div className="flex flex-col divide-y divide-zinc-700 rounded-xl overflow-hidden border border-zinc-700">
+                            <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-3 py-1.5 bg-zinc-700/40">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Broker</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 text-right">Rows</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 w-14"></span>
+                            </div>
+                            {Object.entries(txCount.byBroker).map(([broker, info]) => {
+                              const hasTrades = info.types.buy || info.types.sell;
+                              const hasDivs = info.types.dividend;
+                              return (
+                                <div key={broker} className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-3 py-2.5 bg-zinc-800 hover:bg-zinc-750 transition">
+                                  <div>
+                                    <p className="text-sm font-semibold capitalize">{broker}</p>
+                                    <p className={`text-[10px] text-zinc-400`}>{[hasTrades && 'Trades', hasDivs && 'Dividends'].filter(Boolean).join(' · ')}</p>
+                                  </div>
+                                  <span className="text-xs font-bold text-right text-zinc-300">{info.total}</span>
+                                  <button onClick={() => handleClearBroker(broker)} className="text-[11px] font-semibold text-red-400 hover:text-red-300 transition w-14 text-right">Remove</button>
                                 </div>
-                                <span className="text-xs font-bold text-right text-zinc-300">{info.total}</span>
-                                <button onClick={() => handleClearBroker(broker)} className="text-[11px] font-semibold text-red-400 hover:text-red-300 transition w-14 text-right">Remove</button>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                       <div className="grid grid-cols-3 gap-5">
@@ -1779,7 +1847,7 @@ const handleUpload = async (files) => {
                             <div className={`${cardCls} p-6`}>
                               <div className="flex items-center justify-between mb-5">
                                 <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>By Year</h3>
-                                <button onClick={() => { setDividendsOnly(true); navigate('/stockportfolio/import'); }} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 transition">+ Import Dividends</button>
+                                <button onClick={() => navigate('/stockportfolio/import-dividends')} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 transition">+ Import Dividends</button>
                               </div>
                               <div className="flex flex-col gap-1">
                                 {dividends.byYear.map(({ year, total, stocks }) => (
@@ -2025,6 +2093,7 @@ const handleUpload = async (files) => {
           <Route path="/stockportfolio/dividends" element={<PortfolioView/>}/>
           <Route path="/stockportfolio/ownership" element={<PortfolioView/>}/>
           <Route path="/stockportfolio/import" element={<PortfolioView/>}/>
+          <Route path="/stockportfolio/import-dividends" element={<PortfolioView/>}/>
           <Route path="/stockportfolio/settings" element={<PortfolioView/>}/>
 
           {/* Skins routes */}
