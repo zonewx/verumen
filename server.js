@@ -1179,13 +1179,15 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
     return 0; // Already sorted by date from query
   });
 
-  // Build ISIN → best ticker mapping (prefer .ST, .OL etc over plain ticker)
+  // Build ISIN → best ticker mapping; overrides always win over stored tickers
+  const overrides = await loadOverrides(req.user.id);
   const isinToTicker = {};
   normalised.forEach(t => {
-    if (t.isin && t.ticker) {
-      if (!isinToTicker[t.isin] || t.ticker.includes('.')) {
-        isinToTicker[t.isin] = t.ticker;
-      }
+    if (!t.isin) return;
+    if (overrides[t.isin]) {
+      isinToTicker[t.isin] = overrides[t.isin];
+    } else if (t.ticker && (!isinToTicker[t.isin] || t.ticker.includes('.'))) {
+      isinToTicker[t.isin] = t.ticker;
     }
   });
 

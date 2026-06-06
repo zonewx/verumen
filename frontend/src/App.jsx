@@ -115,7 +115,6 @@ export default function App() {
   const [resolveLoading, setResolveLoading] = useState(false);
   const [resolveStatus, setResolveStatus] = useState('');
   const [todaySortMode, setTodaySortMode] = useState('currency');
-  const [todayCogOpen, setTodayCogOpen] = useState(false);
   const [ownershipData, setOwnershipData] = useState({});
   const [ownershipLoading, setOwnershipLoading] = useState(false);
   const [ownershipFilter, setOwnershipFilter] = useState('');
@@ -138,6 +137,7 @@ export default function App() {
   const uploadAbortControllerRef = useRef(null);
   const globalFileInputRef = useRef(null);
   const forceRefreshRef = useRef(false);
+  const portfolioScrollRef = useRef(null);
   const suppressNextFetch = useRef(false);
   const priceRetryDoneRef = useRef(false);
   const backgroundRefreshRef = useRef(false);
@@ -373,20 +373,6 @@ export default function App() {
     fetchAllData(portfolio, baseCurrency);
   }, [portfolio, baseCurrency, authUsername, fetchAllData]);
 
-  // Click away for cog
-  useEffect(() => {
-    if (!todayCogOpen) return;
-    const close = (e) => {
-      // Let clicks inside the dropdown bubble normally
-      if (e.target.closest('.today-cog-dropdown')) return;
-      setTodayCogOpen(false);
-    };
-    // Use timeout to avoid closing on the same click that opened it
-    setTimeout(() => {
-      document.addEventListener('click', close, { once: true });
-    }, 0);
-    return () => document.removeEventListener('click', close);
-  }, [todayCogOpen]);
 
   // Shortcuts
   useEffect(() => {
@@ -1046,6 +1032,10 @@ const handleUpload = async (files) => {
     if (currentTab === 'overview' && txHistory.length === 0 && !txHistoryLoading) fetchTxHistory();
   }, [currentTab]);
 
+  useEffect(() => {
+    if (portfolioScrollRef.current) portfolioScrollRef.current.scrollTop = 0;
+  }, [currentTab]);
+
   // Plain render function — no hooks, so React never unmounts/remounts it on re-renders.
   // This preserves scroll position across state updates.
   const renderPortfolioView = () => {
@@ -1056,7 +1046,7 @@ const handleUpload = async (files) => {
       <div className={`flex flex-col h-screen pt-12 overflow-hidden bg-zinc-900 text-white`}>
         {showShortcuts && <ShortcutsModal />}
 
-        <div className="flex-1 overflow-y-auto">
+        <div ref={portfolioScrollRef} className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-6 py-6">
             {isAppLoading ? (
               <div className="flex flex-col items-center justify-center mt-32 space-y-4">
@@ -1616,21 +1606,14 @@ const handleUpload = async (files) => {
                           <div className={`${cardCls} p-6`}>
                             <div className="flex items-center justify-between mb-6">
                               <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>Best &amp; Worst Today</h3>
-                              <div className="relative today-cog-dropdown">
-                                <button onClick={() => setTodayCogOpen(o => !o)} className={`p-1.5 rounded-lg border text-zinc-400 hover:text-white hover:bg-zinc-600 border-zinc-700 transition`}>
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-                                </button>
-                                {todayCogOpen && (
-                                  <div className={`absolute right-0 top-8 z-50 bg-zinc-900 border-zinc-700 border rounded-xl shadow-xl overflow-hidden w-44`}>
-                                    <div className={`px-3 py-2 text-xs font-semibold text-zinc-500 border-zinc-700 uppercase tracking-wider border-b`}>Sort by</div>
-                                    {[['currency',`Amount (${sym})`],['pct','Percentage (%)']].map(([val, label]) => (
-                                      <button key={val} onClick={() => { setTodaySortMode(val); setTodayCogOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center justify-between ${todaySortMode === val ? `text-white bg-zinc-700` : `text-zinc-400 hover:bg-zinc-700 hover:text-white`}`}>
-                                        {label}{todaySortMode === val && <span className="text-zinc-300 text-xs">✓</span>}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
+                              <select
+                                value={todaySortMode}
+                                onChange={e => setTodaySortMode(e.target.value)}
+                                className="px-2 py-1.5 rounded-lg border text-xs outline-none bg-zinc-700 border-zinc-600 text-white"
+                              >
+                                <option value="currency">Amount ({sym})</option>
+                                <option value="pct">Percentage (%)</option>
+                              </select>
                             </div>
                             <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} />
                           </div>
