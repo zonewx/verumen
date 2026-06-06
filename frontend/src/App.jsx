@@ -112,7 +112,7 @@ export default function App() {
   const globalSearchRef = useRef(null);
   const [selectedBroker, setSelectedBroker] = useState('auto');
   const [dividendsOnly, setDividendsOnly] = useState(false);
-  const [txCount, setTxCount] = useState(() => apiCache.get('/api/txCount') || { total: 0, trades: 0, byBroker: {} });
+  const [txCount, setTxCount] = useState(() => { const c = apiCache.get('/api/txCount'); return { total: 0, trades: 0, byBroker: {}, ...c }; });
   const uploadAbortRef = useRef(false);
   const uploadAbortControllerRef = useRef(null);
   const globalFileInputRef = useRef(null);
