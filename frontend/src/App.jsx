@@ -1298,9 +1298,20 @@ const handleUpload = async (files) => {
                       </div>
                       <div className={`${cardCls} p-6`}>
                         <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Portfolio Snapshot</h3>
+                        {dashboardData?.builtAt ? (
+                          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-green-900/20 border border-green-800/40 text-green-400 text-xs font-medium">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Snapshot stored — {dashboardData.portfolio?.length ?? 0} holdings · saved {new Date(dashboardData.builtAt).toLocaleString()}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-zinc-700/40 border border-zinc-600/40 text-zinc-400 text-xs font-medium">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            No snapshot — prices fetched live on each load
+                          </div>
+                        )}
                         <p className={`text-sm mb-4 text-zinc-300`}>
-                          {dashboardData?.fromCache || dashboardData?.builtAt
-                            ? `Last saved: ${new Date(dashboardData.builtAt).toLocaleString()}. Clear to force a full re-fetch from Yahoo Finance on next load.`
+                          {dashboardData?.builtAt
+                            ? 'Safe to re-upload CSV — snapshot will serve as fallback while new prices load.'
                             : 'Your portfolio is saved to the cloud after each price refresh and loads instantly on any device.'}
                         </p>
                         <button

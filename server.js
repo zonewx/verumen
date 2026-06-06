@@ -1541,13 +1541,14 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   const results = settled.filter(Boolean);
   const totalValue=results.reduce((s,r)=>s+(r.currentValue??0),0), totalCost=results.reduce((s,r)=>s+fromSEK(toSEK((r.avgPrice||0)*r.quantity,r.currency)),0), totalProfit=totalValue-totalCost;
   const totals = { value:totalValue, cost:totalCost, profit:totalProfit, returnPct:totalCost>0?(totalProfit/totalCost)*100:0 };
-  res.json({ portfolio:results, totals, hasStalePrices });
+  const builtAt = new Date().toISOString();
+  res.json({ portfolio:results, totals, hasStalePrices, builtAt });
   // Persist to Supabase so the next login loads instantly with no YF calls
   supabase.from('portfolio_cache').upsert({
     user_id: req.user.id, currency: BC,
     holdings: portfolio,
     dashboard: { portfolio: results, totals, hasStalePrices },
-    built_at: new Date().toISOString(),
+    built_at: builtAt,
   }, { onConflict: 'user_id,currency' }).then(() => {}).catch(() => {});
 });
 
