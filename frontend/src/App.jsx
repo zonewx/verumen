@@ -1061,6 +1061,38 @@ const handleUpload = async (files) => {
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-green-400"><polyline points="20 6 9 17 4 12"/></svg>
                         </div>
                       )}
+                      {txCount.byBroker && Object.keys(txCount.byBroker).length > 0 && (
+                        <div className="flex flex-col gap-1">
+                          <p className={`text-[10px] font-semibold uppercase tracking-wider text-zinc-400 px-1`}>Data sources</p>
+                          <div className="flex flex-col divide-y divide-zinc-700 rounded-xl overflow-hidden border border-zinc-700">
+                            <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-3 py-1.5 bg-zinc-700/40">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Broker</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 text-right">Rows</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 w-12"></span>
+                            </div>
+                            {Object.entries(txCount.byBroker).map(([broker, info]) => {
+                              const typeList = Object.keys(info.types).filter(t => t !== 'foreign-tax');
+                              const hasTrades = info.types.buy || info.types.sell;
+                              const hasDivs = info.types.dividend;
+                              return (
+                                <div key={broker} className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-3 py-2 bg-zinc-800 hover:bg-zinc-750 transition">
+                                  <div>
+                                    <p className="text-sm font-semibold capitalize">{broker}</p>
+                                    <p className={`text-[10px] text-zinc-400`}>
+                                      {[hasTrades && 'trades', hasDivs && 'dividends'].filter(Boolean).join(' · ')}
+                                    </p>
+                                  </div>
+                                  <span className={`text-xs font-bold text-right text-zinc-300`}>{info.total}</span>
+                                  <button
+                                    onClick={() => handleClearBroker(broker)}
+                                    className="text-[11px] font-semibold text-red-400 hover:text-red-300 transition w-12 text-right"
+                                  >Remove</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1161,6 +1193,29 @@ const handleUpload = async (files) => {
                     </div>
                     <div className="flex flex-col gap-3">
                       <h3 className={`text-sm font-bold uppercase tracking-wider text-zinc-400`}>Data Management</h3>
+                      {txCount.byBroker && Object.keys(txCount.byBroker).length > 0 && (
+                        <div className={`${cardCls} overflow-hidden`}>
+                          <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2 bg-zinc-700/40 border-b border-zinc-700">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Broker</span>
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 text-right">Rows</span>
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 w-14"></span>
+                          </div>
+                          {Object.entries(txCount.byBroker).map(([broker, info]) => {
+                            const hasTrades = info.types.buy || info.types.sell;
+                            const hasDivs = info.types.dividend;
+                            return (
+                              <div key={broker} className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-4 py-2.5 border-b border-zinc-700/50 last:border-0 hover:bg-zinc-700/20 transition">
+                                <div>
+                                  <p className="text-sm font-semibold capitalize">{broker}</p>
+                                  <p className={`text-[10px] text-zinc-400`}>{[hasTrades && 'trades', hasDivs && 'dividends'].filter(Boolean).join(' · ')}</p>
+                                </div>
+                                <span className="text-xs font-bold text-right text-zinc-300">{info.total}</span>
+                                <button onClick={() => handleClearBroker(broker)} className="text-[11px] font-semibold text-red-400 hover:text-red-300 transition w-14 text-right">Remove</button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                       <div className="grid grid-cols-3 gap-5">
                         <div className={`${cardCls} p-6 flex flex-col`}>
                           <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Clear Ticker Cache</h3>

@@ -950,9 +950,18 @@ app.get('/api/transactions', requireUser, async (req, res) => {
 });
 
 app.get('/api/transactions/count', requireUser, async (req, res) => {
-  const { count: total } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id);
-  const { count: trades } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id).in('type', ['buy','sell']);
-  res.json({ total: total||0, trades: trades||0 });
+  const { data } = await supabase.from('transactions').select('broker, type').eq('user_id', req.user.id);
+  const rows = data || [];
+  const total = rows.length;
+  const trades = rows.filter(r => r.type === 'buy' || r.type === 'sell').length;
+  const byBroker = {};
+  rows.forEach(r => {
+    const b = r.broker || 'unknown';
+    if (!byBroker[b]) byBroker[b] = { total: 0, types: {} };
+    byBroker[b].total++;
+    byBroker[b].types[r.type] = (byBroker[b].types[r.type] || 0) + 1;
+  });
+  res.json({ total, trades, byBroker });
 });
 
 app.delete('/api/transactions', requireUser, async (req, res) => {
