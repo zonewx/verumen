@@ -725,11 +725,14 @@ const handleUpload = async (files) => {
     if (!confirm('This will clear your current portfolio holdings. Transaction history and ticker cache are kept — you can re-upload a CSV without re-resolving tickers. Continue?')) return;
     try {
       await apiFetch('/api/portfolio/cached', { method: 'DELETE' });
+      suppressNextFetch.current = true; // prevent useEffect from auto-reconstructing from transactions
       setPortfolio([]);
       setDashboardData(null);
+      setIsAppLoading(false);
       setUploadStatus(null);
       apiCache.del('/api/portfolio-dashboard');
       apiCache.del('/api/portfolio-fingerprint');
+      navigate('/stockportfolio/import');
       setSyncStatus('Holdings cleared. Transaction history and ticker cache kept.');
       setTimeout(() => setSyncStatus(''), 4000);
     } catch (err) {
