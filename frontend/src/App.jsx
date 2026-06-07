@@ -2008,21 +2008,25 @@ const handleUpload = async (files) => {
                       <div className={`${cardCls} overflow-hidden`}>
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-sm">
-                            <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
-                              <tr>{['Date','Type','Ticker','Name','Qty','Price',`Total (${sym})`].map(h => <th key={h} className={`p-3 font-bold text-xs text-zinc-400 uppercase tracking-wider`}>{h}</th>)}</tr>
+                            <thead className="bg-gray-900 border-gray-700 border-b">
+                              <tr>{['Date','Type','Ticker','Name','Qty','Price',`Total (${sym})`].map(h => <th key={h} className="px-4 py-3 font-bold text-xs text-gray-400 uppercase tracking-wider">{h}</th>)}</tr>
                             </thead>
                             <tbody>
-                              {txHistory.slice(0, 500).map((tx, i) => (
-                                <tr key={i} className={`border-t border-zinc-700/50 hover:bg-zinc-600/20 transition`}>
-                                  <td className="p-3 text-xs font-mono">{tx.date}</td>
-                                  <td className="p-3">{tx.type}</td>
-                                  <td className="p-3 font-bold">{tx.ticker}</td>
-                                  <td className="p-3 truncate max-w-xs">{tx.name}</td>
-                                  <td className="p-3">{tx.quantity}</td>
-                                  <td className="p-3">{fmt(tx.price)}</td>
-                                  <td className={`p-3 font-bold ${tx.total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(tx.total)}</td>
-                                </tr>
-                              ))}
+                              {txHistory.slice(0, 500).map((tx, i) => {
+                                const typeCls = tx.type === 'buy' ? 'bg-emerald-900/10 border-emerald-700/20' : tx.type === 'sell' ? 'bg-red-900/10 border-red-700/20' : tx.type === 'dividend' ? 'bg-blue-900/10 border-blue-700/20' : tx.type === 'deposit' ? 'bg-green-900/10 border-green-700/20' : 'bg-gray-800/50 border-gray-700/30';
+                                const typeBadgeCls = tx.type === 'buy' ? 'bg-emerald-900/40 text-emerald-400' : tx.type === 'sell' ? 'bg-red-900/40 text-red-400' : tx.type === 'dividend' ? 'bg-blue-900/40 text-blue-400' : tx.type === 'deposit' ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-400';
+                                return (
+                                  <tr key={i} className={`border-t ${typeCls} hover:bg-gray-800/50 transition`}>
+                                    <td className="px-4 py-3 text-xs font-mono text-gray-400">{tx.date}</td>
+                                    <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-1 rounded-lg ${typeBadgeCls}`}>{tx.type}</span></td>
+                                    <td className="px-4 py-3"><span className={`font-bold ${tx.ticker ? 'text-white' : 'text-gray-500'}`}>{tx.ticker || '—'}</span></td>
+                                    <td className="px-4 py-3 truncate max-w-xs text-gray-300">{tx.name}</td>
+                                    <td className="px-4 py-3 text-right text-gray-400">{tx.quantity}</td>
+                                    <td className="px-4 py-3 text-right text-gray-400">{fmt(tx.price)}</td>
+                                    <td className={`px-4 py-3 text-right font-bold ${tx.total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(tx.total)} {sym}</td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
