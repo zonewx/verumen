@@ -11,7 +11,8 @@ const { supabase } = require('./supabase');
 // In-memory price cache — populated from Supabase on startup so restarts don't force a YF burst
 const _priceCache = new Map(); // ticker -> { q: quoteObject, cachedAt: timestamp }
 const _fxRateCache = {};       // 'USDSEK=X' -> { rate, cachedAt }
-const PRICE_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
+const PRICE_CACHE_TTL      = 6  * 60 * 60 * 1000; // 6h — stale threshold for live display
+const PRICE_CACHE_WARM_TTL = 24 * 60 * 60 * 1000; // 24h — how far back to load from Supabase on cold start
 
 // Write-through helper: keeps _priceCache and Supabase price_cache in sync
 function setPriceCache(ticker, data) {
@@ -25,7 +26,7 @@ function setPriceCache(ticker, data) {
 // Load persisted prices from Supabase on startup — avoids a cold-cache YF burst after restart
 ;(async () => {
   try {
-    const cutoff = new Date(Date.now() - PRICE_CACHE_TTL).toISOString();
+    const cutoff = new Date(Date.now() - PRICE_CACHE_WARM_TTL).toISOString();
     const { data } = await supabase.from('price_cache').select('ticker, quote, cached_at').gt('cached_at', cutoff);
     if (data?.length) {
       data.forEach(({ ticker, quote, cached_at }) =>
@@ -1467,7 +1468,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   if (!forceRefresh && portfolio.length > 0) {
     const coldTickers = portfolio.map(h => h.ticker).filter(t => t && !_priceCache.has(t));
     if (coldTickers.length > 0) {
-      const cutoff = new Date(Date.now() - PRICE_CACHE_TTL).toISOString();
+      const cutoff = new Date(Date.now() - PRICE_CACHE_WARM_TTL).toISOString();
       const { data: dbPrices } = await supabase.from('price_cache')
         .select('ticker, quote, cached_at').in('ticker', coldTickers).gt('cached_at', cutoff);
       (dbPrices || []).forEach(({ ticker, quote, cached_at }) => {
@@ -1500,15 +1501,20 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   // Load last-good Supabase snapshot — used as per-ticker fallback when YF is temporarily down
   const { data: snapForFallback } = await supabase.from('portfolio_cache')
     .select('dashboard').eq('user_id', req.user.id).eq('currency', BC).single();
-  const cachedRowMap = {};
-  (snapForFallback?.dashboard?.portfolio || []).forEach(r => { if (r.ticker && r.nativePrice) cachedRowMap[r.ticker] = r; });
+  const cachedRowMap = {};        // keyed by ticker
+  const cachedRowByIsin = {};     // keyed by ISIN — fallback when ticker has drifted
+  (snapForFallback?.dashboard?.portfolio || []).forEach(r => {
+    if (!r.nativePrice) return;
+    if (r.ticker) cachedRowMap[r.ticker] = r;
+    if (r.isin)   cachedRowByIsin[r.isin] = r;
+  });
 
   let hasStalePrices = false;
   const settled = await fetchWithLimit(portfolio, 3, async h => {
     try {
       const q = await fetchQuote(h.ticker, h.isin, !!forceRefresh);
       if (!q) {
-        const cr = cachedRowMap[h.ticker];
+        const cr = cachedRowMap[h.ticker] || (h.isin && cachedRowByIsin[h.isin]);
         if (cr) {
           hasStalePrices = true;
           const qty = h.quantity;

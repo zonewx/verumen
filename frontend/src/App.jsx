@@ -866,6 +866,24 @@ const handleUpload = async (files) => {
     setShowRetryCountdown(true);
   }, [hasFailedHoldings, isAppLoading]);
 
+  // When the snapshot path serves cached data, the live YF fetch is skipped entirely.
+  // If the snapshot is more than 20 minutes old, silently fetch fresh prices in the
+  // background a few seconds later so the user doesn't have to manually refresh.
+  useEffect(() => {
+    if (!dashboardData?.fromCache || !portfolio?.length) return;
+    const ageMs = dashboardData.builtAt ? Date.now() - new Date(dashboardData.builtAt).getTime() : Infinity;
+    if (ageMs < 20 * 60 * 1000) return; // fresh enough — let the 20-min interval handle it
+    const timer = setTimeout(() => {
+      backgroundRefreshRef.current = true;
+      forceRefreshRef.current = true;
+      apiCache.del('/api/portfolio-dashboard');
+      apiCache.del('/api/portfolio-fingerprint');
+      fetchAllData(portfolio, baseCurrency);
+    }, 4000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dashboardData?.fromCache, dashboardData?.builtAt]);
+
   const plPositive = totals?.profit >= 0;
   const plColor = plPositive ? 'text-green-400' : 'text-red-400';
   const plSign = plPositive ? '+' : '';
