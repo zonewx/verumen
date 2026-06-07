@@ -1425,8 +1425,9 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         }
       }
     }
-    // Fall back to cached price when YF is unavailable or rate-limited (skip if force-refreshing)
-    if (!q && !skipCache) {
+    // Fall back to cached price when YF is unavailable or rate-limited.
+    // Applies even on force-refresh — last-known price beats noData.
+    if (!q) {
       const cached = _priceCache.get(ticker);
       if (cached && (Date.now() - cached.cachedAt) < PRICE_CACHE_TTL) {
         return { ...cached.q, _fromCache: true, _resolvedTicker: ticker };
@@ -1437,15 +1438,21 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   };
 
   // Fetch quotes with a concurrency limit to avoid tripping YF rate limits.
-  // 3 workers + 200ms stagger keeps burst well below the rate-limit threshold.
+  // Workers are staggered so they don't all fire simultaneously at t=0.
+  // After a failed fetch (null) the worker pauses longer — a null result usually
+  // means rate-limiting, so backing off reduces cascading failures.
   const fetchWithLimit = async (items, limit, fn) => {
     const results = new Array(items.length);
     let idx = 0;
-    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async (_, wi) => {
+      if (wi > 0) await new Promise(r => setTimeout(r, wi * 400)); // stagger starts
       while (idx < items.length) {
         const i = idx++;
         results[i] = await fn(items[i]);
-        if (idx < items.length) await new Promise(r => setTimeout(r, 200));
+        if (idx < items.length) {
+          const delay = results[i] == null ? 1500 : 250; // back off after a miss
+          await new Promise(r => setTimeout(r, delay));
+        }
       }
     });
     await Promise.all(workers);
