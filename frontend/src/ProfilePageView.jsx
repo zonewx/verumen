@@ -366,7 +366,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
               <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
             </div>
           </div>
-        ) : profile.publicHoldings && (
+        ) : profile.publicHoldings ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             
             {/* Portfolio - Left Column */}
@@ -469,7 +469,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
             </div>
 
           </div>
-        )})}
+        ) : null}
 
       </div>
     </div>
