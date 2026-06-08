@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // Inline accordion content for portfolio actions
@@ -29,48 +29,48 @@ function ActionContent({ id, pa, selectedBroker, onBrokerChange }) {
       </div>
 
       <label className={`${btn} cursor-pointer ${pa.uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
-        {pa.uploadLoading ? <>{spinner}Processing…</> : pa.uploadStatus ? '↺ Re-upload' : '↑ Upload CSV'}
+        {pa.uploadLoading ? <>{spinner}Processingâ€¦</> : pa.uploadStatus ? 'â†º Re-upload' : 'â†‘ Upload CSV'}
         <input type="file" accept=".csv" multiple className="hidden" disabled={pa.uploadLoading} onChange={e => { const f = Array.from(e.target.files); e.target.value = ''; pa.onUpload(f); }} />
       </label>
       <p className={`text-[10px] ${sub}`}>Supports Avanza, Montrose, Nordnet.</p>
       {pa.uploadProgress && (
         <div className="rounded-lg px-3 py-2.5 text-sm border bg-zinc-700/40 border-zinc-600/40 text-zinc-300">
           <div className="flex items-center gap-2">
-            <div className="animate-spin">⏳</div>
+            <div className="animate-spin">â³</div>
             <span className="font-medium flex-1">{pa.uploadProgress.label}</span>
           </div>
         </div>
       )}
       
-      {pa.uploadStatus?.error && <p className="text-[10px] text-red-400">✗ {pa.uploadStatus.error}</p>}
+      {pa.uploadStatus?.error && <p className="text-[10px] text-red-400">âœ— {pa.uploadStatus.error}</p>}
       {!pa.uploadProgress && pa.uploadStatus?.results && (
         <div className="flex flex-col gap-1">
           {pa.uploadStatus.results.map((r,i) => (
             <div key={i} className={`text-[10px] ${r.error ? 'text-red-400' : sub}`}>
               {r.error ? (
                 <>
-                  <p className="font-semibold">✗ {r.file}</p>
+                  <p className="font-semibold">âœ— {r.file}</p>
                   <p className="opacity-90">{r.error}</p>
                 </>
               ) : (
-              <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>
+              <p><span className="font-bold capitalize">{r.broker}</span> â€” {r.count} rows</p>
             )}
           </div>
         ))}
           <p className="text-[10px] text-green-400 font-semibold">+{pa.uploadStatus.newAdded} new</p>
         </div>
       )}
-      {pa.txCount?.total > 0 && <p className="text-xs font-bold text-green-400">{pa.txCount.trades} trades · {pa.txCount.total} total</p>}
+      {pa.txCount?.total > 0 && <p className="text-xs font-bold text-green-400">{pa.txCount.trades} trades Â· {pa.txCount.total} total</p>}
       {pa.txCount?.trades > 0 && (
         <>
           <button onClick={pa.onSync} disabled={pa.syncLoading} className={`${btn} ${pa.syncLoading ? 'bg-zinc-700 text-zinc-400' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
-            {pa.syncLoading ? <>{spinner}Syncing…</> : '⟳ Sync Portfolio'}
+            {pa.syncLoading ? <>{spinner}Syncingâ€¦</> : 'âŸ³ Sync Portfolio'}
           </button>
-          {pa.syncStatus && <p className={`text-[10px] ${pa.syncStatus.startsWith('✓') ? 'text-green-400' : sub}`}>{pa.syncStatus}</p>}
+          {pa.syncStatus && <p className={`text-[10px] ${pa.syncStatus.startsWith('âœ“') ? 'text-green-400' : sub}`}>{pa.syncStatus}</p>}
           <button onClick={pa.onResolve} disabled={pa.resolveLoading} className={`${btn} bg-zinc-700 hover:bg-zinc-600 text-zinc-200`}>
-            {pa.resolveLoading ? <>{spinner}Resolving…</> : '🔍 Resolve Tickers'}
+            {pa.resolveLoading ? <>{spinner}Resolvingâ€¦</> : 'ðŸ” Resolve Tickers'}
           </button>
-          {pa.resolveStatus && <p className={`text-[10px] ${pa.resolveStatus.startsWith('✓') ? 'text-green-400' : sub}`}>{pa.resolveStatus}</p>}
+          {pa.resolveStatus && <p className={`text-[10px] ${pa.resolveStatus.startsWith('âœ“') ? 'text-green-400' : sub}`}>{pa.resolveStatus}</p>}
         </>
       )}
     </div>
@@ -97,7 +97,7 @@ function ActionContent({ id, pa, selectedBroker, onBrokerChange }) {
             </button>
           )}
           <button onClick={pa.onForceResolve} disabled={pa.resolveLoading} className={`${btn} bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50`}>
-            {pa.resolveLoading ? <>{spinner}Re-resolving…</> : 'Force Re-Resolve'}
+            {pa.resolveLoading ? <>{spinner}Re-resolvingâ€¦</> : 'Force Re-Resolve'}
           </button>
         </>
       )}
@@ -213,17 +213,17 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
     },
     {
       id: 'portfolio',
-      label: 'Stock Portfolio',
+      label: 'Portfolio',
       icon: TrendingUp,
       path: null,
       subItems: [
-        { id: 'overview',     label: 'Overview',          path: '/stockportfolio/overview',      icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
-        { id: 'holdings',     label: 'Holdings',          path: '/stockportfolio/holdings',      icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> },
-        { id: 'transactions', label: 'Transactions',      path: '/stockportfolio/transactions',  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> },
-        { id: 'dividends',    label: 'Dividends',         path: '/stockportfolio/dividends',     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
-        { id: 'ownership',    label: 'Ownership',         path: '/stockportfolio/ownership',     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+        { id: 'overview',     label: 'Overview',          path: '/portfolio/overview',      icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
+        { id: 'holdings',     label: 'Holdings',          path: '/portfolio/holdings',      icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> },
+        { id: 'transactions', label: 'Transactions',      path: '/portfolio/transactions',  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> },
+        { id: 'dividends',    label: 'Dividends',         path: '/portfolio/dividends',     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
+        { id: 'ownership',    label: 'Ownership',         path: '/portfolio/ownership',     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
         { id: 'divider1', isDivider: true },
-        { id: 'overrides',    label: 'Portfolio Settings', path: '/stockportfolio/settings',   icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> },
+        { id: 'overrides',    label: 'Portfolio Settings', path: '/portfolio/settings',   icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> },
       ]
     },
     {
@@ -301,7 +301,7 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
 
   return (
     <>
-    {/* Fixed sidebar header — sits above GlobalBar in the sidebar lane */}
+    {/* Fixed sidebar header â€” sits above GlobalBar in the sidebar lane */}
     <div className={`fixed top-0 left-0 ${sidebarWidth} h-12 z-[51] ${bg} flex items-center px-3 transition-all duration-300`}>
       <h1
         className={`absolute top-0 h-full flex items-center justify-center text-lg font-bold ${textPrimary} whitespace-nowrap`}
@@ -485,7 +485,7 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
         </div>
       </div>
     </div>
-    {/* Sidebar right edge — all three pieces share the same easing so they move in lockstep */}
+    {/* Sidebar right edge â€” all three pieces share the same easing so they move in lockstep */}
     <div
       className={`fixed bottom-0 w-px ${borderColor} z-[51] pointer-events-none`}
       style={{ top: '60px', left: isExpanded ? '240px' : '64px', transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)' }}

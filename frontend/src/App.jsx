@@ -130,6 +130,8 @@ export default function App() {
   const [txHistory, setTxHistory] = useState(() => apiCache.get('/api/transactions') || []);
   const [txHistoryLoading, setTxHistoryLoading] = useState(false);
   const [txSearch, setTxSearch] = useState('');
+  const [hideValues, setHideValues] = useState(() => localStorage.getItem('hidePortfolioValues') === 'true');
+  const toggleHideValues = () => setHideValues(v => { const next = !v; localStorage.setItem('hidePortfolioValues', String(next)); return next; });
   const [txTypeFilter, setTxTypeFilter] = useState([]);
   const [txFilterOpen, setTxFilterOpen] = useState(false);
   const [txDateFrom, setTxDateFrom] = useState('');
@@ -268,7 +270,7 @@ export default function App() {
   };
 
   const handleNavigate = (dest, param = null) => {
-    const map = { home:'/', portfolio:'/stockportfolio/overview', skins:'/skins/overview', social:'/home', friends:'/friends', profile:'/profile', admin:'/adminpanel', moderator:'/moderatorpanel' };
+    const map = { home:'/', portfolio:'/portfolio/overview', skins:'/skins/overview', social:'/home', friends:'/friends', profile:'/profile', admin:'/adminpanel', moderator:'/moderatorpanel' };
     if (dest === 'view-profile' && param) navigate(`/profile/@${param}`);
     else navigate(map[dest] || '/');
   };
@@ -518,7 +520,7 @@ export default function App() {
 const handleUpload = async (files) => {
   const fileList = Array.from(files);
   if (!fileList.length) return;
-  const dividendsOnly = location.pathname === '/stockportfolio/import-dividends';
+  const dividendsOnly = location.pathname === '/portfolio/import-dividends';
   uploadAbortRef.current = false;
   uploadAbortControllerRef.current = new AbortController();
   setUploadLoading(true); setUploadStatus(null); setSyncStatus(''); setUploadProgress(null);
@@ -585,7 +587,7 @@ const handleUpload = async (files) => {
       updateProgress('done', 100, `✓ Imported ${totalNewAdded} dividend transaction${totalNewAdded !== 1 ? 's' : ''}`);
       setTimeout(async () => {
         setUploadProgress(null);
-        navigate('/stockportfolio/dividends');
+        navigate('/portfolio/dividends');
         try {
           const divRes = await apiFetch(`/api/dividends?currency=${baseCurrency}`).then(r => r.json());
           if (divRes) {
@@ -692,7 +694,7 @@ const handleUpload = async (files) => {
     }
     
     setAppLoadingLabel('Loading your portfolio...');
-    setTimeout(() => { setUploadProgress(null); navigate('/stockportfolio/overview'); }, 4000);
+    setTimeout(() => { setUploadProgress(null); navigate('/portfolio/overview'); }, 4000);
   } catch (err) {
     setUploadStatus({ error: 'Upload failed: ' + err.message });
     setUploadProgress(null);
@@ -797,7 +799,7 @@ const handleUpload = async (files) => {
       setUploadStatus(null);
       apiCache.del('/api/portfolio-dashboard');
       apiCache.del('/api/portfolio-fingerprint');
-      navigate('/stockportfolio/import');
+      navigate('/portfolio/import');
       setSyncStatus('Holdings cleared. Transaction history and ticker cache kept.');
       setTimeout(() => setSyncStatus(''), 4000);
     } catch (err) {
@@ -901,6 +903,7 @@ const handleUpload = async (files) => {
   const todayPct = todayTotal !== null && totals && (totals.value - todayTotal) !== 0 ? (todayTotal / (totals.value - todayTotal)) * 100 : null;
   const fmt = n => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—';
   const fmtSym = n => n != null ? `${fmt(n)} ${sym}` : '—';
+  const fmtH = n => hideValues ? '•••••' : fmtH(n);
   const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16'];
   const TABS = [{ id: 'overview', label: 'Overview' },{ id: 'holdings', label: 'Holdings' },{ id: 'performance', label: 'Performance' },{ id: 'ownership', label: 'Ownership' },{ id: 'insights', label: 'Insights' },{ id: 'history', label: 'History' }];
 
@@ -913,7 +916,7 @@ const handleUpload = async (files) => {
     if (authStatus !== 'logged-in') { document.title = 'Verumen'; return; }
     const p = location.pathname;
     if (p === '/') document.title = `Verumen — ${authUsername}`;
-    else if (p.startsWith('/stockportfolio')) document.title = 'Verumen — Portfolio';
+    else if (p.startsWith('/portfolio')) document.title = 'Verumen — Portfolio';
     else if (p.startsWith('/skins')) document.title = 'Verumen — Skins';
     else if (p === '/home') document.title = 'Verumen — Social';
     else if (p === '/profile') document.title = `Verumen — @${authUsername}`;
@@ -937,14 +940,14 @@ const handleUpload = async (files) => {
 
   // Derived outside the render function so the useEffect can depend on it
   const _portfolioPathToTab = {
-    '/stockportfolio/overview':         'overview',
-    '/stockportfolio/holdings':         'holdings',
-    '/stockportfolio/transactions':     'history',
-    '/stockportfolio/dividends':        'dividends',
-    '/stockportfolio/ownership':        'ownership',
-    '/stockportfolio/import':           'import',
-    '/stockportfolio/import-dividends': 'importDividends',
-    '/stockportfolio/settings':         'overrides',
+    '/portfolio/overview':         'overview',
+    '/portfolio/holdings':         'holdings',
+    '/portfolio/transactions':     'history',
+    '/portfolio/dividends':        'dividends',
+    '/portfolio/ownership':        'ownership',
+    '/portfolio/import':           'import',
+    '/portfolio/import-dividends': 'importDividends',
+    '/portfolio/settings':         'overrides',
   };
   const currentTab = _portfolioPathToTab[location.pathname] || 'overview';
 
@@ -966,6 +969,16 @@ const handleUpload = async (files) => {
     const dividendsOnly = currentTab === 'importDividends';
 
     return (
+      <>
+      {/* Hide-values toggle — fixed below GlobalBar, always visible while scrolling */}
+      <button onClick={toggleHideValues} title={hideValues ? 'Show values' : 'Hide values'}
+        className="fixed top-14 right-4 z-40 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition bg-zinc-900 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300">
+        {hideValues
+          ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+          : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        }
+        {hideValues ? 'Show values' : 'Hide values'}
+      </button>
       <div className={`flex flex-col h-screen pt-12 overflow-hidden bg-zinc-900 text-white`}>
         {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
 
@@ -1136,6 +1149,16 @@ const handleUpload = async (files) => {
                 {currentTab === 'overrides' && (
                   <div className="flex flex-col gap-5">
                     <h2 className="text-xl font-bold">Portfolio Settings</h2>
+                    <div className={`${cardCls} p-6 flex items-center justify-between gap-4`}>
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-200">Hide portfolio values</p>
+                        <p className="text-xs text-zinc-400 mt-0.5">Masks all currency amounts across the portfolio. Percentages remain visible.</p>
+                      </div>
+                      <button onClick={toggleHideValues}
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${hideValues ? 'bg-violet-600' : 'bg-zinc-600'}`}>
+                        <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${hideValues ? 'translate-x-5' : 'translate-x-0'}`}/>
+                      </button>
+                    </div>
                     <div className={`${cardCls} p-6`}>
                       <p className={`text-sm mb-4 text-zinc-300`}>
                         Pin an ISIN to a specific Yahoo Finance ticker. The override takes priority over automatic resolution on every upload.
@@ -1271,7 +1294,7 @@ const handleUpload = async (files) => {
                       <div className="grid grid-cols-3 gap-5">
                         <div className={`${cardCls} p-6 flex flex-col`}>
                           <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Clear Ticker Cache</h3>
-                          <p className={`text-sm flex-1 text-zinc-400`}>
+                          <p className={`text-sm flex-1 text-zinc-300`}>
                             Removes saved ticker-to-symbol mappings. Holdings and transaction history are untouched — tickers will be re-resolved on the next CSV upload.
                           </p>
                           <button onClick={handleClearTickerCache} className="mt-4 w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition">
@@ -1280,7 +1303,7 @@ const handleUpload = async (files) => {
                         </div>
                         <div className={`${cardCls} p-6 flex flex-col`}>
                           <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 text-amber-400`}>Clear Holdings</h3>
-                          <p className={`text-sm flex-1 text-zinc-400`}>
+                          <p className={`text-sm flex-1 text-zinc-300`}>
                             Resets your portfolio to empty. Transaction history and ticker mappings are preserved — re-uploading the same CSV will skip ticker resolution entirely.
                           </p>
                           <button onClick={handleClearHoldings} className="mt-4 w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-semibold transition">
@@ -1289,7 +1312,7 @@ const handleUpload = async (files) => {
                         </div>
                         <div className={`${cardCls} p-6 flex flex-col`}>
                           <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 text-red-400`}>Clear All Data</h3>
-                          <p className={`text-sm flex-1 text-zinc-400`}>
+                          <p className={`text-sm flex-1 text-zinc-300`}>
                             Wipes everything: holdings, all imported transactions, and ticker resolutions. Nothing can be recovered after this.
                           </p>
                           <button onClick={handleClearAll} className="mt-4 w-full px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-semibold transition">
@@ -1480,7 +1503,7 @@ const handleUpload = async (files) => {
                                       {retryingFailed ? 'Retrying…' : 'Retry'}
                                     </button>
                                   ) : (
-                                    <button onClick={() => navigate('/stockportfolio/settings')} className="shrink-0 font-semibold underline underline-offset-2">
+                                    <button onClick={() => navigate('/portfolio/settings')} className="shrink-0 font-semibold underline underline-offset-2">
                                       Force re-resolve →
                                     </button>
                                   )}
@@ -1490,7 +1513,7 @@ const handleUpload = async (files) => {
                                     <div key={h.ticker} className="flex items-center justify-between gap-2 pl-3">
                                       <span className="font-mono">{h.ticker}{h.isin ? <span className={`ml-1.5 font-sans text-red-500/70`}>{h.isin}</span> : ''}</span>
                                       {h.isin && (
-                                        <button onClick={() => { navigate('/stockportfolio/settings'); setTimeout(() => { if (overrideIsinRef.current) overrideIsinRef.current.value = h.isin; }, 50); }} className="shrink-0 font-semibold underline underline-offset-2">
+                                        <button onClick={() => { navigate('/portfolio/settings'); setTimeout(() => { if (overrideIsinRef.current) overrideIsinRef.current.value = h.isin; }, 50); }} className="shrink-0 font-semibold underline underline-offset-2">
                                           Set ticker →
                                         </button>
                                       )}
@@ -1509,12 +1532,12 @@ const handleUpload = async (files) => {
                             return (<>
                               <div className={statCard}>
                                 <p className={statLabel}>Total Value</p>
-                                <p className="text-4xl font-bold tracking-tight">{fmtSym(totals?.value)}</p>
+                                <p className="text-4xl font-bold tracking-tight">{fmtH(totals?.value)}</p>
                               </div>
                               <div className={statCard}>
                                 <p className={statLabel}>Today's Gain</p>
                                 <p className={`text-4xl font-bold tracking-tight ${todayPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {todayTotal !== null ? `${todayPositive ? '+' : ''}${fmtSym(todayTotal)}` : '—'}
+                                  {todayTotal !== null ? `${todayPositive ? '+' : ''}${fmtH(todayTotal)}` : '—'}
                                 </p>
                                 {todayPct != null && (
                                   <p className={`text-sm font-medium mt-2.5 ${todayPositive ? 'text-emerald-400/60' : 'text-red-400/60'}`}>
@@ -1529,7 +1552,7 @@ const handleUpload = async (files) => {
                                 </p>
                                 {totals && (
                                   <p className={`text-sm font-medium mt-2.5 ${plPositive ? 'text-green-400/60' : 'text-red-400/60'}`}>
-                                    {`${plSign}${fmtSym(totals.profit)} profit / loss`}
+                                    {`${plSign}${fmtH(totals.profit)} profit / loss`}
                                   </p>
                                 )}
                               </div>
@@ -1549,7 +1572,7 @@ const handleUpload = async (files) => {
                                 <option value="pct">Percentage (%)</option>
                               </select>
                             </div>
-                            <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} fmt={fmt} fmtSym={fmtSym} />
+                            <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} fmt={fmt} fmtSym={fmtH} />
                           </div>
                         )}
 
@@ -1589,7 +1612,7 @@ const handleUpload = async (files) => {
                                             </div>
                                             <div className="text-right shrink-0">
                                               <p className="font-bold text-xs">{weight.toFixed(2)}%</p>
-                                              <p className={`text-[10px] text-zinc-400`}>{fmtSym(h.currentValue)}</p>
+                                              <p className={`text-[10px] text-zinc-400`}>{fmtH(h.currentValue)}</p>
                                             </div>
                                           </div>
                                           <div className={`h-0.5 rounded-full bg-zinc-600 overflow-hidden`}>
@@ -1613,16 +1636,16 @@ const handleUpload = async (files) => {
                                         const isBuy = tx.type === 'buy';
                                         const isSell = tx.type === 'sell';
                                         const pillCls = isBuy ? 'bg-emerald-900/40 text-emerald-400' : isSell ? 'bg-red-900/40 text-red-400' : 'bg-blue-900/40 text-blue-400';
-                                        const typeLabel = isBuy ? 'Buy' : isSell ? 'Sell' : 'Div';
+                                        const typeLabel = isBuy ? 'Buy' : isSell ? 'Sell' : 'Dividend';
                                         const totalPositive = tx.total >= 0;
                                         return (
                                           <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg bg-zinc-700/50`}>
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${pillCls}`}>{typeLabel}</span>
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 w-16 text-center ${pillCls}`}>{typeLabel}</span>
                                             <div className="flex-1 min-w-0">
                                               <p className="text-xs font-semibold truncate">{tx.name || tx.ticker || tx.raw_ticker || '—'}</p>
                                               <p className={`text-[10px] text-zinc-400`}>{tx.date ? tx.date.slice(0, 10) : '—'}</p>
                                             </div>
-                                            {tx.total != null && <p className={`text-xs font-semibold shrink-0 tabular-nums ${totalPositive ? 'text-emerald-400' : 'text-red-400'}`}>{totalPositive ? '+' : ''}{fmtSym(tx.total)}</p>}
+                                            {tx.total != null && <p className={`text-xs font-semibold shrink-0 tabular-nums ${totalPositive ? 'text-emerald-400' : 'text-red-400'}`}>{totalPositive ? '+' : ''}{fmtH(tx.total)}</p>}
                                           </div>
                                         );
                                       })}
@@ -1638,7 +1661,7 @@ const handleUpload = async (files) => {
                                     <div className={`${cardCls} p-6`}>
                                       <div className="flex items-center justify-between mb-4">
                                         <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>Dividend Income</h3>
-                                        <span className={`text-[10px] text-zinc-400`}>All time: {fmtSym(dividends.totalAllTime)}</span>
+                                        <span className={`text-[10px] text-zinc-400`}>All time: {fmtH(dividends.totalAllTime)}</span>
                                       </div>
                                       <div className="flex flex-col gap-3">
                                         {dividends.byYear.map(y => (
@@ -1647,7 +1670,7 @@ const handleUpload = async (files) => {
                                             <div className={`flex-1 h-5 rounded-full bg-zinc-700 overflow-hidden`}>
                                               <div className="h-full rounded-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${maxDiv > 0 ? (y.total / maxDiv) * 100 : 0}%`, transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)' }} />
                                             </div>
-                                            <span className={`text-xs font-bold w-24 text-right shrink-0 text-zinc-300`}>{fmtSym(y.total)}</span>
+                                            <span className={`text-xs font-bold w-24 text-right shrink-0 text-zinc-300`}>{fmtH(y.total)}</span>
                                           </div>
                                         ))}
                                       </div>
@@ -1711,16 +1734,16 @@ const handleUpload = async (files) => {
                             {rows.map(s => (
                               <tr key={s.ticker} className={`border-t ${s.noData ? 'border-red-900/40 bg-red-900/10' : 'border-zinc-700 hover:bg-zinc-600/30'} transition`}>
                                 <td className="p-4 font-bold"><span className="flex items-center gap-2"><img src={`https://flagcdn.com/${s.flag}.svg`} alt={s.flag} className="w-4 h-3 object-cover rounded-sm shrink-0" /><span>{s.cleanName || s.name}</span>{s.noData && <span className={`text-xs font-normal text-red-500`}>no data</span>}</span></td>
-                                <td className={`p-4 text-zinc-400`}>{s.ticker}</td>
+                                <td className={`p-4 text-zinc-300`}>{s.ticker}</td>
                                 <td className="p-4 whitespace-nowrap">
                                   <span>{fmt(s.nativePrice)} {s.currency}</span>
                                   {s.priceDate && (() => { const d = new Date(s.priceDate); const now = new Date(); const isToday = d.toDateString() === now.toDateString(); const label = isToday ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }); return <span className={`ml-1.5 text-[10px] ${isToday ? 'text-zinc-500' : 'text-amber-500/70'}`}>{label}</span>; })()}
                                 </td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct == null ? '' : s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct == null ? '—' : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</td>
                                 <td className="p-4">{s.quantity}</td>
-                                <td className={`p-4 font-bold whitespace-nowrap ${s.profit == null ? '' : s.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.profit == null ? '—' : `${s.profit >= 0 ? '+' : ''}${fmtSym(s.profit)}`}</td>
+                                <td className={`p-4 font-bold whitespace-nowrap ${s.profit == null ? '' : s.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.profit == null ? '—' : `${s.profit >= 0 ? '+' : ''}${fmtH(s.profit)}`}</td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.returnPct == null ? '' : s.returnPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.returnPct == null ? '—' : `${s.returnPct >= 0 ? '+' : ''}${s.returnPct.toFixed(2)}%`}</td>
-                                <td className="p-4 whitespace-nowrap">{fmtSym(s.currentValue)}</td>
+                                <td className="p-4 whitespace-nowrap">{fmtH(s.currentValue)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -1780,8 +1803,8 @@ const handleUpload = async (files) => {
                         </div>
                         {!data ? <div className="flex items-center justify-center h-16"><div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div> : (
                           <div className={`flex gap-6`}>
-                            <div><p className={`text-xs text-zinc-400 mb-1`}>Institutional</p><p className="text-xl font-bold">{data.institutionPct ? `${(data.institutionPct * 100).toFixed(1)}%` : '—'}</p></div>
-                            <div><p className={`text-xs text-zinc-400 mb-1`}>Insider</p><p className="text-xl font-bold">{data.insiderPct ? `${(data.insiderPct * 100).toFixed(1)}%` : '—'}</p></div>
+                            <div><p className={`text-xs text-zinc-300 mb-1`}>Institutional</p><p className="text-xl font-bold">{data.institutionPct ? `${(data.institutionPct * 100).toFixed(1)}%` : '—'}</p></div>
+                            <div><p className={`text-xs text-zinc-300 mb-1`}>Insider</p><p className="text-xl font-bold">{data.insiderPct ? `${(data.insiderPct * 100).toFixed(1)}%` : '—'}</p></div>
                           </div>
                         )}
                       </div>
@@ -1810,18 +1833,18 @@ const handleUpload = async (files) => {
                           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div className={statCard}>
                               <p className={statLabel}>All-Time</p>
-                              <p className="text-4xl font-bold tracking-tight">{fmtSym(dividends.totalAllTime)}</p>
-                              <p className={`text-sm font-medium mt-2.5 text-zinc-400`}>{dividends.byYear.length} year{dividends.byYear.length !== 1 ? 's' : ''} of data</p>
+                              <p className="text-4xl font-bold tracking-tight">{fmtH(dividends.totalAllTime)}</p>
+                              <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>{dividends.byYear.length} year{dividends.byYear.length !== 1 ? 's' : ''} of data</p>
                             </div>
                             <div className={statCard}>
                               <p className={statLabel}>This Year</p>
-                              <p className="text-4xl font-bold tracking-tight text-pink-400">{fmtSym(dividends.totalThisYear)}</p>
-                              {dividends.totalAllTime > 0 && <p className={`text-sm font-medium mt-2.5 text-zinc-400`}>{((dividends.totalThisYear / dividends.totalAllTime) * 100).toFixed(1)}% of all time</p>}
+                              <p className="text-4xl font-bold tracking-tight text-pink-400">{fmtH(dividends.totalThisYear)}</p>
+                              {dividends.totalAllTime > 0 && <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>{((dividends.totalThisYear / dividends.totalAllTime) * 100).toFixed(1)}% of all time</p>}
                             </div>
                             <div className={statCard}>
                               <p className={statLabel}>Avg per Year</p>
-                              <p className="text-4xl font-bold tracking-tight">{fmtSym(avgPerYear)}</p>
-                              {dividends.byStock.length > 0 && <p className={`text-sm font-medium mt-2.5 text-zinc-400`}>from {dividends.byStock.length} stock{dividends.byStock.length !== 1 ? 's' : ''}</p>}
+                              <p className="text-4xl font-bold tracking-tight">{fmtH(avgPerYear)}</p>
+                              {dividends.byStock.length > 0 && <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>from {dividends.byStock.length} stock{dividends.byStock.length !== 1 ? 's' : ''}</p>}
                             </div>
                           </div>
 
@@ -1829,7 +1852,7 @@ const handleUpload = async (files) => {
                             <div className={`${cardCls} p-6`}>
                               <div className="flex items-center justify-between mb-5">
                                 <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>By Year</h3>
-                                <button onClick={() => navigate('/stockportfolio/import-dividends')} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 transition">+ Import Dividends</button>
+                                <button onClick={() => navigate('/portfolio/import-dividends')} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 transition">+ Import Dividends</button>
                               </div>
                               <div className="flex flex-col gap-1">
                                 {dividends.byYear.map(({ year, total, stocks }) => (
@@ -1839,7 +1862,7 @@ const handleUpload = async (files) => {
                                       <div className={`flex-1 h-5 bg-zinc-700 rounded-full overflow-hidden`}>
                                         <div className="h-full rounded-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${maxDiv > 0 ? (total / maxDiv) * 100 : 0}%`, transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)' }} />
                                       </div>
-                                      <span className={`text-sm font-bold w-24 text-right shrink-0 text-zinc-200`}>{fmtSym(total)}</span>
+                                      <span className={`text-sm font-bold w-24 text-right shrink-0 text-zinc-200`}>{fmtH(total)}</span>
                                       <span className={`text-xs w-4 shrink-0 text-center text-zinc-400`}>{expandedYear === year ? '▲' : '▼'}</span>
                                     </div>
                                     <div style={{ maxHeight: expandedYear === year ? `${(stocks?.length || 0) * 28 + 16}px` : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
@@ -1850,7 +1873,7 @@ const handleUpload = async (files) => {
                                             <div className={`flex-1 h-3 bg-zinc-700 rounded-full overflow-hidden`}>
                                               <div className="h-full rounded-full bg-linear-to-r from-red-500/60 to-pink-500/60" style={{ width: `${(sTotal / (stocks[0]?.total || 1)) * 100}%` }} />
                                             </div>
-                                            <span className={`text-xs w-20 text-right shrink-0 text-zinc-200`}>{fmtSym(sTotal)}</span>
+                                            <span className={`text-xs w-20 text-right shrink-0 text-zinc-200`}>{fmtH(sTotal)}</span>
                                           </div>
                                         ))}
                                       </div>
@@ -1876,7 +1899,7 @@ const handleUpload = async (files) => {
                                         <p className="flex-1 font-semibold text-xs truncate min-w-0">{name}</p>
                                         <div className="text-right shrink-0">
                                           <p className="font-bold text-xs">{pct.toFixed(1)}%</p>
-                                          <p className={`text-[10px] text-zinc-300`}>{fmtSym(total)}</p>
+                                          <p className={`text-[10px] text-zinc-300`}>{fmtH(total)}</p>
                                         </div>
                                       </div>
                                       <div className={`h-0.5 rounded-full bg-zinc-600 overflow-hidden`}>
@@ -1914,6 +1937,7 @@ const handleUpload = async (files) => {
           </div>
         </div>
       </div>
+      </>
     );
   };
 
@@ -2056,7 +2080,7 @@ const handleUpload = async (files) => {
           <Route path="/friends" element={<PageShell {...shellProps}><FriendsPage authUsername={authUsername}/></PageShell>}/>
           
           {/* Portfolio routes — single wildcard so React reconciles in place (no remount = scroll preserved) */}
-          <Route path="/stockportfolio/*" element={renderPortfolioView()}/>
+          <Route path="/portfolio/*" element={renderPortfolioView()}/>
 
           {/* Skins routes */}
           <Route path="/skins/overview" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
@@ -2118,3 +2142,5 @@ const handleUpload = async (files) => {
     </div>
   );
 }
+
+
