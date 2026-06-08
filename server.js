@@ -14,6 +14,78 @@ const _fxRateCache = {};       // 'USDSEK=X' -> { rate, cachedAt }
 const PRICE_CACHE_TTL      = 6  * 60 * 60 * 1000; // 6h — stale threshold for live display
 const PRICE_CACHE_WARM_TTL = 24 * 60 * 60 * 1000; // 24h — how far back to load from Supabase on cold start
 
+// ── Market close times ────────────────────────────────────────────────────────
+// Used to skip YF fetches when we already hold a post-close price for a market
+// that hasn't re-opened yet (price cannot have changed).
+const MARKET_HOURS = {
+  // Exchange suffix (uppercase after last '.') → { tz, h: closeHour, m: closeMinute }
+  ST:  { tz: 'Europe/Stockholm',  h: 17, m: 30 },
+  OL:  { tz: 'Europe/Oslo',       h: 16, m: 25 },
+  HE:  { tz: 'Europe/Helsinki',   h: 18, m: 30 },
+  CO:  { tz: 'Europe/Copenhagen', h: 17, m:  0 },
+  L:   { tz: 'Europe/London',     h: 16, m: 30 },
+  DE:  { tz: 'Europe/Berlin',     h: 17, m: 30 },
+  F:   { tz: 'Europe/Berlin',     h: 17, m: 30 },
+  PA:  { tz: 'Europe/Paris',      h: 17, m: 35 },
+  AS:  { tz: 'Europe/Amsterdam',  h: 17, m: 35 },
+  MI:  { tz: 'Europe/Rome',       h: 17, m: 35 },
+  MC:  { tz: 'Europe/Madrid',     h: 17, m: 35 },
+  SW:  { tz: 'Europe/Zurich',     h: 17, m: 30 },
+  TO:  { tz: 'America/Toronto',   h: 16, m:  0 },
+  AX:  { tz: 'Australia/Sydney',  h: 16, m:  0 },
+  T:   { tz: 'Asia/Tokyo',        h: 15, m: 30 },
+  HK:  { tz: 'Asia/Hong_Kong',    h: 16, m:  0 },
+  US:  { tz: 'America/New_York',  h: 16, m:  0 }, // default for bare tickers
+};
+
+// Returns UTC ms of the most recent regular-session close for this ticker's exchange.
+// Returns 0 if the market is currently inside its regular session (→ always fetch).
+function lastMarketCloseUTC(ticker) {
+  const dot = ticker.lastIndexOf('.');
+  const suffix = dot >= 0 ? ticker.substring(dot + 1).toUpperCase() : null;
+  const sched = (suffix && MARKET_HOURS[suffix]) || MARKET_HOURS.US;
+  const { tz, h: ch, m: cm } = sched;
+  const now = Date.now();
+
+  for (let back = 0; back <= 4; back++) {
+    const probe = new Date(now - back * 86400000);
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, weekday: 'short',
+      year: 'numeric', month: 'numeric', day: 'numeric', hour12: false,
+    }).formatToParts(probe);
+    const p = {};
+    parts.forEach(({ type, value }) => { p[type] = value; });
+    if (p.weekday === 'Sat' || p.weekday === 'Sun') continue;
+
+    const y = +p.year, mo = +p.month - 1, d = +p.day;
+    // Find UTC ms of ch:cm on this local date via the formatToParts offset trick
+    const guessUTC = Date.UTC(y, mo, d, ch, cm, 0);
+    const fmtParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour: 'numeric', minute: 'numeric', hour12: false,
+    }).formatToParts(new Date(guessUTC));
+    const fp = {};
+    fmtParts.forEach(({ type, value }) => { fp[type] = +value || 0; });
+    const offsetMs = (fp.hour * 60 + fp.minute - ch * 60 - cm) * 60000;
+    const closeUTC = guessUTC - offsetMs;
+
+    if (closeUTC <= now) return closeUTC;
+  }
+  return 0;
+}
+
+// Returns true when the cached price is already from after the last market close —
+// meaning the price cannot have changed and a YF fetch would return identical data.
+function priceIsFresh(ticker, cached) {
+  if (!cached?.q?.regularMarketTime) return false;
+  const mktTimeMs = cached.q.regularMarketTime instanceof Date
+    ? cached.q.regularMarketTime.getTime()
+    : typeof cached.q.regularMarketTime === 'number'
+      ? cached.q.regularMarketTime * 1000
+      : new Date(cached.q.regularMarketTime).getTime();
+  const lastClose = lastMarketCloseUTC(ticker);
+  return lastClose > 0 && mktTimeMs >= lastClose;
+}
+
 // Write-through helper: keeps _priceCache and Supabase price_cache in sync
 function setPriceCache(ticker, data) {
   _priceCache.set(ticker, data);
@@ -1410,6 +1482,8 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       if (cached) {
         const age = Date.now() - cached.cachedAt;
         if (age < 60000) return { ...cached.q, _resolvedTicker: ticker };
+        // Market is closed and our price is from after the last close — price can't have moved
+        if (priceIsFresh(ticker, cached)) return { ...cached.q, _resolvedTicker: ticker, _fromCache: true, _cachedAt: cached.cachedAt };
         if (age < PRICE_CACHE_TTL) return { ...cached.q, _fromCache: true, _resolvedTicker: ticker, _cachedAt: cached.cachedAt };
       }
     }
@@ -1525,10 +1599,12 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   // initial loads when _priceCache is cold. Only on normal loads (not force-refresh).
   if (!forceRefresh && portfolio.length > 0) {
     const allTickers = portfolio.map(h => h.ticker).filter(Boolean);
-    if (allTickers.length > 0) {
+    // Skip tickers whose cached price already covers the last market close
+    const tickersToFetch = allTickers.filter(t => !priceIsFresh(t, _priceCache.get(t)));
+    if (tickersToFetch.length > 0) {
       try {
         const bulkResult = await withYFRetry(
-          () => yahooFinance.quote(allTickers, {}, { validateResult: false }),
+          () => yahooFinance.quote(tickersToFetch, {}, { validateResult: false }),
           12000, 0
         );
         (Array.isArray(bulkResult) ? bulkResult : [bulkResult]).forEach(q => {
@@ -1591,7 +1667,10 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       const _isinCcy=h.isin?ISIN_CURRENCY_MAP[h.isin.substring(0,2).toUpperCase()]:null;
       const currency=q.currency||_isinCcy||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
-      const priceDate = q._fromCache && q._cachedAt ? new Date(q._cachedAt).toISOString() : null;
+      const mktTime = q.regularMarketTime;
+      const priceDate = mktTime
+        ? new Date(typeof mktTime === 'number' ? mktTime * 1000 : mktTime).toISOString()
+        : (q._fromCache && q._cachedAt ? new Date(q._cachedAt).toISOString() : null);
       return { ticker:resolvedTicker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,resolvedTicker), flag:getFlag(resolvedTicker,h.isin), currency, isin:h.isin||null, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache, priceDate };
     } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); return null; }
   });
