@@ -2007,38 +2007,95 @@ const handleUpload = async (files) => {
                   </div>
                 )}
 
-                {currentTab === 'history' && (
-                  <div className="flex flex-col gap-4">
-                    {txHistory.length === 0 && !txHistoryLoading ? <EmptyState icon="📝" title="No transactions" desc="Upload a CSV to populate history." /> : (
-                      <div className={`${cardCls} overflow-hidden`}>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-900 border-gray-700 border-b">
-                              <tr>{['Date','Type','Ticker','Name','Qty','Price',`Total (${sym})`].map(h => <th key={h} className="px-4 py-3 font-bold text-xs text-gray-400 uppercase tracking-wider">{h}</th>)}</tr>
-                            </thead>
-                            <tbody>
-                              {txHistory.slice(0, 500).map((tx, i) => {
-                                const typeCls = tx.type === 'buy' ? 'bg-emerald-900/10 border-emerald-700/20' : tx.type === 'sell' ? 'bg-red-900/10 border-red-700/20' : tx.type === 'dividend' ? 'bg-blue-900/10 border-blue-700/20' : tx.type === 'deposit' ? 'bg-green-900/10 border-green-700/20' : 'bg-gray-800/50 border-gray-700/30';
-                                const typeBadgeCls = tx.type === 'buy' ? 'bg-emerald-900/40 text-emerald-400' : tx.type === 'sell' ? 'bg-red-900/40 text-red-400' : tx.type === 'dividend' ? 'bg-blue-900/40 text-blue-400' : tx.type === 'deposit' ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-400';
-                                return (
-                                  <tr key={i} className={`border-t ${typeCls} hover:bg-gray-800/50 transition`}>
-                                    <td className="px-4 py-3 text-xs font-mono text-gray-400">{tx.date}</td>
-                                    <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-1 rounded-lg ${typeBadgeCls}`}>{tx.type}</span></td>
-                                    <td className="px-4 py-3"><span className={`font-bold ${tx.ticker ? 'text-white' : 'text-gray-500'}`}>{tx.ticker || '—'}</span></td>
-                                    <td className="px-4 py-3 truncate max-w-xs text-gray-300">{tx.name}</td>
-                                    <td className="px-4 py-3 text-right text-gray-400">{tx.quantity}</td>
-                                    <td className="px-4 py-3 text-right text-gray-400">{fmt(tx.price)}</td>
-                                    <td className={`px-4 py-3 text-right font-bold ${tx.total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(tx.total)} {sym}</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
+                {currentTab === 'history' && (() => {
+                  const TX_TYPE_CFG = [
+                    { key: 'buy',         label: 'Buy',         activeCls: 'bg-emerald-900/60 text-emerald-400 border-emerald-700/50' },
+                    { key: 'sell',        label: 'Sell',        activeCls: 'bg-red-900/60 text-red-400 border-red-700/50' },
+                    { key: 'dividend',    label: 'Dividend',    activeCls: 'bg-blue-900/60 text-blue-400 border-blue-700/50' },
+                    { key: 'deposit',     label: 'Deposit',     activeCls: 'bg-green-900/60 text-green-400 border-green-700/50' },
+                    { key: 'withdrawal',  label: 'Withdrawal',  activeCls: 'bg-zinc-600 text-zinc-200 border-zinc-500' },
+                    { key: 'foreign-tax', label: 'Foreign Tax', activeCls: 'bg-zinc-600 text-zinc-200 border-zinc-500' },
+                    { key: 'other',       label: 'Other',       activeCls: 'bg-zinc-600 text-zinc-200 border-zinc-500' },
+                  ];
+                  const presentTypes = new Set(txHistory.map(t => t.type));
+                  const visibleTypes = TX_TYPE_CFG.filter(t => presentTypes.has(t.key));
+                  const q = txSearch.trim().toLowerCase();
+                  const filteredTx = txHistory.filter(tx => {
+                    if (txTypeFilter !== 'all' && tx.type !== txTypeFilter) return false;
+                    if (!q) return true;
+                    return (tx.ticker||'').toLowerCase().includes(q) ||
+                           (tx.name||'').toLowerCase().includes(q) ||
+                           (tx.date||'').includes(q);
+                  });
+                  const capped = filteredTx.slice(0, 500);
+                  return (
+                    <div className="flex flex-col gap-4">
+                      {txHistory.length === 0 && !txHistoryLoading ? <EmptyState icon="📝" title="No transactions" desc="Upload a CSV to populate history." /> : (
+                        <div className={`${cardCls} overflow-hidden`}>
+                          <div className="p-4 border-b border-zinc-700/50 flex flex-col gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className="relative flex-1">
+                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                <input type="text" placeholder="Search ticker, name, date…" value={txSearch} onChange={e => setTxSearch(e.target.value)}
+                                  className="w-full pl-9 pr-8 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition"/>
+                                {txSearch && (
+                                  <button onClick={() => setTxSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                                  </button>
+                                )}
+                              </div>
+                              <span className="text-xs text-zinc-500 shrink-0 tabular-nums">
+                                {filteredTx.length === txHistory.length ? `${txHistory.length} transactions` : `${filteredTx.length} of ${txHistory.length}`}
+                              </span>
+                            </div>
+                            {visibleTypes.length > 0 && (
+                              <div className="flex gap-1.5 flex-wrap">
+                                {[{ key: 'all', label: 'All', activeCls: 'bg-zinc-700 text-white border-zinc-500' }, ...visibleTypes].map(({ key, label, activeCls }) => (
+                                  <button key={key} onClick={() => setTxTypeFilter(key)}
+                                    className={`text-xs px-3 py-1 rounded-full border font-medium transition ${txTypeFilter === key ? activeCls : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500 hover:text-zinc-300'}`}>
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                              <thead className="bg-gray-900 border-gray-700 border-b">
+                                <tr>{[['Date',false],['Type',false],['Ticker',false],['Name',false],['Qty',true],['Price',true],[`Total (${sym})`,true]].map(([h, right]) => <th key={h} className={`px-4 py-3 font-bold text-xs text-gray-400 uppercase tracking-wider${right ? ' text-right' : ''}`}>{h}</th>)}</tr>
+                              </thead>
+                              <tbody>
+                                {capped.length === 0 ? (
+                                  <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-zinc-500">No transactions match your search.</td></tr>
+                                ) : capped.map((tx, i) => {
+                                  const typeBadgeCls = tx.type === 'buy' ? 'bg-emerald-900/40 text-emerald-400' : tx.type === 'sell' ? 'bg-red-900/40 text-red-400' : tx.type === 'dividend' ? 'bg-blue-900/40 text-blue-400' : tx.type === 'deposit' ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-400';
+                                  return (
+                                    <tr key={i} className={`border-t border-zinc-700/30 ${i % 2 === 1 ? 'bg-zinc-700/20' : ''} hover:bg-zinc-700/30 transition`}>
+                                      <td className="px-4 py-3 text-xs font-mono text-gray-400">{tx.date}</td>
+                                      <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-1 rounded-lg ${typeBadgeCls}`}>{tx.type}</span></td>
+                                      <td className="px-4 py-3"><span className={`font-mono font-bold text-sm ${tx.ticker ? 'text-white' : 'text-gray-500'}`}>{tx.ticker || '—'}</span></td>
+                                      <td className="px-4 py-3 truncate max-w-xs text-gray-300">{tx.name}</td>
+                                      <td className="px-4 py-3 text-right text-gray-400">{tx.quantity}</td>
+                                      <td className="px-4 py-3 text-right text-gray-400">{fmt(tx.price)}</td>
+                                      <td className={`px-4 py-3 text-right font-bold ${tx.total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(tx.total)} {sym}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          {filteredTx.length > 500 && (
+                            <div className="px-4 py-3 border-t border-zinc-700/50 text-xs text-zinc-500 text-center">
+                              Showing 500 of {filteredTx.length} — use search or filters to narrow results.
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  );
+                })()}
               </>
             )}
           </div>
