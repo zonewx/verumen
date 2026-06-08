@@ -317,7 +317,7 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
     </div>
 
     <div className={`${sidebarWidth} ${bg} transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden p-2 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
         <div className="space-y-0.5">
           {visibleMenuItems.map(item => {
             const Icon = item.icon;
