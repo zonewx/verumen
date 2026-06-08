@@ -1720,7 +1720,7 @@ const handleUpload = async (files) => {
                     { key: 'name', label: 'Name', sortFn: (a, b) => a.name.localeCompare(b.name) },
                     { key: 'ticker', label: 'Ticker', sortFn: (a, b) => a.ticker.localeCompare(b.ticker) },
                     { key: 'nativePrice', label: 'Price', sortFn: (a, b) => a.nativePrice - b.nativePrice },
-                    { key: 'priceTime', label: 'Time', sortFn: (a, b) => (a.priceDate || '').localeCompare(b.priceDate || '') },
+                    { key: 'priceTime', label: 'Time', title: 'Most recent price fetch', sortFn: (a, b) => (a.priceDate || '').localeCompare(b.priceDate || '') },
                     { key: 'todayPct', label: 'Today %', sortFn: (a, b) => a.todayChangePct - b.todayChangePct },
                     { key: 'quantity', label: 'Qty', sortFn: (a, b) => a.quantity - b.quantity },
                     { key: 'profit', label: `Return (${sym})`, sortFn: (a, b) => a.profit - b.profit },
@@ -1736,7 +1736,7 @@ const handleUpload = async (files) => {
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
                           <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
-                            <tr>{COLS.map(c => <th key={c.key} onClick={() => handleSort(c.key)} className={`p-4 font-bold text-zinc-400 hover:text-white uppercase tracking-wider whitespace-nowrap cursor-pointer select-none transition text-xs`}>{c.label}{sortCol === c.key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</th>)}</tr>
+                            <tr>{COLS.map(c => <th key={c.key} onClick={() => handleSort(c.key)} title={c.title} className={`p-4 font-bold text-zinc-400 hover:text-white uppercase tracking-wider whitespace-nowrap cursor-pointer select-none transition text-xs`}>{c.label}{sortCol === c.key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}</th>)}</tr>
                           </thead>
                           <tbody>
                             {rows.map(s => (
@@ -1746,7 +1746,7 @@ const handleUpload = async (files) => {
                                 <td className="p-4 whitespace-nowrap">
                                   <span>{fmt(s.nativePrice)} {s.currency}</span>
                                 </td>
-                                <td className="p-4 whitespace-nowrap text-xs">
+                                <td className="p-4 whitespace-nowrap text-xs" title="Most recent price fetch">
                                   {s.priceDate ? (() => { const d = new Date(s.priceDate); const now = new Date(); const isToday = d.toDateString() === now.toDateString(); const label = isToday ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }); return <span className={isToday ? 'text-zinc-400' : 'text-amber-500/70'}>{label}</span>; })() : <span className="text-zinc-600">—</span>}
                                 </td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct == null ? '' : s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct == null ? '—' : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</td>
@@ -1757,6 +1757,24 @@ const handleUpload = async (files) => {
                               </tr>
                             ))}
                           </tbody>
+                          <tfoot>
+                            {(() => {
+                              const totalProfit = rows.reduce((s, r) => r.profit != null ? s + r.profit : s, 0);
+                              const totalValue = rows.reduce((s, r) => r.currentValue != null ? s + r.currentValue : s, 0);
+                              const totalCost = rows.reduce((s, r) => r.currentValue != null && r.profit != null ? s + (r.currentValue - r.profit) : s, 0);
+                              const totalReturnPct = totalCost > 0 ? (totalProfit / totalCost) * 100 : null;
+                              const profitPos = totalProfit >= 0;
+                              const pctPos = totalReturnPct == null || totalReturnPct >= 0;
+                              return (
+                                <tr className="border-t-2 border-zinc-600 bg-zinc-900/60">
+                                  <td className="p-4 text-xs font-bold uppercase tracking-wider text-zinc-400" colSpan={6}>Total</td>
+                                  <td className={`p-4 font-bold whitespace-nowrap ${profitPos ? 'text-green-400' : 'text-red-400'}`}>{profitPos ? '+' : ''}{fmtH(totalProfit)}</td>
+                                  <td className={`p-4 font-bold whitespace-nowrap ${pctPos ? 'text-green-400' : 'text-red-400'}`}>{totalReturnPct == null ? '—' : `${pctPos ? '+' : ''}${totalReturnPct.toFixed(2)}%`}</td>
+                                  <td className="p-4 font-bold whitespace-nowrap">{fmtH(totalValue)}</td>
+                                </tr>
+                              );
+                            })()}
+                          </tfoot>
                         </table>
                       </div>
                     </div>
