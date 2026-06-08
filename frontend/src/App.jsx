@@ -128,7 +128,10 @@ export default function App() {
   const [txHistory, setTxHistory] = useState(() => apiCache.get('/api/transactions') || []);
   const [txHistoryLoading, setTxHistoryLoading] = useState(false);
   const [txSearch, setTxSearch] = useState('');
-  const [txTypeFilter, setTxTypeFilter] = useState('all');
+  const [txTypeFilter, setTxTypeFilter] = useState([]);
+  const [txFilterOpen, setTxFilterOpen] = useState(false);
+  const [txDateFrom, setTxDateFrom] = useState('');
+  const [txDateTo, setTxDateTo] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const globalSearchRef = useRef(null);
   const [selectedBroker, setSelectedBroker] = useState('auto');
@@ -2017,66 +2020,113 @@ const handleUpload = async (files) => {
                     { key: 'foreign-tax', label: 'Foreign Tax', activeCls: 'bg-zinc-600 text-zinc-200 border-zinc-500' },
                     { key: 'other',       label: 'Other',       activeCls: 'bg-zinc-600 text-zinc-200 border-zinc-500' },
                   ];
+                  const COLS = [
+                    { label: 'Date',            w: 'w-[110px]', align: '' },
+                    { label: 'Type',            w: 'w-[110px]', align: '' },
+                    { label: 'Source',          w: 'w-[110px]', align: '' },
+                    { label: 'Ticker',          w: 'w-[130px]', align: '' },
+                    { label: 'Name',            w: '',          align: '' },
+                    { label: 'Qty',             w: 'w-[80px]',  align: 'text-right' },
+                    { label: 'Price',           w: 'w-[110px]', align: 'text-right' },
+                    { label: `Total (${sym})`,  w: 'w-[150px]', align: 'text-right' },
+                  ];
                   const presentTypes = new Set(txHistory.map(t => t.type));
                   const visibleTypes = TX_TYPE_CFG.filter(t => presentTypes.has(t.key));
+                  const toggleType = key => setTxTypeFilter(prev => prev.includes(key) ? prev.filter(t => t !== key) : [...prev, key]);
+                  const activeFilterCount = txTypeFilter.length + (txDateFrom ? 1 : 0) + (txDateTo ? 1 : 0);
                   const q = txSearch.trim().toLowerCase();
                   const filteredTx = txHistory.filter(tx => {
-                    if (txTypeFilter !== 'all' && tx.type !== txTypeFilter) return false;
+                    if (txTypeFilter.length > 0 && !txTypeFilter.includes(tx.type)) return false;
+                    if (txDateFrom && tx.date < txDateFrom) return false;
+                    if (txDateTo   && tx.date > txDateTo)   return false;
                     if (!q) return true;
                     return (tx.ticker||'').toLowerCase().includes(q) ||
                            (tx.name||'').toLowerCase().includes(q) ||
                            (tx.date||'').includes(q);
                   });
                   const capped = filteredTx.slice(0, 500);
+                  const dateCls = 'w-32.5 px-2.5 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-zinc-500 transition scheme-dark';
                   return (
                     <div className="flex flex-col gap-4">
                       {txHistory.length === 0 && !txHistoryLoading ? <EmptyState icon="📝" title="No transactions" desc="Upload a CSV to populate history." /> : (
                         <div className={`${cardCls} overflow-hidden`}>
-                          <div className="p-4 border-b border-zinc-700/50 flex flex-col gap-3">
-                            <div className="flex items-center gap-3">
-                              <div className="relative flex-1">
-                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                                </svg>
-                                <input type="text" placeholder="Search ticker, name, date…" value={txSearch} onChange={e => setTxSearch(e.target.value)}
-                                  className="w-full pl-9 pr-8 py-2 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition"/>
-                                {txSearch && (
-                                  <button onClick={() => setTxSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition">
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                                  </button>
-                                )}
-                              </div>
-                              <span className="text-xs text-zinc-500 shrink-0 tabular-nums">
-                                {filteredTx.length === txHistory.length ? `${txHistory.length} transactions` : `${filteredTx.length} of ${txHistory.length}`}
-                              </span>
+                          {/* Toolbar — single row */}
+                          <div className="px-4 py-3 border-b border-zinc-700/50 flex items-center gap-2">
+                            {/* Filters dropdown */}
+                            <div className="relative shrink-0">
+                              {txFilterOpen && <div className="fixed inset-0 z-10" onClick={() => setTxFilterOpen(false)}/>}
+                              <button onClick={() => setTxFilterOpen(o => !o)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition ${txFilterOpen || activeFilterCount > 0 ? 'bg-zinc-700 border-zinc-500 text-white' : 'bg-transparent border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'}`}>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M7 12h10M11 20h2"/></svg>
+                                Filters
+                                {activeFilterCount > 0 && <span className="flex items-center justify-center w-4 h-4 rounded-full bg-violet-500 text-white text-[10px] font-bold leading-none">{activeFilterCount}</span>}
+                              </button>
+                              {txFilterOpen && (
+                                <div className="absolute top-full left-0 mt-1.5 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-3 min-w-[180px]">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Transaction type</p>
+                                  <div className="flex flex-col gap-0.5">
+                                    {visibleTypes.map(({ key, label }) => {
+                                      const checked = txTypeFilter.includes(key);
+                                      return (
+                                        <button key={key} onClick={() => toggleType(key)}
+                                          className={`flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-xs font-medium text-left transition ${checked ? 'bg-zinc-700/80 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}>
+                                          <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition ${checked ? 'bg-violet-500 border-violet-500' : 'border-zinc-600'}`}>
+                                            {checked && <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>}
+                                          </span>
+                                          {label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  {txTypeFilter.length > 0 && (
+                                    <button onClick={() => setTxTypeFilter([])} className="mt-2 pt-2 border-t border-zinc-700/50 text-xs text-zinc-500 hover:text-zinc-300 transition w-full text-left">
+                                      Clear selection
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            {visibleTypes.length > 0 && (
-                              <div className="flex gap-1.5 flex-wrap">
-                                {[{ key: 'all', label: 'All', activeCls: 'bg-zinc-700 text-white border-zinc-500' }, ...visibleTypes].map(({ key, label, activeCls }) => (
-                                  <button key={key} onClick={() => setTxTypeFilter(key)}
-                                    className={`text-xs px-3 py-1 rounded-full border font-medium transition ${txTypeFilter === key ? activeCls : 'bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500 hover:text-zinc-300'}`}>
-                                    {label}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
+                            {/* Date range */}
+                            <input type="date" value={txDateFrom} onChange={e => setTxDateFrom(e.target.value)} className={dateCls}/>
+                            <span className="text-zinc-600 text-xs shrink-0">—</span>
+                            <input type="date" value={txDateTo} onChange={e => setTxDateTo(e.target.value)} className={dateCls}/>
+                            {/* Search */}
+                            <div className="relative flex-1">
+                              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                              </svg>
+                              <input type="text" placeholder="Search ticker, name, date…" value={txSearch} onChange={e => setTxSearch(e.target.value)}
+                                className="w-full pl-9 pr-8 py-1.5 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition"/>
+                              {txSearch && (
+                                <button onClick={() => setTxSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                              )}
+                            </div>
+                            {/* Count */}
+                            <span className="text-xs text-zinc-500 shrink-0 tabular-nums">
+                              {filteredTx.length === txHistory.length ? `${txHistory.length} transactions` : `${filteredTx.length} of ${txHistory.length}`}
+                            </span>
                           </div>
+                          {/* Table */}
                           <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
+                            <table className="w-full text-left text-sm table-fixed">
+                              <colgroup>{COLS.map(({ w }, ci) => <col key={ci} className={w}/>)}</colgroup>
                               <thead className="bg-gray-900 border-gray-700 border-b">
-                                <tr>{[['Date',false],['Type',false],['Ticker',false],['Name',false],['Qty',true],['Price',true],[`Total (${sym})`,true]].map(([h, right]) => <th key={h} className={`px-4 py-3 font-bold text-xs text-gray-400 uppercase tracking-wider${right ? ' text-right' : ''}`}>{h}</th>)}</tr>
+                                <tr>{COLS.map(({ label, align }) => <th key={label} className={`px-4 py-3 font-bold text-xs text-gray-400 uppercase tracking-wider ${align}`}>{label}</th>)}</tr>
                               </thead>
                               <tbody>
                                 {capped.length === 0 ? (
-                                  <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-zinc-500">No transactions match your search.</td></tr>
+                                  <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-zinc-500">No transactions match your search.</td></tr>
                                 ) : capped.map((tx, i) => {
                                   const typeBadgeCls = tx.type === 'buy' ? 'bg-emerald-900/40 text-emerald-400' : tx.type === 'sell' ? 'bg-red-900/40 text-red-400' : tx.type === 'dividend' ? 'bg-blue-900/40 text-blue-400' : tx.type === 'deposit' ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-400';
                                   return (
                                     <tr key={i} className={`border-t border-zinc-700/30 ${i % 2 === 1 ? 'bg-zinc-700/20' : ''} hover:bg-zinc-700/30 transition`}>
                                       <td className="px-4 py-3 text-xs font-mono text-gray-400">{tx.date}</td>
-                                      <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-1 rounded-lg ${typeBadgeCls}`}>{tx.type}</span></td>
-                                      <td className="px-4 py-3"><span className={`font-mono font-bold text-sm ${tx.ticker ? 'text-white' : 'text-gray-500'}`}>{tx.ticker || '—'}</span></td>
-                                      <td className="px-4 py-3 truncate max-w-xs text-gray-300">{tx.name}</td>
+                                      <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-1 rounded-lg capitalize ${typeBadgeCls}`}>{tx.type}</span></td>
+                                      <td className="px-4 py-3">{tx.broker ? <span className="text-xs text-zinc-400 capitalize">{tx.broker}</span> : <span className="text-gray-500">—</span>}</td>
+                                      <td className="px-4 py-3 overflow-hidden"><span className={`font-mono font-bold text-sm ${tx.ticker ? 'text-white' : 'text-gray-500'}`}>{tx.ticker || '—'}</span></td>
+                                      <td className="px-4 py-3 overflow-hidden truncate text-gray-300">{tx.name}</td>
                                       <td className="px-4 py-3 text-right text-gray-400">{tx.quantity}</td>
                                       <td className="px-4 py-3 text-right text-gray-400">{fmt(tx.price)}</td>
                                       <td className={`px-4 py-3 text-right font-bold ${tx.total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(tx.total)} {sym}</td>

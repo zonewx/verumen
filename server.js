@@ -1015,7 +1015,16 @@ app.get('/api/transactions', requireUser, async (req, res) => {
       if (fxd?.rates?.[BC]) bcRate = fxd.rates[BC];
     } catch(e) {}
   }
-  res.json((data || []).map(t => ({ ...t, total: parseFloat(((t.total_sek || 0) * bcRate).toFixed(2)) })));
+  const rows = data || [];
+  // Backfill tickers onto dividend/foreign-tax rows by matching ISIN from buy/sell rows.
+  // Dividends are excluded from the resolve step so they never get a ticker written to the DB.
+  const isinToTicker = {};
+  rows.forEach(t => { if (t.ticker && t.isin) isinToTicker[t.isin] = t.ticker; });
+  res.json(rows.map(t => ({
+    ...t,
+    ticker: t.ticker || (t.isin ? isinToTicker[t.isin] : null) || null,
+    total: parseFloat(((t.total_sek || 0) * bcRate).toFixed(2)),
+  })));
 });
 
 app.get('/api/transactions/count', requireUser, async (req, res) => {
