@@ -107,7 +107,7 @@ export default function TransactionHistoryTab({
   };
 
   if (txHistory.length === 0 && !txHistoryLoading) {
-    return <EmptyState icon="📝" title="No transactions" desc="Upload a CSV to populate history." />;
+    return <EmptyState title="No transactions" desc="Upload a CSV to populate history." />;
   }
 
   return (

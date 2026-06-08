@@ -1609,12 +1609,12 @@ const handleUpload = async (files) => {
                                     <p className={`text-center py-12 text-sm text-zinc-400`}>No transactions yet.</p>
                                   ) : (
                                     <div className="flex flex-col gap-2">
-                                      {txHistory.filter(tx => ['buy','sell','dividend'].includes(tx.type)).slice(0, 8).map((tx, i) => {
+                                      {txHistory.filter(tx => ['buy','sell','dividend'].includes(tx.type)).slice(0, 10).map((tx, i) => {
                                         const isBuy = tx.type === 'buy';
                                         const isSell = tx.type === 'sell';
-                                        const isDividend = tx.type === 'dividend';
                                         const pillCls = isBuy ? 'bg-emerald-900/40 text-emerald-400' : isSell ? 'bg-red-900/40 text-red-400' : 'bg-blue-900/40 text-blue-400';
                                         const typeLabel = isBuy ? 'Buy' : isSell ? 'Sell' : 'Div';
+                                        const totalPositive = tx.total >= 0;
                                         return (
                                           <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg bg-zinc-700/50`}>
                                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${pillCls}`}>{typeLabel}</span>
@@ -1622,7 +1622,7 @@ const handleUpload = async (files) => {
                                               <p className="text-xs font-semibold truncate">{tx.name || tx.ticker || tx.raw_ticker || '—'}</p>
                                               <p className={`text-[10px] text-zinc-400`}>{tx.date ? tx.date.slice(0, 10) : '—'}</p>
                                             </div>
-                                            {tx.quantity != null && <p className={`text-xs font-semibold shrink-0 text-zinc-300`}>{tx.quantity > 0 ? '+' : ''}{tx.quantity}</p>}
+                                            {tx.total != null && <p className={`text-xs font-semibold shrink-0 tabular-nums ${totalPositive ? 'text-emerald-400' : 'text-red-400'}`}>{totalPositive ? '+' : ''}{fmtSym(tx.total)}</p>}
                                           </div>
                                         );
                                       })}
@@ -1699,7 +1699,7 @@ const handleUpload = async (files) => {
                   const handleSort = key => { if (sortCol === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(key); setSortDir('desc'); } };
                   const col = COLS.find(c => c.key === sortCol);
                   const rows = dashboardData ? [...dashboardData.portfolio].sort((a, b) => { const v = col ? col.sortFn(a, b) : 0; return sortDir === 'asc' ? v : -v; }) : [];
-                  if (!dashboardData || portfolio.length === 0) return <EmptyState icon="📋" title="No holdings" desc="Upload a CSV and sync your portfolio." />;
+                  if (!dashboardData || portfolio.length === 0) return <EmptyState title="No holdings" desc="Upload a CSV and sync your portfolio." />;
                   return (
                     <div className={`${cardCls} overflow-hidden`}>
                       <div className="overflow-x-auto">
@@ -1713,10 +1713,8 @@ const handleUpload = async (files) => {
                                 <td className="p-4 font-bold"><span className="flex items-center gap-2"><img src={`https://flagcdn.com/${s.flag}.svg`} alt={s.flag} className="w-4 h-3 object-cover rounded-sm shrink-0" /><span>{s.cleanName || s.name}</span>{s.noData && <span className={`text-xs font-normal text-red-500`}>no data</span>}</span></td>
                                 <td className={`p-4 text-zinc-400`}>{s.ticker}</td>
                                 <td className="p-4 whitespace-nowrap">
-                                  <div className="flex flex-col leading-tight">
-                                    <span>{fmt(s.nativePrice)} {s.currency}</span>
-                                    {s.priceDate && <span className="text-xs text-amber-500/60 mt-0.5">{(() => { const d = new Date(s.priceDate); const now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }); })()}</span>}
-                                  </div>
+                                  <span>{fmt(s.nativePrice)} {s.currency}</span>
+                                  {s.priceDate && (() => { const d = new Date(s.priceDate); const now = new Date(); const isToday = d.toDateString() === now.toDateString(); const label = isToday ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }); return <span className={`ml-1.5 text-[10px] ${isToday ? 'text-zinc-500' : 'text-amber-500/70'}`}>{label}</span>; })()}
                                 </td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct == null ? '' : s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct == null ? '—' : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</td>
                                 <td className="p-4">{s.quantity}</td>
@@ -1734,7 +1732,7 @@ const handleUpload = async (files) => {
 
                 {currentTab === 'performance' && (
                   <div className="flex flex-col gap-6">
-                    {!portfolio.length ? <EmptyState icon="📈" title="No performance data" desc="Upload and sync a portfolio first." /> : (
+                    {!portfolio.length ? <EmptyState title="No performance data" desc="Upload and sync a portfolio first." /> : (
                       <>
                         <div className={`${cardCls} p-6`}>
                           <div className="flex items-center justify-between mb-5">
@@ -1754,7 +1752,7 @@ const handleUpload = async (files) => {
 
                 {currentTab === 'insights' && (
                   <div className="flex flex-col gap-8">
-                    {!dashboardData || portfolio.length === 0 ? <EmptyState icon="💡" title="No insights" desc="Upload and sync a portfolio first." /> : (
+                    {!dashboardData || portfolio.length === 0 ? <EmptyState title="No insights" desc="Upload and sync a portfolio first." /> : (
                       <>
                         {[
                           { title: 'Portfolio Allocation', data: dashboardData.portfolio.filter(s => s.currentValue != null).map(s => ({ name: s.ticker, value: s.currentValue })) },
@@ -1802,7 +1800,7 @@ const handleUpload = async (files) => {
 
                 {currentTab === 'dividends' && (
                   <div className="flex flex-col gap-4">
-                    {!dividends || dividends.totalAllTime === 0 ? <EmptyState icon="💰" title="No dividends" desc="Upload and sync your portfolio to see dividend history." /> : (() => {
+                    {!dividends || dividends.totalAllTime === 0 ? <EmptyState title="No dividends" desc="Upload and sync your portfolio to see dividend history." /> : (() => {
                       const statCard = `bg-zinc-800 border-zinc-700 border rounded-2xl p-6`;
                       const statLabel = `text-[10px] font-semibold tracking-[0.14em] uppercase mb-4 text-zinc-400`;
                       const maxDiv = Math.max(...dividends.byYear.map(y => y.total));
