@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import CSSkins from './CSSkins';
 import ProfilePageView from './ProfilePageView';
@@ -11,6 +11,8 @@ import FriendsPage from './FriendsPage';
 import Sidebar from './Sidebar';
 import SettingsPage from './SettingsPage';
 import apiCache from './apiCache';
+import { EmptyState, ShortcutsModal, PieChart, LineChart, TodayCards } from './PortfolioComponents';
+import TransactionHistoryTab from './TransactionHistoryTab';
 
 function RetryCountdown({ onRetry }) {
   const [secs, setSecs] = useState(25);
@@ -921,128 +923,8 @@ const handleUpload = async (files) => {
     else document.title = 'Verumen';
   }, [location.pathname, authStatus, authUsername]);
 
-  // ── Sub-components ─────────────────────────────────────────────────────────
-  const EmptyState = ({ icon, title, desc, action }) => (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <h3 className="text-lg font-semibold text-zinc-300 mb-2">{title}</h3>
-      <p className="text-sm text-zinc-500 max-w-xs mb-6">{desc}</p>
-      {action && <button onClick={action.fn} className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-semibold transition">{action.label}</button>}
-    </div>
-  );
-
-  const ShortcutsModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShortcuts(false)}>
-      <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5"><h3 className="text-base font-bold">Keyboard shortcuts</h3><button onClick={() => setShowShortcuts(false)} className="text-zinc-500 hover:text-white text-lg">✕</button></div>
-        {[['Space / /','Focus search'],['?','Show shortcuts'],['Esc','Close / unfocus']].map(([key, desc]) => (
-          <div key={key} className={`flex items-center justify-between py-2 border-b border-zinc-700 last:border-0`}>
-            <span className={`text-sm text-zinc-300`}>{desc}</span>
-            <kbd className={`bg-zinc-700 text-zinc-200 text-xs font-mono px-2 py-1 rounded`}>{key}</kbd>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const PieChart = ({ data }) => {
-    const total = data.reduce((s, d) => s + d.value, 0);
-    if (!total) return null;
-    let ca = -Math.PI / 2;
-    const cx = 120, cy = 120, r = 90, inner = 52;
-    const slices = data.map((d, i) => {
-      const angle = (d.value / total) * 2 * Math.PI;
-      const x1 = cx + r * Math.cos(ca), y1 = cy + r * Math.sin(ca);
-      ca += angle;
-      const x2 = cx + r * Math.cos(ca), y2 = cy + r * Math.sin(ca);
-      const ix1 = cx + inner * Math.cos(ca - angle), iy1 = cy + inner * Math.sin(ca - angle);
-      const ix2 = cx + inner * Math.cos(ca), iy2 = cy + inner * Math.sin(ca);
-      const large = angle > Math.PI ? 1 : 0;
-      return { path: `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${inner} ${inner} 0 ${large} 0 ${ix1} ${iy1} Z`, color: COLORS[i % COLORS.length], pct: ((d.value / total) * 100).toFixed(1), name: d.name };
-    });
-
-    return (
-      <div className="flex flex-col lg:flex-row items-center gap-8">
-        <svg width="240" height="240" viewBox="0 0 240 240" className="shrink-0">{slices.map((s, i) => <path key={i} d={s.path} fill={s.color} opacity="0.9" />)}</svg>
-        <div className="flex flex-col gap-2 w-full">{slices.map((s, i) => <div key={i} className="flex items-center gap-3"><div className="w-3 h-3 rounded-full shrink-0" style={{ background: s.color }} /><span className="text-sm text-zinc-300 flex-1">{s.name}</span><span className="text-sm font-bold">{s.pct}%</span></div>)}</div>
-      </div>
-    );
-  };
-
-  const LineChart = ({ data, loading }) => {
-    if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div>;
-    if (!data?.length) return <div className="flex items-center justify-center h-64 text-zinc-500 text-sm">No data for this period.</div>;
-    const W = 800, H = 260, PL = 52, PR = 16, PT = 16, PB = 32;
-    const cw = W - PL - PR, ch = H - PT - PB;
-    const vals = data.map(d => d.returnPct);
-    const minV = Math.min(...vals), maxV = Math.max(...vals);
-    const range = maxV - minV || 1, pad = range * 0.1;
-    const lo = minV - pad, hi = maxV + pad;
-    const tx = i => PL + (i / (data.length - 1)) * cw;
-    const ty = v => PT + ch - ((v - lo) / (hi - lo)) * ch;
-    const pts = data.map((d, i) => `${tx(i)},${ty(d.returnPct)}`).join(' ');
-    const fillPts = `${PL},${PT + ch} ` + data.map((d, i) => `${tx(i)},${ty(d.returnPct)}`).join(' ') + ` ${tx(data.length - 1)},${PT + ch}`;
-    const lastVal = vals[vals.length - 1], positive = lastVal >= 0;
-    const lineColor = positive ? '#10b981' : '#ef4444';
-    const gridVals = Array.from({ length: 5 }, (_, i) => lo + (hi - lo) * i / 4);
-    const labelIdxs = Array.from({ length: Math.min(6, data.length) }, (_, i) => Math.round(i * (data.length - 1) / (Math.min(6, data.length) - 1)));
-    
-    return (
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 260 }}>
-        <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={lineColor} stopOpacity="0.25"/><stop offset="100%" stopColor={lineColor} stopOpacity="0"/></linearGradient></defs>
-        {gridVals.map((v, i) => (<g key={i}><line x1={PL} y1={ty(v)} x2={W - PR} y2={ty(v)} stroke="#374151" strokeWidth="0.5"/><text x={PL - 4} y={ty(v) + 4} textAnchor="end" fontSize="10" fill="#6b7280">{v.toFixed(1)}%</text></g>))}
-        {ty(0) > PT && ty(0) < PT + ch && <line x1={PL} y1={ty(0)} x2={W - PR} y2={ty(0)} stroke="#4b5563" strokeWidth="1" strokeDasharray="4,3"/>}
-        <polygon points={fillPts} fill="url(#cg)"/>
-        <polyline points={pts} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
-        {labelIdxs.map(i => <text key={i} x={tx(i)} y={H - 6} textAnchor="middle" fontSize="10" fill="#6b7280">{data[i].date.slice(5)}</text>)}
-        <circle cx={tx(data.length - 1)} cy={ty(lastVal)} r="4" fill={lineColor}/>
-      </svg>
-    );
-  };
-
-  const TodayCards = ({ data, sortMode }) => {
-    const sorted = [...data].filter(s => s.todayChangePct != null).sort((a, b) => sortMode === 'currency' ? (b.todayGainBase ?? 0) - (a.todayGainBase ?? 0) : b.todayChangePct - a.todayChangePct);
-    const best = sorted.slice(0, 3), worst = [...sorted].reverse().slice(0, 3);
-    const Card = ({ s }) => {
-      const pos = s.todayChangePct >= 0;
-      return (
-        <div className={`rounded-xl p-4 flex flex-col gap-2.5 border-l-2 ${pos ? 'border-l-emerald-500' : 'border-l-red-500'} bg-zinc-800 border border-zinc-700`}>
-          <div className="flex items-center justify-between gap-2">
-            <span className={`text-[10px] font-semibold uppercase tracking-[0.12em] truncate text-zinc-400`}>{s.ticker}</span>
-            <span className={`text-xs font-bold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
-              {`${pos ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}
-            </span>
-          </div>
-          <div className={`text-sm font-semibold truncate flex items-center gap-1.5 text-zinc-200`}>
-            <img src={`https://flagcdn.com/${s.flag}.svg`} alt={s.flag} className="w-4 h-3 object-cover rounded-sm shrink-0" />
-            {s.cleanName || s.name}
-          </div>
-          <div className={`text-xs text-zinc-400`}>{fmt(s.nativePrice)} {s.currency}</div>
-          <div className={`text-xs font-semibold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
-            {`${s.todayGainBase >= 0 ? '+' : ''}${fmtSym(s.todayGainBase)}`}
-          </div>
-        </div>
-      );
-    };
-    const labelCls = `text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`;
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-0.5 h-4 bg-emerald-500 rounded-full"/>
-            <h3 className={labelCls}>Best Today</h3>
-          </div>
-          <div className="grid grid-cols-3 gap-3">{best.map(s => <Card key={s.ticker} s={s}/>)}</div>
-        </div>
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-0.5 h-4 bg-red-500 rounded-full"/>
-            <h3 className={labelCls}>Worst Today</h3>
-          </div>
-          <div className="grid grid-cols-3 gap-3">{worst.map(s => <Card key={s.ticker} s={s}/>)}</div>
-        </div>
-      </div>
-    );
-  };
+  // ── Sub-components (EmptyState, ShortcutsModal, PieChart, LineChart, TodayCards)
+  // defined in PortfolioComponents.jsx
 
   // ── Pages ─────────────────────────────────────────────────────────────
   // Build stable shell props so PageShell (defined at module scope) preserves child component state across App re-renders
@@ -1085,7 +967,7 @@ const handleUpload = async (files) => {
 
     return (
       <div className={`flex flex-col h-screen pt-12 overflow-hidden bg-zinc-900 text-white`}>
-        {showShortcuts && <ShortcutsModal />}
+        {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
 
         <div ref={portfolioScrollRef} className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-6 py-6">
@@ -2014,233 +1896,21 @@ const handleUpload = async (files) => {
                   </div>
                 )}
 
-                {currentTab === 'history' && (() => {
-                  const TX_TYPE_CFG = [
-                    { key: 'buy',         label: 'Buy',         activeCls: 'bg-emerald-900/60 text-emerald-400 border-emerald-700/50' },
-                    { key: 'sell',        label: 'Sell',        activeCls: 'bg-red-900/60 text-red-400 border-red-700/50' },
-                    { key: 'dividend',    label: 'Dividend',    activeCls: 'bg-blue-900/60 text-blue-400 border-blue-700/50' },
-                    { key: 'deposit',     label: 'Deposit',     activeCls: 'bg-green-900/60 text-green-400 border-green-700/50' },
-                    { key: 'withdrawal',  label: 'Withdrawal',  activeCls: 'bg-zinc-600 text-zinc-200 border-zinc-500' },
-                    { key: 'foreign-tax', label: 'Foreign Tax', activeCls: 'bg-zinc-600 text-zinc-200 border-zinc-500' },
-                    { key: 'other',       label: 'Other',       activeCls: 'bg-zinc-600 text-zinc-200 border-zinc-500' },
-                  ];
-                  const COLS = [
-                    { label: 'Date',            w: 'w-[110px]', align: '' },
-                    { label: 'Type',            w: 'w-[110px]', align: '' },
-                    { label: 'Source',          w: 'w-[110px]', align: '' },
-                    { label: 'Ticker',          w: 'w-[130px]', align: '' },
-                    { label: 'Name',            w: '',          align: '' },
-                    { label: 'Qty',             w: 'w-[80px]',  align: 'text-right' },
-                    { label: 'Price',           w: 'w-[110px]', align: 'text-right' },
-                    { label: `Total (${sym})`,  w: 'w-[150px]', align: 'text-right' },
-                  ];
-                  const presentTypes = new Set(txHistory.map(t => t.type));
-                  const visibleTypes = TX_TYPE_CFG.filter(t => presentTypes.has(t.key));
-                  const toggleType = key => setTxTypeFilter(prev => prev.includes(key) ? prev.filter(t => t !== key) : [...prev, key]);
-                  const activeFilterCount = txTypeFilter.length + (txDateFrom ? 1 : 0) + (txDateTo ? 1 : 0);
-                  const q = txSearch.trim().toLowerCase();
-                  const filteredTx = txHistory.filter(tx => {
-                    if (txTypeFilter.length > 0 && !txTypeFilter.includes(tx.type)) return false;
-                    if (txDateFrom && tx.date < txDateFrom) return false;
-                    if (txDateTo   && tx.date > txDateTo)   return false;
-                    if (!q) return true;
-                    return (tx.ticker||'').toLowerCase().includes(q) ||
-                           (tx.name||'').toLowerCase().includes(q) ||
-                           (tx.date||'').includes(q);
-                  });
-                  const capped = filteredTx.slice(0, 500);
-                  const toDateStr = d => d.toISOString().split('T')[0];
-                  const fmtDateShort = s => s ? new Date(s + 'T00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
-                  const today = new Date();
-                  const addMonths = (d, n) => { const r = new Date(d); r.setMonth(r.getMonth() + n); return r; };
-                  const DATE_PRESETS = [
-                    { label: '3 months', from: toDateStr(addMonths(today, -3)), to: toDateStr(today) },
-                    { label: 'This year', from: `${today.getFullYear()}-01-01`, to: toDateStr(today) },
-                    { label: '1 year',    from: toDateStr(addMonths(today, -12)), to: toDateStr(today) },
-                    { label: 'Last year', from: `${today.getFullYear()-1}-01-01`, to: `${today.getFullYear()-1}-12-31` },
-                    { label: 'All time',  from: '', to: '' },
-                  ];
-                  const renderCal = (selected, onSelect, calMonth, setCalMonth) => {
-                    const { year, month } = calMonth;
-                    const offset = (new Date(year, month, 1).getDay() + 6) % 7;
-                    const daysInMonth = new Date(year, month + 1, 0).getDate();
-                    const todayStr = toDateStr(today);
-                    const prevMo = () => setCalMonth(p => { const d = new Date(p.year, p.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; });
-                    const nextMo = () => setCalMonth(p => { const d = new Date(p.year, p.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; });
-                    const cells = [...Array(offset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
-                    const monthLabel = new Date(year, month, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-                    return (
-                      <div className="px-3 pb-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <button onClick={prevMo} className="w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
-                          </button>
-                          <span className="text-xs font-medium text-zinc-200">{monthLabel}</span>
-                          <button onClick={nextMo} className="w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-7 mb-1">
-                          {['Mo','Tu','We','Th','Fr','Sa','Su'].map(d => <div key={d} className="text-center text-[10px] text-zinc-600 py-0.5">{d}</div>)}
-                        </div>
-                        <div className="grid grid-cols-7 gap-px">
-                          {cells.map((d, i) => {
-                            if (!d) return <div key={i}/>;
-                            const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                            const isSel = ds === selected;
-                            const inRange = txDateFrom && txDateTo && ds > txDateFrom && ds < txDateTo;
-                            const isToday = ds === todayStr;
-                            return (
-                              <button key={i} onClick={() => onSelect(ds)} className={`text-[11px] w-full aspect-square rounded flex items-center justify-center leading-none transition
-                                ${isSel ? 'bg-violet-500 text-white font-bold' : inRange ? 'bg-violet-500/20 text-zinc-200' : isToday ? 'border border-zinc-600 text-white' : 'text-zinc-400 hover:bg-zinc-700 hover:text-white'}`}>
-                                {d}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  };
-                  return (
-                    <div className="flex flex-col gap-4">
-                      {txHistory.length === 0 && !txHistoryLoading ? <EmptyState icon="📝" title="No transactions" desc="Upload a CSV to populate history." /> : (
-                        <div className={cardCls}>
-                          {/* Toolbar — single row */}
-                          <div className="px-4 py-3 border-b border-zinc-700/50 flex items-center gap-2">
-                            {/* Filters dropdown */}
-                            <div className="relative shrink-0">
-                              {txFilterOpen && <div className="fixed inset-0 z-10" onClick={() => setTxFilterOpen(false)}/>}
-                              <button onClick={() => setTxFilterOpen(o => !o)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition ${txFilterOpen || activeFilterCount > 0 ? 'bg-zinc-700 border-zinc-500 text-white' : 'bg-transparent border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'}`}>
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M7 12h10M11 20h2"/></svg>
-                                Filters
-                                {activeFilterCount > 0 && <span className="flex items-center justify-center w-4 h-4 rounded-full bg-violet-500 text-white text-[10px] font-bold leading-none">{activeFilterCount}</span>}
-                              </button>
-                              {txFilterOpen && (
-                                <div className="absolute top-full left-0 mt-1.5 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-3 min-w-[180px]">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Transaction type</p>
-                                  <div className="flex flex-col gap-0.5">
-                                    {visibleTypes.map(({ key, label }) => {
-                                      const checked = txTypeFilter.includes(key);
-                                      return (
-                                        <button key={key} onClick={() => toggleType(key)}
-                                          className={`flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-xs font-medium text-left transition ${checked ? 'bg-zinc-700/80 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}>
-                                          <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition ${checked ? 'bg-violet-500 border-violet-500' : 'border-zinc-600'}`}>
-                                            {checked && <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>}
-                                          </span>
-                                          {label}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                  {txTypeFilter.length > 0 && (
-                                    <button onClick={() => setTxTypeFilter([])} className="mt-2 pt-2 border-t border-zinc-700/50 text-xs text-zinc-500 hover:text-zinc-300 transition w-full text-left">
-                                      Clear selection
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            {/* Date range picker */}
-                            <div className="relative shrink-0">
-                              {txDateOpen && <div className="fixed inset-0 z-10" onClick={() => setTxDateOpen(false)}/>}
-                              <button onClick={() => { setTxDateOpen(o => { if (!o) { setTxCalView('from'); if (txDateFrom) { const d = new Date(txDateFrom+'T00:00'); setTxCalFromMonth({ year: d.getFullYear(), month: d.getMonth() }); } } return !o; }); }}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition whitespace-nowrap ${txDateOpen || txDateFrom || txDateTo ? 'bg-zinc-700 border-zinc-500 text-white' : 'bg-transparent border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'}`}>
-                                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                {txDateFrom || txDateTo ? `${fmtDateShort(txDateFrom) || '…'} — ${fmtDateShort(txDateTo) || '…'}` : 'Date range'}
-                                {(txDateFrom || txDateTo) && <span onClick={e => { e.stopPropagation(); setTxDateFrom(''); setTxDateTo(''); }} className="ml-0.5 text-zinc-400 hover:text-white leading-none text-base">×</span>}
-                              </button>
-                              {txDateOpen && (
-                                <div className="absolute top-full left-0 mt-1.5 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-72 overflow-hidden">
-                                  <div className="p-3 border-b border-zinc-800 flex flex-wrap gap-1.5">
-                                    {DATE_PRESETS.map(p => (
-                                      <button key={p.label} onClick={() => { setTxDateFrom(p.from); setTxDateTo(p.to); }}
-                                        className={`text-xs px-2.5 py-1 rounded-full border font-medium transition ${txDateFrom === p.from && txDateTo === p.to ? 'bg-zinc-700 border-zinc-500 text-white' : 'bg-transparent border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'}`}>
-                                        {p.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                  <div className="border-b border-zinc-800">
-                                    <button onClick={() => setTxCalView(v => v === 'from' ? null : 'from')} className="w-full flex items-center justify-between px-4 py-2.5 text-xs hover:bg-zinc-800/50 transition">
-                                      <span className="text-zinc-400 font-medium">From</span>
-                                      <div className="flex items-center gap-2">
-                                        {txDateFrom ? <span className="text-zinc-200">{fmtDateShort(txDateFrom)}</span> : <span className="text-zinc-600">Not set</span>}
-                                        <svg className={`w-3 h-3 text-zinc-500 transition-transform ${txCalView === 'from' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
-                                      </div>
-                                    </button>
-                                    {txCalView === 'from' && renderCal(txDateFrom, date => { setTxDateFrom(date); const d = new Date(date+'T00:00'); setTxCalToMonth({ year: d.getFullYear(), month: d.getMonth() }); setTxCalView('to'); }, txCalFromMonth, setTxCalFromMonth)}
-                                  </div>
-                                  <div>
-                                    <button onClick={() => setTxCalView(v => v === 'to' ? null : 'to')} className="w-full flex items-center justify-between px-4 py-2.5 text-xs hover:bg-zinc-800/50 transition">
-                                      <span className="text-zinc-400 font-medium">To</span>
-                                      <div className="flex items-center gap-2">
-                                        {txDateTo ? <span className="text-zinc-200">{fmtDateShort(txDateTo)}</span> : <span className="text-zinc-600">Not set</span>}
-                                        <svg className={`w-3 h-3 text-zinc-500 transition-transform ${txCalView === 'to' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
-                                      </div>
-                                    </button>
-                                    {txCalView === 'to' && renderCal(txDateTo, date => { setTxDateTo(date); setTxCalView(null); }, txCalToMonth, setTxCalToMonth)}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            {/* Search */}
-                            <div className="relative flex-1">
-                              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                              </svg>
-                              <input type="text" placeholder="Search ticker, name, date…" value={txSearch} onChange={e => setTxSearch(e.target.value)}
-                                className="w-full pl-9 pr-8 py-1.5 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition"/>
-                              {txSearch && (
-                                <button onClick={() => setTxSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition">
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                                </button>
-                              )}
-                            </div>
-                            {/* Count */}
-                            <span className="text-xs text-zinc-500 shrink-0 tabular-nums">
-                              {filteredTx.length === txHistory.length ? `${txHistory.length} transactions` : `${filteredTx.length} of ${txHistory.length}`}
-                            </span>
-                          </div>
-                          {/* Table — own overflow wrapper so toolbar dropdowns can escape the card */}
-                          <div className="overflow-hidden rounded-b-xl">
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left text-sm table-fixed">
-                                <colgroup>{COLS.map(({ w }, ci) => <col key={ci} className={w}/>)}</colgroup>
-                                <thead className="bg-gray-900 border-gray-700 border-b">
-                                  <tr>{COLS.map(({ label, align }) => <th key={label} className={`px-4 py-3 font-bold text-xs text-gray-400 uppercase tracking-wider ${align}`}>{label}</th>)}</tr>
-                                </thead>
-                                <tbody>
-                                  {capped.length === 0 ? (
-                                    <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-zinc-500">No transactions match your search.</td></tr>
-                                  ) : capped.map((tx, i) => {
-                                    const typeBadgeCls = tx.type === 'buy' ? 'bg-emerald-900/40 text-emerald-400' : tx.type === 'sell' ? 'bg-red-900/40 text-red-400' : tx.type === 'dividend' ? 'bg-blue-900/40 text-blue-400' : tx.type === 'deposit' ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-400';
-                                    return (
-                                      <tr key={i} className={`border-t border-zinc-700/30 ${i % 2 === 1 ? 'bg-zinc-700/20' : ''} hover:bg-zinc-700/30 transition`}>
-                                        <td className="px-4 py-3 text-xs font-mono text-gray-400">{tx.date}</td>
-                                        <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-1 rounded-lg capitalize ${typeBadgeCls}`}>{tx.type}</span></td>
-                                        <td className="px-4 py-3">{tx.broker ? <span className="text-xs text-zinc-400 capitalize">{tx.broker}</span> : <span className="text-gray-500">—</span>}</td>
-                                        <td className="px-4 py-3 overflow-hidden"><span className={`font-mono font-bold text-sm ${tx.ticker ? 'text-white' : 'text-gray-500'}`}>{tx.ticker || '—'}</span></td>
-                                        <td className="px-4 py-3 overflow-hidden truncate text-gray-300">{tx.name}</td>
-                                        <td className="px-4 py-3 text-right text-gray-400">{tx.quantity}</td>
-                                        <td className="px-4 py-3 text-right text-gray-400">{fmt(tx.price)}</td>
-                                        <td className={`px-4 py-3 text-right font-bold ${tx.total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(tx.total)} {sym}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-                            {filteredTx.length > 500 && (
-                              <div className="px-4 py-3 border-t border-zinc-700/50 text-xs text-zinc-500 text-center">
-                                Showing 500 of {filteredTx.length} — use search or filters to narrow results.
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
+                {currentTab === 'history' && (
+                  <TransactionHistoryTab
+                    txHistory={txHistory} txHistoryLoading={txHistoryLoading}
+                    txSearch={txSearch} setTxSearch={setTxSearch}
+                    txTypeFilter={txTypeFilter} setTxTypeFilter={setTxTypeFilter}
+                    txFilterOpen={txFilterOpen} setTxFilterOpen={setTxFilterOpen}
+                    txDateFrom={txDateFrom} setTxDateFrom={setTxDateFrom}
+                    txDateTo={txDateTo} setTxDateTo={setTxDateTo}
+                    txDateOpen={txDateOpen} setTxDateOpen={setTxDateOpen}
+                    txCalView={txCalView} setTxCalView={setTxCalView}
+                    txCalFromMonth={txCalFromMonth} setTxCalFromMonth={setTxCalFromMonth}
+                    txCalToMonth={txCalToMonth} setTxCalToMonth={setTxCalToMonth}
+                    sym={sym} fmt={fmt} cardCls={cardCls}
+                  />
+                )}
               </>
             )}
           </div>
