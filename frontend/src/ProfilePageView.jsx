@@ -79,7 +79,9 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   const targetUser = viewUsername || authUsername;
 
   const [profile, setProfile] = useState(() => apiCache.get(`/api/users/${targetUser}/profile`));
+  const [loadingProfile, setLoadingProfile] = useState(!apiCache.has(`/api/users/${targetUser}/profile`));
   const [showcaseItems, setShowcaseItems] = useState([]);
+  const [loadingShowcase, setLoadingShowcase] = useState(false);
   const [viewingHoldings, setViewingHoldings] = useState(null);
   const [loadingHoldings, setLoadingHoldings] = useState(false);
   const [showAllHoldings, setShowAllHoldings] = useState(false);
@@ -103,30 +105,34 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   }, [profile]);
 
   async function fetchProfile() {
+    setLoadingProfile(true);
     try {
       const res = await fetch(`/api/users/${targetUser}/profile`, { headers: h });
       const data = await res.json();
       apiCache.set(`/api/users/${targetUser}/profile`, data);
       setProfile(data);
     } catch(e) {}
+    setLoadingProfile(false);
   }
 
   async function loadShowcaseItems() {
     if (!profile.steamId || !profile.showcaseItems || profile.showcaseItems.length === 0) return;
-    
+
+    setLoadingShowcase(true);
     try {
       const res = await fetch(`/api/cs/steam/inventory/${profile.steamId}`, { headers: h });
       const data = await res.json();
-      
+
       // Filter inventory to only include showcase items
       const showcase = data.items
         ?.filter(item => profile.showcaseItems.includes(item.assetId))
         .slice(0, 10); // Safety limit
-      
+
       setShowcaseItems(showcase || []);
     } catch(e) {
       console.error('Failed to load showcase items:', e);
     }
+    setLoadingShowcase(false);
   }
 
   async function loadPublicHoldings() {
@@ -307,17 +313,22 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
         </div>
 
         {/* Item Showcase Section */}
-        {showcaseItems && showcaseItems.length > 0 && (
+        {(loadingShowcase || (showcaseItems && showcaseItems.length > 0)) && (
           <div className={`${card} p-2 mb-2`}>
             <div className="flex items-center justify-between mb-1.5">
               <h3 className={`text-[10px] font-semibold uppercase tracking-wide text-zinc-400`}>
                 Item Showcase
               </h3>
               <span className={`text-[10px] text-zinc-400`}>
-                {showcaseItems.length} {showcaseItems.length === 1 ? 'item' : 'items'}
+                {loadingShowcase ? '...' : `${showcaseItems.length} ${showcaseItems.length === 1 ? 'item' : 'items'}`}
               </span>
             </div>
-            
+
+            {loadingShowcase ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+              </div>
+            ) : (
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
               {showcaseItems.map(item => (
                 <div key={item.assetId} className={`bg-zinc-700/50 hover:bg-zinc-700 rounded p-1 transition cursor-pointer border border-zinc-600`}>
@@ -344,11 +355,18 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
         {/* Portfolio & Dividends - Two Column Layout */}
-        {profile.publicHoldings && (
+        {loadingProfile ? (
+          <div className={`${card} p-6`}>
+            <div className="flex items-center justify-center py-12">
+              <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+            </div>
+          </div>
+        ) : profile.publicHoldings && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             
             {/* Portfolio - Left Column */}
@@ -451,7 +469,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
             </div>
 
           </div>
-        )}
+        )})}
 
       </div>
     </div>

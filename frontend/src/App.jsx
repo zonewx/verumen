@@ -38,7 +38,7 @@ function ProfileRoute({ authUsername, shellProps }) {
 
 function PageShell({ title, children }) {
   return (
-    <div className={`flex flex-col h-screen pt-12 bg-zinc-900 text-white`}>
+    <div className={`flex flex-col h-screen pt-12 bg-zinc-900 text-white overflow-hidden`}>
       {title && <div className={`px-8 py-3 border-b shrink-0 border-zinc-700 bg-zinc-900`}><h1 className="text-base font-bold">{title}</h1></div>}
       {children}
     </div>
@@ -117,13 +117,6 @@ export default function App() {
   const [resolveLoading, setResolveLoading] = useState(false);
   const [resolveStatus, setResolveStatus] = useState('');
   const [todaySortMode, setTodaySortMode] = useState('currency');
-  const [ownershipData, setOwnershipData] = useState({});
-  const [ownershipLoading, setOwnershipLoading] = useState(false);
-  const [ownershipFilter, setOwnershipFilter] = useState('');
-  const [ownershipSort, setOwnershipSort] = useState('value');
-  const [ownershipSearch, setOwnershipSearch] = useState('');
-  const [ownershipSearchResults, setOwnershipSearchResults] = useState([]);
-  const [ownershipExtra, setOwnershipExtra] = useState({});
   const [perfData, setPerfData] = useState([]);
   const [perfPeriod, setPerfPeriod] = useState('3M');
   const [perfLoading, setPerfLoading] = useState(false);
@@ -315,7 +308,7 @@ export default function App() {
             suppressNextFetch.current = true;
             setPortfolio(dbCached.holdings);
           }
-          const [divRes, txRes, overRes, feedRes, friendsRes, txHistRes, csInvRes, csPnlRes, csSetRes, annRes, profRes] = await Promise.all([
+          const [divRes, txRes, overRes, feedRes, friendsRes, txHistRes, csInvRes, csPnlRes, csSetRes, annRes, profRes, reconstructRes] = await Promise.all([
             apiFetch(`/api/dividends?currency=${c}`).then(r => r.json()).catch(() => null),
             apiFetch('/api/transactions/count').then(r => r.json()).catch(() => null),
             apiFetch('/api/overrides').then(r => r.json()).catch(() => null),
@@ -327,6 +320,7 @@ export default function App() {
             !apiCache.has('/api/cs/settings') ? apiFetch('/api/cs/settings').then(r => r.json()).catch(() => null) : Promise.resolve(null),
             !apiCache.has('/api/announcements') ? apiFetch('/api/announcements').then(r => r.json()).catch(() => null) : Promise.resolve(null),
             !apiCache.has(`/api/users/${authUsername}/profile`) ? apiFetch(`/api/users/${authUsername}/profile`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+            !apiCache.has('/api/transactions/reconstruct') ? apiFetch('/api/transactions/reconstruct').then(r => r.json()).catch(() => null) : Promise.resolve(null),
           ]);
           if (divRes) { setDividends(divRes); apiCache.set(`/api/dividends?currency=${c}`, divRes); }
           if (txRes) { setTxCount(txRes); apiCache.set('/api/txCount', txRes); }
@@ -339,6 +333,7 @@ export default function App() {
           if (csSetRes && typeof csSetRes === 'object') apiCache.set('/api/cs/settings', csSetRes);
           if (Array.isArray(annRes)) apiCache.set('/api/announcements', annRes);
           if (profRes && typeof profRes === 'object' && !profRes.error) apiCache.set(`/api/users/${authUsername}/profile`, profRes);
+          if (Array.isArray(reconstructRes)) apiCache.set('/api/transactions/reconstruct', reconstructRes);
           setIsInitializing(false);
           return;
         }
@@ -346,7 +341,7 @@ export default function App() {
     }
 
     try {
-      const [dashRes, divRes, txRes, overRes, feedRes, friendsRes, txHistRes, csInvRes, csPnlRes, csSetRes, annRes, profRes] = await Promise.all([
+      const [dashRes, divRes, txRes, overRes, feedRes, friendsRes, txHistRes, csInvRes, csPnlRes, csSetRes, annRes, profRes, reconstructRes] = await Promise.all([
         p.length > 0
           ? apiFetch('/api/portfolio', { method: 'POST', body: JSON.stringify({ portfolio: p, baseCurrency: c, forceRefresh: isForceRefresh }) }).then(r => r.json())
           : Promise.resolve(null),
@@ -361,6 +356,7 @@ export default function App() {
         !apiCache.has('/api/cs/settings') ? apiFetch('/api/cs/settings').then(r => r.json()).catch(() => null) : Promise.resolve(null),
         !apiCache.has('/api/announcements') ? apiFetch('/api/announcements').then(r => r.json()).catch(() => null) : Promise.resolve(null),
         !apiCache.has(`/api/users/${authUsername}/profile`) ? apiFetch(`/api/users/${authUsername}/profile`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+        !apiCache.has('/api/transactions/reconstruct') ? apiFetch('/api/transactions/reconstruct').then(r => r.json()).catch(() => null) : Promise.resolve(null),
       ]);
       // Don't replace valid dashboard data with an all-noData result (YF rate-limit burst after upload).
       // BUT: if holdings composition changed (new sell/buy added), always accept the new dashRes so
@@ -392,6 +388,20 @@ export default function App() {
       if (csSetRes && typeof csSetRes === 'object') apiCache.set('/api/cs/settings', csSetRes);
       if (Array.isArray(annRes)) apiCache.set('/api/announcements', annRes);
       if (profRes && typeof profRes === 'object' && !profRes.error) apiCache.set(`/api/users/${authUsername}/profile`, profRes);
+      if (Array.isArray(reconstructRes)) apiCache.set('/api/transactions/reconstruct', reconstructRes);
+
+      // Preload friends' profile data in background
+      if (friendsRes?.friends && Array.isArray(friendsRes.friends)) {
+        friendsRes.friends.forEach(friend => {
+          if (!apiCache.has(`/api/users/${friend.username}/profile`)) {
+            apiFetch(`/api/users/${friend.username}/profile`).then(r => r.json()).then(data => {
+              if (data && typeof data === 'object' && !data.error) {
+                apiCache.set(`/api/users/${friend.username}/profile`, data);
+              }
+            }).catch(() => {});
+          }
+        });
+      }
 
       // Auto-sync: portfolio is empty but trades exist in DB (e.g. fresh login from new device/session)
       if (p.length === 0 && txRes?.trades > 0) {
@@ -433,13 +443,6 @@ export default function App() {
     return () => document.removeEventListener('keydown', hkd);
   }, []);
 
-  const fetchOwnership = useCallback((tickers) => {
-    if (!tickers?.length || !authUsername) return;
-    setOwnershipLoading(true);
-    apiFetch('/api/ownership', { method: 'POST', body: JSON.stringify({ tickers: tickers.map(h => ({ ticker: h.ticker, name: h.name, isin: h.isin })) }) })
-      .then(r => r.json()).then(rows => { const m = {}; rows.forEach(r => { m[r.ticker] = r; }); setOwnershipData(m); setOwnershipLoading(false); })
-      .catch(() => setOwnershipLoading(false));
-  }, [authUsername, apiFetch]);
 
   const fetchPerfData = useCallback(async (period) => {
     if (!portfolio.length || !authUsername) return;
@@ -918,7 +921,7 @@ const handleUpload = async (files) => {
   const fmtSym = n => n != null ? `${fmt(n)} ${sym}` : '—';
   const fmtH = n => hideValues ? '•••••' : fmtSym(n);
   const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16'];
-  const TABS = [{ id: 'overview', label: 'Overview' },{ id: 'holdings', label: 'Holdings' },{ id: 'performance', label: 'Performance' },{ id: 'ownership', label: 'Ownership' },{ id: 'insights', label: 'Insights' },{ id: 'history', label: 'History' }];
+  const TABS = [{ id: 'overview', label: 'Overview' },{ id: 'holdings', label: 'Holdings' },{ id: 'performance', label: 'Performance' },{ id: 'insights', label: 'Insights' },{ id: 'history', label: 'History' }];
 
   // ── Helpers ─────────────────────────────────────────────────────────────
   const getSectorData = d => { const m = {}; d.forEach(s => { if (s.currentValue == null) return; const sec = s.sector && s.sector !== 'Unknown' ? s.sector : 'Other'; m[sec] = (m[sec] || 0) + s.currentValue; }); return Object.entries(m).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value); };
@@ -957,7 +960,6 @@ const handleUpload = async (files) => {
     '/portfolio/holdings':         'holdings',
     '/portfolio/transactions':     'history',
     '/portfolio/dividends':        'dividends',
-    '/portfolio/ownership':        'ownership',
     '/portfolio/import':           'import',
     '/portfolio/import-dividends': 'importDividends',
     '/portfolio/settings':         'overrides',
@@ -965,7 +967,6 @@ const handleUpload = async (files) => {
   const currentTab = _portfolioPathToTab[location.pathname] || 'overview';
 
   useEffect(() => {
-    if (currentTab === 'ownership' && dashboardData && Object.keys(ownershipData).length === 0 && !ownershipLoading) fetchOwnership(dashboardData.portfolio);
     if (currentTab === 'performance') fetchPerfData(perfPeriod);
     if (currentTab === 'history') fetchTxHistory();
     if (currentTab === 'overview' && txHistory.length === 0 && !txHistoryLoading) fetchTxHistory();
@@ -1178,10 +1179,10 @@ const handleUpload = async (files) => {
                         Pin an ISIN to a specific Yahoo Finance ticker. The override takes priority over automatic resolution on every upload.
                       </p>
                       <div className="flex gap-2 mb-3">
-                        <input ref={overrideIsinRef} placeholder="ISIN" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
-                        <input ref={overrideTickerRef} placeholder="Yahoo Finance ticker" className={`flex-1 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
+                        <input ref={overrideIsinRef} placeholder="ISIN" className={`w-32 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
+                        <input ref={overrideTickerRef} placeholder="Yahoo Finance ticker" className={`w-44 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
+                        <button onClick={handleAddOverride} className="px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition whitespace-nowrap">Save Override</button>
                       </div>
-                      <button onClick={handleAddOverride} className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition mb-3">Save Override</button>
                       {overrideMsg && <p className={`text-xs mb-3 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
                       {(() => {
                         const globalIsins = new Set(overrides.global?.map(o => o.isin) || []);
@@ -1837,36 +1838,6 @@ const handleUpload = async (files) => {
                     )}
                   </div>
                 )}
-
-                {currentTab === 'ownership' && (() => {
-                  const allHoldings = dashboardData ? dashboardData.portfolio.filter(h => !h.quoteType || h.quoteType === 'EQUITY') : [];
-                  const OwnershipCard = ({ ticker, name, isExtra = false }) => {
-                    const data = isExtra ? ownershipExtra[ticker] : ownershipData[ticker];
-                    return (
-                      <div className={`${cardCls} p-5`}>
-                        <div className="flex items-center gap-3 mb-4">
-                          <span className={`font-bold text-sm bg-zinc-700 px-2 py-1 rounded-lg`}>{ticker}</span>
-                          <span className={`text-sm text-zinc-400`}>{name}</span>
-                        </div>
-                        {!data ? <div className="flex items-center justify-center h-16"><div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div> : (
-                          <div className={`flex gap-6`}>
-                            <div><p className={`text-xs text-zinc-300 mb-1`}>Institutional</p><p className="text-xl font-bold">{data.institutionPct ? `${(data.institutionPct * 100).toFixed(1)}%` : '—'}</p></div>
-                            <div><p className={`text-xs text-zinc-300 mb-1`}>Insider</p><p className="text-xl font-bold">{data.insiderPct ? `${(data.insiderPct * 100).toFixed(1)}%` : '—'}</p></div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  };
-                  return (
-                    <div className="flex flex-col gap-6">
-                      <div className="flex items-center gap-3">
-                        <input type="text" value={ownershipFilter} onChange={e => setOwnershipFilter(e.target.value)} placeholder="Filter..." className={`flex-1 px-3 py-2 bg-zinc-700 text-white placeholder-zinc-500 rounded-lg text-sm outline-none`} />
-                      </div>
-                      {!Object.keys(ownershipData).length && !ownershipLoading && <button onClick={() => fetchOwnership(allHoldings)} className="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-xl transition">Load Ownership Data</button>}
-                      <div className="flex flex-col gap-4">{allHoldings.map(h => <OwnershipCard key={h.ticker} ticker={h.ticker} name={h.name}/>)}</div>
-                    </div>
-                  );
-                })()}
 
                 {currentTab === 'dividends' && (
                   <div className="flex flex-col gap-4">

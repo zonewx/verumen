@@ -315,8 +315,8 @@ export default function AdminPanel({ authUsername }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">🛡️ Admin Panel</h1>
-            <p className={`text-sm mt-1 text-zinc-400`}>Logged in as <span className="font-semibold text-red-400">Admin</span></p>
+            <h1 className="text-2xl font-bold">Admin Panel</h1>
+            <p className={`text-sm mt-1 text-zinc-400`}>Logged in as <span className="font-semibold text-red-400">{authUsername}</span></p>
           </div>
           {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : actionMsg.includes('Error') ? 'bg-red-900/40 text-red-400 border-red-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg}</div>}
         </div>
@@ -509,16 +509,14 @@ export default function AdminPanel({ authUsername }) {
                       </div>
                     </div>
                     {/* Actions */}
-                    <div className="flex items-center justify-between gap-2 px-4 py-3 flex-wrap">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <button onClick={() => setResetModal({ username: u.username })} className={btnBlue}>Reset Password</button>
-                        <button onClick={() => clearCache(u.username)} className={btnGhost}>Clear Cache</button>
-                        <button onClick={() => resolveUser(u.username)} className={btnGhost}>Re-resolve Tickers</button>
-                        <button onClick={() => clearBio(u.username)} className={btnGhost}>Clear Bio</button>
-                        <button onClick={() => exportUser(u.username)} className={btnGhost}>Export Data</button>
-                        {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnGhost}>Make CS Private</button>}
-                        {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnGhost}>Make Stocks Private</button>}
-                      </div>
+                    <div className="flex items-center gap-2 px-4 py-3 flex-wrap">
+                      <button onClick={() => setResetModal({ username: u.username })} className={btnBlue}>Reset Password</button>
+                      <button onClick={() => clearCache(u.username)} className={btnGhost}>Clear Cache</button>
+                      <button onClick={() => resolveUser(u.username)} className={btnGhost}>Re-resolve Tickers</button>
+                      <button onClick={() => clearBio(u.username)} className={btnGhost}>Clear Bio</button>
+                      <button onClick={() => exportUser(u.username)} className={btnGhost}>Export Data</button>
+                      {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnGhost}>Make CS Private</button>}
+                      {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnGhost}>Make Stocks Private</button>}
                       {u.username !== 'admin' && (
                         <button onClick={() => deleteUser(u.username)} className={btnRed}>Delete User</button>
                       )}
