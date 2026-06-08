@@ -132,6 +132,10 @@ export default function App() {
   const [txFilterOpen, setTxFilterOpen] = useState(false);
   const [txDateFrom, setTxDateFrom] = useState('');
   const [txDateTo, setTxDateTo] = useState('');
+  const [txDateOpen, setTxDateOpen] = useState(false);
+  const [txCalView, setTxCalView] = useState('from');
+  const [txCalFromMonth, setTxCalFromMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
+  const [txCalToMonth, setTxCalToMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
   const [showShortcuts, setShowShortcuts] = useState(false);
   const globalSearchRef = useRef(null);
   const [selectedBroker, setSelectedBroker] = useState('auto');
@@ -2045,11 +2049,62 @@ const handleUpload = async (files) => {
                            (tx.date||'').includes(q);
                   });
                   const capped = filteredTx.slice(0, 500);
-                  const dateCls = 'w-32.5 px-2.5 py-1.5 text-xs bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:outline-none focus:border-zinc-500 transition scheme-dark';
+                  const toDateStr = d => d.toISOString().split('T')[0];
+                  const fmtDateShort = s => s ? new Date(s + 'T00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
+                  const today = new Date();
+                  const addMonths = (d, n) => { const r = new Date(d); r.setMonth(r.getMonth() + n); return r; };
+                  const DATE_PRESETS = [
+                    { label: '3 months', from: toDateStr(addMonths(today, -3)), to: toDateStr(today) },
+                    { label: 'This year', from: `${today.getFullYear()}-01-01`, to: toDateStr(today) },
+                    { label: '1 year',    from: toDateStr(addMonths(today, -12)), to: toDateStr(today) },
+                    { label: 'Last year', from: `${today.getFullYear()-1}-01-01`, to: `${today.getFullYear()-1}-12-31` },
+                    { label: 'All time',  from: '', to: '' },
+                  ];
+                  const renderCal = (selected, onSelect, calMonth, setCalMonth) => {
+                    const { year, month } = calMonth;
+                    const offset = (new Date(year, month, 1).getDay() + 6) % 7;
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const todayStr = toDateStr(today);
+                    const prevMo = () => setCalMonth(p => { const d = new Date(p.year, p.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; });
+                    const nextMo = () => setCalMonth(p => { const d = new Date(p.year, p.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; });
+                    const cells = [...Array(offset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+                    const monthLabel = new Date(year, month, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+                    return (
+                      <div className="px-3 pb-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <button onClick={prevMo} className="w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+                          </button>
+                          <span className="text-xs font-medium text-zinc-200">{monthLabel}</span>
+                          <button onClick={nextMo} className="w-6 h-6 flex items-center justify-center rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-7 mb-1">
+                          {['Mo','Tu','We','Th','Fr','Sa','Su'].map(d => <div key={d} className="text-center text-[10px] text-zinc-600 py-0.5">{d}</div>)}
+                        </div>
+                        <div className="grid grid-cols-7 gap-px">
+                          {cells.map((d, i) => {
+                            if (!d) return <div key={i}/>;
+                            const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                            const isSel = ds === selected;
+                            const inRange = txDateFrom && txDateTo && ds > txDateFrom && ds < txDateTo;
+                            const isToday = ds === todayStr;
+                            return (
+                              <button key={i} onClick={() => onSelect(ds)} className={`text-[11px] w-full aspect-square rounded flex items-center justify-center leading-none transition
+                                ${isSel ? 'bg-violet-500 text-white font-bold' : inRange ? 'bg-violet-500/20 text-zinc-200' : isToday ? 'border border-zinc-600 text-white' : 'text-zinc-400 hover:bg-zinc-700 hover:text-white'}`}>
+                                {d}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  };
                   return (
                     <div className="flex flex-col gap-4">
                       {txHistory.length === 0 && !txHistoryLoading ? <EmptyState icon="📝" title="No transactions" desc="Upload a CSV to populate history." /> : (
-                        <div className={`${cardCls} overflow-hidden`}>
+                        <div className={cardCls}>
                           {/* Toolbar — single row */}
                           <div className="px-4 py-3 border-b border-zinc-700/50 flex items-center gap-2">
                             {/* Filters dropdown */}
@@ -2086,10 +2141,48 @@ const handleUpload = async (files) => {
                                 </div>
                               )}
                             </div>
-                            {/* Date range */}
-                            <input type="date" value={txDateFrom} onChange={e => setTxDateFrom(e.target.value)} className={dateCls}/>
-                            <span className="text-zinc-600 text-xs shrink-0">—</span>
-                            <input type="date" value={txDateTo} onChange={e => setTxDateTo(e.target.value)} className={dateCls}/>
+                            {/* Date range picker */}
+                            <div className="relative shrink-0">
+                              {txDateOpen && <div className="fixed inset-0 z-10" onClick={() => setTxDateOpen(false)}/>}
+                              <button onClick={() => { setTxDateOpen(o => { if (!o) { setTxCalView('from'); if (txDateFrom) { const d = new Date(txDateFrom+'T00:00'); setTxCalFromMonth({ year: d.getFullYear(), month: d.getMonth() }); } } return !o; }); }}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition whitespace-nowrap ${txDateOpen || txDateFrom || txDateTo ? 'bg-zinc-700 border-zinc-500 text-white' : 'bg-transparent border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'}`}>
+                                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                {txDateFrom || txDateTo ? `${fmtDateShort(txDateFrom) || '…'} — ${fmtDateShort(txDateTo) || '…'}` : 'Date range'}
+                                {(txDateFrom || txDateTo) && <span onClick={e => { e.stopPropagation(); setTxDateFrom(''); setTxDateTo(''); }} className="ml-0.5 text-zinc-400 hover:text-white leading-none text-base">×</span>}
+                              </button>
+                              {txDateOpen && (
+                                <div className="absolute top-full left-0 mt-1.5 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl w-72 overflow-hidden">
+                                  <div className="p-3 border-b border-zinc-800 flex flex-wrap gap-1.5">
+                                    {DATE_PRESETS.map(p => (
+                                      <button key={p.label} onClick={() => { setTxDateFrom(p.from); setTxDateTo(p.to); }}
+                                        className={`text-xs px-2.5 py-1 rounded-full border font-medium transition ${txDateFrom === p.from && txDateTo === p.to ? 'bg-zinc-700 border-zinc-500 text-white' : 'bg-transparent border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'}`}>
+                                        {p.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="border-b border-zinc-800">
+                                    <button onClick={() => setTxCalView(v => v === 'from' ? null : 'from')} className="w-full flex items-center justify-between px-4 py-2.5 text-xs hover:bg-zinc-800/50 transition">
+                                      <span className="text-zinc-400 font-medium">From</span>
+                                      <div className="flex items-center gap-2">
+                                        {txDateFrom ? <span className="text-zinc-200">{fmtDateShort(txDateFrom)}</span> : <span className="text-zinc-600">Not set</span>}
+                                        <svg className={`w-3 h-3 text-zinc-500 transition-transform ${txCalView === 'from' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                                      </div>
+                                    </button>
+                                    {txCalView === 'from' && renderCal(txDateFrom, date => { setTxDateFrom(date); const d = new Date(date+'T00:00'); setTxCalToMonth({ year: d.getFullYear(), month: d.getMonth() }); setTxCalView('to'); }, txCalFromMonth, setTxCalFromMonth)}
+                                  </div>
+                                  <div>
+                                    <button onClick={() => setTxCalView(v => v === 'to' ? null : 'to')} className="w-full flex items-center justify-between px-4 py-2.5 text-xs hover:bg-zinc-800/50 transition">
+                                      <span className="text-zinc-400 font-medium">To</span>
+                                      <div className="flex items-center gap-2">
+                                        {txDateTo ? <span className="text-zinc-200">{fmtDateShort(txDateTo)}</span> : <span className="text-zinc-600">Not set</span>}
+                                        <svg className={`w-3 h-3 text-zinc-500 transition-transform ${txCalView === 'to' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                                      </div>
+                                    </button>
+                                    {txCalView === 'to' && renderCal(txDateTo, date => { setTxDateTo(date); setTxCalView(null); }, txCalToMonth, setTxCalToMonth)}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                             {/* Search */}
                             <div className="relative flex-1">
                               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2108,39 +2201,41 @@ const handleUpload = async (files) => {
                               {filteredTx.length === txHistory.length ? `${txHistory.length} transactions` : `${filteredTx.length} of ${txHistory.length}`}
                             </span>
                           </div>
-                          {/* Table */}
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm table-fixed">
-                              <colgroup>{COLS.map(({ w }, ci) => <col key={ci} className={w}/>)}</colgroup>
-                              <thead className="bg-gray-900 border-gray-700 border-b">
-                                <tr>{COLS.map(({ label, align }) => <th key={label} className={`px-4 py-3 font-bold text-xs text-gray-400 uppercase tracking-wider ${align}`}>{label}</th>)}</tr>
-                              </thead>
-                              <tbody>
-                                {capped.length === 0 ? (
-                                  <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-zinc-500">No transactions match your search.</td></tr>
-                                ) : capped.map((tx, i) => {
-                                  const typeBadgeCls = tx.type === 'buy' ? 'bg-emerald-900/40 text-emerald-400' : tx.type === 'sell' ? 'bg-red-900/40 text-red-400' : tx.type === 'dividend' ? 'bg-blue-900/40 text-blue-400' : tx.type === 'deposit' ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-400';
-                                  return (
-                                    <tr key={i} className={`border-t border-zinc-700/30 ${i % 2 === 1 ? 'bg-zinc-700/20' : ''} hover:bg-zinc-700/30 transition`}>
-                                      <td className="px-4 py-3 text-xs font-mono text-gray-400">{tx.date}</td>
-                                      <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-1 rounded-lg capitalize ${typeBadgeCls}`}>{tx.type}</span></td>
-                                      <td className="px-4 py-3">{tx.broker ? <span className="text-xs text-zinc-400 capitalize">{tx.broker}</span> : <span className="text-gray-500">—</span>}</td>
-                                      <td className="px-4 py-3 overflow-hidden"><span className={`font-mono font-bold text-sm ${tx.ticker ? 'text-white' : 'text-gray-500'}`}>{tx.ticker || '—'}</span></td>
-                                      <td className="px-4 py-3 overflow-hidden truncate text-gray-300">{tx.name}</td>
-                                      <td className="px-4 py-3 text-right text-gray-400">{tx.quantity}</td>
-                                      <td className="px-4 py-3 text-right text-gray-400">{fmt(tx.price)}</td>
-                                      <td className={`px-4 py-3 text-right font-bold ${tx.total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(tx.total)} {sym}</td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                          {filteredTx.length > 500 && (
-                            <div className="px-4 py-3 border-t border-zinc-700/50 text-xs text-zinc-500 text-center">
-                              Showing 500 of {filteredTx.length} — use search or filters to narrow results.
+                          {/* Table — own overflow wrapper so toolbar dropdowns can escape the card */}
+                          <div className="overflow-hidden rounded-b-xl">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left text-sm table-fixed">
+                                <colgroup>{COLS.map(({ w }, ci) => <col key={ci} className={w}/>)}</colgroup>
+                                <thead className="bg-gray-900 border-gray-700 border-b">
+                                  <tr>{COLS.map(({ label, align }) => <th key={label} className={`px-4 py-3 font-bold text-xs text-gray-400 uppercase tracking-wider ${align}`}>{label}</th>)}</tr>
+                                </thead>
+                                <tbody>
+                                  {capped.length === 0 ? (
+                                    <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-zinc-500">No transactions match your search.</td></tr>
+                                  ) : capped.map((tx, i) => {
+                                    const typeBadgeCls = tx.type === 'buy' ? 'bg-emerald-900/40 text-emerald-400' : tx.type === 'sell' ? 'bg-red-900/40 text-red-400' : tx.type === 'dividend' ? 'bg-blue-900/40 text-blue-400' : tx.type === 'deposit' ? 'bg-green-900/40 text-green-400' : 'bg-gray-700/40 text-gray-400';
+                                    return (
+                                      <tr key={i} className={`border-t border-zinc-700/30 ${i % 2 === 1 ? 'bg-zinc-700/20' : ''} hover:bg-zinc-700/30 transition`}>
+                                        <td className="px-4 py-3 text-xs font-mono text-gray-400">{tx.date}</td>
+                                        <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-1 rounded-lg capitalize ${typeBadgeCls}`}>{tx.type}</span></td>
+                                        <td className="px-4 py-3">{tx.broker ? <span className="text-xs text-zinc-400 capitalize">{tx.broker}</span> : <span className="text-gray-500">—</span>}</td>
+                                        <td className="px-4 py-3 overflow-hidden"><span className={`font-mono font-bold text-sm ${tx.ticker ? 'text-white' : 'text-gray-500'}`}>{tx.ticker || '—'}</span></td>
+                                        <td className="px-4 py-3 overflow-hidden truncate text-gray-300">{tx.name}</td>
+                                        <td className="px-4 py-3 text-right text-gray-400">{tx.quantity}</td>
+                                        <td className="px-4 py-3 text-right text-gray-400">{fmt(tx.price)}</td>
+                                        <td className={`px-4 py-3 text-right font-bold ${tx.total >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(tx.total)} {sym}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
                             </div>
-                          )}
+                            {filteredTx.length > 500 && (
+                              <div className="px-4 py-3 border-t border-zinc-700/50 text-xs text-zinc-500 text-center">
+                                Showing 500 of {filteredTx.length} — use search or filters to narrow results.
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
