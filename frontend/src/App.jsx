@@ -282,7 +282,7 @@ export default function App() {
     forceRefreshRef.current = false;
     const isBackgroundRefresh = backgroundRefreshRef.current;
     backgroundRefreshRef.current = false;
-    const fp = portfolioFingerprint(p, c);
+    let fp = portfolioFingerprint(p, c);
     const hasCached = !isForceRefresh && apiCache.get('/api/portfolio-fingerprint') === fp && apiCache.has('/api/portfolio-dashboard');
     if (!hasCached && p.length > 0 && !isBackgroundRefresh) setIsAppLoading(true);
 
@@ -292,6 +292,18 @@ export default function App() {
       try {
         const dbCached = await apiFetch(`/api/portfolio/cached?currency=${c}`).then(r => r.json());
         const cachedFp = portfolioFingerprint(dbCached?.holdings, c);
+        // Fingerprint mismatch: if the server snapshot covers all local tickers (possibly more),
+        // local state is stale (e.g. another device uploaded a newer CSV). Adopt server holdings.
+        if (dbCached?.holdings?.length > 0 && cachedFp !== fp && p.length > 0) {
+          const dbTickers = new Set(dbCached.holdings.map(h => h.ticker));
+          const localHasUnknown = p.some(h => !dbTickers.has(h.ticker));
+          if (!localHasUnknown) {
+            suppressNextFetch.current = true;
+            setPortfolio(dbCached.holdings);
+            p = dbCached.holdings;
+            fp = cachedFp;
+          }
+        }
         if (dbCached?.portfolio?.length > 0 && cachedFp === fp) {
           const snapshotAgeMs = Date.now() - new Date(dbCached.builtAt).getTime();
           const snapshotStale = snapshotAgeMs > 6 * 60 * 60 * 1000; // only warn if >6 h old
