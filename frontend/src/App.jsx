@@ -1632,23 +1632,30 @@ const handleUpload = async (files) => {
                                     <p className={`text-center py-12 text-sm text-zinc-400`}>No transactions yet.</p>
                                   ) : (
                                     <div className="flex flex-col gap-2">
-                                      {txHistory.filter(tx => ['buy','sell','dividend'].includes(tx.type)).slice(0, 10).map((tx, i) => {
-                                        const isBuy = tx.type === 'buy';
-                                        const isSell = tx.type === 'sell';
-                                        const pillCls = isBuy ? 'bg-emerald-900/40 text-emerald-400' : isSell ? 'bg-red-900/40 text-red-400' : 'bg-blue-900/40 text-blue-400';
-                                        const typeLabel = isBuy ? 'Buy' : isSell ? 'Sell' : 'Dividend';
-                                        const totalPositive = tx.total >= 0;
-                                        return (
-                                          <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg bg-zinc-700/50`}>
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 w-16 text-center ${pillCls}`}>{typeLabel}</span>
-                                            <div className="flex-1 min-w-0">
-                                              <p className="text-xs font-semibold truncate">{tx.name || tx.ticker || tx.raw_ticker || '—'}</p>
-                                              <p className={`text-[10px] text-zinc-400`}>{tx.date ? tx.date.slice(0, 10) : '—'}</p>
+                                      {(() => {
+                                        const flagByTicker = Object.fromEntries((dashboardData?.portfolio || []).map(s => [s.ticker, s.flag]));
+                                        return txHistory.filter(tx => ['buy','sell','dividend'].includes(tx.type)).slice(0, 10).map((tx, i) => {
+                                          const isBuy = tx.type === 'buy';
+                                          const isSell = tx.type === 'sell';
+                                          const pillCls = isBuy ? 'bg-emerald-900/40 text-emerald-400' : isSell ? 'bg-red-900/40 text-red-400' : 'bg-blue-900/40 text-blue-400';
+                                          const typeLabel = isBuy ? 'Buy' : isSell ? 'Sell' : 'Dividend';
+                                          const totalPositive = tx.total >= 0;
+                                          const flag = flagByTicker[tx.ticker] || flagByTicker[tx.raw_ticker];
+                                          return (
+                                            <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg bg-zinc-700/50`}>
+                                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 w-16 text-center ${pillCls}`}>{typeLabel}</span>
+                                              <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-semibold truncate flex items-center gap-1.5">
+                                                  {flag && <img src={`https://flagcdn.com/${flag}.svg`} alt={flag} className="w-4 h-3 object-cover rounded-sm shrink-0" />}
+                                                  {tx.name || tx.ticker || tx.raw_ticker || '—'}
+                                                </p>
+                                                <p className={`text-[10px] text-zinc-400`}>{tx.date ? tx.date.slice(0, 10) : '—'}</p>
+                                              </div>
+                                              {tx.total != null && <p className={`text-xs font-semibold shrink-0 tabular-nums ${totalPositive ? 'text-emerald-400' : 'text-red-400'}`}>{totalPositive ? '+' : ''}{fmtH(tx.total)}</p>}
                                             </div>
-                                            {tx.total != null && <p className={`text-xs font-semibold shrink-0 tabular-nums ${totalPositive ? 'text-emerald-400' : 'text-red-400'}`}>{totalPositive ? '+' : ''}{fmtH(tx.total)}</p>}
-                                          </div>
-                                        );
-                                      })}
+                                          );
+                                        });
+                                      })()}
                                     </div>
                                   )}
                                 </div>
@@ -1713,6 +1720,7 @@ const handleUpload = async (files) => {
                     { key: 'name', label: 'Name', sortFn: (a, b) => a.name.localeCompare(b.name) },
                     { key: 'ticker', label: 'Ticker', sortFn: (a, b) => a.ticker.localeCompare(b.ticker) },
                     { key: 'nativePrice', label: 'Price', sortFn: (a, b) => a.nativePrice - b.nativePrice },
+                    { key: 'priceTime', label: 'Time', sortFn: (a, b) => (a.priceDate || '').localeCompare(b.priceDate || '') },
                     { key: 'todayPct', label: 'Today %', sortFn: (a, b) => a.todayChangePct - b.todayChangePct },
                     { key: 'quantity', label: 'Qty', sortFn: (a, b) => a.quantity - b.quantity },
                     { key: 'profit', label: `Return (${sym})`, sortFn: (a, b) => a.profit - b.profit },
@@ -1737,7 +1745,9 @@ const handleUpload = async (files) => {
                                 <td className={`p-4 text-zinc-300`}>{s.ticker}</td>
                                 <td className="p-4 whitespace-nowrap">
                                   <span>{fmt(s.nativePrice)} {s.currency}</span>
-                                  {s.priceDate && (() => { const d = new Date(s.priceDate); const now = new Date(); const isToday = d.toDateString() === now.toDateString(); const label = isToday ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }); return <span className={`ml-1.5 text-[10px] ${isToday ? 'text-zinc-500' : 'text-amber-500/70'}`}>{label}</span>; })()}
+                                </td>
+                                <td className="p-4 whitespace-nowrap text-xs">
+                                  {s.priceDate ? (() => { const d = new Date(s.priceDate); const now = new Date(); const isToday = d.toDateString() === now.toDateString(); const label = isToday ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }); return <span className={isToday ? 'text-zinc-400' : 'text-amber-500/70'}>{label}</span>; })() : <span className="text-zinc-600">—</span>}
                                 </td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct == null ? '' : s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct == null ? '—' : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</td>
                                 <td className="p-4">{s.quantity}</td>
