@@ -45,7 +45,7 @@ function PageShell({ title, children }) {
 
 // Stable fingerprint of the current portfolio + currency — used as cache key discriminator
 const portfolioFingerprint = (p, c) =>
-  (c || '') + ':' + (p || []).map(h => `${h.ticker}:${h.shares}`).sort().join('|');
+  (c || '') + ':' + (p || []).map(h => `${h.ticker}:${h.quantity}`).sort().join('|');
 
 export default function App() {
   const navigate = useNavigate();
@@ -1823,7 +1823,12 @@ const handleUpload = async (files) => {
                               <tr key={s.ticker} className={`border-t ${s.noData ? 'border-red-900/40 bg-red-900/10' : 'border-zinc-700 hover:bg-zinc-600/30'} transition`}>
                                 <td className="p-4 font-bold"><span className="flex items-center gap-2"><img src={`https://flagcdn.com/${s.flag}.svg`} alt={s.flag} className="w-4 h-3 object-cover rounded-sm shrink-0" /><span>{s.cleanName || s.name}</span>{s.noData && <span className={`text-xs font-normal text-red-500`}>no data</span>}</span></td>
                                 <td className={`p-4 text-zinc-400`}>{s.ticker}</td>
-                                <td className="p-4 whitespace-nowrap">{fmt(s.nativePrice)} {s.currency}</td>
+                                <td className="p-4 whitespace-nowrap">
+                                  <div className="flex flex-col leading-tight">
+                                    <span>{fmt(s.nativePrice)} {s.currency}</span>
+                                    {s.priceDate && <span className="text-xs text-amber-500/60 mt-0.5">{(() => { const d = new Date(s.priceDate); const now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }); })()}</span>}
+                                  </div>
+                                </td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct == null ? '' : s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct == null ? '—' : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</td>
                                 <td className="p-4">{s.quantity}</td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.profit == null ? '' : s.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.profit == null ? '—' : `${s.profit >= 0 ? '+' : ''}${fmtSym(s.profit)}`}</td>

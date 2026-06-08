@@ -23,18 +23,41 @@ function setPriceCache(ticker, data) {
   ).then(() => {}).catch(() => {});
 }
 
+const FX_PAIRS = ['USDSEK=X','EURSEK=X','GBPSEK=X','NOKSEK=X','DKKSEK=X'];
+
 // Load persisted prices from Supabase on startup — avoids a cold-cache YF burst after restart
 ;(async () => {
   try {
     const cutoff = new Date(Date.now() - PRICE_CACHE_WARM_TTL).toISOString();
     const { data } = await supabase.from('price_cache').select('ticker, quote, cached_at').gt('cached_at', cutoff);
     if (data?.length) {
-      data.forEach(({ ticker, quote, cached_at }) =>
-        _priceCache.set(ticker, { q: quote, cachedAt: new Date(cached_at).getTime() })
-      );
+      const fxSet = new Set(FX_PAIRS);
+      data.forEach(({ ticker, quote, cached_at }) => {
+        const cachedAt = new Date(cached_at).getTime();
+        _priceCache.set(ticker, { q: quote, cachedAt });
+        // Also restore FX rates into _fxRateCache so they survive restarts
+        if (fxSet.has(ticker) && quote?.regularMarketPrice)
+          _fxRateCache[ticker] = { rate: quote.regularMarketPrice, cachedAt };
+      });
       console.log(`[price_cache] Loaded ${data.length} entries from Supabase`);
     }
   } catch(e) { console.warn('[price_cache] Failed to load from Supabase:', e.message); }
+
+  // Bootstrap FX rates via a direct YF call on startup if not already cached.
+  // Runs after the Supabase load so it only fires when nothing was found there.
+  const missingFx = FX_PAIRS.filter(s => !_fxRateCache[s]);
+  if (missingFx.length > 0) {
+    try {
+      const fx = await yahooFinance.quote(missingFx, {}, { validateResult: false });
+      (Array.isArray(fx) ? fx : [fx]).forEach(q => {
+        if (q?.symbol && q.regularMarketPrice) {
+          _fxRateCache[q.symbol] = { rate: q.regularMarketPrice, cachedAt: Date.now() };
+          setPriceCache(q.symbol, { q, cachedAt: Date.now() });
+        }
+      });
+      console.log(`[fx_rates] Bootstrapped ${missingFx.length} FX rates at startup`);
+    } catch(e) { console.warn('[fx_rates] Startup FX bootstrap failed — will retry on first request', e.message); }
+  }
 })();
 
 // Simple in-memory rate limiter for auth routes
@@ -1325,17 +1348,25 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   const BC = baseCurrency || 'SEK';
   let fxRates = {};
   try {
-    const fx = await yahooFinance.quote(['USDSEK=X','EURSEK=X','GBPSEK=X','NOKSEK=X','DKKSEK=X']);
+    const fx = await yahooFinance.quote(FX_PAIRS, {}, { validateResult: false });
     (Array.isArray(fx)?fx:[fx]).forEach(q => {
       if (q?.symbol && q.regularMarketPrice) {
         fxRates[q.symbol] = q.regularMarketPrice;
         _fxRateCache[q.symbol] = { rate: q.regularMarketPrice, cachedAt: Date.now() };
+        // Persist to price_cache so FX rates survive server restarts
+        setPriceCache(q.symbol, { q, cachedAt: Date.now() });
       }
     });
   } catch(e) {
-    // Fall back to cached FX rates — use any cached rate regardless of age,
-    // since a stale rate is always better than treating USD/NOK as 1:1 SEK.
+    // Fall back to in-memory cache first, then Supabase-persisted _priceCache.
+    // A stale FX rate is always better than treating USD/NOK as 1:1 SEK.
     Object.entries(_fxRateCache).forEach(([sym, { rate }]) => { if (rate) fxRates[sym] = rate; });
+    FX_PAIRS.forEach(sym => {
+      if (!fxRates[sym]) {
+        const cached = _priceCache.get(sym);
+        if (cached?.q?.regularMarketPrice) fxRates[sym] = cached.q.regularMarketPrice;
+      }
+    });
   }
   const toSEK=(amount,currency)=>{ if(!currency||currency==='SEK') return amount; return fxRates[`${currency}SEK=X`]?amount*fxRates[`${currency}SEK=X`]:amount; };
   const fromSEK=(amount)=>{ if(BC==='SEK') return amount; return fxRates[`${BC}SEK=X`]?amount/fxRates[`${BC}SEK=X`]:amount; };
@@ -1370,7 +1401,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       if (cached) {
         const age = Date.now() - cached.cachedAt;
         if (age < 60000) return { ...cached.q, _resolvedTicker: ticker };
-        if (age < PRICE_CACHE_TTL) return { ...cached.q, _fromCache: true, _resolvedTicker: ticker };
+        if (age < PRICE_CACHE_TTL) return { ...cached.q, _fromCache: true, _resolvedTicker: ticker, _cachedAt: cached.cachedAt };
       }
     }
     let resolvedTicker = ticker;
@@ -1427,11 +1458,13 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       }
     }
     // Fall back to cached price when YF is unavailable or rate-limited.
+    // Uses PRICE_CACHE_WARM_TTL (24h) so entries loaded by the Supabase warm-up
+    // (which also uses 24h) are actually reachable here when YF fails.
     // Applies even on force-refresh — last-known price beats noData.
     if (!q) {
       const cached = _priceCache.get(ticker);
-      if (cached && (Date.now() - cached.cachedAt) < PRICE_CACHE_TTL) {
-        return { ...cached.q, _fromCache: true, _resolvedTicker: ticker };
+      if (cached && (Date.now() - cached.cachedAt) < PRICE_CACHE_WARM_TTL) {
+        return { ...cached.q, _fromCache: true, _resolvedTicker: ticker, _cachedAt: cached.cachedAt };
       }
     }
     if (q) q._resolvedTicker = resolvedTicker;
@@ -1500,7 +1533,8 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
 
   // Load last-good Supabase snapshot — used as per-ticker fallback when YF is temporarily down
   const { data: snapForFallback } = await supabase.from('portfolio_cache')
-    .select('dashboard').eq('user_id', req.user.id).eq('currency', BC).single();
+    .select('dashboard, built_at').eq('user_id', req.user.id).eq('currency', BC).single();
+  const snapshotBuiltAt = snapForFallback?.built_at || null;
   const cachedRowMap = {};        // keyed by ticker
   const cachedRowByIsin = {};     // keyed by ISIN — fallback when ticker has drifted
   (snapForFallback?.dashboard?.portfolio || []).forEach(r => {
@@ -1533,7 +1567,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
             costBase = cachedCostPerUnit * qty;
           }
           const profitBase = currentValueBase - costBase;
-          return { ...cr, quantity: qty, avgPrice: h.avgPrice||0, currentValue: currentValueBase, profit: profitBase, returnPct: costBase > 0 ? (profitBase / costBase) * 100 : 0, todayGainBase: cr.todayGainBase != null ? cr.todayGainBase * qtyRatio : 0, stale: true };
+          return { ...cr, quantity: qty, avgPrice: h.avgPrice||0, currentValue: currentValueBase, profit: profitBase, returnPct: costBase > 0 ? (profitBase / costBase) * 100 : 0, todayGainBase: cr.todayGainBase != null ? cr.todayGainBase * qtyRatio : 0, stale: true, priceDate: snapshotBuiltAt };
         }
         const fallbackName = h.name || h.ticker;
         return { ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker,h.isin), currency:h.currency||'SEK', isin:h.isin||null, quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null, noData:true };
@@ -1548,7 +1582,8 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       const _isinCcy=h.isin?ISIN_CURRENCY_MAP[h.isin.substring(0,2).toUpperCase()]:null;
       const currency=q.currency||_isinCcy||'SEK';
       const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
-      return { ticker:resolvedTicker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,resolvedTicker), flag:getFlag(resolvedTicker,h.isin), currency, isin:h.isin||null, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache };
+      const priceDate = q._fromCache && q._cachedAt ? new Date(q._cachedAt).toISOString() : null;
+      return { ticker:resolvedTicker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,resolvedTicker), flag:getFlag(resolvedTicker,h.isin), currency, isin:h.isin||null, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache, priceDate };
     } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); return null; }
   });
   const results = settled.filter(Boolean);
