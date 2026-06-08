@@ -1549,7 +1549,7 @@ const handleUpload = async (files) => {
                                 <option value="pct">Percentage (%)</option>
                               </select>
                             </div>
-                            <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} />
+                            <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} fmt={fmt} fmtSym={fmtSym} />
                           </div>
                         )}
 
