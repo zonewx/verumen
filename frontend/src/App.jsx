@@ -903,7 +903,7 @@ const handleUpload = async (files) => {
   const todayPct = todayTotal !== null && totals && (totals.value - todayTotal) !== 0 ? (todayTotal / (totals.value - todayTotal)) * 100 : null;
   const fmt = n => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—';
   const fmtSym = n => n != null ? `${fmt(n)} ${sym}` : '—';
-  const fmtH = n => hideValues ? '•••••' : fmtH(n);
+  const fmtH = n => hideValues ? '•••••' : fmtSym(n);
   const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16'];
   const TABS = [{ id: 'overview', label: 'Overview' },{ id: 'holdings', label: 'Holdings' },{ id: 'performance', label: 'Performance' },{ id: 'ownership', label: 'Ownership' },{ id: 'insights', label: 'Insights' },{ id: 'history', label: 'History' }];
 
