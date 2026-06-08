@@ -1661,8 +1661,9 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     if (t.ticker) {
       const base = t.ticker.split('.')[0].toUpperCase();
       if (!baseTickerToName[base]) baseTickerToName[base] = displayName;
-      // Queue a YF lookup if the best name is still ticker-like (all-caps, no spaces, ≤7 chars)
-      if (!cached && /^[A-Z0-9]{1,7}$/.test(displayName) && !tickersNeedingLookup.has(base)) {
+      // Queue a YF lookup if name looks unresolved: no cache at all, or no lowercase letters
+      // (real company names always have lowercase; "VIT B", "EVO", "SAGA D" etc. are broker abbreviations)
+      if ((!cached || !/[a-z]/.test(displayName)) && !tickersNeedingLookup.has(base)) {
         tickersNeedingLookup.set(base, t.ticker);
       }
     }
