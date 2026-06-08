@@ -131,6 +131,7 @@ export default function App() {
   const [txHistoryLoading, setTxHistoryLoading] = useState(false);
   const [txSearch, setTxSearch] = useState('');
   const [hideValues, setHideValues] = useState(() => localStorage.getItem('hidePortfolioValues') === 'true');
+  const [staleBannerDismissed, setStaleBannerDismissed] = useState(false);
   const toggleHideValues = () => setHideValues(v => { const next = !v; localStorage.setItem('hidePortfolioValues', String(next)); return next; });
   const [txTypeFilter, setTxTypeFilter] = useState([]);
   const [txFilterOpen, setTxFilterOpen] = useState(false);
@@ -870,7 +871,7 @@ const handleUpload = async (files) => {
   // ── Derived values ─────────────────────────────────────────────────────────
   const sym = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'SEK': 'kr' }[baseCurrency] || baseCurrency;
   const totals = dashboardData?.totals;
-  const hasStalePrices = dashboardData?.hasStalePrices === true;
+  const hasStalePrices = dashboardData?.hasStalePrices === true && !staleBannerDismissed;
   const failedHoldings = dashboardData?.portfolio?.filter(h => h.noData) ?? [];
   const hasFailedHoldings = failedHoldings.length > 0;
 
@@ -1495,10 +1496,15 @@ const handleUpload = async (files) => {
                           <div className="flex flex-col gap-2 flex-1 min-w-0">
                             {hasStalePrices && (
                               <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-yellow-900/20 border border-yellow-800/40 text-yellow-400`}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                                {dashboardData?.fromCache
-                                  ? <>Showing saved snapshot from {new Date(dashboardData.builtAt).toLocaleString()} — <button onClick={handleRefreshPrices} className="underline font-semibold hover:opacity-75 transition">Refresh prices</button> to update.</>
-                                  : 'Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.'}
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <span className="flex-1">
+                                  {dashboardData?.fromCache
+                                    ? <>Showing saved snapshot from {new Date(dashboardData.builtAt).toLocaleString()} — <button onClick={handleRefreshPrices} className="underline font-semibold hover:opacity-75 transition">Refresh prices</button> to update.</>
+                                    : 'Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.'}
+                                </span>
+                                <button onClick={() => setStaleBannerDismissed(true)} className="shrink-0 opacity-60 hover:opacity-100 transition ml-1" title="Dismiss">
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
                               </div>
                             )}
                             {hasFailedHoldings && (
