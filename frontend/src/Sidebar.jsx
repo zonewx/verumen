@@ -281,7 +281,7 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
     });
   }, [location.pathname]);
 
-  const sidebarWidth = isExpanded ? 'w-60' : 'w-16';
+  const sidebarWidth = isExpanded ? 'w-[240px]' : 'w-[64px]';
   const bg = 'bg-zinc-900';
   const borderColor = 'bg-zinc-700';
   const textPrimary = 'text-zinc-100';
