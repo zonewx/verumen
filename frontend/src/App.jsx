@@ -994,10 +994,10 @@ const handleUpload = async (files) => {
         }
         {hideValues ? 'Show values' : 'Hide values'}
       </button>
-      <div className={`flex flex-col h-screen pt-12 overflow-hidden bg-zinc-900 text-white`}>
+      <div className={`flex flex-col h-screen overflow-hidden bg-zinc-900 text-white`}>
         {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
 
-        <div ref={portfolioScrollRef} className="flex-1 overflow-y-auto">
+        <div ref={portfolioScrollRef} className="flex-1 overflow-y-auto pt-12">
           <div className="max-w-7xl mx-auto px-6 py-6">
             {isAppLoading ? (
               <div className="flex flex-col items-center justify-center mt-32 space-y-4">
