@@ -187,11 +187,18 @@ app.get('/api/health', (req, res) => {
 
 // Connectivity diagnostic — tests US (Finnhub) + Nordic (Twelve Data fallback)
 app.get('/api/diag/yf', async (req, res) => {
-  const [usResult, nordicResult] = await Promise.all([
+  const tdKey = TWELVE_DATA_KEY;
+  const [usResult, nordicResult, tdSearch, tdRaw] = await Promise.all([
     finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'finnhub' })).catch(e => ({ ok: false, error: e?.message })),
     finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'twelvedata' })).catch(e => ({ ok: false, error: e?.message })),
+    // Search for how Twelve Data lists this stock
+    fetch(`https://api.twelvedata.com/symbol_search?symbol=VOLV-B&apikey=${tdKey}`, { signal: AbortSignal.timeout(8000) })
+      .then(r => r.json()).then(d => (d?.data || []).slice(0, 3)).catch(e => ({ error: e?.message })),
+    // Try raw price with current symbol mapping
+    fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(toTwelveDataSymbol('VOLV-B.ST'))}&apikey=${tdKey}`, { signal: AbortSignal.timeout(8000) })
+      .then(r => r.json()).catch(e => ({ error: e?.message })),
   ]);
-  res.json({ finnhubKeySet: !!FINNHUB_KEY, twelveDataKeySet: !!TWELVE_DATA_KEY, us: usResult, nordic: nordicResult });
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, twelveDataKeySet: !!TWELVE_DATA_KEY, symbolTried: toTwelveDataSymbol('VOLV-B.ST'), us: usResult, nordic: nordicResult, tdSearch, tdRaw });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
