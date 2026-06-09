@@ -185,14 +185,13 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString(), indexCache: cacheSnapshot });
 });
 
-// Connectivity diagnostic — tests US + Nordic quote and raw Finnhub response
+// Connectivity diagnostic — tests US (Finnhub) + Nordic (Stooq fallback)
 app.get('/api/diag/yf', async (req, res) => {
-  const [usResult, nordicResult, nordicRaw] = await Promise.all([
-    finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice })).catch(e => ({ ok: false, error: e?.message })),
-    finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice })).catch(e => ({ ok: false, error: e?.message })),
-    finnhubFetch(`/quote?symbol=${encodeURIComponent('VOLV-B:XSTO')}`).catch(e => ({ error: e?.message })),
+  const [usResult, nordicResult] = await Promise.all([
+    finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'finnhub' })).catch(e => ({ ok: false, error: e?.message })),
+    finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'stooq' })).catch(e => ({ ok: false, error: e?.message })),
   ]);
-  res.json({ finnhubKeySet: !!FINNHUB_KEY, us: usResult, nordic: nordicResult, nordicRaw });
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, us: usResult, nordic: nordicResult });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
@@ -567,12 +566,43 @@ async function finnhubFetch(path) {
   return r.json();
 }
 
+// Stooq fallback for exchanges Finnhub free tier doesn't cover (Nordic, etc.)
+// Uses lowercase YF-format tickers: volv-b.st, equinor.ol
+async function stooqQuote(yfTicker) {
+  const r = await fetch(
+    `https://stooq.com/q/l/?s=${encodeURIComponent(yfTicker.toLowerCase())}&f=sd2t2ohlcv&e=csv`,
+    { signal: AbortSignal.timeout(8000) }
+  );
+  if (!r.ok) throw new Error(`Stooq HTTP ${r.status}`);
+  const text = await r.text();
+  const row = text.trim().split('\n')[1];
+  if (!row) return null;
+  const [, date, time, , , , close] = row.split(',');
+  const price = parseFloat(close);
+  if (!price) return null;
+  const cached = _priceCache.get(yfTicker);
+  return {
+    symbol: yfTicker,
+    regularMarketPrice: price,
+    regularMarketPreviousClose: cached?.q?.regularMarketPreviousClose || null,
+    regularMarketTime: Math.floor(new Date(`${date}T${time}`).getTime() / 1000),
+    regularMarketChangePercent: cached?.q?.regularMarketChangePercent || null,
+    regularMarketChange: cached?.q?.regularMarketChange || null,
+    currency: currencyFromTicker(yfTicker),
+    longName:  cached?.q?.longName  || null,
+    shortName: cached?.q?.shortName || null,
+    sector:    cached?.q?.sector    || null,
+    quoteType: cached?.q?.quoteType || 'EQUITY',
+  };
+}
+
 // Returns a YF-compatible quote object. Preserves name/sector from existing cache
 // so repeated fetches don't lose metadata that Finnhub's /quote doesn't return.
+// Falls back to Stooq when Finnhub returns no data (free tier covers US only).
 async function finnhubQuote(yfTicker) {
   const fhSymbol = toFinnhubSymbol(yfTicker);
   const data = await finnhubFetch(`/quote?symbol=${encodeURIComponent(fhSymbol)}`);
-  if (!data?.c) return null; // c=0 means no data for this symbol
+  if (!data?.c) return stooqQuote(yfTicker); // Finnhub no-data → try Stooq
   const cached = _priceCache.get(yfTicker);
   return {
     symbol: yfTicker,
