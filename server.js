@@ -1741,10 +1741,11 @@ app.get('/api/dividends', requireUser, async (req, res) => {
       .select('dashboard').eq('user_id', req.user.id).limit(1).single();
     (snap?.dashboard?.portfolio || []).forEach(h => {
       if (!h.name || !h.ticker) return;
+      const name = cleanYFName(h.name);
       const base = h.ticker.split('.')[0].toUpperCase();
-      if (h.isin && !isinToName[h.isin]) isinToName[h.isin] = h.name;
-      if (!rawTickerToName[base]) rawTickerToName[base] = h.name;
-      if (!baseTickerToName[base]) baseTickerToName[base] = h.name;
+      if (h.isin && !isinToName[h.isin]) isinToName[h.isin] = name;
+      if (!rawTickerToName[base]) rawTickerToName[base] = name;
+      if (!baseTickerToName[base]) baseTickerToName[base] = name;
       if (h.isin && !isinToBase[h.isin]) isinToBase[h.isin] = base;
     });
   }
