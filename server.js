@@ -568,18 +568,12 @@ async function finnhubFetch(path) {
   return r.json();
 }
 
-// Twelve Data exchange codes for YF suffixes (covers what Finnhub free tier misses)
-const YF_TO_TD_EXCHANGE = {
-  '.ST': 'STO', '.OL': 'OSL', '.CO': 'CPH', '.HE': 'HEL',
-  '.L':  'LSE', '.PA': 'EPA', '.DE': 'XETR','.MI': 'MIL',
-  '.AS': 'AMS', '.MC': 'BME', '.SW': 'SWX', '.TO': 'TSX',
-  '.AX': 'ASX', '.HK': 'HKEX','.T':  'TSE', '.SI': 'SGX',
-};
-
+// Twelve Data uses MIC codes — reuse YF_TO_FH_EXCHANGE, strip the leading ':'
 function toTwelveDataSymbol(yfTicker) {
-  for (const [yfSfx, tdExch] of Object.entries(YF_TO_TD_EXCHANGE)) {
+  for (const [yfSfx, fhSfx] of Object.entries(YF_TO_FH_EXCHANGE)) {
     if (yfTicker.endsWith(yfSfx)) {
-      return `${yfTicker.slice(0, -yfSfx.length)}:${tdExch}`;
+      const mic = fhSfx.slice(1); // ':XSTO' → 'XSTO'
+      return `${yfTicker.slice(0, -yfSfx.length)}:${mic}`;
     }
   }
   return yfTicker; // US tickers pass through as-is
