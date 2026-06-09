@@ -187,16 +187,11 @@ app.get('/api/health', (req, res) => {
 
 // Connectivity diagnostic — tests US (Finnhub) + Nordic (Twelve Data fallback)
 app.get('/api/diag/yf', async (req, res) => {
-  const td = (qs) => fetch(`https://api.twelvedata.com/price?${qs}&apikey=${TWELVE_DATA_KEY}`, { signal: AbortSignal.timeout(8000) })
-    .then(async r => { const b = await r.json(); return { http: r.status, ...b }; }).catch(e => ({ error: e?.message }));
-  // Test AAPL first (confirms API key + /price endpoint work), then Nordic
-  const tdAapl = await td('symbol=AAPL');
-  const [usResult, nordicResult, tdNordic] = await Promise.all([
-    finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice })).catch(e => ({ ok: false, error: e?.message })),
-    finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice })).catch(e => ({ ok: false, error: e?.message })),
-    td('symbol=VOLV.B&mic_code=XSTO'),
+  const [usResult, nordicResult] = await Promise.all([
+    finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'finnhub' })).catch(e => ({ ok: false, error: e?.message })),
+    finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'tiingo' })).catch(e => ({ ok: false, error: e?.message })),
   ]);
-  res.json({ us: usResult, nordic: nordicResult, tdAapl, tdNordic });
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us: usResult, nordic: nordicResult });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
@@ -521,11 +516,11 @@ const ISIN_CURRENCY_MAP = {
   HK: 'HKD', JP: 'JPY', SG: 'SGD', CN: 'CNY',
 };
 
-// ── Finnhub (US prices) + Twelve Data (international) + Frankfurter (FX) ──
+// ── Finnhub (US prices) + Tiingo (international EOD) + Frankfurter (FX) ──
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
 if (!FINNHUB_KEY) log.warn('FINNHUB_API_KEY not set — live price fetching will fail');
-const TWELVE_DATA_KEY = process.env.TWELVE_DATA_KEY || '';
-if (!TWELVE_DATA_KEY) log.warn('TWELVE_DATA_KEY not set — Nordic/international price fetching will fail');
+const TIINGO_KEY = process.env.TIINGO_API_KEY || '';
+if (!TIINGO_KEY) log.warn('TIINGO_API_KEY not set — Nordic/international price fetching will fail');
 
 // Yahoo Finance exchange suffix → Finnhub MIC exchange code
 const YF_TO_FH_EXCHANGE = {
@@ -574,35 +569,30 @@ async function finnhubFetch(path) {
 }
 
 // Fallback for exchanges Finnhub free tier doesn't cover (Nordic, European, etc.)
-// Twelve Data quirks: hyphens → dots in ticker (VOLV-B → VOLV.B), and exchange
-// must be passed as mic_code query param — colon-notation is rejected as invalid.
-async function twelveDataQuote(yfTicker) {
-  if (!TWELVE_DATA_KEY) return null;
-  let tdSymbol = yfTicker;
-  let micCode = null;
-  for (const [yfSfx, fhSfx] of Object.entries(YF_TO_FH_EXCHANGE)) {
-    if (yfTicker.endsWith(yfSfx)) {
-      tdSymbol = yfTicker.slice(0, -yfSfx.length).replace(/-/g, '.'); // VOLV-B → VOLV.B
-      micCode = fhSfx.slice(1); // ':XSTO' → 'XSTO'
-      break;
-    }
-  }
-  const params = new URLSearchParams({ symbol: tdSymbol, apikey: TWELVE_DATA_KEY });
-  if (micCode) params.set('mic_code', micCode);
-  const r = await fetch(`https://api.twelvedata.com/price?${params}`, { signal: AbortSignal.timeout(8000) });
-  if (!r.ok) throw new Error(`TwelveData HTTP ${r.status}`);
+// Tiingo EOD daily prices — free tier covers international stocks, works from cloud.
+// Uses lowercase Yahoo Finance-format tickers: volv-b.st, equinor.ol
+async function tiingoQuote(yfTicker) {
+  if (!TIINGO_KEY) return null;
+  const d1 = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const r = await fetch(
+    `https://api.tiingo.com/tiingo/daily/${encodeURIComponent(yfTicker.toLowerCase())}/prices?startDate=${d1}&token=${TIINGO_KEY}`,
+    { signal: AbortSignal.timeout(8000) }
+  );
+  if (!r.ok) throw new Error(`Tiingo HTTP ${r.status}`);
   const data = await r.json();
-  if (data?.code || !data?.price) return null;
-  const price = parseFloat(data.price);
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const latest = data[data.length - 1];
+  const price = latest?.close ?? latest?.adjClose;
   if (!price) return null;
+  const prevClose = data.length > 1 ? (data[data.length - 2]?.close ?? null) : null;
   const cached = _priceCache.get(yfTicker);
   return {
     symbol: yfTicker,
     regularMarketPrice: price,
-    regularMarketPreviousClose: cached?.q?.regularMarketPreviousClose || null,
-    regularMarketTime: Math.floor(Date.now() / 1000),
-    regularMarketChangePercent: cached?.q?.regularMarketChangePercent || null,
-    regularMarketChange: cached?.q?.regularMarketChange || null,
+    regularMarketPreviousClose: prevClose,
+    regularMarketTime: Math.floor(new Date(latest.date).getTime() / 1000),
+    regularMarketChangePercent: prevClose ? ((price - prevClose) / prevClose) * 100 : null,
+    regularMarketChange: prevClose ? price - prevClose : null,
     currency: currencyFromTicker(yfTicker),
     longName:  cached?.q?.longName  || null,
     shortName: cached?.q?.shortName || null,
@@ -613,11 +603,11 @@ async function twelveDataQuote(yfTicker) {
 
 // Returns a YF-compatible quote object. Preserves name/sector from existing cache
 // so repeated fetches don't lose metadata that Finnhub's /quote doesn't return.
-// Falls back to Twelve Data when Finnhub returns no data (free tier covers US only).
+// Falls back to Tiingo when Finnhub returns no data (free tier covers US only).
 async function finnhubQuote(yfTicker) {
   const fhSymbol = toFinnhubSymbol(yfTicker);
   const data = await finnhubFetch(`/quote?symbol=${encodeURIComponent(fhSymbol)}`);
-  if (!data?.c) return twelveDataQuote(yfTicker); // Finnhub no-data → try Twelve Data
+  if (!data?.c) return tiingoQuote(yfTicker); // Finnhub no-data → try Tiingo
   const cached = _priceCache.get(yfTicker);
   return {
     symbol: yfTicker,
