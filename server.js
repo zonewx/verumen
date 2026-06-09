@@ -188,9 +188,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString(), indexCache: cacheSnapshot });
 });
 
-// Admin-only YF connectivity diagnostic
-app.get('/api/diag/yf', requireUser, async (req, res) => {
-  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+// YF connectivity diagnostic — public, no sensitive data exposed
+app.get('/api/diag/yf', async (req, res) => {
   const yfPkg = (() => { try { return require('./node_modules/yahoo-finance2/package.json').version; } catch { return 'unknown'; } })();
   const start = Date.now();
   try {
