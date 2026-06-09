@@ -86,6 +86,57 @@ function priceIsFresh(ticker, cached) {
   return lastClose > 0 && mktTimeMs >= lastClose;
 }
 
+// ── Scheduled price fetch windows ──────────────────────────────────────────
+// Prices are only fetched from the API during 4 windows per trading day.
+// Between windows the stale cache is served, keeping API usage minimal.
+
+const PRICE_SCHEDULES = {
+  NORDIC: { tz: 'Europe/Stockholm', hours: [9,  12, 15, 17] },
+  US:     { tz: 'America/New_York',  hours: [10, 12, 14, 15] },
+  LONDON: { tz: 'Europe/London',     hours: [8,  10, 13, 16] },
+  EUROPE: { tz: 'Europe/Paris',      hours: [9,  12, 14, 17] },
+  TOKYO:  { tz: 'Asia/Tokyo',        hours: [9,  11, 13, 15] },
+  HK:     { tz: 'Asia/Hong_Kong',    hours: [10, 12, 14, 15] },
+  AUS:    { tz: 'Australia/Sydney',  hours: [10, 12, 14, 15] },
+};
+
+function getPriceSchedule(yfTicker) {
+  if (['.ST','.OL','.CO','.HE'].some(s => yfTicker.endsWith(s))) return PRICE_SCHEDULES.NORDIC;
+  if (['.L','.IL'].some(s => yfTicker.endsWith(s))) return PRICE_SCHEDULES.LONDON;
+  if (['.PA','.DE','.F','.MI','.AS','.MC','.SW','.VX'].some(s => yfTicker.endsWith(s))) return PRICE_SCHEDULES.EUROPE;
+  if (yfTicker.endsWith('.T'))  return PRICE_SCHEDULES.TOKYO;
+  if (yfTicker.endsWith('.HK')) return PRICE_SCHEDULES.HK;
+  if (yfTicker.endsWith('.AX')) return PRICE_SCHEDULES.AUS;
+  return PRICE_SCHEDULES.US;
+}
+
+// Returns the UTC timestamp when the most recent scheduled fetch window opened.
+// Steps backwards one hour at a time (max 48h) until it finds a matching local hour.
+function lastWindowOpenedAt(tz, hours) {
+  const now = Date.now();
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+  for (let minsBack = 0; minsBack <= 48 * 60; minsBack += 60) {
+    const t = new Date(now - minsBack * 60000);
+    const parts = fmt.formatToParts(t);
+    const localHour = parseInt(parts.find(p => p.type === 'hour').value, 10);
+    const localMin  = parseInt(parts.find(p => p.type === 'minute').value, 10);
+    if (hours.includes(localHour)) {
+      // Snap to the exact start of this local hour (remove sub-hour offset)
+      return t.getTime() - localMin * 60000 - (t.getSeconds() * 1000) - t.getMilliseconds();
+    }
+  }
+  return 0; // fallback: always allow refetch
+}
+
+// Returns true when the ticker's cached price predates the current scheduled window —
+// meaning a fresh fetch is warranted. Returns false to serve stale cache instead.
+function shouldRefetch(yfTicker) {
+  const cached = _priceCache.get(yfTicker);
+  if (!cached) return true; // cold cache → always fetch
+  const { tz, hours } = getPriceSchedule(yfTicker);
+  return cached.cachedAt < lastWindowOpenedAt(tz, hours);
+}
+
 // Write-through helper: keeps _priceCache and Supabase price_cache in sync
 function setPriceCache(ticker, data) {
   _priceCache.set(ticker, data);
@@ -1588,8 +1639,8 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
       if (cached) {
         const age = Date.now() - cached.cachedAt;
         if (age < 60000) return { ...cached.q, _resolvedTicker: ticker };
-        // Market is closed and our price is from after the last close — price can't have moved
-        if (priceIsFresh(ticker, cached)) return { ...cached.q, _resolvedTicker: ticker, _fromCache: true, _cachedAt: cached.cachedAt };
+        // Not in a scheduled fetch window — serve stale cache
+        if (!shouldRefetch(ticker)) return { ...cached.q, _resolvedTicker: ticker, _fromCache: true, _cachedAt: cached.cachedAt };
         if (age < PRICE_CACHE_TTL) return { ...cached.q, _fromCache: true, _resolvedTicker: ticker, _cachedAt: cached.cachedAt };
       }
     }
@@ -1656,8 +1707,8 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   // initial loads when _priceCache is cold. Only on normal loads (not force-refresh).
   if (!forceRefresh && portfolio.length > 0) {
     const allTickers = portfolio.map(h => h.ticker).filter(Boolean);
-    // Skip tickers whose cached price already covers the last market close
-    const tickersToFetch = allTickers.filter(t => !priceIsFresh(t, _priceCache.get(t)));
+    // Skip tickers that are within their current scheduled fetch window
+    const tickersToFetch = allTickers.filter(t => shouldRefetch(t));
     if (tickersToFetch.length > 0) {
       await Promise.allSettled(tickersToFetch.map(async t => {
         try {
