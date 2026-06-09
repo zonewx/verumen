@@ -578,6 +578,7 @@ async function tiingoQuote(yfTicker) {
     `https://api.tiingo.com/tiingo/daily/${encodeURIComponent(yfTicker.toLowerCase())}/prices?startDate=${d1}&token=${TIINGO_KEY}`,
     { signal: AbortSignal.timeout(8000) }
   );
+  if (r.status === 429) { log.warn('Tiingo rate limit hit', { ticker: yfTicker }); return null; }
   if (!r.ok) throw new Error(`Tiingo HTTP ${r.status}`);
   const data = await r.json();
   if (!Array.isArray(data) || data.length === 0) return null;
