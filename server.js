@@ -567,17 +567,22 @@ async function finnhubFetch(path) {
 }
 
 // Stooq fallback for exchanges Finnhub free tier doesn't cover (Nordic, etc.)
-// Uses lowercase YF-format tickers: volv-b.st, equinor.ol
+// Uses the historical data endpoint (same as pandas-datareader). Fetches last
+// 7 days and takes the most recent close. Lowercase YF-format tickers: volv-b.st
 async function stooqQuote(yfTicker) {
+  const d2 = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const d1 = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
   const r = await fetch(
-    `https://stooq.com/q/l/?s=${encodeURIComponent(yfTicker.toLowerCase())}&f=sd2t2ohlcv&e=csv`,
+    `https://stooq.com/q/d/l/?s=${encodeURIComponent(yfTicker.toLowerCase())}&d1=${d1}&d2=${d2}&i=d`,
     { signal: AbortSignal.timeout(8000) }
   );
   if (!r.ok) throw new Error(`Stooq HTTP ${r.status}`);
   const text = await r.text();
-  const row = text.trim().split('\n')[1];
-  if (!row) return null;
-  const [, date, time, , , , close] = row.split(',');
+  const lines = text.trim().split('\n');
+  // Format: Date,Open,High,Low,Close,Volume — last row is most recent
+  const row = lines[lines.length - 1];
+  if (!row || row.startsWith('Date')) return null; // header-only = no data
+  const [date, , , , close] = row.split(',');
   const price = parseFloat(close);
   if (!price) return null;
   const cached = _priceCache.get(yfTicker);
@@ -585,7 +590,7 @@ async function stooqQuote(yfTicker) {
     symbol: yfTicker,
     regularMarketPrice: price,
     regularMarketPreviousClose: cached?.q?.regularMarketPreviousClose || null,
-    regularMarketTime: Math.floor(new Date(`${date}T${time}`).getTime() / 1000),
+    regularMarketTime: Math.floor(new Date(date).getTime() / 1000),
     regularMarketChangePercent: cached?.q?.regularMarketChangePercent || null,
     regularMarketChange: cached?.q?.regularMarketChange || null,
     currency: currencyFromTicker(yfTicker),
