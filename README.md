@@ -18,7 +18,7 @@ Personal finance and gaming asset tracker. Track your stock portfolio, CS2 skin 
 | Backend | Node.js + Express, deployed on Railway |
 | Frontend | React 19 + Vite + Tailwind CSS v4, deployed on Vercel |
 | Database & Auth | Supabase (PostgreSQL) |
-| Stock data | Yahoo Finance (`yahoo-finance2`) |
+| Stock data | [Finnhub](https://finnhub.io) (free tier) + [Frankfurter](https://frankfurter.app) (FX) |
 | CS skin prices | Skinport API + Steam Community Market |
 | Steam inventory | Steam Web API |
 
@@ -31,6 +31,9 @@ Create a `.env` file in the project root:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
 SUPABASE_ANON_KEY=your-anon-key
+
+# Finnhub (stock prices — free tier, sign up at finnhub.io)
+FINNHUB_API_KEY=your-finnhub-api-key
 
 # Steam Web API (optional — enables Steam level lookup)
 STEAM_API_KEY=your-steam-api-key
@@ -71,7 +74,7 @@ The backend runs on `http://localhost:3000` and the Vite dev server on `http://l
 
 The `railway.json` is already configured. Push to your Railway service — it builds with Nixpacks and starts with `node server.js`.
 
-Required env vars on Railway: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, and optionally `STEAM_API_KEY`.
+Required env vars on Railway: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `FINNHUB_API_KEY`, and optionally `STEAM_API_KEY`.
 
 **Frontend → Vercel**
 
