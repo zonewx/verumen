@@ -185,18 +185,13 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString(), indexCache: cacheSnapshot });
 });
 
-// Connectivity diagnostic — tests US (Finnhub) + Nordic (Stooq fallback)
+// Connectivity diagnostic — tests US (Finnhub) + Nordic (Twelve Data fallback)
 app.get('/api/diag/yf', async (req, res) => {
-  const d2 = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const d1 = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
-  const [usResult, nordicResult, stooqRaw] = await Promise.all([
+  const [usResult, nordicResult] = await Promise.all([
     finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'finnhub' })).catch(e => ({ ok: false, error: e?.message })),
-    finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'stooq' })).catch(e => ({ ok: false, error: e?.message })),
-    fetch(`https://stooq.com/q/d/l/?s=volv-b.st&d1=${d1}&d2=${d2}&i=d`, { signal: AbortSignal.timeout(8000) })
-      .then(r => r.text()).then(t => ({ status: 200, body: t.slice(0, 300) }))
-      .catch(e => ({ error: e?.message })),
+    finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'twelvedata' })).catch(e => ({ ok: false, error: e?.message })),
   ]);
-  res.json({ finnhubKeySet: !!FINNHUB_KEY, us: usResult, nordic: nordicResult, stooqRaw });
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, twelveDataKeySet: !!TWELVE_DATA_KEY, us: usResult, nordic: nordicResult });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
@@ -521,9 +516,11 @@ const ISIN_CURRENCY_MAP = {
   HK: 'HKD', JP: 'JPY', SG: 'SGD', CN: 'CNY',
 };
 
-// ── Finnhub (stock prices) & Frankfurter (FX rates) ────────────────────────
+// ── Finnhub (US prices) + Twelve Data (international) + Frankfurter (FX) ──
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
 if (!FINNHUB_KEY) log.warn('FINNHUB_API_KEY not set — live price fetching will fail');
+const TWELVE_DATA_KEY = process.env.TWELVE_DATA_KEY || '';
+if (!TWELVE_DATA_KEY) log.warn('TWELVE_DATA_KEY not set — Nordic/international price fetching will fail');
 
 // Yahoo Finance exchange suffix → Finnhub MIC exchange code
 const YF_TO_FH_EXCHANGE = {
@@ -571,31 +568,42 @@ async function finnhubFetch(path) {
   return r.json();
 }
 
-// Stooq fallback for exchanges Finnhub free tier doesn't cover (Nordic, etc.)
-// Uses the historical data endpoint (same as pandas-datareader). Fetches last
-// 7 days and takes the most recent close. Lowercase YF-format tickers: volv-b.st
-async function stooqQuote(yfTicker) {
-  const d2 = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const d1 = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+// Twelve Data exchange codes for YF suffixes (covers what Finnhub free tier misses)
+const YF_TO_TD_EXCHANGE = {
+  '.ST': 'STO', '.OL': 'OSL', '.CO': 'CPH', '.HE': 'HEL',
+  '.L':  'LSE', '.PA': 'EPA', '.DE': 'XETR','.MI': 'MIL',
+  '.AS': 'AMS', '.MC': 'BME', '.SW': 'SWX', '.TO': 'TSX',
+  '.AX': 'ASX', '.HK': 'HKEX','.T':  'TSE', '.SI': 'SGX',
+};
+
+function toTwelveDataSymbol(yfTicker) {
+  for (const [yfSfx, tdExch] of Object.entries(YF_TO_TD_EXCHANGE)) {
+    if (yfTicker.endsWith(yfSfx)) {
+      return `${yfTicker.slice(0, -yfSfx.length)}:${tdExch}`;
+    }
+  }
+  return yfTicker; // US tickers pass through as-is
+}
+
+// Fallback for exchanges Finnhub free tier doesn't cover (Nordic, European, etc.)
+async function twelveDataQuote(yfTicker) {
+  if (!TWELVE_DATA_KEY) return null;
+  const symbol = toTwelveDataSymbol(yfTicker);
   const r = await fetch(
-    `https://stooq.com/q/d/l/?s=${encodeURIComponent(yfTicker.toLowerCase())}&d1=${d1}&d2=${d2}&i=d`,
+    `https://api.twelvedata.com/price?symbol=${encodeURIComponent(symbol)}&apikey=${TWELVE_DATA_KEY}`,
     { signal: AbortSignal.timeout(8000) }
   );
-  if (!r.ok) throw new Error(`Stooq HTTP ${r.status}`);
-  const text = await r.text();
-  const lines = text.trim().split('\n');
-  // Format: Date,Open,High,Low,Close,Volume — last row is most recent
-  const row = lines[lines.length - 1];
-  if (!row || row.startsWith('Date')) return null; // header-only = no data
-  const [date, , , , close] = row.split(',');
-  const price = parseFloat(close);
+  if (!r.ok) throw new Error(`TwelveData HTTP ${r.status}`);
+  const data = await r.json();
+  if (data?.code === 400 || data?.code === 404 || !data?.price) return null;
+  const price = parseFloat(data.price);
   if (!price) return null;
   const cached = _priceCache.get(yfTicker);
   return {
     symbol: yfTicker,
     regularMarketPrice: price,
     regularMarketPreviousClose: cached?.q?.regularMarketPreviousClose || null,
-    regularMarketTime: Math.floor(new Date(date).getTime() / 1000),
+    regularMarketTime: Math.floor(Date.now() / 1000),
     regularMarketChangePercent: cached?.q?.regularMarketChangePercent || null,
     regularMarketChange: cached?.q?.regularMarketChange || null,
     currency: currencyFromTicker(yfTicker),
@@ -608,11 +616,11 @@ async function stooqQuote(yfTicker) {
 
 // Returns a YF-compatible quote object. Preserves name/sector from existing cache
 // so repeated fetches don't lose metadata that Finnhub's /quote doesn't return.
-// Falls back to Stooq when Finnhub returns no data (free tier covers US only).
+// Falls back to Twelve Data when Finnhub returns no data (free tier covers US only).
 async function finnhubQuote(yfTicker) {
   const fhSymbol = toFinnhubSymbol(yfTicker);
   const data = await finnhubFetch(`/quote?symbol=${encodeURIComponent(fhSymbol)}`);
-  if (!data?.c) return stooqQuote(yfTicker); // Finnhub no-data → try Stooq
+  if (!data?.c) return twelveDataQuote(yfTicker); // Finnhub no-data → try Twelve Data
   const cached = _priceCache.get(yfTicker);
   return {
     symbol: yfTicker,
