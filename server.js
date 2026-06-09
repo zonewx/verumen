@@ -185,16 +185,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString(), indexCache: cacheSnapshot });
 });
 
-// YF connectivity diagnostic — public, no sensitive data exposed
+// Connectivity diagnostic — tests US + Nordic quote and raw Finnhub response
 app.get('/api/diag/yf', async (req, res) => {
-  const fhPkg = (() => { try { return require('./node_modules/finnhub/package.json').version; } catch { return 'n/a'; } })();
-  const start = Date.now();
-  try {
-    const q = await finnhubQuote('AAPL');
-    res.json({ ok: true, provider: 'finnhub', fxProvider: 'frankfurter', ticker: q?.symbol, price: q?.regularMarketPrice, latencyMs: Date.now() - start, finnhubKeySet: !!FINNHUB_KEY });
-  } catch(e) {
-    res.json({ ok: false, provider: 'finnhub', error: e?.message, status: e?.status, latencyMs: Date.now() - start, finnhubKeySet: !!FINNHUB_KEY });
-  }
+  const [usResult, nordicResult, nordicRaw] = await Promise.all([
+    finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice })).catch(e => ({ ok: false, error: e?.message })),
+    finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice })).catch(e => ({ ok: false, error: e?.message })),
+    finnhubFetch(`/quote?symbol=${encodeURIComponent('VOLV-B:XSTO')}`).catch(e => ({ error: e?.message })),
+  ]);
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, us: usResult, nordic: nordicResult, nordicRaw });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
