@@ -115,20 +115,17 @@ const FX_PAIRS = ['USDSEK=X','EURSEK=X','GBPSEK=X','NOKSEK=X','DKKSEK=X'];
     }
   } catch(e) { console.warn('[price_cache] Failed to load from Supabase:', e.message); }
 
-  // Bootstrap FX rates via a direct YF call on startup if not already cached.
-  // Runs after the Supabase load so it only fires when nothing was found there.
+  // Bootstrap FX rates via Frankfurter on startup if not already cached.
   const missingFx = FX_PAIRS.filter(s => !_fxRateCache[s]);
   if (missingFx.length > 0) {
     try {
-      const fx = await yahooFinance.quote(missingFx, {}, { validateResult: false });
-      (Array.isArray(fx) ? fx : [fx]).forEach(q => {
-        if (q?.symbol && q.regularMarketPrice) {
-          _fxRateCache[q.symbol] = { rate: q.regularMarketPrice, cachedAt: Date.now() };
-          setPriceCache(q.symbol, { q, cachedAt: Date.now() });
-        }
+      const rates = await frankfurterFxRates();
+      Object.entries(rates).forEach(([sym, rate]) => {
+        _fxRateCache[sym] = { rate, cachedAt: Date.now() };
+        setPriceCache(sym, { q: { symbol: sym, regularMarketPrice: rate }, cachedAt: Date.now() });
       });
-      console.log(`[fx_rates] Bootstrapped ${missingFx.length} FX rates at startup`);
-    } catch(e) { console.warn('[fx_rates] Startup FX bootstrap failed — will retry on first request', e.message); }
+      console.log(`[fx_rates] Bootstrapped ${Object.keys(rates).length} FX rates at startup`);
+    } catch(e) { console.warn('[fx_rates] Startup FX bootstrap failed — will retry on first request:', e.message); }
   }
 })();
 
@@ -190,23 +187,13 @@ app.get('/api/health', (req, res) => {
 
 // YF connectivity diagnostic — public, no sensitive data exposed
 app.get('/api/diag/yf', async (req, res) => {
-  const yfPkg = (() => { try { return require('./node_modules/yahoo-finance2/package.json').version; } catch { return 'unknown'; } })();
-  // Raw fetch test — bypasses yahoo-finance2 entirely to confirm basic connectivity
-  let rawTest = null;
-  try {
-    const t0 = Date.now();
-    const r = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1d&interval=1d', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
-    });
-    rawTest = { ok: r.ok, status: r.status, latencyMs: Date.now() - t0 };
-  } catch(e) { rawTest = { ok: false, error: e?.message }; }
-
+  const fhPkg = (() => { try { return require('./node_modules/finnhub/package.json').version; } catch { return 'n/a'; } })();
   const start = Date.now();
   try {
-    const q = await withYFRetry(() => yahooFinance.quote('AAPL', {}, { validateResult: false }), 8000, 0);
-    res.json({ yfLib: { ok: true, yfVersion: yfPkg, ticker: q?.symbol, price: q?.regularMarketPrice, latencyMs: Date.now() - start }, rawFetch: rawTest });
+    const q = await finnhubQuote('AAPL');
+    res.json({ ok: true, provider: 'finnhub', fxProvider: 'frankfurter', ticker: q?.symbol, price: q?.regularMarketPrice, latencyMs: Date.now() - start, finnhubKeySet: !!FINNHUB_KEY });
   } catch(e) {
-    res.json({ yfLib: { ok: false, yfVersion: yfPkg, error: e?.message, status: e?.status, latencyMs: Date.now() - start }, rawFetch: rawTest });
+    res.json({ ok: false, provider: 'finnhub', error: e?.message, status: e?.status, latencyMs: Date.now() - start, finnhubKeySet: !!FINNHUB_KEY });
   }
 });
 
@@ -393,13 +380,14 @@ app.get('/api/users/:username/holdings', async (req, res) => {
   // Fetch current prices for all holdings
   const tickers = validHoldings.map(h => h.ticker);
   let pricesMap = {};
-  try {
-    if (tickers.length > 0) {
-      const quotes = await yahooFinance.quote(tickers);
-      const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
-      quotesArray.forEach(q => { if (q?.symbol && q.regularMarketPrice) pricesMap[q.symbol] = q.regularMarketPrice; });
-    }
-  } catch(e) { console.error('Failed to fetch prices for public holdings:', e.message); }
+  if (tickers.length > 0) {
+    await Promise.allSettled(tickers.map(async t => {
+      try {
+        const q = await finnhubQuote(t);
+        if (q?.regularMarketPrice) pricesMap[t] = q.regularMarketPrice;
+      } catch {}
+    }));
+  }
   
   // Calculate values and weights
   let totalValue = 0;
@@ -506,8 +494,6 @@ const cleanYFName = (name) => {
 };
 
 // ── Ticker resolution ───────────────────────────────────────────────────────
-const YahooFinance = require('yahoo-finance2').default;
-const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey', 'ripHistorical'] });
 
 // Currency suffix priority lists for Yahoo Finance
 const CURRENCY_SUFFIX_MAP = {
@@ -533,6 +519,106 @@ const ISIN_CURRENCY_MAP = {
   HK: 'HKD', JP: 'JPY', SG: 'SGD', CN: 'CNY',
 };
 
+// ── Finnhub (stock prices) & Frankfurter (FX rates) ────────────────────────
+const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
+if (!FINNHUB_KEY) log.warn('FINNHUB_API_KEY not set — live price fetching will fail');
+
+// Yahoo Finance exchange suffix → Finnhub MIC exchange code
+const YF_TO_FH_EXCHANGE = {
+  '.ST':':XSTO', '.OL':':XOSL', '.CO':':XCSE', '.HE':':XHEL',
+  '.L':':XLON',  '.IL':':XLON', '.PA':':XPAR', '.DE':':XETR',
+  '.F':':XFRA',  '.MI':':XMIL', '.AS':':XAMS', '.MC':':XMAD',
+  '.SW':':XSWX', '.VX':':XSWX', '.TO':':XTSE', '.V':':XTSE',
+  '.AX':':XASX', '.HK':':XHKG', '.T':':XTKS',  '.SI':':XSES',
+};
+const FH_TO_YF_EXCHANGE = Object.fromEntries(
+  Object.entries(YF_TO_FH_EXCHANGE).map(([yf, fh]) => [fh, yf])
+);
+
+function toFinnhubSymbol(yfTicker) {
+  if (!yfTicker) return yfTicker;
+  if (yfTicker.startsWith('^')) return yfTicker; // index symbols pass through
+  for (const [yfSfx, fhSfx] of Object.entries(YF_TO_FH_EXCHANGE)) {
+    if (yfTicker.endsWith(yfSfx)) return yfTicker.slice(0, -yfSfx.length) + fhSfx;
+  }
+  return yfTicker;
+}
+
+function toYFSymbol(fhSymbol) {
+  if (!fhSymbol) return fhSymbol;
+  for (const [fhSfx, yfSfx] of Object.entries(FH_TO_YF_EXCHANGE)) {
+    if (fhSymbol.endsWith(fhSfx)) return fhSymbol.slice(0, -fhSfx.length) + yfSfx;
+  }
+  return fhSymbol;
+}
+
+function currencyFromTicker(ticker) {
+  if (!ticker) return 'USD';
+  for (const [currency, suffixes] of Object.entries(CURRENCY_SUFFIX_MAP)) {
+    if (suffixes.some(s => ticker.endsWith(s))) return currency;
+  }
+  return 'USD';
+}
+
+async function finnhubFetch(path) {
+  const sep = path.includes('?') ? '&' : '?';
+  const r = await fetch(`https://finnhub.io/api/v1${path}${sep}token=${FINNHUB_KEY}`, {
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!r.ok) throw Object.assign(new Error(`Finnhub HTTP ${r.status}`), { status: r.status });
+  return r.json();
+}
+
+// Returns a YF-compatible quote object. Preserves name/sector from existing cache
+// so repeated fetches don't lose metadata that Finnhub's /quote doesn't return.
+async function finnhubQuote(yfTicker) {
+  const fhSymbol = toFinnhubSymbol(yfTicker);
+  const data = await finnhubFetch(`/quote?symbol=${encodeURIComponent(fhSymbol)}`);
+  if (!data?.c) return null; // c=0 means no data for this symbol
+  const cached = _priceCache.get(yfTicker);
+  return {
+    symbol: yfTicker,
+    regularMarketPrice: data.c,
+    regularMarketPreviousClose: data.pc,
+    regularMarketTime: data.t,
+    regularMarketChangePercent: data.dp,
+    regularMarketChange: data.d,
+    currency: currencyFromTicker(yfTicker),
+    longName:  cached?.q?.longName  || null,
+    shortName: cached?.q?.shortName || null,
+    sector:    cached?.q?.sector    || null,
+    quoteType: cached?.q?.quoteType || 'EQUITY',
+  };
+}
+
+// Returns company name for a YF-format ticker via Finnhub profile2
+async function finnhubName(yfTicker) {
+  try {
+    const fhSymbol = toFinnhubSymbol(yfTicker);
+    const p = await finnhubFetch(`/stock/profile2?symbol=${encodeURIComponent(fhSymbol)}`);
+    return p?.name ? cleanYFName(p.name) : null;
+  } catch { return null; }
+}
+
+// Returns { 'USDSEK=X': 10.93, 'EURSEK=X': 11.52, ... }
+async function frankfurterFxRates() {
+  const r = await fetch('https://api.frankfurter.app/latest?base=SEK&symbols=USD,EUR,GBP,NOK,DKK', {
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!r.ok) throw new Error(`Frankfurter HTTP ${r.status}`);
+  const data = await r.json();
+  const result = {};
+  for (const [cur, rate] of Object.entries(data.rates || {})) {
+    if (rate) result[`${cur}SEK=X`] = parseFloat((1 / rate).toFixed(6));
+  }
+  return result;
+}
+
+async function finnhubSearch(query) {
+  const data = await finnhubFetch(`/search?q=${encodeURIComponent(query)}`);
+  return (data?.result || []);
+}
+
 function getEffectiveCurrency(currency, isin, broker) {
   // For Avanza/Nordnet, the currency column IS the instrument currency — trust it
   if (broker === 'avanza' || broker === 'nordnet') return currency || (isin ? ISIN_CURRENCY_MAP[isin.substring(0, 2)] : null) || 'USD';
@@ -554,8 +640,7 @@ function getEffectiveCurrency(currency, isin, broker) {
   return currency || 'SEK';
 }
 
-// Wrap a YF factory fn with timeout + one retry for transient failures (network blips, slow responses).
-// Takes a factory (() => yahooFinance.quote(...)) so retries can issue a fresh request.
+// Wraps an async factory fn with timeout + one retry for transient failures.
 // Never retries 429s — those need a full cooldown pause at the batch level.
 async function withYFRetry(fn, ms = 8000, retries = 1) {
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -708,19 +793,14 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
 
   const verifyQuote = async (symbol) => {
     if (ctx) ctx.apiCalls++;
-    let q = null;
     try {
-      q = await withYFRetry(() => yahooFinance.quote(symbol, {}, { validateResult: false }), 8000, 0);
-    } catch(e) {
-      if (e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '')) {
-        if (ctx) ctx.rateLimited = true;
-        return null;
+      const q = await finnhubQuote(symbol);
+      if (q?.regularMarketPrice != null) {
+        setPriceCache(symbol, { q, cachedAt: Date.now() });
+        return symbol;
       }
-      if (e?.result?.regularMarketPrice != null) q = e.result;
-    }
-    if (q?.regularMarketPrice != null) {
-      setPriceCache(symbol, { q, cachedAt: Date.now() });
-      return symbol;
+    } catch(e) {
+      if (e?.status === 429 || e?.status === 403) { if (ctx) ctx.rateLimited = true; return null; }
     }
     return null;
   };
@@ -758,8 +838,8 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
   if (isin && !ctx?.rateLimited) {
     try {
       if (ctx) ctx.apiCalls++;
-      const results = await withYFRetry(() => yahooFinance.search(isin, {}, { validateResult: false }), 5000, 0);
-      const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
+      const fhResults = await finnhubSearch(isin);
+      const quotes = fhResults.filter(r => r.symbol).map(r => ({ symbol: toYFSymbol(r.symbol) }));
       if (quotes.length) {
         const scored = quotes.map(q => {
           let score = 0;
@@ -791,18 +871,16 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
         }
       }
     } catch(e) {
-      if (e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '')) {
-        if (ctx) ctx.rateLimited = true;
-      }
+      if (e?.status === 429 || e?.status === 403) { if (ctx) ctx.rateLimited = true; }
     }
   }
 
-  // 6. Ticker-string search (e.g. Nordnet exports "HACKSAW" but YF symbol is "HACK.ST")
+  // 6. Ticker-string search (e.g. Nordnet exports "HACKSAW" but Finnhub symbol is "HACK:XSTO")
   if (cleaned?.length >= 3 && !ctx?.rateLimited) {
     try {
       if (ctx) ctx.apiCalls++;
-      const results = await withYFRetry(() => yahooFinance.search(cleaned, {}, { validateResult: false }), 5000, 0);
-      const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
+      const fhResults = await finnhubSearch(cleaned);
+      const quotes = fhResults.filter(r => r.symbol).map(r => ({ symbol: toYFSymbol(r.symbol) }));
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
         if (preferred) return save(preferred.symbol);
@@ -812,9 +890,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
         }
       }
     } catch(e) {
-      if (e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '')) {
-        if (ctx) ctx.rateLimited = true;
-      }
+      if (e?.status === 429 || e?.status === 403) { if (ctx) ctx.rateLimited = true; }
     }
   }
 
@@ -823,8 +899,8 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
     try {
       if (ctx) ctx.apiCalls++;
       const searchName = name.split(/\s+/).slice(0, 3).join(' ');
-      const results = await withYFRetry(() => yahooFinance.search(searchName, {}, { validateResult: false }), 5000, 0);
-      const quotes = (results?.quotes || []).filter(q => q.symbol && q.quoteType !== 'OPTION' && q.quoteType !== 'FUTURE');
+      const fhResults = await finnhubSearch(searchName);
+      const quotes = fhResults.filter(r => r.symbol).map(r => ({ symbol: toYFSymbol(r.symbol) }));
       if (quotes.length) {
         const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
         if (preferred) return save(preferred.symbol);
@@ -833,9 +909,7 @@ async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker,
         if (!preferUSListing && preferredSuffixes.some(s => first.symbol.endsWith(s))) return save(first.symbol);
       }
     } catch(e) {
-      if (e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '')) {
-        if (ctx) ctx.rateLimited = true;
-      }
+      if (e?.status === 429 || e?.status === 403) { if (ctx) ctx.rateLimited = true; }
     }
   }
 
@@ -1393,37 +1467,17 @@ function cacheEntry(q, fallbackSymbol) {
 }
 
 // Background refresh — runs on startup and every 60s so the HTTP endpoint
-// always serves instantly from cache with no per-request YF latency.
+// always serves instantly from cache with no per-request Finnhub latency.
 async function refreshMarketIndexes() {
-  // Try batch first
-  try {
-    const raw = await withYFRetry(() => yahooFinance.quote(ALL_INDEX_SYMBOLS, {}, { validateResult: false }), 15000);
-    const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
-    if (arr.some(q => q?.regularMarketPrice)) {
-      arr.forEach(q => cacheEntry(q));
-      log.info('market-index cache refreshed via batch', { count: arr.filter(q => q?.regularMarketPrice).length });
-      return;
-    }
-  } catch(err) {
-    const arr = Array.isArray(err.result ?? err.data) ? (err.result ?? err.data) : [];
-    if (arr.some(q => q?.regularMarketPrice)) {
-      arr.forEach(q => cacheEntry(q));
-      return;
-    }
-    log.warn('market-index batch refresh failed, falling back to individual', { err: err.message?.slice(0, 80) });
-  }
-
-  // Batch failed — fetch each symbol individually with a small gap
+  let count = 0;
   for (const s of ALL_INDEX_SYMBOLS) {
     try {
-      const q = await withYFRetry(() => yahooFinance.quote(s, {}, { validateResult: false }), 8000);
-      cacheEntry(q, s);
-    } catch(err) {
-      cacheEntry(err.result ?? err.data, s);
-    }
-    await new Promise(r => setTimeout(r, 300));
+      const q = await finnhubQuote(s);
+      if (q) { cacheEntry(q, s); count++; }
+    } catch {}
+    await new Promise(r => setTimeout(r, 250));
   }
-  log.info('market-index cache refreshed via individual calls', { count: ALL_INDEX_SYMBOLS.filter(s => _marketIndexCache.has(s)).length });
+  if (count > 0) log.info('market-index cache refreshed', { count });
 }
 
 refreshMarketIndexes();
@@ -1451,18 +1505,14 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
   const BC = baseCurrency || 'SEK';
   let fxRates = {};
   try {
-    const fx = await yahooFinance.quote(FX_PAIRS, {}, { validateResult: false });
-    (Array.isArray(fx)?fx:[fx]).forEach(q => {
-      if (q?.symbol && q.regularMarketPrice) {
-        fxRates[q.symbol] = q.regularMarketPrice;
-        _fxRateCache[q.symbol] = { rate: q.regularMarketPrice, cachedAt: Date.now() };
-        // Persist to price_cache so FX rates survive server restarts
-        setPriceCache(q.symbol, { q, cachedAt: Date.now() });
-      }
+    const rates = await frankfurterFxRates();
+    Object.entries(rates).forEach(([sym, rate]) => {
+      fxRates[sym] = rate;
+      _fxRateCache[sym] = { rate, cachedAt: Date.now() };
+      setPriceCache(sym, { q: { symbol: sym, regularMarketPrice: rate }, cachedAt: Date.now() });
     });
   } catch(e) {
     // Fall back to in-memory cache first, then Supabase-persisted _priceCache.
-    // A stale FX rate is always better than treating USD/NOK as 1:1 SEK.
     Object.entries(_fxRateCache).forEach(([sym, { rate }]) => { if (rate) fxRates[sym] = rate; });
     FX_PAIRS.forEach(sym => {
       if (!fxRates[sym]) {
@@ -1509,71 +1559,22 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         if (age < PRICE_CACHE_TTL) return { ...cached.q, _fromCache: true, _resolvedTicker: ticker, _cachedAt: cached.cachedAt };
       }
     }
-    let resolvedTicker = ticker;
-    const tryQuote = async (sym) => {
-      let q = null;
-      let fromException = false;
-      try {
-        q = await withYFRetry(() => yahooFinance.quote(sym, {}, { validateResult: false }), 6000);
-      } catch(e) {
-        // Timeout or network error — check both result and data for partial payload
-        const r = e?.result ?? e?.data;
-        if (r?.regularMarketPrice != null) { q = r; fromException = true; }
-      }
+    // Live Finnhub fetch — toFinnhubSymbol() converts .ST→:XSTO etc. internally
+    try {
+      const q = await finnhubQuote(ticker);
       if (q?.regularMarketPrice != null) {
-        resolvedTicker = sym; // track which ticker actually worked
-        // Don't cache partial exception results missing currency — they'd poison the cache
-        if (!fromException || q.currency) setPriceCache(sym, { q, cachedAt: Date.now() });
-        return q;
+        setPriceCache(ticker, { q, cachedAt: Date.now() });
+        return { ...q, _resolvedTicker: ticker };
       }
-      return null;
-    };
-    let q = await tryQuote(ticker);
-    // Strip Reuters-style exchange suffixes (.N=NYSE, .O=NASDAQ, .OQ=NASDAQ, .K=AMEX)
-    // and Nordnet-style .US — Yahoo Finance doesn't use these suffixes
-    if (!q) {
-      const reutersSuffix = ticker.match(/\.(N|O|OQ|K|P|A|US)$/);
-      if (reutersSuffix) {
-        const baseTicker = ticker.slice(0, -reutersSuffix[0].length);
-        q = await tryQuote(baseTicker);
-      }
+    } catch(e) {
+      log.warn('finnhub quote failed', { ticker, error: e?.message?.slice(0, 80) });
     }
-    // If the ticker has no exchange suffix and direct lookup failed, derive suffix from ISIN
-    if (!q && isin && !ticker.includes('.')) {
-      const isinPrefix = isin.substring(0, 2).toUpperCase();
-      const isinCurrency = ISIN_CURRENCY_MAP[isinPrefix];
-      const suffixes = isinCurrency ? (CURRENCY_SUFFIX_MAP[isinCurrency] || []) : [];
-      for (const suffix of suffixes) {
-        q = await tryQuote(`${ticker}${suffix}`);
-        if (q) break;
-      }
-      // Suffix append didn't work — the YF symbol may differ from the exchange ticker entirely
-      // (e.g. "HACKSAW" on exchange but "HACK.ST" on YF). Try two searches:
-      // 1. ISIN search — unambiguous, no false positives possible
-      // 2. Ticker-string search — catches name-based matches
-      if (!q && suffixes.length) {
-        for (const searchTerm of [isin, ticker].filter(Boolean)) {
-          try {
-            const sr = await withYFRetry(() => yahooFinance.search(searchTerm));
-            const candidates = (sr?.quotes || []).filter(r => r.symbol && r.quoteType !== 'OPTION' && r.quoteType !== 'FUTURE');
-            const hit = candidates.find(r => suffixes.some(s => r.symbol.endsWith(s)));
-            if (hit) { q = await tryQuote(hit.symbol); if (q) break; }
-          } catch(_) {}
-        }
-      }
+    // Fall back to cache (24h warm TTL — stale price beats no price)
+    const cached2 = _priceCache.get(ticker);
+    if (cached2 && (Date.now() - cached2.cachedAt) < PRICE_CACHE_WARM_TTL) {
+      return { ...cached2.q, _fromCache: true, _resolvedTicker: ticker, _cachedAt: cached2.cachedAt };
     }
-    // Fall back to cached price when YF is unavailable or rate-limited.
-    // Uses PRICE_CACHE_WARM_TTL (24h) so entries loaded by the Supabase warm-up
-    // (which also uses 24h) are actually reachable here when YF fails.
-    // Applies even on force-refresh — last-known price beats noData.
-    if (!q) {
-      const cached = _priceCache.get(ticker);
-      if (cached && (Date.now() - cached.cachedAt) < PRICE_CACHE_WARM_TTL) {
-        return { ...cached.q, _fromCache: true, _resolvedTicker: ticker, _cachedAt: cached.cachedAt };
-      }
-    }
-    if (q) q._resolvedTicker = resolvedTicker;
-    return q;
+    return null;
   };
 
   // Fetch quotes with a concurrency limit to avoid tripping YF rate limits.
@@ -1624,17 +1625,12 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
     // Skip tickers whose cached price already covers the last market close
     const tickersToFetch = allTickers.filter(t => !priceIsFresh(t, _priceCache.get(t)));
     if (tickersToFetch.length > 0) {
-      try {
-        const bulkResult = await withYFRetry(
-          () => yahooFinance.quote(tickersToFetch, {}, { validateResult: false }),
-          12000, 0
-        );
-        (Array.isArray(bulkResult) ? bulkResult : [bulkResult]).forEach(q => {
-          if (q?.symbol && q.regularMarketPrice != null) {
-            setPriceCache(q.symbol, { q, cachedAt: Date.now() });
-          }
-        });
-      } catch(e) { log.warn('bulk price pre-fetch failed', { error: e?.message?.slice(0, 120), status: e?.status }); }
+      await Promise.allSettled(tickersToFetch.map(async t => {
+        try {
+          const q = await finnhubQuote(t);
+          if (q?.regularMarketPrice != null) setPriceCache(t, { q, cachedAt: Date.now() });
+        } catch {}
+      }));
     }
   }
 
@@ -1795,17 +1791,14 @@ app.get('/api/dividends', requireUser, async (req, res) => {
       }
     }
   });
-  // Second pass: fetch real names from YF for any ticker-like names not yet in price cache
+  // Second pass: fetch real names via Finnhub profile2 for ticker-like names not yet resolved
   if (tickersNeedingLookup.size > 0) {
     await Promise.all([...tickersNeedingLookup.entries()].map(async ([base, ticker]) => {
       try {
-        const q = await yahooFinance.quote(ticker);
-        if (q?.longName || q?.shortName) {
-          setPriceCache(ticker, { q, cachedAt: Date.now() });
-          const name = cleanYFName(q.longName || q.shortName);
+        const name = await finnhubName(ticker);
+        if (name) {
           rawTickerToName[base] = name;
           baseTickerToName[base] = name;
-          // Only update ISIN entries that belong to this specific ticker (avoid cross-ticker corruption)
           for (const [isin, b] of Object.entries(isinToBase)) {
             if (b === base && /^[A-Z0-9]{1,7}$/.test(isinToName[isin])) isinToName[isin] = name;
           }
@@ -1814,13 +1807,11 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     }));
   }
   // Third pass: dividend rows whose name is still ticker-like but have no matching buy transaction.
-  // Use the row's ISIN (if present) or the raw name to query YF directly.
   {
     const seenKeys = new Set();
     const divNeedingLookup = [];
     for (const t of divs) {
       const cleaned = cleanDivName(t.name);
-      // Skip only if already resolved to a proper name (has lowercase letters)
       const isinResolved = t.isin && isinToName[t.isin] && /[a-z]/.test(isinToName[t.isin]);
       const rawResolved = /[a-z]/.test(rawTickerToName[cleaned] || '');
       const baseResolved = /[a-z]/.test(baseTickerToName[cleaned.toUpperCase()] || '');
@@ -1834,15 +1825,15 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     if (divNeedingLookup.length > 0) {
       await Promise.all(divNeedingLookup.map(async (t) => {
         const cleaned = cleanDivName(t.name);
-        const query = t.isin || cleaned;
         try {
-          const q = await yahooFinance.quote(query);
-          if (q?.longName || q?.shortName) {
-            const name = cleanYFName(q.longName || q.shortName);
+          // Search by ISIN first (unambiguous), then by ticker-like name
+          const fhResults = t.isin ? await finnhubSearch(t.isin) : [];
+          const fhSym = fhResults[0]?.symbol || toFinnhubSymbol(cleaned);
+          const name = await finnhubName(toYFSymbol(fhSym));
+          if (name) {
             if (t.isin) isinToName[t.isin] = name;
             rawTickerToName[cleaned] = name;
             baseTickerToName[cleaned.toUpperCase()] = name;
-            if (q.symbol) setPriceCache(q.symbol, { q, cachedAt: Date.now() });
           }
         } catch {}
       }));
@@ -1915,11 +1906,10 @@ app.get('/api/admin/global-overrides', requireModerator, async (req, res) => {
   const enriched = await Promise.all((data || []).map(async o => {
     try {
       const cached = _priceCache.get(o.ticker);
-      const q = cached ? cached.q : await withYFRetry(() => yahooFinance.quote(o.ticker, {}, { validateResult: false }), 5000);
+      const q = cached ? cached.q : await finnhubQuote(o.ticker).catch(() => null);
       return { ...o, name: q?.longName || q?.shortName || null };
     } catch(e) {
-      const q = e?.result ?? e?.data;
-      return { ...o, name: q?.longName || q?.shortName || null };
+      return { ...o, name: null };
     }
   }));
   res.json(enriched);
@@ -1967,10 +1957,8 @@ app.post('/api/ownership', requireUser, async (req, res) => {
   const results = [];
   for (const { ticker, name } of tickers) {
     try {
-      const data = await yahooFinance.quoteSummary(ticker, { modules:['institutionOwnership','insiderHolders','majorHoldersBreakdown'] });
-      const mhb = data?.majorHoldersBreakdown, inst = data?.institutionOwnership?.ownershipList||[];
-      if (!mhb && !inst.length) { results.push({ ticker, name, noData:true }); continue; }
-      results.push({ ticker, name, institutionPct:mhb?.institutionsPercentHeld??null, insiderPct:mhb?.insidersPercentHeld??null, topInstitutional:inst.slice(0,8).map(o=>({ name:o.organization, pctHeld:o.pctHeld?.raw??0 })), topInsiders:(data?.insiderHolders?.holders||[]).slice(0,6).map(i=>({ name:i.name, relation:i.relation })) });
+      results.push({ ticker, name, noData: true }); continue; // ownership data requires premium API
+      // eslint-disable-next-line no-unreachable
     } catch(e) { results.push({ ticker, name, error:true }); }
     await new Promise(r => setTimeout(r, 200));
   }
@@ -1978,8 +1966,11 @@ app.post('/api/ownership', requireUser, async (req, res) => {
 });
 
 app.get('/api/ownership/search/:query', requireUser, async (req, res) => {
-  try { const results = await yahooFinance.search(req.params.query); res.json((results?.quotes||[]).filter(q=>q.symbol&&q.quoteType==='EQUITY').slice(0,8).map(q=>({ ticker:q.symbol, name:q.longname||q.shortname, exchange:q.exchange }))); }
-  catch(e) { res.status(500).json({ error:e.message }); }
+  try {
+    const results = await finnhubSearch(req.params.query);
+    res.json(results.filter(r => r.symbol && (r.type === 'Common Stock' || r.type === 'ETP')).slice(0, 8)
+      .map(r => ({ ticker: toYFSymbol(r.symbol), name: r.description, exchange: r.symbol.includes(':') ? r.symbol.split(':')[1] : 'US' })));
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Performance history ─────────────────────────────────────────────────────
@@ -1989,7 +1980,21 @@ app.post('/api/history', requireUser, async (req, res) => {
   const days = { '1W':7,'1M':30,'3M':90,'1Y':365,'3Y':1095 }[period]||90;
   const startDate = new Date(); startDate.setDate(startDate.getDate()-days);
   const priceHistory = {};
-  try { for (const h of portfolio) { const hist = await yahooFinance.historical(h.ticker, { period1:startDate, interval:'1d' }); priceHistory[h.ticker]={}; hist.forEach(d=>{ priceHistory[h.ticker][d.date.toISOString().split('T')[0]]=d.close; }); await new Promise(r=>setTimeout(r,100)); } } catch(e) {}
+  try {
+    for (const h of portfolio) {
+      try {
+        const fhSym = toFinnhubSymbol(h.ticker);
+        const from = Math.floor(startDate.getTime() / 1000);
+        const to = Math.floor(Date.now() / 1000);
+        const hist = await finnhubFetch(`/stock/candle?symbol=${encodeURIComponent(fhSym)}&resolution=D&from=${from}&to=${to}`);
+        priceHistory[h.ticker] = {};
+        if (hist?.s === 'ok' && hist.t) {
+          hist.t.forEach((ts, i) => { priceHistory[h.ticker][new Date(ts * 1000).toISOString().split('T')[0]] = hist.c[i]; });
+        }
+      } catch {}
+      await new Promise(r => setTimeout(r, 150));
+    }
+  } catch(e) {}
   const allDates = new Set(Object.values(priceHistory).flatMap(d=>Object.keys(d)));
   const sortedDates = [...allDates].sort();
   if (sortedDates.length < 2) return res.json([]);
