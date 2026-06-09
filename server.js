@@ -1734,6 +1734,20 @@ app.get('/api/dividends', requireUser, async (req, res) => {
   const rawTickerToName = {};
   const baseTickerToName = {};
   const isinToBase = {}; // ISIN → base ticker, used for targeted ISIN updates in second pass
+  // Seed name maps from last portfolio_cache snapshot — these names were already properly
+  // resolved from YF and stored, so they work even when YF is currently unavailable.
+  {
+    const { data: snap } = await supabase.from('portfolio_cache')
+      .select('dashboard').eq('user_id', req.user.id).limit(1).single();
+    (snap?.dashboard?.portfolio || []).forEach(h => {
+      if (!h.name || !h.ticker) return;
+      const base = h.ticker.split('.')[0].toUpperCase();
+      if (h.isin && !isinToName[h.isin]) isinToName[h.isin] = h.name;
+      if (!rawTickerToName[base]) rawTickerToName[base] = h.name;
+      if (!baseTickerToName[base]) baseTickerToName[base] = h.name;
+      if (h.isin && !isinToBase[h.isin]) isinToBase[h.isin] = base;
+    });
+  }
   const { data: buyTxs } = await supabase.from('transactions')
     .select('isin, raw_ticker, name, ticker')
     .eq('user_id', req.user.id)
