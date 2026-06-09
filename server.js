@@ -187,18 +187,11 @@ app.get('/api/health', (req, res) => {
 
 // Connectivity diagnostic — tests US (Finnhub) + Nordic (Twelve Data fallback)
 app.get('/api/diag/yf', async (req, res) => {
-  const tdKey = TWELVE_DATA_KEY;
-  const [usResult, nordicResult, tdSearch, tdRaw] = await Promise.all([
+  const [usResult, nordicResult] = await Promise.all([
     finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'finnhub' })).catch(e => ({ ok: false, error: e?.message })),
     finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'twelvedata' })).catch(e => ({ ok: false, error: e?.message })),
-    // Search for how Twelve Data lists this stock
-    fetch(`https://api.twelvedata.com/symbol_search?symbol=VOLV-B&apikey=${tdKey}`, { signal: AbortSignal.timeout(8000) })
-      .then(r => r.json()).then(d => (d?.data || []).slice(0, 3)).catch(e => ({ error: e?.message })),
-    // Try raw price with current symbol mapping
-    fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(toTwelveDataSymbol('VOLV-B.ST'))}&apikey=${tdKey}`, { signal: AbortSignal.timeout(8000) })
-      .then(r => r.json()).catch(e => ({ error: e?.message })),
   ]);
-  res.json({ finnhubKeySet: !!FINNHUB_KEY, twelveDataKeySet: !!TWELVE_DATA_KEY, symbolTried: toTwelveDataSymbol('VOLV-B.ST'), us: usResult, nordic: nordicResult, tdSearch, tdRaw });
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, twelveDataKeySet: !!TWELVE_DATA_KEY, us: usResult, nordic: nordicResult });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
@@ -575,28 +568,26 @@ async function finnhubFetch(path) {
   return r.json();
 }
 
-// Twelve Data uses MIC codes — reuse YF_TO_FH_EXCHANGE, strip the leading ':'
-function toTwelveDataSymbol(yfTicker) {
-  for (const [yfSfx, fhSfx] of Object.entries(YF_TO_FH_EXCHANGE)) {
-    if (yfTicker.endsWith(yfSfx)) {
-      const mic = fhSfx.slice(1); // ':XSTO' → 'XSTO'
-      return `${yfTicker.slice(0, -yfSfx.length)}:${mic}`;
-    }
-  }
-  return yfTicker; // US tickers pass through as-is
-}
-
 // Fallback for exchanges Finnhub free tier doesn't cover (Nordic, European, etc.)
+// Twelve Data quirks: hyphens → dots in ticker (VOLV-B → VOLV.B), and exchange
+// must be passed as mic_code query param — colon-notation is rejected as invalid.
 async function twelveDataQuote(yfTicker) {
   if (!TWELVE_DATA_KEY) return null;
-  const symbol = toTwelveDataSymbol(yfTicker);
-  const r = await fetch(
-    `https://api.twelvedata.com/price?symbol=${encodeURIComponent(symbol)}&apikey=${TWELVE_DATA_KEY}`,
-    { signal: AbortSignal.timeout(8000) }
-  );
+  let tdSymbol = yfTicker;
+  let micCode = null;
+  for (const [yfSfx, fhSfx] of Object.entries(YF_TO_FH_EXCHANGE)) {
+    if (yfTicker.endsWith(yfSfx)) {
+      tdSymbol = yfTicker.slice(0, -yfSfx.length).replace(/-/g, '.'); // VOLV-B → VOLV.B
+      micCode = fhSfx.slice(1); // ':XSTO' → 'XSTO'
+      break;
+    }
+  }
+  const params = new URLSearchParams({ symbol: tdSymbol, apikey: TWELVE_DATA_KEY });
+  if (micCode) params.set('mic_code', micCode);
+  const r = await fetch(`https://api.twelvedata.com/price?${params}`, { signal: AbortSignal.timeout(8000) });
   if (!r.ok) throw new Error(`TwelveData HTTP ${r.status}`);
   const data = await r.json();
-  if (data?.code === 400 || data?.code === 404 || !data?.price) return null;
+  if (data?.code || !data?.price) return null;
   const price = parseFloat(data.price);
   if (!price) return null;
   const cached = _priceCache.get(yfTicker);
