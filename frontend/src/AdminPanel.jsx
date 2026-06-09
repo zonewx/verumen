@@ -322,7 +322,7 @@ export default function AdminPanel({ authUsername }) {
         </div>
 
         {/* Tabs */}
-        <div className={`flex gap-0 border-b border-zinc-700 mb-6`}>
+        <div className={`flex gap-0 border-b border-zinc-700 mb-6 overflow-x-auto`}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2.5 text-sm font-semibold transition border-b-2 -mb-px ${tab === t.id ? 'border-red-500 text-red-400' : `border-transparent text-zinc-400 hover:text-white`}`}>{t.label}</button>
           ))}
