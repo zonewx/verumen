@@ -278,7 +278,7 @@ export default function AdminPanel({ authUsername }) {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto pt-12">
       {/* Delete user modal */}
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDeleteModal(null)}>

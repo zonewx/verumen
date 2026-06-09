@@ -504,7 +504,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   );
 
   return (
-    <div className={`flex flex-col flex-1 overflow-y-auto bg-zinc-900 text-white`}>
+    <div className={`flex flex-col flex-1 overflow-y-auto pt-12 bg-zinc-900 text-white`}>
       <div className="max-w-7xl mx-auto px-6 py-8 w-full">
 
           {/* OVERVIEW */}

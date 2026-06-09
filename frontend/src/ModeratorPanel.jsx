@@ -116,7 +116,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
   const TABS = [{ id: 'users', label: 'Users' }, { id: 'announcements', label: 'Announcements' }, { id: 'log', label: 'Mod Log' }];
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto pt-12">
       {resetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setResetModal(null)}>
           <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>

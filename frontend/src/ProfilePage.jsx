@@ -175,7 +175,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
   // ── View another user ──────────────────────────────────────────────────────
   if (isViewing) {
     return (
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pt-12">
         <div className="max-w-5xl mx-auto px-6 py-8">
           {!profile ? (
             <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div>
@@ -262,7 +262,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
 
   // ── Own profile ────────────────────────────────────────────────────────────
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto pt-12">
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 

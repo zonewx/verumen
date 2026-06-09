@@ -326,7 +326,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   );
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto pt-12">
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Social</h1>
