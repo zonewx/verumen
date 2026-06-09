@@ -187,11 +187,16 @@ app.get('/api/health', (req, res) => {
 
 // Connectivity diagnostic — tests US (Finnhub) + Nordic (Stooq fallback)
 app.get('/api/diag/yf', async (req, res) => {
-  const [usResult, nordicResult] = await Promise.all([
+  const d2 = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const d1 = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+  const [usResult, nordicResult, stooqRaw] = await Promise.all([
     finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'finnhub' })).catch(e => ({ ok: false, error: e?.message })),
     finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'stooq' })).catch(e => ({ ok: false, error: e?.message })),
+    fetch(`https://stooq.com/q/d/l/?s=volv-b.st&d1=${d1}&d2=${d2}&i=d`, { signal: AbortSignal.timeout(8000) })
+      .then(r => r.text()).then(t => ({ status: 200, body: t.slice(0, 300) }))
+      .catch(e => ({ error: e?.message })),
   ]);
-  res.json({ finnhubKeySet: !!FINNHUB_KEY, us: usResult, nordic: nordicResult });
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, us: usResult, nordic: nordicResult, stooqRaw });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
