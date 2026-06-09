@@ -1733,6 +1733,7 @@ app.get('/api/dividends', requireUser, async (req, res) => {
   const isinToName = {};
   const rawTickerToName = {};
   const baseTickerToName = {};
+  const isinToBase = {}; // ISIN → base ticker, used for targeted ISIN updates in second pass
   const { data: buyTxs } = await supabase.from('transactions')
     .select('isin, raw_ticker, name, ticker')
     .eq('user_id', req.user.id)
@@ -1749,6 +1750,7 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     if (t.ticker) {
       const base = t.ticker.split('.')[0].toUpperCase();
       if (!baseTickerToName[base]) baseTickerToName[base] = displayName;
+      if (t.isin && !isinToBase[t.isin]) isinToBase[t.isin] = base;
       // Queue a YF lookup if name looks unresolved: no cache at all, or no lowercase letters
       // (real company names always have lowercase; "VIT B", "EVO", "SAGA D" etc. are broker abbreviations)
       if ((!cached || !/[a-z]/.test(displayName)) && !tickersNeedingLookup.has(base)) {
@@ -1766,9 +1768,9 @@ app.get('/api/dividends', requireUser, async (req, res) => {
           const name = cleanYFName(q.longName || q.shortName);
           rawTickerToName[base] = name;
           baseTickerToName[base] = name;
-          // Update isinToName too if we have a matching ISIN entry that was ticker-like
-          for (const [isin, n] of Object.entries(isinToName)) {
-            if (/^[A-Z0-9]{1,7}$/.test(n)) isinToName[isin] = name;
+          // Only update ISIN entries that belong to this specific ticker (avoid cross-ticker corruption)
+          for (const [isin, b] of Object.entries(isinToBase)) {
+            if (b === base && /^[A-Z0-9]{1,7}$/.test(isinToName[isin])) isinToName[isin] = name;
           }
         }
       } catch {}
@@ -1780,9 +1782,12 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     const seenKeys = new Set();
     const divNeedingLookup = [];
     for (const t of divs) {
-      if (t.isin && isinToName[t.isin]) continue;
       const cleaned = cleanDivName(t.name);
-      if (rawTickerToName[cleaned] || baseTickerToName[cleaned.toUpperCase()]) continue;
+      // Skip only if already resolved to a proper name (has lowercase letters)
+      const isinResolved = t.isin && isinToName[t.isin] && /[a-z]/.test(isinToName[t.isin]);
+      const rawResolved = /[a-z]/.test(rawTickerToName[cleaned] || '');
+      const baseResolved = /[a-z]/.test(baseTickerToName[cleaned.toUpperCase()] || '');
+      if (isinResolved || rawResolved || baseResolved) continue;
       if (!/^[A-Z0-9]{1,7}$/.test(cleaned)) continue;
       const key = t.isin || cleaned;
       if (seenKeys.has(key)) continue;
@@ -1807,9 +1812,12 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     }
   }
   const resolveName = (t) => {
-    if (t.isin && isinToName[t.isin]) return isinToName[t.isin];
     const cleaned = cleanDivName(t.name);
-    return rawTickerToName[cleaned] || baseTickerToName[cleaned.toUpperCase()] || cleaned;
+    const byIsin = t.isin ? isinToName[t.isin] : null;
+    const byRaw = rawTickerToName[cleaned];
+    const byBase = baseTickerToName[cleaned.toUpperCase()];
+    // Prefer any source that looks like a real company name (has lowercase letters)
+    return [byIsin, byRaw, byBase].find(n => n && /[a-z]/.test(n)) || byIsin || byRaw || byBase || cleaned;
   };
   const thisYear = new Date().getFullYear().toString();
   const totalAllTime = divs.reduce((s,t)=>s+conv(t.total_sek),0);
