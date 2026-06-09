@@ -188,6 +188,19 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString(), indexCache: cacheSnapshot });
 });
 
+// Admin-only YF connectivity diagnostic
+app.get('/api/diag/yf', requireUser, async (req, res) => {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+  const yfPkg = (() => { try { return require('./node_modules/yahoo-finance2/package.json').version; } catch { return 'unknown'; } })();
+  const start = Date.now();
+  try {
+    const q = await withYFRetry(() => yahooFinance.quote('AAPL', {}, { validateResult: false }), 8000, 0);
+    res.json({ ok: true, yfVersion: yfPkg, ticker: q?.symbol, price: q?.regularMarketPrice, latencyMs: Date.now() - start });
+  } catch(e) {
+    res.json({ ok: false, yfVersion: yfPkg, error: e?.message, status: e?.status, latencyMs: Date.now() - start, result: e?.result ?? e?.data ?? null });
+  }
+});
+
 // ── Auth middleware ─────────────────────────────────────────────────────────
 async function requireUser(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -1612,7 +1625,7 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
             setPriceCache(q.symbol, { q, cachedAt: Date.now() });
           }
         });
-      } catch(e) { /* bulk failed — Supabase-warmed _priceCache serves as stale fallback */ }
+      } catch(e) { log.warn('bulk price pre-fetch failed', { error: e?.message?.slice(0, 120), status: e?.status }); }
     }
   }
 
