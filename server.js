@@ -191,12 +191,22 @@ app.get('/api/health', (req, res) => {
 // YF connectivity diagnostic — public, no sensitive data exposed
 app.get('/api/diag/yf', async (req, res) => {
   const yfPkg = (() => { try { return require('./node_modules/yahoo-finance2/package.json').version; } catch { return 'unknown'; } })();
+  // Raw fetch test — bypasses yahoo-finance2 entirely to confirm basic connectivity
+  let rawTest = null;
+  try {
+    const t0 = Date.now();
+    const r = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=1d&interval=1d', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+    });
+    rawTest = { ok: r.ok, status: r.status, latencyMs: Date.now() - t0 };
+  } catch(e) { rawTest = { ok: false, error: e?.message }; }
+
   const start = Date.now();
   try {
     const q = await withYFRetry(() => yahooFinance.quote('AAPL', {}, { validateResult: false }), 8000, 0);
-    res.json({ ok: true, yfVersion: yfPkg, ticker: q?.symbol, price: q?.regularMarketPrice, latencyMs: Date.now() - start });
+    res.json({ yfLib: { ok: true, yfVersion: yfPkg, ticker: q?.symbol, price: q?.regularMarketPrice, latencyMs: Date.now() - start }, rawFetch: rawTest });
   } catch(e) {
-    res.json({ ok: false, yfVersion: yfPkg, error: e?.message, status: e?.status, latencyMs: Date.now() - start, result: e?.result ?? e?.data ?? null });
+    res.json({ yfLib: { ok: false, yfVersion: yfPkg, error: e?.message, status: e?.status, latencyMs: Date.now() - start }, rawFetch: rawTest });
   }
 });
 
