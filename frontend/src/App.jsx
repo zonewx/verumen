@@ -2047,7 +2047,7 @@ const handleUpload = async (files) => {
 
   // ── Main App Return with Routes ─────────────────────────────────────────────
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="fixed inset-0 flex overflow-hidden">
       {/* Sidebar */}
       <Sidebar 
       currentUser={{ username: authUsername, role: userRole }}
