@@ -238,7 +238,7 @@ export default function GlobalBar({ authUsername, onNavigate, onLogout, userRole
     : <span className="text-xs font-bold">{authUsername?.[0]?.toUpperCase() ?? ''}</span>;
 
   return (
-    <div className={`fixed top-0 right-0 z-50 h-12 flex items-center px-4 bg-zinc-900`} style={{ left: 'var(--sidebar-w, 240px)' }}>
+    <div className={`fixed top-0 right-0 z-50 h-[40px] flex items-center px-4 bg-zinc-900`} style={{ left: 'var(--sidebar-w, 240px)' }}>
       {/* Center — Search (absolutely centered so ticker width never shifts it) */}
       <div ref={searchRef} className="absolute left-1/2 -translate-x-1/2 w-full max-w-md z-10">
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm bg-zinc-800 border-zinc-700`}>

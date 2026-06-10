@@ -301,7 +301,7 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
   return (
     <>
     {/* Fixed sidebar header â€” sits above GlobalBar in the sidebar lane */}
-    <div className={`fixed top-0 left-0 ${sidebarWidth} h-12 z-[51] ${bg} flex items-center px-3 transition-all duration-300`}>
+    <div className={`fixed top-0 left-0 ${sidebarWidth} h-[40px] z-[51] ${bg} flex items-center px-3 transition-all duration-300`}>
       <h1
         className={`absolute top-0 h-full flex items-center justify-center text-lg font-bold ${textPrimary} whitespace-nowrap`}
         style={{ left: 0, width: '240px', pointerEvents: 'none', fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}
@@ -315,7 +315,7 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
       </button>
     </div>
 
-    <div className={`${sidebarWidth} ${bg} transition-all duration-300 flex flex-col h-screen sticky top-0 pt-12`}>
+    <div className={`${sidebarWidth} ${bg} transition-all duration-300 flex flex-col h-screen sticky top-0 pt-[40px]`}>
       <nav className="flex-1 overflow-y-auto overflow-x-hidden p-2 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
         <div className="space-y-0.5">
           {visibleMenuItems.map(item => {
