@@ -88,7 +88,7 @@ export function TodayCards({ data, sortMode, fmt, fmtSym }) {
   const Card = ({ s }) => {
     const pos = s.todayChangePct >= 0;
     return (
-      <div className={`rounded-xl p-4 flex flex-col gap-2.5 border-l-2 ${pos ? 'border-l-emerald-500' : 'border-l-red-500'} bg-zinc-800 border border-zinc-700`}>
+      <div className={`rounded-xl p-4 flex flex-col gap-2.5 border-l-2 ${pos ? 'border-l-emerald-500' : 'border-l-red-500'} bg-zinc-700/50`}>
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.12em] truncate text-zinc-400">{s.ticker}</span>
           <span className={`text-xs font-bold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>{`${pos ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</span>

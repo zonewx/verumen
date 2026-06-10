@@ -1765,7 +1765,6 @@ app.post('/api/portfolio', requireUser, async (req, res) => {
         supabase.from('transactions').update({ ticker: resolvedTicker })
           .eq('user_id', req.user.id).eq('raw_ticker', h.ticker).then(() => {});
       }
-      if (q._fromCache) hasStalePrices = true;
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice;
       const _isinCcy=h.isin?ISIN_CURRENCY_MAP[h.isin.substring(0,2).toUpperCase()]:null;
       const currency=q.currency||_isinCcy||'SEK';

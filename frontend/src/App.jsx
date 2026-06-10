@@ -1502,7 +1502,7 @@ const handleUpload = async (files) => {
                                 <span className="flex-1">
                                   {dashboardData?.fromCache
                                     ? <>Showing saved snapshot from {new Date(dashboardData.builtAt).toLocaleString()} — <button onClick={handleRefreshPrices} className="underline font-semibold hover:opacity-75 transition">Refresh prices</button> to update.</>
-                                    : 'Prices may be delayed — Yahoo Finance is temporarily unavailable, showing last known values.'}
+                                    : 'Prices may be delayed — price data could not be fetched, showing last known values.'}
                                 </span>
                                 <button onClick={() => setStaleBannerDismissed(true)} className="shrink-0 opacity-60 hover:opacity-100 transition ml-1" title="Dismiss">
                                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1583,14 +1583,17 @@ const handleUpload = async (files) => {
                           <div className={`${cardCls} p-6`}>
                             <div className="flex items-center justify-between mb-6">
                               <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>Best &amp; Worst Today</h3>
-                              <select
-                                value={todaySortMode}
-                                onChange={e => setTodaySortMode(e.target.value)}
-                                className="px-2 py-1.5 rounded-lg border text-xs outline-none bg-zinc-700 border-zinc-600 text-white"
-                              >
-                                <option value="currency">Amount ({sym})</option>
-                                <option value="pct">Percentage (%)</option>
-                              </select>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-zinc-500 font-medium">Sort by:</span>
+                                <select
+                                  value={todaySortMode}
+                                  onChange={e => setTodaySortMode(e.target.value)}
+                                  className="px-2 py-1.5 rounded-lg border text-xs outline-none bg-zinc-700 border-zinc-600 text-white"
+                                >
+                                  <option value="currency">Amount ({sym})</option>
+                                  <option value="pct">Percentage (%)</option>
+                                </select>
+                              </div>
                             </div>
                             <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} fmt={fmt} fmtSym={fmtH} />
                           </div>
@@ -1615,7 +1618,7 @@ const handleUpload = async (files) => {
                               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 <div className={`${cardCls} p-6`}>
                                   <div className="flex items-center justify-between mb-4">
-                                    <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>Top Holdings</h3>
+                                    <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>Largest Holdings</h3>
                                     <span className={`text-[10px] text-zinc-400`}>{dashboardData.portfolio.length} total</span>
                                   </div>
                                   <div className="flex flex-col gap-2">
