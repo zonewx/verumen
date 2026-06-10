@@ -38,7 +38,7 @@ function ProfileRoute({ authUsername, shellProps }) {
 
 function PageShell({ title, children }) {
   return (
-    <div className={`flex flex-col h-screen pt-[40px] bg-zinc-900 text-white overflow-hidden`}>
+    <div className="flex flex-col h-screen bg-zinc-900 text-white overflow-hidden" style={{ paddingTop: '40px' }}>
       {title && <div className={`px-8 py-3 border-b shrink-0 border-zinc-700 bg-zinc-900`}><h1 className="text-base font-bold">{title}</h1></div>}
       {children}
     </div>
@@ -994,7 +994,7 @@ const handleUpload = async (files) => {
         }
         {hideValues ? 'Show values' : 'Hide values'}
       </button>
-      <div className={`flex flex-col h-screen pt-[40px] overflow-hidden bg-zinc-900 text-white`}>
+      <div className="flex flex-col h-screen overflow-hidden bg-zinc-900 text-white" style={{ paddingTop: '40px' }}>
         {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
 
         <div ref={portfolioScrollRef} className="flex-1 min-h-0 overflow-y-auto">

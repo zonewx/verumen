@@ -489,13 +489,13 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
     {/* Sidebar right edge â€” all three pieces share the same easing so they move in lockstep */}
     <div
       className={`fixed bottom-0 w-px ${borderColor} z-[51] pointer-events-none`}
-      style={{ top: '60px', left: isExpanded ? '240px' : '64px', transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)' }}
+      style={{ top: '52px', left: isExpanded ? '240px' : '64px', transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)' }}
     />
     {/* Quarter-circle arc */}
     <div
       className="fixed z-[51] pointer-events-none"
       style={{
-        top: '48px',
+        top: '40px',
         left: isExpanded ? '240px' : '64px',
         width: '13px',
         height: '13px',
@@ -509,7 +509,7 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
     <div
       className={`fixed h-px right-0 ${borderColor} z-[49] pointer-events-none`}
       style={{
-        top: '48px',
+        top: '40px',
         left: isExpanded ? '252px' : '76px',
         transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
       }}
