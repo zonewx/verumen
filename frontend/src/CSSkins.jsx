@@ -155,7 +155,7 @@ function SkinCard({ item, onClick, onSetPrice, onClearPrice, baseCurrency = 'SEK
             <div className="flex items-center gap-1">
               <p className="text-sm font-bold text-green-400">{fmtCur(item.price, baseCurrency)}</p>
               {item.isOverride && (
-                <button onClick={e => { e.stopPropagation(); onClearPrice(); }} title="Remove manual price" className="text-[10px] text-zinc-500 hover:text-red-400 transition">✕</button>
+                <button onClick={e => { e.stopPropagation(); onClearPrice(); }} title="Remove manual price" className="text-[10px] text-zinc-400 hover:text-red-400 transition">✕</button>
               )}
             </div>
           ) : (
@@ -504,7 +504,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   );
 
   return (
-    <div className={`flex flex-col flex-1 overflow-y-auto pt-12 bg-zinc-900 text-white`}>
+    <div className={`flex flex-col flex-1 min-h-0 overflow-y-auto bg-zinc-900 text-white`}>
       <div className="max-w-7xl mx-auto px-6 py-8 w-full">
 
           {/* OVERVIEW */}
@@ -1205,7 +1205,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           <div className="flex-1 min-w-0">
                             {screenshotUrl
                               ? <SteamScreenshotEmbed url={screenshotUrl} />
-                              : <div className={`h-full flex items-center justify-center rounded-xl border border-zinc-700 text-zinc-600`}><p className="text-xs">No screenshot linked.</p></div>
+                              : <div className={`h-full flex items-center justify-center rounded-xl border border-zinc-700 text-zinc-400`}><p className="text-xs">No screenshot linked.</p></div>
                             }
                           </div>
                         </div>

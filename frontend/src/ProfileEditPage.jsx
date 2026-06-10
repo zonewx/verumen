@@ -218,7 +218,7 @@ export default function ProfileEditPage({ authUsername }) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto pt-12">
+    <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -252,7 +252,7 @@ export default function ProfileEditPage({ authUsername }) {
                   {avatarUploading && <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center"><div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"/></div>}
                 </div>
                 {editForm.avatarBase64 && (
-                  <button onClick={() => setEditForm(f => ({ ...f, avatarBase64: null }))} className={`text-xs text-zinc-500 hover:text-red-400 transition`}>Remove photo</button>
+                  <button onClick={() => setEditForm(f => ({ ...f, avatarBase64: null }))} className={`text-xs text-zinc-400 hover:text-red-400 transition`}>Remove photo</button>
                 )}
               </div>
             </div>
@@ -316,7 +316,7 @@ export default function ProfileEditPage({ authUsername }) {
             <div className={`${card} p-6`}>
               <label className={labelCls}>Bio</label>
               <textarea value={editForm.bio} onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))} rows={4} maxLength={200} placeholder="Tell the community about yourself..." className={`${inputCls} resize-none`} />
-              <p className={`text-xs mt-1 text-zinc-600`}>{editForm.bio.length}/200</p>
+              <p className={`text-xs mt-1 text-zinc-400`}>{editForm.bio.length}/200</p>
             </div>
 
             {/* Country */}
@@ -351,7 +351,7 @@ export default function ProfileEditPage({ authUsername }) {
                   <button onClick={handleSteamLogin} disabled={steamLookupLoading} className="self-start hover:opacity-90 transition disabled:opacity-50">
                     <img src="https://community.cloudflare.steamstatic.com/public/images/signinthroughsteam/sits_01.png" alt="Sign in through Steam" className="h-10" />
                   </button>
-                  <p className={`text-xs text-zinc-600`}>You'll be redirected to Steam to verify your account.</p>
+                  <p className={`text-xs text-zinc-400`}>You'll be redirected to Steam to verify your account.</p>
                   {steamLookupError && <p className="text-xs text-red-400">{steamLookupError}</p>}
                 </div>
               )}

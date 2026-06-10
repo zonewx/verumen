@@ -242,7 +242,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
 
   return (
-    <div className="flex-1 overflow-y-auto pt-12">
+    <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="max-w-5xl mx-auto px-6 py-6">
         
         {/* Profile Header - Horizontal Steam-Style Layout */}

@@ -278,7 +278,7 @@ export default function AdminPanel({ authUsername }) {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto pt-12">
+    <div className="flex-1 min-h-0 overflow-y-auto">
       {/* Delete user modal */}
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDeleteModal(null)}>
@@ -613,10 +613,10 @@ export default function AdminPanel({ authUsername }) {
                               <tr key={o.isin} className={`border-t border-zinc-700 hover:bg-zinc-700/20`}>
                                 <td className={`px-4 py-2.5 font-mono text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.isin}</td>
                                 <td className={`px-4 py-2.5 font-mono text-xs font-bold text-white ${!o.active ? 'opacity-50' : ''}`}>{o.ticker}</td>
-                                <td className={`px-4 py-2.5 text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.name || <span className="text-zinc-500">—</span>}</td>
+                                <td className={`px-4 py-2.5 text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.name || <span className="text-zinc-400">—</span>}</td>
                                 <td className={`px-4 py-2.5 text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.created_by}</td>
                                 <td className="px-4 py-2.5">
-                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${o.active ? 'bg-green-900/40 text-green-400' : 'bg-zinc-700/40 text-zinc-500'}`}>
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${o.active ? 'bg-green-900/40 text-green-400' : 'bg-zinc-700/40 text-zinc-400'}`}>
                                     {o.active ? 'Active' : 'Disabled'}
                                   </span>
                                 </td>
@@ -635,7 +635,7 @@ export default function AdminPanel({ authUsername }) {
                       </div>
                     </div>
                   ) : (
-                    <p className={`text-sm text-zinc-600`}>No global overrides saved yet.</p>
+                    <p className={`text-sm text-zinc-400`}>No global overrides saved yet.</p>
                   )}
                   {globalOverrides.length > 0 && (
                     <button onClick={() => { setClearAllModal(true); setClearAllPw(''); setClearAllError(''); }} className={`mt-4 ${btnRed}`}>

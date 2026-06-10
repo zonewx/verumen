@@ -175,7 +175,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
   // ── View another user ──────────────────────────────────────────────────────
   if (isViewing) {
     return (
-      <div className="flex-1 overflow-y-auto pt-12">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-5xl mx-auto px-6 py-8">
           {!profile ? (
             <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div>
@@ -262,7 +262,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
 
   // ── Own profile ────────────────────────────────────────────────────────────
   return (
-    <div className="flex-1 overflow-y-auto pt-12">
+    <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -286,7 +286,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
               )}
               <p className={`text-sm mt-1 text-zinc-400`}>Member since {formatDate(profile?.createdAt)}</p>
               {editForm.avatarBase64 && (
-                <button onClick={() => setEditForm(f => ({ ...f, avatarBase64: null }))} className={`text-xs mt-2 text-zinc-500 hover:text-red-400 transition`}>Remove photo</button>
+                <button onClick={() => setEditForm(f => ({ ...f, avatarBase64: null }))} className={`text-xs mt-2 text-zinc-400 hover:text-red-400 transition`}>Remove photo</button>
               )}
             </div>
 
@@ -320,7 +320,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Bio</label>
                   <textarea value={editForm.bio} onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))} rows={3} maxLength={200} placeholder="Tell the community about yourself..." className={`${inputCls} resize-none`} />
-                  <p className={`text-xs mt-1 text-zinc-600`}>{editForm.bio.length}/200</p>
+                  <p className={`text-xs mt-1 text-zinc-400`}>{editForm.bio.length}/200</p>
                 </div>
                 <div className="sm:col-span-2">
                   <label className={labelCls}>Steam Account</label>
@@ -338,7 +338,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
                       <button onClick={handleSteamLogin} disabled={steamLookupLoading} className="self-start hover:opacity-90 transition disabled:opacity-50">
                         <img src="https://community.cloudflare.steamstatic.com/public/images/signinthroughsteam/sits_01.png" alt="Sign in through Steam" className="h-10" />
                       </button>
-                      <p className={`text-xs text-zinc-600`}>You'll be redirected to Steam to verify your account.</p>
+                      <p className={`text-xs text-zinc-400`}>You'll be redirected to Steam to verify your account.</p>
                       {steamLookupError && <p className="text-xs text-red-400">{steamLookupError}</p>}
                     </div>
                   )}
@@ -369,14 +369,14 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
                   {editForm.bio ? (
                     <p className={`text-sm leading-relaxed mb-3 text-zinc-300`}>{editForm.bio}</p>
                   ) : (
-                    <p className={`text-sm italic mb-3 text-zinc-600`}>No bio yet</p>
+                    <p className={`text-sm italic mb-3 text-zinc-400`}>No bio yet</p>
                   )}
                   <div className="flex flex-wrap gap-2">
                     {editForm.steamId && <span className={`text-xs px-2 py-0.5 rounded-full ${steamVerified ? 'text-green-400 bg-green-900/30' : 'text-orange-400 bg-orange-900/30'}`}>{steamVerified ? '✓ Steam verified' : 'Steam (unverified)'}</span>}
                     {editForm.publicInventory && <span className="text-xs text-green-400 bg-green-900/30 px-2 py-0.5 rounded-full">Public CS inv.</span>}
                     {editForm.publicHoldings && <span className="text-xs text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-full">Public portfolio</span>}
                     {!editForm.steamId && !editForm.publicInventory && !editForm.publicHoldings && (
-                      <span className={`text-xs text-zinc-600`}>No badges yet</span>
+                      <span className={`text-xs text-zinc-400`}>No badges yet</span>
                     )}
                   </div>
                 </div>

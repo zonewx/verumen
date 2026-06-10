@@ -86,7 +86,7 @@ function ActivityCard({ item, onDelete, isOwn }) {
         <p className={`text-xs mt-0.5 text-zinc-400`}>{timeAgo(item.createdAt)}</p>
       </div>
       {isOwn && (
-        <button onClick={() => onDelete(item.id)} className={`text-xs text-zinc-600 hover:text-red-400 transition shrink-0`}>✕</button>
+        <button onClick={() => onDelete(item.id)} className={`text-xs text-zinc-400 hover:text-red-400 transition shrink-0`}>✕</button>
       )}
     </div>
   );
@@ -152,7 +152,7 @@ function ActivityCard({ item, onDelete, isOwn }) {
             <img src={item.imageBase64} alt={item.skinName} className={`w-full object-cover transition-all ${expanded ? 'max-h-none' : 'max-h-64'}`} />
           </div>
         )}
-        {!expanded && item.imageBase64 && <button onClick={() => setExpanded(true)} className={`text-xs mt-1 text-zinc-500 hover:text-white transition`}>View full</button>}
+        {!expanded && item.imageBase64 && <button onClick={() => setExpanded(true)} className={`text-xs mt-1 text-zinc-400 hover:text-white transition`}>View full</button>}
       </div>
     );
   }
@@ -326,7 +326,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   );
 
   return (
-    <div className="flex-1 overflow-y-auto pt-12">
+    <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Social</h1>
@@ -380,7 +380,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
               <div className={`${card} mb-4 overflow-hidden`}>
                 <div className={`px-5 py-3 border-b border-zinc-700 bg-zinc-800/50 flex items-center justify-between`}>
                   <h3 className="font-semibold text-sm">New Post</h3>
-                  <button onClick={() => { setShowUpload(false); setUploadForm({ skinName: '', caption: '', imageBase64: null }); }} className={`text-xs text-zinc-500 hover:text-white transition`}>✕</button>
+                  <button onClick={() => { setShowUpload(false); setUploadForm({ skinName: '', caption: '', imageBase64: null }); }} className={`text-xs text-zinc-400 hover:text-white transition`}>✕</button>
                 </div>
                 <div className="p-5 flex flex-col gap-3">
                   <input
@@ -395,7 +395,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                     placeholder="Information"
                     className={inputCls}
                   />
-                  <label className={`flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed cursor-pointer transition border-zinc-700 hover:border-zinc-500 hover:bg-zinc-700/10 text-zinc-500`}>
+                  <label className={`flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed cursor-pointer transition border-zinc-700 hover:border-zinc-500 hover:bg-zinc-700/10 text-zinc-400`}>
                     {uploadForm.imageBase64 ? (
                       <img src={uploadForm.imageBase64} className="max-h-48 rounded-lg object-contain" />
                     ) : (
@@ -404,13 +404,13 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                           <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
                         </svg>
                         <span className="text-sm">Click to select image</span>
-                        <span className={`text-xs text-zinc-600`}>Optional</span>
+                        <span className={`text-xs text-zinc-400`}>Optional</span>
                       </>
                     )}
                     <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e.target.files[0])} />
                   </label>
                   {uploadForm.imageBase64 && (
-                    <button onClick={() => setUploadForm(f => ({ ...f, imageBase64: null }))} className={`text-xs text-zinc-500 hover:text-red-400 transition text-left`}>
+                    <button onClick={() => setUploadForm(f => ({ ...f, imageBase64: null }))} className={`text-xs text-zinc-400 hover:text-red-400 transition text-left`}>
                       Remove image
                     </button>
                   )}
@@ -523,7 +523,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                       <div className="flex flex-col gap-2">
                         {friends.friends.map(u => (
                           <FriendRow key={u.username} user={u} actions={
-                            <button onClick={() => onViewProfile(u.username)} className={`text-xs text-zinc-500 hover:text-white transition`}>View →</button>
+                            <button onClick={() => onViewProfile(u.username)} className={`text-xs text-zinc-400 hover:text-white transition`}>View →</button>
                           } />
                         ))}
                       </div>

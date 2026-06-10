@@ -4,7 +4,7 @@ export function EmptyState({ title, desc, action }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <h3 className="text-lg font-semibold text-zinc-300 mb-2">{title}</h3>
-      <p className="text-sm text-zinc-500 max-w-xs mb-6">{desc}</p>
+      <p className="text-sm text-zinc-400 max-w-xs mb-6">{desc}</p>
       {action && <button onClick={action.fn} className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-semibold transition">{action.label}</button>}
     </div>
   );
@@ -16,7 +16,7 @@ export function ShortcutsModal({ onClose }) {
       <div className="bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-80 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-bold">Keyboard shortcuts</h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white text-lg">✕</button>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white text-lg">✕</button>
         </div>
         {[['Space / /','Focus search'],['?','Show shortcuts'],['Esc','Close / unfocus']].map(([key, desc]) => (
           <div key={key} className="flex items-center justify-between py-2 border-b border-zinc-700 last:border-0">
@@ -54,7 +54,7 @@ export function PieChart({ data }) {
 
 export function LineChart({ data, loading }) {
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div>;
-  if (!data?.length) return <div className="flex items-center justify-center h-64 text-zinc-500 text-sm">No data for this period.</div>;
+  if (!data?.length) return <div className="flex items-center justify-center h-64 text-zinc-400 text-sm">No data for this period.</div>;
   const W = 800, H = 260, PL = 52, PR = 16, PT = 16, PB = 32;
   const cw = W - PL - PR, ch = H - PT - PB;
   const vals = data.map(d => d.returnPct);

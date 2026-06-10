@@ -1054,9 +1054,9 @@ const handleUpload = async (files) => {
                           <p className={`text-[10px] font-semibold uppercase tracking-wider text-zinc-400 px-1`}>Data sources</p>
                           <div className="flex flex-col divide-y divide-zinc-700 rounded-xl overflow-hidden border border-zinc-700">
                             <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-3 py-1.5 bg-zinc-700/40">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Broker</span>
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 text-right">Rows</span>
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 w-12"></span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Broker</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 text-right">Rows</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 w-12"></span>
                             </div>
                             {Object.entries(txCount.byBroker).map(([broker, info]) => {
                               const typeList = Object.keys(info.types).filter(t => t !== 'foreign-tax');
@@ -1134,9 +1134,9 @@ const handleUpload = async (files) => {
                           <p className={`text-[10px] font-semibold uppercase tracking-wider text-zinc-400 px-1`}>Data sources</p>
                           <div className="flex flex-col divide-y divide-zinc-700 rounded-xl overflow-hidden border border-zinc-700">
                             <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-3 py-1.5 bg-zinc-700/40">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Broker</span>
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 text-right">Rows</span>
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 w-12"></span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Broker</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 text-right">Rows</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 w-12"></span>
                             </div>
                             {Object.entries(txCount.byBroker).map(([broker, info]) => {
                               const hasTrades = info.types.buy || info.types.sell;
@@ -1219,7 +1219,7 @@ const handleUpload = async (files) => {
                             )}
                           </div>
                         ) : (
-                          <p className={`text-sm text-zinc-600`}>No overrides saved yet.</p>
+                          <p className={`text-sm text-zinc-400`}>No overrides saved yet.</p>
                         );
                       })()}
                     </div>
@@ -1285,9 +1285,9 @@ const handleUpload = async (files) => {
                           <h4 className="text-sm font-bold">Imported CSVs</h4>
                           <div className="flex flex-col divide-y divide-zinc-700 rounded-xl overflow-hidden border border-zinc-700">
                             <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-3 py-1.5 bg-zinc-700/40">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Broker</span>
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 text-right">Rows</span>
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 w-14"></span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Broker</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 text-right">Rows</span>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 w-14"></span>
                             </div>
                             {Object.entries(txCount.byBroker).map(([broker, info]) => {
                               const hasTrades = info.types.buy || info.types.sell;
@@ -1409,11 +1409,11 @@ const handleUpload = async (files) => {
                                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                                     done   ? 'bg-zinc-600 text-white' :
                                     active ? 'bg-zinc-600/30 border-2 border-zinc-600 text-zinc-300' :
-                                    'bg-zinc-800 border border-zinc-700 text-zinc-600'
+                                    'bg-zinc-800 border border-zinc-700 text-zinc-400'
                                   }`}>
                                     {done ? '✓' : i + 1}
                                   </div>
-                                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${active ? 'text-zinc-300' : 'text-zinc-600'}`}>{step.label}</span>
+                                  <span className={`text-[10px] font-semibold uppercase tracking-wide ${active ? 'text-zinc-300' : 'text-zinc-400'}`}>{step.label}</span>
                                 </div>
                               </div>
                             );
@@ -1584,7 +1584,7 @@ const handleUpload = async (files) => {
                             <div className="flex items-center justify-between mb-6">
                               <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>Best &amp; Worst Today</h3>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-zinc-500 font-medium">Sort by:</span>
+                                <span className="text-[10px] text-zinc-400 font-medium">Sort by:</span>
                                 <select
                                   value={todaySortMode}
                                   onChange={e => setTodaySortMode(e.target.value)}
@@ -1770,7 +1770,7 @@ const handleUpload = async (files) => {
                                   <span>{fmt(s.nativePrice)} {s.currency}</span>
                                 </td>
                                 <td className="p-4 whitespace-nowrap text-xs" title="Most recent price fetch">
-                                  {s.priceDate ? (() => { const d = new Date(s.priceDate); const now = new Date(); const isToday = d.toDateString() === now.toDateString(); const label = isToday ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }); return <span className={isToday ? 'text-zinc-400' : 'text-amber-500/70'}>{label}</span>; })() : <span className="text-zinc-600">—</span>}
+                                  {s.priceDate ? (() => { const d = new Date(s.priceDate); const now = new Date(); const isToday = d.toDateString() === now.toDateString(); const label = isToday ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' }); return <span className={isToday ? 'text-zinc-400' : 'text-amber-500/70'}>{label}</span>; })() : <span className="text-zinc-400">—</span>}
                                 </td>
                                 <td className={`p-4 font-bold whitespace-nowrap ${s.todayChangePct == null ? '' : s.todayChangePct >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.todayChangePct == null ? '—' : `${s.todayChangePct >= 0 ? '+' : ''}${s.todayChangePct.toFixed(2)}%`}</td>
                                 <td className="p-4">{s.quantity}</td>
@@ -2022,7 +2022,7 @@ const handleUpload = async (files) => {
               </button>
               <div className="h-5 flex items-center justify-center">
                 {authStatus==='logged-out' && allowRegistration === true && <button onClick={()=>{setAuthMode(isSignup?'login':'signup');setAuthError('');setAuthForm({username:'',password:'',confirmPassword:'',newPassword:''});}} className={`text-sm text-center text-zinc-400 hover:text-white transition`}>{isSignup?'Already have an account? Sign in':'Create an account'}</button>}
-                {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className={`text-xs text-center text-zinc-500`}>Registration is currently closed.</p>}
+                {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className={`text-xs text-center text-zinc-400`}>Registration is currently closed.</p>}
               </div>
             </div>
           </div>
