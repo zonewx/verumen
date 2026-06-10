@@ -85,7 +85,7 @@ export default function TransactionHistoryTab({
           </button>
         </div>
         <div className="grid grid-cols-7 mb-1">
-          {['Mo','Tu','We','Th','Fr','Sa','Su'].map(d => <div key={d} className="text-center text-[10px] text-zinc-600 py-0.5">{d}</div>)}
+          {['Mo','Tu','We','Th','Fr','Sa','Su'].map(d => <div key={d} className="text-center text-[10px] text-zinc-400 py-0.5">{d}</div>)}
         </div>
         <div className="grid grid-cols-7 gap-px">
           {cells.map((d, i) => {
@@ -126,7 +126,7 @@ export default function TransactionHistoryTab({
             </button>
             {txFilterOpen && (
               <div className="absolute top-full left-0 mt-1.5 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-3 min-w-[180px]">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Transaction type</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-2">Transaction type</p>
                 <div className="flex flex-col gap-0.5">
                   {visibleTypes.map(({ key, label }) => {
                     const checked = txTypeFilter.includes(key);
@@ -142,7 +142,7 @@ export default function TransactionHistoryTab({
                   })}
                 </div>
                 {txTypeFilter.length > 0 && (
-                  <button onClick={() => setTxTypeFilter([])} className="mt-2 pt-2 border-t border-zinc-700/50 text-xs text-zinc-500 hover:text-zinc-300 transition w-full text-left">
+                  <button onClick={() => setTxTypeFilter([])} className="mt-2 pt-2 border-t border-zinc-700/50 text-xs text-zinc-400 hover:text-zinc-300 transition w-full text-left">
                     Clear selection
                   </button>
                 )}
@@ -173,8 +173,8 @@ export default function TransactionHistoryTab({
                   <button onClick={() => setTxCalView(v => v === 'from' ? null : 'from')} className="w-full flex items-center justify-between px-4 py-2.5 text-xs hover:bg-zinc-800/50 transition">
                     <span className="text-zinc-400 font-medium">From</span>
                     <div className="flex items-center gap-2">
-                      {txDateFrom ? <span className="text-zinc-200">{fmtDateShort(txDateFrom)}</span> : <span className="text-zinc-600">Not set</span>}
-                      <svg className={`w-3 h-3 text-zinc-500 transition-transform ${txCalView === 'from' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                      {txDateFrom ? <span className="text-zinc-200">{fmtDateShort(txDateFrom)}</span> : <span className="text-zinc-400">Not set</span>}
+                      <svg className={`w-3 h-3 text-zinc-400 transition-transform ${txCalView === 'from' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
                     </div>
                   </button>
                   {txCalView === 'from' && renderCal(txDateFrom, date => { setTxDateFrom(date); const d = new Date(date+'T00:00'); setTxCalToMonth({ year: d.getFullYear(), month: d.getMonth() }); setTxCalView('to'); }, txCalFromMonth, setTxCalFromMonth)}
@@ -183,8 +183,8 @@ export default function TransactionHistoryTab({
                   <button onClick={() => setTxCalView(v => v === 'to' ? null : 'to')} className="w-full flex items-center justify-between px-4 py-2.5 text-xs hover:bg-zinc-800/50 transition">
                     <span className="text-zinc-400 font-medium">To</span>
                     <div className="flex items-center gap-2">
-                      {txDateTo ? <span className="text-zinc-200">{fmtDateShort(txDateTo)}</span> : <span className="text-zinc-600">Not set</span>}
-                      <svg className={`w-3 h-3 text-zinc-500 transition-transform ${txCalView === 'to' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                      {txDateTo ? <span className="text-zinc-200">{fmtDateShort(txDateTo)}</span> : <span className="text-zinc-400">Not set</span>}
+                      <svg className={`w-3 h-3 text-zinc-400 transition-transform ${txCalView === 'to' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
                     </div>
                   </button>
                   {txCalView === 'to' && renderCal(txDateTo, date => { setTxDateTo(date); setTxCalView(null); }, txCalToMonth, setTxCalToMonth)}
@@ -195,13 +195,13 @@ export default function TransactionHistoryTab({
 
           {/* Search */}
           <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
             <input type="text" placeholder="Search ticker, name, date…" value={txSearch} onChange={e => setTxSearch(e.target.value)}
               className="w-full pl-9 pr-8 py-1.5 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition"/>
             {txSearch && (
-              <button onClick={() => setTxSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition">
+              <button onClick={() => setTxSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-300 transition">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             )}
@@ -223,7 +223,7 @@ export default function TransactionHistoryTab({
               </thead>
               <tbody>
                 {capped.length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-zinc-500">No transactions match your search.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-zinc-400">No transactions match your search.</td></tr>
                 ) : capped.map((tx, i) => {
                   const typeCfg = TX_TYPE_CFG.find(c => c.key === tx.type);
                   const typeBadgeCls = typeCfg?.activeCls || 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
@@ -232,8 +232,8 @@ export default function TransactionHistoryTab({
                     <tr key={i} className={`border-t border-zinc-700/30 ${i % 2 === 1 ? 'bg-zinc-700/20' : ''} hover:bg-zinc-700/30 transition`}>
                       <td className="px-4 py-3 text-xs font-mono text-zinc-300">{tx.date}</td>
                       <td className="px-4 py-3"><span className={`text-xs font-semibold px-2 py-1 rounded-lg whitespace-nowrap ${typeBadgeCls}`}>{typeLabel}</span></td>
-                      <td className="px-4 py-3">{tx.broker ? <span className="text-xs text-zinc-300 capitalize">{tx.broker}</span> : <span className="text-zinc-500">—</span>}</td>
-                      <td className="px-4 py-3 overflow-hidden"><span className={`font-mono font-bold text-sm ${tx.ticker ? 'text-white' : 'text-zinc-500'}`}>{tx.ticker || '—'}</span></td>
+                      <td className="px-4 py-3">{tx.broker ? <span className="text-xs text-zinc-300 capitalize">{tx.broker}</span> : <span className="text-zinc-400">—</span>}</td>
+                      <td className="px-4 py-3 overflow-hidden"><span className={`font-mono font-bold text-sm ${tx.ticker ? 'text-white' : 'text-zinc-400'}`}>{tx.ticker || '—'}</span></td>
                       <td className="px-4 py-3 overflow-hidden truncate text-zinc-200">{tx.name}</td>
                       <td className="px-4 py-3 text-right text-zinc-300">{tx.quantity}</td>
                       <td className="px-4 py-3 text-right text-zinc-300">{fmt(tx.price)}</td>
@@ -245,7 +245,7 @@ export default function TransactionHistoryTab({
             </table>
           </div>
           {filteredTx.length > 500 && (
-            <div className="px-4 py-3 border-t border-zinc-700/50 text-xs text-zinc-500 text-center">
+            <div className="px-4 py-3 border-t border-zinc-700/50 text-xs text-zinc-400 text-center">
               Showing 500 of {filteredTx.length} — use search or filters to narrow results.
             </div>
           )}
