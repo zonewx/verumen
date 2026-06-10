@@ -322,9 +322,9 @@ export default function AdminPanel({ authUsername }) {
         </div>
 
         {/* Tabs */}
-        <div className={`flex gap-0 border-b border-zinc-700 mb-6 overflow-x-auto`}>
+        <div className="flex gap-1 mb-6 overflow-x-auto overflow-y-hidden">
           {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2.5 text-sm font-semibold transition border-b-2 -mb-px ${tab === t.id ? 'border-red-500 text-red-400' : `border-transparent text-zinc-400 hover:text-white`}`}>{t.label}</button>
+            <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 text-sm font-semibold rounded-lg whitespace-nowrap shrink-0 transition ${tab === t.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700/50'}`}>{t.label}</button>
           ))}
         </div>
 
@@ -497,14 +497,17 @@ export default function AdminPanel({ authUsername }) {
                           {u.hasSteam && <span className="text-xs text-orange-400 bg-orange-900/30 px-1.5 py-0.5 rounded-full border border-orange-800/50">Steam</span>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 shrink-0 text-right">
+                      <div className="flex items-start gap-4 shrink-0 text-right">
+                        <div className="flex flex-col items-end">
+                          <p className={`text-xs text-zinc-400`}>Transactions</p>
+                          <p className="text-xs font-semibold mb-2">{u.transactionCount.toLocaleString()}</p>
+                          {u.username !== 'admin' && (
+                            <button onClick={() => deleteUser(u.username)} className={btnRed}>Delete User</button>
+                          )}
+                        </div>
                         <div>
                           <p className={`text-xs text-zinc-400`}>Joined</p>
                           <p className="text-xs font-semibold">{new Date(u.createdAt).toLocaleDateString()}</p>
-                        </div>
-                        <div>
-                          <p className={`text-xs text-zinc-400`}>Transactions</p>
-                          <p className="text-xs font-semibold">{u.transactionCount.toLocaleString()}</p>
                         </div>
                       </div>
                     </div>
@@ -517,9 +520,6 @@ export default function AdminPanel({ authUsername }) {
                       <button onClick={() => exportUser(u.username)} className={btnGhost}>Export Data</button>
                       {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnGhost}>Make CS Private</button>}
                       {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnGhost}>Make Stocks Private</button>}
-                      {u.username !== 'admin' && (
-                        <button onClick={() => deleteUser(u.username)} className={btnRed}>Delete User</button>
-                      )}
                     </div>
                   </div>
                   );

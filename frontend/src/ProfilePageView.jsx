@@ -87,6 +87,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   const [showAllHoldings, setShowAllHoldings] = useState(false);
   const [userActivity, setUserActivity] = useState(() => apiCache.get(`/api/users/${targetUser}/activity`) || []);
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const [activeTab, setActiveTab] = useState('activity');
 
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
 
@@ -100,8 +101,8 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
     }
     if (profile?.publicHoldings) {
       loadPublicHoldings();
-      loadUserActivity(); // Load activity when portfolio is visible
     }
+    loadUserActivity();
   }, [profile]);
 
   async function fetchProfile() {
@@ -275,14 +276,17 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
 
               {/* Steam Verified Badge */}
               {profile.steamVerified && (
-                <a 
-                  href={`https://steamcommunity.com/profiles/${profile.steamId}`} 
-                  target="_blank" 
+                <a
+                  href={`https://steamcommunity.com/profiles/${profile.steamId}`}
+                  target="_blank"
                   rel="noopener noreferrer"
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition bg-green-900/30 text-green-400 hover:bg-green-900/40 border border-green-800`}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-zinc-300 hover:text-white"
                 >
-                  <span>Steam profile</span>
-                  <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.718L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0z"/>
+                  </svg>
+                  Steam Profile
+                  <svg className="w-3 h-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                   </svg>
                 </a>
@@ -312,163 +316,136 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
           </div>
         </div>
 
-        {/* Item Showcase Section */}
-        {(loadingShowcase || (showcaseItems && showcaseItems.length > 0)) && (
-          <div className={`${card} p-2 mb-2`}>
-            <div className="flex items-center justify-between mb-1.5">
-              <h3 className={`text-[10px] font-semibold uppercase tracking-wide text-zinc-400`}>
-                Item Showcase
-              </h3>
-              <span className={`text-[10px] text-zinc-400`}>
-                {loadingShowcase ? '...' : `${showcaseItems.length} ${showcaseItems.length === 1 ? 'item' : 'items'}`}
-              </span>
-            </div>
+        {/* Tab Navigation */}
+        <div className="flex gap-1 mb-4">
+          {[
+            { id: 'activity', label: 'Recent Activity' },
+            { id: 'portfolio', label: 'Portfolio' },
+            { id: 'showcase', label: 'Item Showcase' },
+          ].map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)}
+              className={`px-4 py-2 text-sm font-semibold rounded-lg transition ${
+                activeTab === t.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700/50'
+              }`}
+            >{t.label}</button>
+          ))}
+        </div>
 
-            {loadingShowcase ? (
-              <div className="flex items-center justify-center py-8">
+        {/* Recent Activity Tab */}
+        {activeTab === 'activity' && (
+          <div className={`${card} p-4`}>
+            {loadingActivity ? (
+              <div className="flex items-center justify-center py-12">
                 <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
               </div>
+            ) : userActivity.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {userActivity.map(activity => (
+                  <ActivityItem key={activity.id} activity={activity} />
+                ))}
+              </div>
             ) : (
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
-              {showcaseItems.map(item => (
-                <div key={item.assetId} className={`bg-zinc-700/50 hover:bg-zinc-700 rounded p-1 transition cursor-pointer border border-zinc-600`}>
-                  <img
-                    src={item.iconUrl}
-                    alt={item.name}
-                    className="w-full aspect-square object-contain mb-0.5"
-                  />
-                  {item.stickers?.length > 0 && (
-                    <div className="flex gap-0.5 mt-1 flex-wrap">
-                      {item.stickers.map((s, i) => (
-                        <div key={i} className="relative group">
-                          <img src={s.url} alt={s.name} className="w-6 h-6 object-contain opacity-85 hover:opacity-100 transition" />
-                          {s.name && (
-                            <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
-                              <p className="text-xs font-semibold text-white">{s.name}</p>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <p className="text-[9px] text-center truncate mt-0.5">{item.name}</p>
-                </div>
-              ))}
-            </div>
+              <p className="text-center py-10 text-sm text-zinc-400">No recent activity</p>
             )}
           </div>
         )}
 
-        {/* Portfolio & Dividends - Two Column Layout */}
-        {loadingProfile && (
-          <div className={`${card} p-6`}>
-            <div className="flex items-center justify-center py-12">
-              <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-            </div>
-          </div>
-        )}
-        {!loadingProfile && profile.publicHoldings && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            
-            {/* Portfolio - Left Column */}
-            <div className={`${card} p-2.5`}>
-              <div className="flex items-center justify-between mb-1.5">
-                <h3 className={`text-[10px] font-semibold uppercase tracking-wide text-zinc-400`}>
-                  Portfolio
-                </h3>
-                {viewingHoldings && (
-                  <span className={`text-[10px] text-zinc-400`}>
-                    {viewingHoldings.length} holdings
-                  </span>
-                )}
+        {/* Portfolio Tab */}
+        {activeTab === 'portfolio' && (
+          <div className={`${card} p-4`}>
+            {!profile.publicHoldings ? (
+              <p className="text-center py-10 text-sm text-zinc-400">Portfolio is private</p>
+            ) : loadingHoldings ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
               </div>
-
-              {loadingHoldings ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                </div>
-              ) : viewingHoldings && viewingHoldings.length > 0 ? (
-                <>
-                  <div className="flex flex-col gap-2">
-                    {viewingHoldings.slice(0, showAllHoldings ? undefined : 10).map((h, i) => {
-                      // Clean company name
-                      const cleanCompanyName = (h.name || h.ticker)
-                        .replace(/\s*\(publ\.?\)/gi, '')
-                        .replace(/\s*\(AB\)/gi, '')
-                        .replace(/\bAB\b(?!\w)/gi, '')
-                        .replace(/\bpubl\.?\b/gi, '')
-                        .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Inc|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
-                        .replace(/\s*[.,;]\s*$/g, '')
-                        .replace(/\s+/g, ' ')
-                        .trim();
-                      
-                      const maxWeight = Math.max(...viewingHoldings.map(holding => holding.weight || 0));
-                      const relativeWidth = maxWeight > 0 ? ((h.weight || 0) / maxWeight) * 100 : 0;
-                      
-                      return (
-                        <div key={h.ticker} className={`flex flex-col gap-1 p-2 rounded bg-zinc-700/50 hover:bg-zinc-700 transition`}>
-                          <div className="flex items-center gap-2">
-                            <FlagIcon ticker={h.ticker} size="w-6 h-4.5" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-xs truncate">{cleanCompanyName}</p>
-                              <p className={`text-[10px] text-zinc-400`}>{h.ticker}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-bold text-xs">{h.weight?.toFixed(2) || '0.00'}%</p>
-                              {profile.showPortfolioValue && h.value && (
-                                <p className={`text-[10px] text-zinc-400`}>{h.value.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>
-                              )}
-                            </div>
+            ) : viewingHoldings && viewingHoldings.length > 0 ? (
+              <>
+                <div className="flex flex-col gap-2">
+                  {viewingHoldings.slice(0, showAllHoldings ? undefined : 10).map((holding) => {
+                    const cleanCompanyName = (holding.name || holding.ticker)
+                      .replace(/\s*\(publ\.?\)/gi, '')
+                      .replace(/\s*\(AB\)/gi, '')
+                      .replace(/\bAB\b(?!\w)/gi, '')
+                      .replace(/\bpubl\.?\b/gi, '')
+                      .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Inc|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
+                      .replace(/\s*[.,;]\s*$/g, '')
+                      .replace(/\s+/g, ' ')
+                      .trim();
+                    const maxWeight = Math.max(...viewingHoldings.map(hh => hh.weight || 0));
+                    const relativeWidth = maxWeight > 0 ? ((holding.weight || 0) / maxWeight) * 100 : 0;
+                    return (
+                      <div key={holding.ticker} className="flex flex-col gap-1 p-2.5 rounded-lg bg-zinc-700/50 hover:bg-zinc-700 transition">
+                        <div className="flex items-center gap-2.5">
+                          <FlagIcon ticker={holding.ticker} size="w-6 h-4.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm truncate">{cleanCompanyName}</p>
+                            <p className="text-xs text-zinc-400">{holding.ticker}</p>
                           </div>
-                          <div className={`h-0.5 rounded-full bg-zinc-600 overflow-hidden`}>
-                            <div className="h-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${relativeWidth}%` }} />
+                          <div className="text-right">
+                            <p className="font-bold text-sm">{holding.weight?.toFixed(2) || '0.00'}%</p>
+                            {profile.showPortfolioValue && holding.value && (
+                              <p className="text-xs text-zinc-400">{holding.value.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>
+                            )}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <div className="h-0.5 rounded-full bg-zinc-600 overflow-hidden">
+                          <div className="h-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${relativeWidth}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {viewingHoldings.length > 10 && (
+                  <button
+                    onClick={() => setShowAllHoldings(!showAllHoldings)}
+                    className="w-full mt-3 py-2.5 rounded-lg text-sm font-semibold transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300"
+                  >
+                    {showAllHoldings ? 'Show Less' : `View All (${viewingHoldings.length})`}
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="text-center py-10 text-sm text-zinc-400">No holdings to display</p>
+            )}
+          </div>
+        )}
 
-                  {viewingHoldings.length > 10 && (
-                    <button
-                      onClick={() => setShowAllHoldings(!showAllHoldings)}
-                      className={`w-full mt-3 py-2.5 rounded-lg font-semibold transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300`}
-                    >
-                      {showAllHoldings ? 'Show Less' : `View All (${viewingHoldings.length})`}
-                    </button>
-                  )}
-                </>
-              ) : (
-                <p className={`text-center py-8 text-zinc-400`}>
-                  No holdings to display
-                </p>
-              )}
-            </div>
-
-            {/* Recent Activity - Right Column */}
-            <div className={`${card} p-2.5`}>
-              <div className="flex items-center justify-between mb-1.5">
-                <h3 className={`text-[10px] font-semibold uppercase tracking-wide text-zinc-400`}>
-                  Recent Activity
-                </h3>
+        {/* Item Showcase Tab */}
+        {activeTab === 'showcase' && (
+          <div className={`${card} p-4`}>
+            {loadingShowcase ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
               </div>
-
-              {loadingActivity ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                </div>
-              ) : userActivity.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  {userActivity.map(activity => (
-                    <ActivityItem key={activity.id} activity={activity} />
-                  ))}
-                </div>
-              ) : (
-                <p className={`text-center py-8 text-sm text-zinc-400`}>
-                  No recent activity
-                </p>
-              )}
-            </div>
-
+            ) : showcaseItems.length > 0 ? (
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
+                {showcaseItems.map(item => (
+                  <div key={item.assetId} className="bg-zinc-700/50 hover:bg-zinc-700 rounded p-1 transition cursor-pointer border border-zinc-600">
+                    <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-0.5" />
+                    {item.stickers?.length > 0 && (
+                      <div className="flex gap-0.5 mt-1 flex-wrap">
+                        {item.stickers.map((s, i) => (
+                          <div key={i} className="relative group">
+                            <img src={s.url} alt={s.name} className="w-6 h-6 object-contain opacity-85 hover:opacity-100 transition" />
+                            {s.name && (
+                              <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
+                                <p className="text-xs font-semibold text-white">{s.name}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[9px] text-center truncate mt-0.5">{item.name}</p>
+                  </div>
+                ))}
+              </div>
+            ) : !profile.steamVerified ? (
+              <p className="text-center py-10 text-sm text-zinc-400">No Steam account linked</p>
+            ) : (
+              <p className="text-center py-10 text-sm text-zinc-400">No items in showcase</p>
+            )}
           </div>
         )}
 

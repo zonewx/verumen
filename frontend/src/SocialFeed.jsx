@@ -70,7 +70,6 @@ function timeAgo(dateStr) {
 }
 
 function ActivityCard({ item, onDelete, isOwn }) {
-  const [expanded, setExpanded] = useState(false);
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl p-4`;
 
   const badge = ROLE_BADGE[item.role];
@@ -148,11 +147,10 @@ function ActivityCard({ item, onDelete, isOwn }) {
         <p className="text-sm font-semibold mb-2">{item.skinName}</p>
         {item.caption && <p className={`text-sm mb-3 text-zinc-300`}>{item.caption}</p>}
         {item.imageBase64 && (
-          <div className="rounded-xl overflow-hidden cursor-pointer" onClick={() => setExpanded(!expanded)}>
-            <img src={item.imageBase64} alt={item.skinName} className={`w-full object-cover transition-all ${expanded ? 'max-h-none' : 'max-h-64'}`} />
+          <div className="rounded-xl overflow-hidden">
+            <img src={item.imageBase64} alt={item.skinName} className="w-full object-contain" />
           </div>
         )}
-        {!expanded && item.imageBase64 && <button onClick={() => setExpanded(true)} className={`text-xs mt-1 text-zinc-400 hover:text-white transition`}>View full</button>}
       </div>
     );
   }
