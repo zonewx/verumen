@@ -365,12 +365,12 @@ app.get('/api/users', requireUser, async (req, res) => {
 app.get('/api/users/:username/profile', async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('*').eq('username', req.params.username).single();
   if (error || !data) return res.status(404).json({ error: 'User not found' });
-  res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_verified ? (data.steam_id || null) : null, steamVerified: data.steam_verified || false, steamLevel: data.steam_verified ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
+  res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, publicCsTrades: data.public_cs_trades || false, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_verified ? (data.steam_id || null) : null, steamVerified: data.steam_verified || false, steamLevel: data.steam_verified ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
 });
 
 app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   if (req.username !== req.params.username) return res.status(403).json({ error: "Cannot edit another user's profile." });
-  const { bio, steamId, publicInventory, publicHoldings, publicDividends, showPortfolioValue, avatarBase64, showcaseItems, country } = req.body;
+  const { bio, steamId, publicInventory, publicHoldings, publicDividends, publicCsTrades, showPortfolioValue, avatarBase64, showcaseItems, country } = req.body;
   const update = {};
   if (bio !== undefined) { if (typeof bio === 'string' && bio.length > 500) return res.status(400).json({ error: 'Bio must be 500 characters or fewer.' }); update.bio = bio; }
   if (country !== undefined) update.country = country;
@@ -378,6 +378,7 @@ app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   if (publicInventory !== undefined) update.public_inventory = publicInventory;
   if (publicHoldings !== undefined) update.public_holdings = publicHoldings;
   if (publicDividends !== undefined) update.public_dividends = publicDividends;
+  if (publicCsTrades !== undefined) update.public_cs_trades = publicCsTrades;
   if (showPortfolioValue !== undefined) update.show_portfolio_value = showPortfolioValue;
   if (avatarBase64 !== undefined) {
     if (avatarBase64 && avatarBase64.length > 1.5 * 1024 * 1024) return res.status(400).json({ error: 'Avatar too large. Maximum 1.5 MB.' });
@@ -1959,6 +1960,31 @@ app.get('/api/users/:username/dividends', async (req, res) => {
   const byStock = {};
   divs.forEach(t => { const n=t.name||'Unknown'; byStock[n]=(byStock[n]||0)+Math.abs(t.total_sek); });
   res.json({ totalAllTime, totalThisYear, byYear:byYearArr, byStock:Object.entries(byStock).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total) });
+});
+
+// Public CS trades endpoint — requires public_cs_trades column: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_cs_trades BOOLEAN DEFAULT FALSE;
+app.get('/api/users/:username/cs-trades', async (req, res) => {
+  const { data: profile } = await supabase.from('profiles').select('id, public_cs_trades').eq('username', req.params.username).single();
+  if (!profile) return res.status(404).json({ error: 'User not found' });
+  if (!profile.public_cs_trades) return res.status(403).json({ error: "This user's CS trades are private." });
+  const { data, error } = await supabase.from('cs_inventory')
+    .select('id, skin_name, exterior, float_value, purchase_price, purchase_currency, purchase_date, sold, cs_sales(sale_price, sale_currency, sale_date)')
+    .eq('user_id', profile.id)
+    .order('purchase_date', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data || []).map(item => ({
+    id: item.id,
+    skinName: item.skin_name,
+    exterior: item.exterior,
+    floatValue: item.float_value,
+    purchasePrice: item.purchase_price,
+    purchaseCurrency: item.purchase_currency,
+    purchaseDate: item.purchase_date,
+    sold: item.sold,
+    salePrice: item.cs_sales?.[0]?.sale_price ?? null,
+    saleCurrency: item.cs_sales?.[0]?.sale_currency ?? null,
+    saleDate: item.cs_sales?.[0]?.sale_date ?? null,
+  })));
 });
 
 // ── Overrides ───────────────────────────────────────────────────────────────

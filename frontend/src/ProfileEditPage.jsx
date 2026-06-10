@@ -35,7 +35,7 @@ const Toggle = ({ value, onChange }) => (
 export default function ProfileEditPage({ authUsername }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const [editForm, setEditForm] = useState({ bio: '', steamId: '', publicInventory: false, publicHoldings: false, publicDividends: false, showPortfolioValue: false, avatarBase64: null, showcaseItems: [], country: 'se' });
+  const [editForm, setEditForm] = useState({ bio: '', steamId: '', publicInventory: false, publicHoldings: false, publicDividends: false, publicCsTrades: false, showPortfolioValue: false, avatarBase64: null, showcaseItems: [], country: 'se' });
   const [steamVerified, setSteamVerified] = useState(false);
   const [steamLevel, setSteamLevel] = useState(0);
   const [steamLookupError, setSteamLookupError] = useState('');
@@ -84,6 +84,7 @@ export default function ProfileEditPage({ authUsername }) {
         publicInventory: data.publicInventory || false,
         publicHoldings: data.publicHoldings || false,
         publicDividends: data.publicDividends || false,
+        publicCsTrades: data.publicCsTrades || false,
         showPortfolioValue: data.showPortfolioValue || false,
         avatarBase64: data.avatarBase64 || null,
         showcaseItems: data.showcaseItems || [],
@@ -263,6 +264,7 @@ export default function ProfileEditPage({ authUsername }) {
               <div className="flex flex-col gap-3">
                 {[
                   { key: 'publicInventory', title: 'Public CS Inventory', desc: 'Show Steam CS inventory on profile' },
+                  { key: 'publicCsTrades', title: 'Public CS Trade Registry', desc: 'Show CS trade history on profile' },
                   { key: 'publicHoldings', title: 'Public Portfolio', desc: 'Show stock holdings on profile' },
                   { key: 'publicDividends', title: 'Public Dividends', desc: 'Show dividend data on profile' },
                   { key: 'showPortfolioValue', title: 'Show Portfolio Value', desc: 'Display currency values of holdings' },

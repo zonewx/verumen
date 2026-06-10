@@ -87,6 +87,10 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   const [showAllHoldings, setShowAllHoldings] = useState(false);
   const [userActivity, setUserActivity] = useState(() => apiCache.get(`/api/users/${targetUser}/activity`) || []);
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const [dividends, setDividends] = useState(null);
+  const [loadingDividends, setLoadingDividends] = useState(false);
+  const [csTrades, setCsTrades] = useState(null);
+  const [loadingCsTrades, setLoadingCsTrades] = useState(false);
   const [activeTab, setActiveTab] = useState('activity');
 
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
@@ -101,6 +105,12 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
     }
     if (profile?.publicHoldings) {
       loadPublicHoldings();
+    }
+    if (profile?.publicDividends) {
+      loadPublicDividends();
+    }
+    if (profile?.publicCsTrades) {
+      loadPublicCsTrades();
     }
     loadUserActivity();
   }, [profile]);
@@ -227,6 +237,24 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
     setLoadingActivity(false);
   }
 
+  async function loadPublicDividends() {
+    setLoadingDividends(true);
+    try {
+      const res = await fetch(`/api/users/${targetUser}/dividends`, { headers: h });
+      if (res.ok) setDividends(await res.json());
+    } catch(e) {}
+    setLoadingDividends(false);
+  }
+
+  async function loadPublicCsTrades() {
+    setLoadingCsTrades(true);
+    try {
+      const res = await fetch(`/api/users/${targetUser}/cs-trades`, { headers: h });
+      if (res.ok) setCsTrades(await res.json());
+    } catch(e) {}
+    setLoadingCsTrades(false);
+  }
+
   function formatDate(d) {
     if (!d) return 'Unknown';
     return new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
@@ -322,6 +350,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
             { id: 'activity', label: 'Recent Activity' },
             { id: 'portfolio', label: 'Portfolio' },
             { id: 'showcase', label: 'Item Showcase' },
+            { id: 'cs-trades', label: 'CS Trades' },
           ].map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
               className={`px-4 py-2 text-sm font-semibold rounded-lg transition ${
@@ -350,63 +379,153 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
           </div>
         )}
 
-        {/* Portfolio Tab */}
+        {/* Portfolio Tab — two columns */}
         {activeTab === 'portfolio' && (
-          <div className={`${card} p-4`}>
-            {!profile.publicHoldings ? (
-              <p className="text-center py-10 text-sm text-zinc-400">Portfolio is private</p>
-            ) : loadingHoldings ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Left: Holdings */}
+            <div className={`${card} p-4`}>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Holdings</p>
+              {!profile.publicHoldings ? (
+                <p className="text-center py-10 text-sm text-zinc-400">Portfolio is private</p>
+              ) : loadingHoldings ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                </div>
+              ) : viewingHoldings && viewingHoldings.length > 0 ? (
+                <>
+                  <div className="flex flex-col gap-2">
+                    {viewingHoldings.slice(0, showAllHoldings ? undefined : 10).map((holding) => {
+                      const cleanCompanyName = (holding.name || holding.ticker)
+                        .replace(/\s*\(publ\.?\)/gi, '')
+                        .replace(/\s*\(AB\)/gi, '')
+                        .replace(/\bAB\b(?!\w)/gi, '')
+                        .replace(/\bpubl\.?\b/gi, '')
+                        .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Inc|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
+                        .replace(/\s*[.,;]\s*$/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                      const maxWeight = Math.max(...viewingHoldings.map(hh => hh.weight || 0));
+                      const relativeWidth = maxWeight > 0 ? ((holding.weight || 0) / maxWeight) * 100 : 0;
+                      return (
+                        <div key={holding.ticker} className="flex flex-col gap-1 p-2.5 rounded-lg bg-zinc-700/50 hover:bg-zinc-700 transition">
+                          <div className="flex items-center gap-2.5">
+                            <FlagIcon ticker={holding.ticker} size="w-6 h-4.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-sm truncate">{cleanCompanyName}</p>
+                              <p className="text-xs text-zinc-400">{holding.ticker}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-sm">{holding.weight?.toFixed(2) || '0.00'}%</p>
+                              {profile.showPortfolioValue && holding.value && (
+                                <p className="text-xs text-zinc-400">{holding.value.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="h-0.5 rounded-full bg-zinc-600 overflow-hidden">
+                            <div className="h-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${relativeWidth}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {viewingHoldings.length > 10 && (
+                    <button onClick={() => setShowAllHoldings(!showAllHoldings)} className="w-full mt-3 py-2.5 rounded-lg text-sm font-semibold transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300">
+                      {showAllHoldings ? 'Show Less' : `View All (${viewingHoldings.length})`}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <p className="text-center py-10 text-sm text-zinc-400">No holdings to display</p>
+              )}
+            </div>
+
+            {/* Right: Dividends */}
+            <div className={`${card} p-4`}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Dividends</p>
+                {dividends && <p className="text-xs text-zinc-400">{dividends.totalAllTime.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr all time</p>}
+              </div>
+              {!profile.publicDividends ? (
+                <p className="text-center py-10 text-sm text-zinc-400">Dividends are private</p>
+              ) : loadingDividends ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                </div>
+              ) : dividends && dividends.byYear?.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {(() => {
+                    const maxDiv = Math.max(...dividends.byYear.map(y => y.total));
+                    return dividends.byYear.map(y => (
+                      <div key={y.year} className="flex items-center gap-3">
+                        <span className="text-xs font-bold w-10 shrink-0 text-zinc-300">{y.year}</span>
+                        <div className="flex-1 h-4 rounded-full bg-zinc-700 overflow-hidden">
+                          <div className="h-full rounded-full bg-linear-to-r from-pink-600 to-pink-400" style={{ width: `${maxDiv > 0 ? (y.total / maxDiv) * 100 : 0}%` }} />
+                        </div>
+                        <span className="text-xs font-semibold w-24 text-right shrink-0">{y.total.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              ) : (
+                <p className="text-center py-10 text-sm text-zinc-400">No dividend data</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* CS Trades Tab */}
+        {activeTab === 'cs-trades' && (
+          <div className={`${card} overflow-hidden`}>
+            {!profile.publicCsTrades ? (
+              <p className="text-center py-10 text-sm text-zinc-400">CS trade registry is private</p>
+            ) : loadingCsTrades ? (
               <div className="flex items-center justify-center py-12">
                 <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
               </div>
-            ) : viewingHoldings && viewingHoldings.length > 0 ? (
-              <>
-                <div className="flex flex-col gap-2">
-                  {viewingHoldings.slice(0, showAllHoldings ? undefined : 10).map((holding) => {
-                    const cleanCompanyName = (holding.name || holding.ticker)
-                      .replace(/\s*\(publ\.?\)/gi, '')
-                      .replace(/\s*\(AB\)/gi, '')
-                      .replace(/\bAB\b(?!\w)/gi, '')
-                      .replace(/\bpubl\.?\b/gi, '')
-                      .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Inc|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
-                      .replace(/\s*[.,;]\s*$/g, '')
-                      .replace(/\s+/g, ' ')
-                      .trim();
-                    const maxWeight = Math.max(...viewingHoldings.map(hh => hh.weight || 0));
-                    const relativeWidth = maxWeight > 0 ? ((holding.weight || 0) / maxWeight) * 100 : 0;
+            ) : csTrades && csTrades.length > 0 ? (
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-900/60 border-b border-zinc-700">
+                  <tr>
+                    {['Skin', 'Exterior', 'Bought', 'Sold', 'Status'].map(col => (
+                      <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400">{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {csTrades.map(t => {
+                    const pnl = t.sold && t.salePrice != null && t.purchasePrice != null ? t.salePrice - t.purchasePrice : null;
                     return (
-                      <div key={holding.ticker} className="flex flex-col gap-1 p-2.5 rounded-lg bg-zinc-700/50 hover:bg-zinc-700 transition">
-                        <div className="flex items-center gap-2.5">
-                          <FlagIcon ticker={holding.ticker} size="w-6 h-4.5" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm truncate">{cleanCompanyName}</p>
-                            <p className="text-xs text-zinc-400">{holding.ticker}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-sm">{holding.weight?.toFixed(2) || '0.00'}%</p>
-                            {profile.showPortfolioValue && holding.value && (
-                              <p className="text-xs text-zinc-400">{holding.value.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="h-0.5 rounded-full bg-zinc-600 overflow-hidden">
-                          <div className="h-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${relativeWidth}%` }} />
-                        </div>
-                      </div>
+                      <tr key={t.id} className="border-t border-zinc-700/50 hover:bg-zinc-700/20 transition">
+                        <td className="px-4 py-3 font-semibold text-sm">{t.skinName}</td>
+                        <td className="px-4 py-3 text-xs text-zinc-400">{t.exterior || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-zinc-300">
+                          <div>{t.purchaseDate}</div>
+                          <div className="text-zinc-400">{t.purchasePrice != null ? `${t.purchasePrice.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${t.purchaseCurrency || ''}` : '—'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-zinc-300">
+                          {t.sold ? (
+                            <>
+                              <div>{t.saleDate}</div>
+                              <div className="text-zinc-400">{t.salePrice != null ? `${t.salePrice.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${t.saleCurrency || ''}` : '—'}</div>
+                            </>
+                          ) : <span className="text-zinc-500">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {t.sold ? (
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pnl != null && pnl >= 0 ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
+                              {pnl != null ? `${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}` : 'Sold'}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">Held</span>
+                          )}
+                        </td>
+                      </tr>
                     );
                   })}
-                </div>
-                {viewingHoldings.length > 10 && (
-                  <button
-                    onClick={() => setShowAllHoldings(!showAllHoldings)}
-                    className="w-full mt-3 py-2.5 rounded-lg text-sm font-semibold transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300"
-                  >
-                    {showAllHoldings ? 'Show Less' : `View All (${viewingHoldings.length})`}
-                  </button>
-                )}
-              </>
+                </tbody>
+              </table>
             ) : (
-              <p className="text-center py-10 text-sm text-zinc-400">No holdings to display</p>
+              <p className="text-center py-10 text-sm text-zinc-400">No trades recorded</p>
             )}
           </div>
         )}
