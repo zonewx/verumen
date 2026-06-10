@@ -997,7 +997,7 @@ const handleUpload = async (files) => {
       <div className={`flex flex-col h-screen overflow-hidden bg-zinc-900 text-white`}>
         {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
 
-        <div ref={portfolioScrollRef} className="flex-1 overflow-y-auto pt-12">
+        <div ref={portfolioScrollRef} className="flex-1 min-h-0 overflow-y-auto pt-12">
           <div className="max-w-7xl mx-auto px-6 py-6">
             {isAppLoading ? (
               <div className="flex flex-col items-center justify-center mt-32 space-y-4">
