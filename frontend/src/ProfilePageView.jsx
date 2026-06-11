@@ -91,6 +91,8 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   const [loadingDividends, setLoadingDividends] = useState(false);
   const [csTrades, setCsTrades] = useState(null);
   const [loadingCsTrades, setLoadingCsTrades] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
   const [activeTab, setActiveTab] = useState('activity');
   const [expandedTradeId, setExpandedTradeId] = useState(null);
 
@@ -114,6 +116,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
       loadPublicCsTrades();
     }
     loadUserActivity();
+    loadFriends();
   }, [profile]);
 
   async function fetchProfile() {
@@ -256,6 +259,15 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
     setLoadingCsTrades(false);
   }
 
+  async function loadFriends() {
+    setLoadingFriends(true);
+    try {
+      const res = await fetch(`/api/users/${targetUser}/friends`, { headers: h });
+      if (res.ok) setFriends(await res.json());
+    } catch(e) {}
+    setLoadingFriends(false);
+  }
+
   function formatDate(d) {
     if (!d) return 'Unknown';
     return new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
@@ -345,253 +357,299 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-1 mb-4">
-          {[
-            { id: 'activity', label: 'Recent Activity' },
-            { id: 'portfolio', label: 'Portfolio' },
-            { id: 'showcase', label: 'Item Showcase' },
-            { id: 'cs-trades', label: 'Trade Registry' },
-          ].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)}
-              className={`px-4 py-2 text-sm font-semibold rounded-lg transition ${
-                activeTab === t.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700/50'
-              }`}
-            >{t.label}</button>
-          ))}
-        </div>
+        {/* Two-column layout: tab content (2/3) + friends sidebar (1/3) */}
+        <div className="flex gap-4 items-start">
 
-        {/* Recent Activity Tab */}
-        {activeTab === 'activity' && (
-          <div className={`${card} p-4`}>
-            {loadingActivity ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-              </div>
-            ) : userActivity.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {userActivity.map(activity => (
-                  <ActivityItem key={activity.id} activity={activity} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-center py-10 text-sm text-zinc-400">No recent activity</p>
-            )}
-          </div>
-        )}
+          {/* Left: Tab Navigation + Content */}
+          <div className="flex-1 min-w-0">
 
-        {/* Portfolio Tab — two columns */}
-        {activeTab === 'portfolio' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Left: Holdings */}
-            <div className={`${card} p-4`}>
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Holdings</p>
-              {!profile.publicHoldings ? (
-                <p className="text-center py-10 text-sm text-zinc-400">Portfolio is private</p>
-              ) : loadingHoldings ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                </div>
-              ) : viewingHoldings && viewingHoldings.length > 0 ? (
-                <>
+            {/* Tab Navigation */}
+            <div className="flex gap-1 mb-4 overflow-x-auto overflow-y-hidden">
+              {[
+                { id: 'activity', label: 'Recent Activity' },
+                { id: 'portfolio', label: 'Portfolio' },
+                { id: 'dividends', label: 'Dividends' },
+                { id: 'showcase', label: 'Item Showcase' },
+                { id: 'cs-trades', label: 'Trade Registry' },
+              ].map(t => (
+                <button key={t.id} onClick={() => setActiveTab(t.id)}
+                  className={`px-4 py-2 text-sm font-semibold rounded-lg whitespace-nowrap shrink-0 transition ${
+                    activeTab === t.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700/50'
+                  }`}
+                >{t.label}</button>
+              ))}
+            </div>
+
+            {/* Recent Activity Tab */}
+            {activeTab === 'activity' && (
+              <div className={`${card} p-4`}>
+                {loadingActivity ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                  </div>
+                ) : userActivity.length > 0 ? (
                   <div className="flex flex-col gap-2">
-                    {viewingHoldings.slice(0, showAllHoldings ? undefined : 10).map((holding) => {
-                      const cleanCompanyName = (holding.name || holding.ticker)
-                        .replace(/\s*\(publ\.?\)/gi, '')
-                        .replace(/\s*\(AB\)/gi, '')
-                        .replace(/\bAB\b(?!\w)/gi, '')
-                        .replace(/\bpubl\.?\b/gi, '')
-                        .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Inc|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
-                        .replace(/\s*[.,;]\s*$/g, '')
-                        .replace(/\s+/g, ' ')
-                        .trim();
-                      const maxWeight = Math.max(...viewingHoldings.map(hh => hh.weight || 0));
-                      const relativeWidth = maxWeight > 0 ? ((holding.weight || 0) / maxWeight) * 100 : 0;
-                      return (
-                        <div key={holding.ticker} className="flex flex-col gap-1 p-2.5 rounded-lg bg-zinc-700/50 hover:bg-zinc-700 transition">
-                          <div className="flex items-center gap-2.5">
-                            <FlagIcon ticker={holding.ticker} size="w-6 h-4.5" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm truncate">{cleanCompanyName}</p>
-                              <p className="text-xs text-zinc-400">{holding.ticker}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-bold text-sm">{holding.weight?.toFixed(2) || '0.00'}%</p>
-                              {profile.showPortfolioValue && holding.value && (
-                                <p className="text-xs text-zinc-400">{holding.value.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="h-0.5 rounded-full bg-zinc-600 overflow-hidden">
-                            <div className="h-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${relativeWidth}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {viewingHoldings.length > 10 && (
-                    <button onClick={() => setShowAllHoldings(!showAllHoldings)} className="w-full mt-3 py-2.5 rounded-lg text-sm font-semibold transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300">
-                      {showAllHoldings ? 'Show Less' : `View All (${viewingHoldings.length})`}
-                    </button>
-                  )}
-                </>
-              ) : (
-                <p className="text-center py-10 text-sm text-zinc-400">No holdings to display</p>
-              )}
-            </div>
-
-            {/* Right: Dividends */}
-            <div className={`${card} p-4`}>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Dividends</p>
-                {dividends && <p className="text-xs text-zinc-400">{dividends.totalAllTime.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr all time</p>}
-              </div>
-              {!profile.publicDividends ? (
-                <p className="text-center py-10 text-sm text-zinc-400">Dividends are private</p>
-              ) : loadingDividends ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                </div>
-              ) : dividends && dividends.byYear?.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  {(() => {
-                    const maxDiv = Math.max(...dividends.byYear.map(y => y.total));
-                    return dividends.byYear.map(y => (
-                      <div key={y.year} className="flex items-center gap-3">
-                        <span className="text-xs font-bold w-10 shrink-0 text-zinc-300">{y.year}</span>
-                        <div className="flex-1 h-4 rounded-full bg-zinc-700 overflow-hidden">
-                          <div className="h-full rounded-full bg-linear-to-r from-pink-600 to-pink-400" style={{ width: `${maxDiv > 0 ? (y.total / maxDiv) * 100 : 0}%` }} />
-                        </div>
-                        <span className="text-xs font-semibold w-24 text-right shrink-0">{y.total.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</span>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              ) : (
-                <p className="text-center py-10 text-sm text-zinc-400">No dividend data</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* CS Trades Tab */}
-        {activeTab === 'cs-trades' && (
-          <div className={`${card} overflow-hidden`}>
-            {!profile.publicCsTrades ? (
-              <p className="text-center py-10 text-sm text-zinc-400">CS trade registry is private</p>
-            ) : loadingCsTrades ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-              </div>
-            ) : csTrades && csTrades.length > 0 ? (
-              <table className="w-full text-sm">
-                <thead className="bg-zinc-900/60 border-b border-zinc-700">
-                  <tr>
-                    {['Skin', 'Exterior', 'Bought', 'Sold', 'Status'].map(col => (
-                      <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400">{col}</th>
+                    {userActivity.map(activity => (
+                      <ActivityItem key={activity.id} activity={activity} />
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {csTrades.map(t => {
-                    const pnl = t.sold && t.salePrice != null && t.purchasePrice != null ? t.salePrice - t.purchasePrice : null;
-                    const hasScreenshot = !!t.screenshotUrl;
-                    const isExpanded = expandedTradeId === t.id;
-                    return (
-                      <>
-                        <tr
-                          key={t.id}
-                          onClick={() => hasScreenshot && setExpandedTradeId(isExpanded ? null : t.id)}
-                          className={`border-t border-zinc-700/50 transition ${hasScreenshot ? 'cursor-pointer hover:bg-zinc-700/30' : 'hover:bg-zinc-700/10'}`}
-                        >
-                          <td className="px-4 py-3 font-semibold text-sm">
-                            <div className="flex items-center gap-2">
-                              {hasScreenshot && (
-                                <svg className={`w-3 h-3 shrink-0 text-zinc-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
-                                </svg>
-                              )}
-                              {t.skinName}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-zinc-400">{t.exterior || '—'}</td>
-                          <td className="px-4 py-3 text-xs text-zinc-300">
-                            <div>{t.purchaseDate}</div>
-                            <div className="text-zinc-400">{t.purchasePrice != null ? `${t.purchasePrice.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${t.purchaseCurrency || ''}` : '—'}</div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-zinc-300">
-                            {t.sold ? (
-                              <>
-                                <div>{t.saleDate}</div>
-                                <div className="text-zinc-400">{t.salePrice != null ? `${t.salePrice.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${t.saleCurrency || ''}` : '—'}</div>
-                              </>
-                            ) : <span className="text-zinc-500">—</span>}
-                          </td>
-                          <td className="px-4 py-3">
-                            {t.sold ? (
-                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pnl != null && pnl >= 0 ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
-                                {pnl != null ? `${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}` : 'Sold'}
-                              </span>
-                            ) : (
-                              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">Held</span>
-                            )}
-                          </td>
-                        </tr>
-                        {isExpanded && hasScreenshot && (
-                          <tr key={`${t.id}-screenshot`} className="border-t border-zinc-700/30 bg-zinc-900/30">
-                            <td colSpan={5} className="px-4 py-3">
-                              <TradeScreenshot url={t.screenshotUrl} />
-                            </td>
-                          </tr>
-                        )}
-                      </>
-                    );
-                  })}
-                </tbody>
-              </table>
-            ) : (
-              <p className="text-center py-10 text-sm text-zinc-400">No trades recorded</p>
-            )}
-          </div>
-        )}
-
-        {/* Item Showcase Tab */}
-        {activeTab === 'showcase' && (
-          <div className={`${card} p-4`}>
-            {loadingShowcase ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-              </div>
-            ) : showcaseItems.length > 0 ? (
-              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5">
-                {showcaseItems.map(item => (
-                  <div key={item.assetId} className="bg-zinc-700/50 hover:bg-zinc-700 rounded p-1 transition cursor-pointer border border-zinc-600">
-                    <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-0.5" />
-                    {item.stickers?.length > 0 && (
-                      <div className="flex gap-0.5 mt-1 flex-wrap">
-                        {item.stickers.map((s, i) => (
-                          <div key={i} className="relative group">
-                            <img src={s.url} alt={s.name} className="w-6 h-6 object-contain opacity-85 hover:opacity-100 transition" />
-                            {s.name && (
-                              <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
-                                <p className="text-xs font-semibold text-white">{s.name}</p>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-[9px] text-center truncate mt-0.5">{item.name}</p>
                   </div>
-                ))}
+                ) : (
+                  <p className="text-center py-10 text-sm text-zinc-400">No recent activity</p>
+                )}
               </div>
-            ) : !profile.steamVerified ? (
-              <p className="text-center py-10 text-sm text-zinc-400">No Steam account linked</p>
-            ) : (
-              <p className="text-center py-10 text-sm text-zinc-400">No items in showcase</p>
             )}
+
+            {/* Portfolio Tab — holdings only */}
+            {activeTab === 'portfolio' && (
+              <div className={`${card} p-4`}>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Holdings</p>
+                {!profile.publicHoldings ? (
+                  <p className="text-center py-10 text-sm text-zinc-400">Portfolio is private</p>
+                ) : loadingHoldings ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                  </div>
+                ) : viewingHoldings && viewingHoldings.length > 0 ? (
+                  <>
+                    <div className="flex flex-col gap-2">
+                      {viewingHoldings.slice(0, showAllHoldings ? undefined : 10).map((holding) => {
+                        const cleanCompanyName = (holding.name || holding.ticker)
+                          .replace(/\s*\(publ\.?\)/gi, '')
+                          .replace(/\s*\(AB\)/gi, '')
+                          .replace(/\bAB\b(?!\w)/gi, '')
+                          .replace(/\bpubl\.?\b/gi, '')
+                          .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Inc|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
+                          .replace(/\s*[.,;]\s*$/g, '')
+                          .replace(/\s+/g, ' ')
+                          .trim();
+                        const maxWeight = Math.max(...viewingHoldings.map(hh => hh.weight || 0));
+                        const relativeWidth = maxWeight > 0 ? ((holding.weight || 0) / maxWeight) * 100 : 0;
+                        return (
+                          <div key={holding.ticker} className="flex flex-col gap-1 p-2.5 rounded-lg bg-zinc-700/50 hover:bg-zinc-700 transition">
+                            <div className="flex items-center gap-2.5">
+                              <FlagIcon ticker={holding.ticker} size="w-6 h-4.5" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm truncate">{cleanCompanyName}</p>
+                                <p className="text-xs text-zinc-400">{holding.ticker}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-sm">{holding.weight?.toFixed(2) || '0.00'}%</p>
+                                {profile.showPortfolioValue && holding.value && (
+                                  <p className="text-xs text-zinc-400">{holding.value.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="h-0.5 rounded-full bg-zinc-600 overflow-hidden">
+                              <div className="h-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${relativeWidth}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {viewingHoldings.length > 10 && (
+                      <button onClick={() => setShowAllHoldings(!showAllHoldings)} className="w-full mt-3 py-2.5 rounded-lg text-sm font-semibold transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300">
+                        {showAllHoldings ? 'Show Less' : `View All (${viewingHoldings.length})`}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-center py-10 text-sm text-zinc-400">No holdings to display</p>
+                )}
+              </div>
+            )}
+
+            {/* Dividends Tab */}
+            {activeTab === 'dividends' && (
+              <div className={`${card} p-4`}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Dividends</p>
+                  {dividends && <p className="text-xs text-zinc-400">{dividends.totalAllTime.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr all time</p>}
+                </div>
+                {!profile.publicDividends ? (
+                  <p className="text-center py-10 text-sm text-zinc-400">Dividends are private</p>
+                ) : loadingDividends ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                  </div>
+                ) : dividends && dividends.byYear?.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {(() => {
+                      const maxDiv = Math.max(...dividends.byYear.map(y => y.total));
+                      return dividends.byYear.map(y => (
+                        <div key={y.year} className="flex items-center gap-3">
+                          <span className="text-xs font-bold w-10 shrink-0 text-zinc-300">{y.year}</span>
+                          <div className="flex-1 h-4 rounded-full bg-zinc-700 overflow-hidden">
+                            <div className="h-full rounded-full bg-linear-to-r from-pink-600 to-pink-400" style={{ width: `${maxDiv > 0 ? (y.total / maxDiv) * 100 : 0}%` }} />
+                          </div>
+                          <span className="text-xs font-semibold w-24 text-right shrink-0">{y.total.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} kr</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                ) : (
+                  <p className="text-center py-10 text-sm text-zinc-400">No dividend data</p>
+                )}
+              </div>
+            )}
+
+            {/* Trade Registry Tab */}
+            {activeTab === 'cs-trades' && (
+              <div className={`${card} overflow-hidden`}>
+                {!profile.publicCsTrades ? (
+                  <p className="text-center py-10 text-sm text-zinc-400">CS trade registry is private</p>
+                ) : loadingCsTrades ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                  </div>
+                ) : csTrades && csTrades.length > 0 ? (
+                  <table className="w-full text-sm">
+                    <thead className="bg-zinc-900/60 border-b border-zinc-700">
+                      <tr>
+                        {['Skin', 'Exterior', 'Bought', 'Sold', 'Status'].map(col => (
+                          <th key={col} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-400">{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {csTrades.map(t => {
+                        const pnl = t.sold && t.salePrice != null && t.purchasePrice != null ? t.salePrice - t.purchasePrice : null;
+                        const hasScreenshot = !!t.screenshotUrl;
+                        const isExpanded = expandedTradeId === t.id;
+                        return (
+                          <>
+                            <tr
+                              key={t.id}
+                              onClick={() => hasScreenshot && setExpandedTradeId(isExpanded ? null : t.id)}
+                              className={`border-t border-zinc-700/50 transition ${hasScreenshot ? 'cursor-pointer hover:bg-zinc-700/30' : 'hover:bg-zinc-700/10'}`}
+                            >
+                              <td className="px-4 py-3 font-semibold text-sm">
+                                <div className="flex items-center gap-2">
+                                  {hasScreenshot && (
+                                    <svg className={`w-3 h-3 shrink-0 text-zinc-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                  )}
+                                  {t.skinName}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-zinc-400">{t.exterior || '—'}</td>
+                              <td className="px-4 py-3 text-xs text-zinc-300">
+                                <div>{t.purchaseDate}</div>
+                                <div className="text-zinc-400">{t.purchasePrice != null ? `${t.purchasePrice.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${t.purchaseCurrency || ''}` : '—'}</div>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-zinc-300">
+                                {t.sold ? (
+                                  <>
+                                    <div>{t.saleDate}</div>
+                                    <div className="text-zinc-400">{t.salePrice != null ? `${t.salePrice.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${t.saleCurrency || ''}` : '—'}</div>
+                                  </>
+                                ) : <span className="text-zinc-500">—</span>}
+                              </td>
+                              <td className="px-4 py-3">
+                                {t.sold ? (
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pnl != null && pnl >= 0 ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
+                                    {pnl != null ? `${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}` : 'Sold'}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">Held</span>
+                                )}
+                              </td>
+                            </tr>
+                            {isExpanded && hasScreenshot && (
+                              <tr key={`${t.id}-screenshot`} className="border-t border-zinc-700/30 bg-zinc-900/30">
+                                <td colSpan={5} className="px-4 py-3">
+                                  <TradeScreenshot url={t.screenshotUrl} />
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="text-center py-10 text-sm text-zinc-400">No trades recorded</p>
+                )}
+              </div>
+            )}
+
+            {/* Item Showcase Tab */}
+            {activeTab === 'showcase' && (
+              <div className={`${card} p-4`}>
+                {loadingShowcase ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                  </div>
+                ) : showcaseItems.length > 0 ? (
+                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
+                    {showcaseItems.map(item => (
+                      <div key={item.assetId} className="bg-zinc-700/50 hover:bg-zinc-700 rounded p-1 transition cursor-pointer border border-zinc-600">
+                        <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-0.5" />
+                        {item.stickers?.length > 0 && (
+                          <div className="flex gap-0.5 mt-1 flex-wrap">
+                            {item.stickers.map((s, i) => (
+                              <div key={i} className="relative group">
+                                <img src={s.url} alt={s.name} className="w-6 h-6 object-contain opacity-85 hover:opacity-100 transition" />
+                                {s.name && (
+                                  <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
+                                    <p className="text-xs font-semibold text-white">{s.name}</p>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-[9px] text-center truncate mt-0.5">{item.name}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : !profile.steamVerified ? (
+                  <p className="text-center py-10 text-sm text-zinc-400">No Steam account linked</p>
+                ) : (
+                  <p className="text-center py-10 text-sm text-zinc-400">No items in showcase</p>
+                )}
+              </div>
+            )}
+
+          </div>{/* end left column */}
+
+          {/* Right: Friends Sidebar (always visible) */}
+          <div className="w-72 shrink-0">
+            <div className={`${card} p-4`}>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
+                Friends {friends.length > 0 && <span className="normal-case font-normal">({friends.length})</span>}
+              </p>
+              {loadingFriends ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                </div>
+              ) : friends.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {friends.map(friend => (
+                    <div
+                      key={friend.username}
+                      onClick={() => navigate(`/profile/@${friend.username}`)}
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-700/50 cursor-pointer transition"
+                    >
+                      <AvatarDisplay src={friend.avatarBase64} username={friend.username} size="w-8 h-8" textSize="text-sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{friend.username}</p>
+                        {friend.role && ROLE_BADGE[friend.role] && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${ROLE_BADGE[friend.role].cls}`}>
+                            {ROLE_BADGE[friend.role].label}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center py-6 text-sm text-zinc-400">No friends yet</p>
+              )}
+            </div>
           </div>
-        )}
+
+        </div>{/* end two-column layout */}
 
       </div>
     </div>

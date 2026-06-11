@@ -1988,6 +1988,20 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
   })));
 });
 
+app.get('/api/users/:username/friends', async (req, res) => {
+  const { data: profile } = await supabase.from('profiles').select('id').eq('username', req.params.username).single();
+  if (!profile) return res.status(404).json({ error: 'User not found' });
+  const { data: friendships } = await supabase
+    .from('friendships')
+    .select('requester_id, addressee_id')
+    .or(`requester_id.eq.${profile.id},addressee_id.eq.${profile.id}`)
+    .eq('status', 'accepted');
+  const friendIds = (friendships || []).map(f => f.requester_id === profile.id ? f.addressee_id : f.requester_id);
+  if (!friendIds.length) return res.json([]);
+  const { data: friends } = await supabase.from('profiles').select('username, avatar_base64, role').in('id', friendIds);
+  res.json((friends || []).map(p => ({ username: p.username, avatarBase64: p.avatar_base64, role: p.role })));
+});
+
 // ── Overrides ───────────────────────────────────────────────────────────────
 app.get('/api/overrides', requireUser, async (req, res) => {
   const [{ data: global }, { data: user }] = await Promise.all([
