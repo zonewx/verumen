@@ -357,28 +357,11 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
           </div>
         </div>
 
-        {/* Two-column layout: tab content (2/3) + friends sidebar (1/3) */}
+        {/* Two-column layout: tab content (left) + right sidebar (tabs + friends) */}
         <div className="flex gap-4 items-start">
 
-          {/* Left: Tab Navigation + Content */}
+          {/* Left: Tab Content only */}
           <div className="flex-1 min-w-0">
-
-            {/* Tab Navigation */}
-            <div className="flex gap-1 mb-4 overflow-x-auto overflow-y-hidden">
-              {[
-                { id: 'activity', label: 'Recent Activity' },
-                { id: 'portfolio', label: 'Portfolio' },
-                { id: 'dividends', label: 'Dividends' },
-                { id: 'showcase', label: 'Item Showcase' },
-                { id: 'cs-trades', label: 'Trade Registry' },
-              ].map(t => (
-                <button key={t.id} onClick={() => setActiveTab(t.id)}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg whitespace-nowrap shrink-0 transition ${
-                    activeTab === t.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700/50'
-                  }`}
-                >{t.label}</button>
-              ))}
-            </div>
 
             {/* Recent Activity Tab */}
             {activeTab === 'activity' && (
@@ -613,8 +596,27 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
 
           </div>{/* end left column */}
 
-          {/* Right: Friends Sidebar (always visible) */}
-          <div className="w-72 shrink-0">
+          {/* Right: Vertical Tab Nav + Friends Sidebar */}
+          <div className="w-72 shrink-0 flex flex-col gap-4">
+
+            {/* Vertical Tab Navigation */}
+            <div className={`${card} p-2`}>
+              {[
+                { id: 'activity', label: 'Recent Activity' },
+                { id: 'portfolio', label: 'Portfolio' },
+                { id: 'dividends', label: 'Dividends' },
+                { id: 'showcase', label: 'Item Showcase' },
+                { id: 'cs-trades', label: 'Trade Registry' },
+              ].map(t => (
+                <button key={t.id} onClick={() => setActiveTab(t.id)}
+                  className={`w-full text-left px-3 py-2.5 text-sm font-semibold rounded-lg transition ${
+                    activeTab === t.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700/50'
+                  }`}
+                >{t.label}</button>
+              ))}
+            </div>
+
+            {/* Friends Card */}
             <div className={`${card} p-4`}>
               <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
                 Friends {friends.length > 0 && <span className="normal-case font-normal">({friends.length})</span>}
