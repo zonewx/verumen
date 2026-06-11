@@ -1968,7 +1968,7 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
   if (!profile) return res.status(404).json({ error: 'User not found' });
   if (!profile.public_cs_trades) return res.status(403).json({ error: "This user's CS trades are private." });
   const { data, error } = await supabase.from('cs_inventory')
-    .select('id, skin_name, exterior, float_value, purchase_price, purchase_currency, purchase_date, sold, cs_sales(sale_price, sale_currency, sale_date)')
+    .select('id, skin_name, exterior, float_value, purchase_price, purchase_currency, purchase_date, sold, screenshot_url, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
     .eq('user_id', profile.id)
     .order('purchase_date', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
@@ -1984,6 +1984,7 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
     salePrice: item.cs_sales?.[0]?.sale_price ?? null,
     saleCurrency: item.cs_sales?.[0]?.sale_currency ?? null,
     saleDate: item.cs_sales?.[0]?.sale_date ?? null,
+    screenshotUrl: item.screenshot_url || item.cs_sales?.[0]?.screenshot_url || null,
   })));
 });
 
@@ -2215,7 +2216,10 @@ app.get('/api/users/:username/activity', requireUser, async (req, res) => {
   const { data: profile } = await supabase.from('profiles').select('id, username').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
   const { data: activities } = await supabase.from('activity').select('*').eq('user_id', profile.id).order('created_at', { ascending:false }).limit(10);
-  res.json((activities || []).map(a => ({ ...a, username: profile.username })));
+  res.json((activities || []).map(a => {
+    const payload = a.payload || {};
+    return { ...payload, id: a.id, type: a.type, created_at: a.created_at, username: profile.username };
+  }));
 });
 
 app.post('/api/activity/screenshot', requireUser, async (req, res) => {

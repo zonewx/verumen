@@ -92,6 +92,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   const [csTrades, setCsTrades] = useState(null);
   const [loadingCsTrades, setLoadingCsTrades] = useState(false);
   const [activeTab, setActiveTab] = useState('activity');
+  const [expandedTradeId, setExpandedTradeId] = useState(null);
 
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
 
@@ -350,7 +351,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
             { id: 'activity', label: 'Recent Activity' },
             { id: 'portfolio', label: 'Portfolio' },
             { id: 'showcase', label: 'Item Showcase' },
-            { id: 'cs-trades', label: 'CS Trades' },
+            { id: 'cs-trades', label: 'Trade Registry' },
           ].map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
               className={`px-4 py-2 text-sm font-semibold rounded-lg transition ${
@@ -494,32 +495,56 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                 <tbody>
                   {csTrades.map(t => {
                     const pnl = t.sold && t.salePrice != null && t.purchasePrice != null ? t.salePrice - t.purchasePrice : null;
+                    const hasScreenshot = !!t.screenshotUrl;
+                    const isExpanded = expandedTradeId === t.id;
                     return (
-                      <tr key={t.id} className="border-t border-zinc-700/50 hover:bg-zinc-700/20 transition">
-                        <td className="px-4 py-3 font-semibold text-sm">{t.skinName}</td>
-                        <td className="px-4 py-3 text-xs text-zinc-400">{t.exterior || '—'}</td>
-                        <td className="px-4 py-3 text-xs text-zinc-300">
-                          <div>{t.purchaseDate}</div>
-                          <div className="text-zinc-400">{t.purchasePrice != null ? `${t.purchasePrice.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${t.purchaseCurrency || ''}` : '—'}</div>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-zinc-300">
-                          {t.sold ? (
-                            <>
-                              <div>{t.saleDate}</div>
-                              <div className="text-zinc-400">{t.salePrice != null ? `${t.salePrice.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${t.saleCurrency || ''}` : '—'}</div>
-                            </>
-                          ) : <span className="text-zinc-500">—</span>}
-                        </td>
-                        <td className="px-4 py-3">
-                          {t.sold ? (
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pnl != null && pnl >= 0 ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
-                              {pnl != null ? `${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}` : 'Sold'}
-                            </span>
-                          ) : (
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">Held</span>
-                          )}
-                        </td>
-                      </tr>
+                      <>
+                        <tr
+                          key={t.id}
+                          onClick={() => hasScreenshot && setExpandedTradeId(isExpanded ? null : t.id)}
+                          className={`border-t border-zinc-700/50 transition ${hasScreenshot ? 'cursor-pointer hover:bg-zinc-700/30' : 'hover:bg-zinc-700/10'}`}
+                        >
+                          <td className="px-4 py-3 font-semibold text-sm">
+                            <div className="flex items-center gap-2">
+                              {hasScreenshot && (
+                                <svg className={`w-3 h-3 shrink-0 text-zinc-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+                                </svg>
+                              )}
+                              {t.skinName}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-zinc-400">{t.exterior || '—'}</td>
+                          <td className="px-4 py-3 text-xs text-zinc-300">
+                            <div>{t.purchaseDate}</div>
+                            <div className="text-zinc-400">{t.purchasePrice != null ? `${t.purchasePrice.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${t.purchaseCurrency || ''}` : '—'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-zinc-300">
+                            {t.sold ? (
+                              <>
+                                <div>{t.saleDate}</div>
+                                <div className="text-zinc-400">{t.salePrice != null ? `${t.salePrice.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${t.saleCurrency || ''}` : '—'}</div>
+                              </>
+                            ) : <span className="text-zinc-500">—</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            {t.sold ? (
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pnl != null && pnl >= 0 ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
+                                {pnl != null ? `${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}` : 'Sold'}
+                              </span>
+                            ) : (
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">Held</span>
+                            )}
+                          </td>
+                        </tr>
+                        {isExpanded && hasScreenshot && (
+                          <tr key={`${t.id}-screenshot`} className="border-t border-zinc-700/30 bg-zinc-900/30">
+                            <td colSpan={5} className="px-4 py-3">
+                              <TradeScreenshot url={t.screenshotUrl} />
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     );
                   })}
                 </tbody>
@@ -573,6 +598,34 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   );
 }
 
+const _screenshotCache = {};
+
+function TradeScreenshot({ url }) {
+  const match = url?.match(/id=(\d+)/);
+  const cacheKey = match?.[1];
+  const [preview, setPreview] = useState(() => cacheKey ? _screenshotCache[cacheKey] ?? null : null);
+  const [loading, setLoading] = useState(!preview && !!cacheKey);
+
+  useEffect(() => {
+    if (!cacheKey || _screenshotCache[cacheKey]) return;
+    setLoading(true);
+    const token = sessionStorage.getItem('auth_token');
+    fetch(`/api/cs/steam/screenshot/${cacheKey}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(r => r.json())
+      .then(d => { if (d.previewUrl) { _screenshotCache[cacheKey] = d.previewUrl; setPreview(d.previewUrl); } })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [cacheKey]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-6">
+      <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+    </div>
+  );
+  if (!preview) return null;
+  return <img src={preview} alt="Trade screenshot" className="w-full rounded-lg object-contain max-h-80" />;
+}
+
 // Activity item component for profile page
 function ActivityItem({ activity }) {
   const formatTime = (date) => {
@@ -592,8 +645,8 @@ function ActivityItem({ activity }) {
   const itemBg = 'bg-zinc-700/30';
   const textSecondary = 'text-zinc-400';
 
-  if (activity.type === 'skin_trade') {
-    const isBuy = activity.tradeType === 'buy';
+  if (activity.type === 'cs_trade' || activity.type === 'skin_trade') {
+    const isBuy = (activity.action || activity.tradeType) === 'buy';
     return (
       <div className={`${itemBg} rounded-lg p-2`}>
         <div className="flex items-center gap-2">
@@ -643,10 +696,10 @@ function ActivityItem({ activity }) {
           </div>
         </div>
         {activity.imageBase64 && (
-          <img 
-            src={activity.imageBase64} 
-            alt={activity.skinName} 
-            className="w-full rounded-md object-cover max-h-32"
+          <img
+            src={activity.imageBase64}
+            alt={activity.skinName}
+            className="w-full rounded-md object-contain"
           />
         )}
       </div>
