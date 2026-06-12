@@ -1920,7 +1920,7 @@ const handleUpload = async (files) => {
                                                 }}
                                                 className="w-4 h-4 rounded"
                                               />
-                                              {broker}
+                                              {broker.charAt(0).toUpperCase() + broker.slice(1)}
                                             </label>
                                           ))}
                                         </div>
