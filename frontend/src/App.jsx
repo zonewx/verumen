@@ -1885,7 +1885,7 @@ const handleUpload = async (files) => {
                               {filterTotal > 0 && <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>{((filteredDivs.filter(d => d.date?.startsWith(new Date().getFullYear().toString())).reduce((s,d) => s+d.total, 0) / filterTotal) * 100).toFixed(1)}% of filtered</p>}
                             </div>
                             <div className={statCard}>
-                              <p className={statLabel}>Avg per Year</p>
+                              <p className={statLabel}>Avg per Year {dividendBrokerFilter.size > 0 && displayByYear.length > 0 && '(Filtered)'}</p>
                               <p className="text-4xl font-bold tracking-tight">{fmtH(avgPerYear)}</p>
                               {displayByStock.length > 0 && <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>from {displayByStock.length} stock{displayByStock.length !== 1 ? 's' : ''}</p>}
                             </div>
