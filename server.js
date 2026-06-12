@@ -1932,11 +1932,23 @@ app.get('/api/dividends', requireUser, async (req, res) => {
   }
   const resolveName = (t) => {
     const cleaned = cleanDivName(t.name);
+    // Extract share class if present (e.g., "Investor A" → base: "Investor", class: "A")
+    const shareClassMatch = cleaned.match(/\s+([A-Z])$/);
+    const shareClass = shareClassMatch ? shareClassMatch[1] : null;
+    const cleanedBase = shareClass ? cleaned.slice(0, -2).trim() : cleaned;
+
     const byIsin = t.isin ? isinToName[t.isin] : null;
-    const byRaw = rawTickerToName[cleaned];
-    const byBase = baseTickerToName[cleaned.toUpperCase()];
+    const byRaw = rawTickerToName[cleaned] || rawTickerToName[cleanedBase];
+    const byBase = baseTickerToName[cleanedBase.toUpperCase()] || baseTickerToName[cleaned.toUpperCase()];
+
     // Prefer any source that looks like a real company name (has lowercase letters)
-    return [byIsin, byRaw, byBase].find(n => n && /[a-z]/.test(n)) || byIsin || byRaw || byBase || cleaned;
+    let resolvedName = [byIsin, byRaw, byBase].find(n => n && /[a-z]/.test(n)) || byIsin || byRaw || byBase || cleaned;
+
+    // Append share class back if it was present and not already in resolved name
+    if (shareClass && resolvedName && !resolvedName.includes(shareClass)) {
+      resolvedName = `${resolvedName} ${shareClass}`;
+    }
+    return resolvedName;
   };
   const thisYear = new Date().getFullYear().toString();
   const totalAllTime = divs.reduce((s,t)=>s+conv(t.total_sek),0);
