@@ -150,10 +150,7 @@ export default function App() {
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
   const [isClearingSnapshot, setIsClearingSnapshot] = useState(false); // prevents re-fetch loop when cache restores portfolio
   const [dividendFilterOpen, setDividendFilterOpen] = useState(false);
-  const [dividendBrokerFilter, setDividendBrokerFilter] = useState(() => {
-    const cached = apiCache.get('/api/dividends');
-    return cached?.brokers ? new Set(cached.brokers) : new Set();
-  });
+  const [dividendBrokerFilter, setDividendBrokerFilter] = useState(new Set());
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -980,6 +977,12 @@ const handleUpload = async (files) => {
   useEffect(() => {
     if (portfolioScrollRef.current) portfolioScrollRef.current.scrollTop = 0;
   }, [currentTab]);
+
+  useEffect(() => {
+    if (dividends?.brokers && dividendBrokerFilter.size === 0) {
+      setDividendBrokerFilter(new Set(dividends.brokers));
+    }
+  }, [dividends?.brokers]);
 
   // Plain render function — no hooks, so React never unmounts/remounts it on re-renders.
   // This preserves scroll position across state updates.
