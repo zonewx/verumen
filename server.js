@@ -1934,8 +1934,10 @@ async function resolveDividendNames(userId) {
   });
   if (!needsResolution.length) return 0;
 
-  // Build name maps from portfolio_cache and buy/sell transactions
+  // nameMap is shared mutable state; resolveRow reads it at call-time so re-evaluates after each phase
   const nameMap = {};
+
+  // Phase 1: portfolio_cache + buy/sell transactions (instant, no API calls)
   const { data: snap } = await supabase.from('portfolio_cache')
     .select('dashboard').eq('user_id', userId).limit(1).single();
   (snap?.dashboard?.portfolio || []).forEach(h => {
@@ -1957,49 +1959,86 @@ async function resolveDividendNames(userId) {
     if (t.raw_ticker && !nameMap[t.raw_ticker]) nameMap[t.raw_ticker] = n;
   });
 
-  // Batch OpenFIGI for ISINs not already resolved
-  const missingIsins = [...new Set(needsResolution.map(r => r.isin).filter(i => i && !nameMap[i]))];
-  const figiMap = missingIsins.length ? await openFigiNames(missingIsins) : {};
-  Object.assign(nameMap, figiMap);
+  const resolveRow = (row) => {
+    const stripped = stripDivName(row.name);
+    const m = stripped.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+([A-Z])$/);
+    const base = m ? m[1] : stripped;
+    const shareClass = m ? m[2] : null;
+    const name = (row.isin && nameMap[row.isin]) || nameMap[base] || (row.raw_ticker && nameMap[row.raw_ticker]) || null;
+    return { base, shareClass, name };
+  };
 
+  // Phase 2: OpenFIGI batch by ISIN for rows still unresolved
+  const p2rows = needsResolution.filter(r => !resolveRow(r).name);
+  const missingIsins = [...new Set(p2rows.map(r => r.isin).filter(Boolean))];
+  if (missingIsins.length) Object.assign(nameMap, await openFigiNames(missingIsins));
+
+  // Phase 3: OpenFIGI by TICKER+exchange for rows with raw_ticker but no ISIN
+  // Tries Nordic/European exchanges (user is primarily SEK-denominated)
+  const p3rows = needsResolution.filter(r => !resolveRow(r).name);
+  const tickersForFigi = [...new Set(p3rows.map(r => {
+    const stripped = stripDivName(r.name);
+    const m = stripped.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+[A-Z]$/);
+    return (m ? m[1] : stripped) || null;
+  }).filter(Boolean))];
+  if (tickersForFigi.length) {
+    const exchanges = ['SS', 'OMX', 'DC', 'OS', 'FP', 'GR'];
+    const batch = tickersForFigi.flatMap(t => exchanges.map(e => ({ idType: 'TICKER', idValue: t, exchCode: e })));
+    try {
+      const r = await fetch('https://api.openfigi.com/v3/mapping', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(batch.slice(0, 100)), signal: AbortSignal.timeout(15000),
+      });
+      if (r.ok) {
+        const results = await r.json();
+        const seen = new Set();
+        results.forEach((result, i) => {
+          const raw = result?.data?.[0]?.name;
+          const ticker = batch[i]?.idValue;
+          if (!raw || !ticker || seen.has(ticker) || nameMap[ticker]) return;
+          const cased = raw.split(' ').map(w => w.length > 1 ? w[0] + w.slice(1).toLowerCase() : w).join(' ');
+          nameMap[ticker] = cleanYFName(cased);
+          seen.add(ticker);
+        });
+      }
+    } catch {}
+  }
+
+  // Phase 4: Finnhub search for anything still unresolved (parallel, fast single calls)
+  const p4rows = needsResolution.filter(r => !resolveRow(r).name);
+  if (p4rows.length) {
+    await Promise.all(p4rows.map(async (row) => {
+      const stripped = stripDivName(row.name);
+      const m = stripped.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+[A-Z]$/);
+      const searchTerm = row.isin || (m ? m[1] : stripped);
+      if (!searchTerm) return;
+      try {
+        const results = await finnhubSearch(searchTerm);
+        const best = results[0];
+        if (best?.description) nameMap[searchTerm] = cleanYFName(best.description);
+      } catch {}
+    }));
+  }
+
+  // Write back all resolved names
   let resolved = 0;
   await Promise.all(needsResolution.map(async (row) => {
-    const stripped = stripDivName(row.name);
-    const shareClassMatch = stripped.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+([A-Z])$/);
-    const baseSymbol = shareClassMatch ? shareClassMatch[1] : stripped;
-    const shareClass = shareClassMatch ? shareClassMatch[2] : null;
-
-    let name = (row.isin && nameMap[row.isin]) || nameMap[baseSymbol] || nameMap[row.raw_ticker] || null;
-
-    // Fallback: resolve ticker then look up company name
-    if (!name) {
-      try {
-        const rawTick = row.raw_ticker || baseSymbol;
-        const resolvedTicker = await resolveSymbol(rawTick, row.isin, row.name, row.currency || 'SEK', row.broker, userId);
-        if (resolvedTicker) {
-          const fhName = await finnhubName(resolvedTicker);
-          if (fhName) name = fhName;
-          if (resolvedTicker !== row.ticker) {
-            await supabase.from('transactions').update({ ticker: resolvedTicker }).eq('id', row.id);
-          }
-        }
-      } catch {}
-    }
-
-    if (name) {
-      const finalName = shareClass && !name.includes(shareClass) ? `${name} ${shareClass}` : name;
-      if (finalName !== row.name) {
-        await supabase.from('transactions').update({ name: finalName }).eq('id', row.id);
-        resolved++;
-      }
+    const { base, shareClass, name } = resolveRow(row);
+    if (!name) return;
+    const finalName = shareClass && !name.includes(shareClass) ? `${name} ${shareClass}` : name;
+    if (finalName !== row.name) {
+      await supabase.from('transactions').update({ name: finalName }).eq('id', row.id);
+      resolved++;
     }
   }));
+  log.info('dividend names resolved', { userId, resolved, total: needsResolution.length });
   return resolved;
 }
 
 app.post('/api/dividends/fix-names', requireUser, async (req, res) => {
-  const resolved = await resolveDividendNames(req.user.id);
-  res.json({ resolved });
+  // Respond immediately — resolution runs in background (avoids request timeout for large datasets)
+  res.json({ status: 'running' });
+  resolveDividendNames(req.user.id).catch(() => {});
 });
 
 // ── Dividends ───────────────────────────────────────────────────────────────

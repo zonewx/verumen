@@ -1909,15 +1909,18 @@ const handleUpload = async (files) => {
                                   <button disabled={isFixingDividendNames} onClick={async () => {
                                     setIsFixingDividendNames(true);
                                     try {
-                                      await apiFetch('/api/dividends/fix-names', { method: 'POST' });
+                                      // Fire-and-forget: server responds immediately, resolves in background
+                                      apiFetch('/api/dividends/fix-names', { method: 'POST' }).catch(() => {});
+                                      // Wait for background resolution to finish (~5–10s), then refresh
+                                      await new Promise(r => setTimeout(r, 9000));
                                       apiCache.bust('/api/dividends');
-                                      const r = await apiFetch(`/api/dividends?currency=${baseCurrency}`);
-                                      const d = await r.json();
+                                      const res = await apiFetch(`/api/dividends?currency=${baseCurrency}`);
+                                      const d = await res.json();
                                       if (d) { setDividends(d); apiCache.set(`/api/dividends?currency=${baseCurrency}`, d); }
                                     } catch {}
                                     setIsFixingDividendNames(false);
                                   }} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition disabled:opacity-50">
-                                    {isFixingDividendNames ? 'Fixing…' : 'Fix Names'}
+                                    {isFixingDividendNames ? 'Fixing… ' : 'Fix Names'}
                                   </button>
                                   <div className="relative">
                                     <button onClick={() => setDividendFilterOpen(!dividendFilterOpen)} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition">
