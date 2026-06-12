@@ -1943,7 +1943,9 @@ app.get('/api/dividends', requireUser, async (req, res) => {
           rawTickerToName[base] = name;
           baseTickerToName[base] = name;
           for (const [isin, b] of Object.entries(isinToBase)) {
-            if (b === base && /^[A-Z0-9]{1,7}$/.test(isinToName[isin])) isinToName[isin] = name;
+            // Always overwrite with fresh Finnhub data — stored names can be wrong
+            // (e.g. EVO.ST stored as "Evotec" from a previous bad resolution).
+            if (b === base) isinToName[isin] = name;
           }
         }
       } catch {}
@@ -1959,7 +1961,8 @@ app.get('/api/dividends', requireUser, async (req, res) => {
       const rawResolved = /[a-z]/.test(rawTickerToName[cleaned] || '');
       const baseResolved = /[a-z]/.test(baseTickerToName[cleaned.toUpperCase()] || '');
       if (isinResolved || rawResolved || baseResolved) continue;
-      if (!/^[A-Z0-9]{1,7}$/.test(cleaned)) continue;
+      // Allow: plain tickers (EVO), dotted tickers (LVMH.PA, NOVOB.CO), share class suffixes (SAGA D, VIT B)
+      if (!/^[A-Z0-9][A-Z0-9.\-]{0,9}(?:\s[A-Z])?$/.test(cleaned)) continue;
       const key = t.isin || cleaned;
       if (seenKeys.has(key)) continue;
       seenKeys.add(key);
@@ -1968,10 +1971,13 @@ app.get('/api/dividends', requireUser, async (req, res) => {
     if (divNeedingLookup.length > 0) {
       await Promise.all(divNeedingLookup.map(async (t) => {
         const cleaned = cleanDivName(t.name);
+        // Strip trailing share class (e.g. "SAGA D" → "SAGA", "VIT B" → "VIT") for symbol lookup
+        const shareClassMatch = cleaned.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+[A-Z]$/);
+        const lookupSymbol = shareClassMatch ? shareClassMatch[1] : cleaned;
         try {
           // Search by ISIN first (unambiguous), then by ticker-like name
           const fhResults = t.isin ? await finnhubSearch(t.isin) : [];
-          const fhSym = fhResults[0]?.symbol || toFinnhubSymbol(cleaned);
+          const fhSym = fhResults[0]?.symbol || toFinnhubSymbol(lookupSymbol);
           const name = await finnhubName(toYFSymbol(fhSym));
           if (name) {
             if (t.isin) isinToName[t.isin] = name;
