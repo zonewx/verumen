@@ -677,13 +677,29 @@ async function finnhubQuote(yfTicker) {
   };
 }
 
-// Returns company name for a YF-format ticker via Finnhub profile2
+// Returns company name for a YF-format ticker.
+// Tries Finnhub profile2 first; falls back to Tiingo metadata (covers European stocks
+// that Finnhub free tier doesn't serve via profile2).
 async function finnhubName(yfTicker) {
   try {
     const fhSymbol = toFinnhubSymbol(yfTicker);
     const p = await finnhubFetch(`/stock/profile2?symbol=${encodeURIComponent(fhSymbol)}`);
-    return p?.name ? cleanYFName(p.name) : null;
-  } catch { return null; }
+    if (p?.name) return cleanYFName(p.name);
+  } catch {}
+  // Tiingo fallback — free tier covers international stocks
+  if (TIINGO_KEY) {
+    try {
+      const r = await fetch(
+        `https://api.tiingo.com/tiingo/daily/${encodeURIComponent(yfTicker.toLowerCase())}?token=${TIINGO_KEY}`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (r.ok) {
+        const d = await r.json();
+        if (d?.name) return cleanYFName(d.name);
+      }
+    } catch {}
+  }
+  return null;
 }
 
 // Returns { 'USDSEK=X': 10.93, 'EURSEK=X': 11.52, ... }
@@ -1975,10 +1991,16 @@ app.get('/api/dividends', requireUser, async (req, res) => {
         const shareClassMatch = cleaned.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+[A-Z]$/);
         const lookupSymbol = shareClassMatch ? shareClassMatch[1] : cleaned;
         try {
-          // Search by ISIN first (unambiguous), then by ticker-like name
-          const fhResults = t.isin ? await finnhubSearch(t.isin) : [];
-          const fhSym = fhResults[0]?.symbol || toFinnhubSymbol(lookupSymbol);
-          const name = await finnhubName(toYFSymbol(fhSym));
+          // Search by ISIN first (unambiguous), then by ticker-like name.
+          // Prefer the description field from the search result — it works globally
+          // on the free tier unlike profile2 which is US-only.
+          const fhResults = t.isin
+            ? await finnhubSearch(t.isin)
+            : await finnhubSearch(lookupSymbol);
+          const best = fhResults[0];
+          const nameFromSearch = best?.description ? cleanYFName(best.description) : null;
+          const fhSym = best?.symbol || toFinnhubSymbol(lookupSymbol);
+          const name = nameFromSearch || await finnhubName(toYFSymbol(fhSym));
           if (name) {
             if (t.isin) isinToName[t.isin] = name;
             rawTickerToName[cleaned] = name;
