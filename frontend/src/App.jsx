@@ -1915,7 +1915,6 @@ const handleUpload = async (files) => {
                                                     newFilter.add(broker);
                                                   } else {
                                                     newFilter.delete(broker);
-                                                    if (newFilter.size === 0) return;
                                                   }
                                                   setDividendBrokerFilter(newFilter);
                                                 }}
