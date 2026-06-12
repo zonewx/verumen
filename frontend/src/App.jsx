@@ -1910,20 +1910,14 @@ const handleUpload = async (files) => {
                                                 type="checkbox"
                                                 checked={dividendBrokerFilter.size === 0 || dividendBrokerFilter.has(broker)}
                                                 onChange={e => {
+                                                  const newFilter = new Set(dividendBrokerFilter.size === 0 ? dividends.brokers : dividendBrokerFilter);
                                                   if (e.target.checked) {
-                                                    const newFilter = new Set(dividendBrokerFilter);
                                                     newFilter.add(broker);
-                                                    setDividendBrokerFilter(newFilter);
                                                   } else {
-                                                    if (dividendBrokerFilter.size === 0) {
-                                                      const newFilter = new Set(dividends.brokers.filter(b => b !== broker));
-                                                      setDividendBrokerFilter(newFilter);
-                                                    } else {
-                                                      const newFilter = new Set(dividendBrokerFilter);
-                                                      newFilter.delete(broker);
-                                                      setDividendBrokerFilter(newFilter);
-                                                    }
+                                                    newFilter.delete(broker);
+                                                    if (newFilter.size === 0) return;
                                                   }
+                                                  setDividendBrokerFilter(newFilter);
                                                 }}
                                                 className="w-4 h-4 rounded"
                                               />
