@@ -1186,24 +1186,24 @@ const handleUpload = async (files) => {
                       <p className={`text-sm mb-4 text-zinc-300`}>
                         Pin an ISIN to a specific Yahoo Finance ticker. The override takes priority over automatic resolution on every upload.
                       </p>
-                      <div className="flex gap-2 mb-3">
+                      <div className="flex gap-3 mb-6">
                         <input ref={overrideIsinRef} placeholder="ISIN" className={`w-32 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
                         <input ref={overrideTickerRef} placeholder="Yahoo Finance ticker" className={`w-44 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
                         <button onClick={handleAddOverride} className="px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition whitespace-nowrap">Save Override</button>
                       </div>
-                      {overrideMsg && <p className={`text-xs mb-3 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
+                      {overrideMsg && <p className={`text-xs mb-4 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
                       {(() => {
                         const globalIsins = new Set(overrides.global?.map(o => o.isin) || []);
                         const userOverridesFiltered = overrides.user?.filter(o => !globalIsins.has(o.isin)) || [];
                         return (overrides.global?.length > 0 || userOverridesFiltered.length > 0) ? (
-                          <div className="flex flex-col gap-3">
+                          <div className="flex flex-col gap-6">
                             {overrides.global?.length > 0 && (
                               <div>
-                                <p className={`text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-400`}>Global overrides</p>
+                                <p className={`text-xs font-semibold uppercase tracking-wider mb-3 text-zinc-400`}>Global overrides</p>
                                 <div className="flex flex-col gap-2">
                                   {overrides.global.map(o => (
-                                    <div key={o.isin} className={`flex items-center justify-between bg-zinc-700/30 border border-zinc-600/30 rounded-xl px-4 py-2.5`}>
-                                      <div className="flex items-center gap-2 flex-1">
+                                    <div key={o.isin} className={`flex items-center justify-between bg-zinc-700/30 border border-zinc-600/30 rounded-xl px-4 py-3`}>
+                                      <div className="flex items-center gap-3 flex-1">
                                         <span className={`text-xs font-semibold px-2 py-0.5 rounded bg-zinc-600/60 text-zinc-300`}>Global</span>
                                         <span className="text-sm font-mono">{o.isin} <span className="text-zinc-400">→</span> <span className="font-bold">{o.ticker}</span></span>
                                       </div>
@@ -1214,10 +1214,10 @@ const handleUpload = async (files) => {
                             )}
                             {userOverridesFiltered.length > 0 && (
                               <div>
-                                <p className={`text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-400`}>Your overrides</p>
+                                <p className={`text-xs font-semibold uppercase tracking-wider mb-3 text-zinc-400`}>Your overrides</p>
                                 <div className="flex flex-col gap-2">
                                   {userOverridesFiltered.map(o => (
-                                    <div key={o.isin} className={`flex items-center justify-between bg-zinc-700/50 rounded-xl px-4 py-2.5`}>
+                                    <div key={o.isin} className={`flex items-center justify-between bg-zinc-700/50 rounded-xl px-4 py-3`}>
                                       <span className="text-sm font-mono">{o.isin} <span className="text-zinc-400">→</span> <span className="font-bold">{o.ticker}</span></span>
                                       <button onClick={() => handleDeleteOverride(o.isin)} className="text-red-400 hover:text-red-300 text-xs ml-4 transition font-medium">Remove</button>
                                     </div>
