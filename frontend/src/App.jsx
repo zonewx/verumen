@@ -1905,7 +1905,7 @@ const handleUpload = async (files) => {
                                   <button onClick={() => navigate('/portfolio/import-dividends')} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 transition">+ Import Dividends</button>
                                   <div className="relative">
                                     <button onClick={() => setDividendFilterOpen(!dividendFilterOpen)} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition">
-                                      Filter {dividendBrokerFilter.size > 0 ? `(${dividendBrokerFilter.size})` : ''}
+                                      Filter {dividendBrokerFilter.size < (dividends?.brokers?.length ?? dividendBrokerFilter.size) ? `(${dividendBrokerFilter.size})` : ''}
                                     </button>
                                     {dividendFilterOpen && (
                                       <>
