@@ -1910,13 +1910,20 @@ const handleUpload = async (files) => {
                                                 type="checkbox"
                                                 checked={dividendBrokerFilter.size === 0 || dividendBrokerFilter.has(broker)}
                                                 onChange={e => {
-                                                  const newFilter = new Set(dividendBrokerFilter);
                                                   if (e.target.checked) {
+                                                    const newFilter = new Set(dividendBrokerFilter);
                                                     newFilter.add(broker);
+                                                    setDividendBrokerFilter(newFilter);
                                                   } else {
-                                                    newFilter.delete(broker);
+                                                    if (dividendBrokerFilter.size === 0) {
+                                                      const newFilter = new Set(dividends.brokers.filter(b => b !== broker));
+                                                      setDividendBrokerFilter(newFilter);
+                                                    } else {
+                                                      const newFilter = new Set(dividendBrokerFilter);
+                                                      newFilter.delete(broker);
+                                                      setDividendBrokerFilter(newFilter);
+                                                    }
                                                   }
-                                                  setDividendBrokerFilter(newFilter);
                                                 }}
                                                 className="w-4 h-4 rounded"
                                               />
