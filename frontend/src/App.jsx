@@ -1901,31 +1901,36 @@ const handleUpload = async (files) => {
                                     <button onClick={() => setDividendFilterOpen(!dividendFilterOpen)} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition">
                                       Filter {dividendBrokerFilter.size > 0 ? `(${dividendBrokerFilter.size})` : ''}
                                     </button>
-                                    {dividendFilterOpen && dividends?.brokers && (
-                                      <div className="absolute right-0 top-full mt-2 bg-zinc-800 border border-zinc-700 rounded-lg p-3 z-50 min-w-48 shadow-xl">
-                                        <div className="flex flex-col gap-2">
-                                          {dividends.brokers.map(broker => (
-                                            <label key={broker} className="flex items-center gap-2 cursor-pointer text-sm text-zinc-200 hover:text-white">
-                                              <input
-                                                type="checkbox"
-                                                checked={dividendBrokerFilter.size === 0 || dividendBrokerFilter.has(broker)}
-                                                onChange={e => {
-                                                  const newFilter = new Set(dividendBrokerFilter.size === 0 ? dividends.brokers : dividendBrokerFilter);
-                                                  if (e.target.checked) {
-                                                    newFilter.add(broker);
-                                                  } else {
-                                                    newFilter.delete(broker);
-                                                  }
-                                                  setDividendBrokerFilter(newFilter);
-                                                }}
-                                                className="w-4 h-4 rounded"
-                                              />
-                                              {broker.charAt(0).toUpperCase() + broker.slice(1)}
-                                            </label>
-                                          ))}
-                                        </div>
-                                        <button onClick={() => setDividendFilterOpen(false)} className="mt-3 w-full text-[10px] font-semibold px-2 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition">Close</button>
-                                      </div>
+                                    {dividendFilterOpen && (
+                                      <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setDividendFilterOpen(false)} />
+                                        {dividends?.brokers && (
+                                          <div className="absolute right-0 top-full mt-2 bg-zinc-800 border border-zinc-700 rounded-lg p-3 z-50 min-w-48 shadow-xl">
+                                            <div className="flex flex-col gap-2">
+                                              {dividends.brokers.map(broker => (
+                                                <label key={broker} className="flex items-center gap-2 cursor-pointer text-sm text-zinc-200 hover:text-white">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={dividendBrokerFilter.size === 0 || dividendBrokerFilter.has(broker)}
+                                                    onChange={e => {
+                                                      const newFilter = new Set(dividendBrokerFilter.size === 0 ? dividends.brokers : dividendBrokerFilter);
+                                                      if (e.target.checked) {
+                                                        newFilter.add(broker);
+                                                      } else {
+                                                        newFilter.delete(broker);
+                                                      }
+                                                      setDividendBrokerFilter(newFilter);
+                                                    }}
+                                                    className="w-4 h-4 rounded"
+                                                  />
+                                                  {broker.charAt(0).toUpperCase() + broker.slice(1)}
+                                                </label>
+                                              ))}
+                                            </div>
+                                            <button onClick={() => setDividendFilterOpen(false)} className="mt-3 w-full text-[10px] font-semibold px-2 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition">Close</button>
+                                          </div>
+                                        )}
+                                      </>
                                     )}
                                   </div>
                                 </div>
