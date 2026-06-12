@@ -1071,8 +1071,14 @@ function parseMontrose(content) {
     // Montrose omits Ticker/ISIN for some dividend and foreign-tax rows, embedding the
     // ticker in the name instead (e.g. "Utdelning ADDT B 3.2 SEK/aktie" → rawTicker "ADDT B").
     if (!rawTicker && !isin && (txType === 'dividend' || txType === 'foreign-tax')) {
-      const stripped = name.replace(/^Utdelning\s+/i, '');
-      const m = stripped.match(/^([A-ZÅÄÖ][A-ZÅÄÖ0-9]*(?:[.\-][A-ZÅÄÖ0-9]+)*(?:\s+[A-Z])?)\s+[\d,.]/);
+      const stripped = name.replace(/^Utdelning\s+/i, '').replace(/^Källskatt\s+/i, '');
+      // Match ticker patterns: can be ticker alone, ticker + share class, or ticker with dots/dashes
+      // Examples: "ADDT B 3.2", "SAGA D", "VIT B", "NOVOB.CO", "LVMH.PA", "Evotec"
+      let m = stripped.match(/^([A-ZÅÄÖ][A-ZÅÄÖ0-9]*(?:[.\-][A-ZÅÄÖ0-9]+)*(?:\s+[A-Z])?)\s+[\d,.]/);
+      // Fallback: if no amount follows, just grab the ticker/share class at the start
+      if (!m) {
+        m = stripped.match(/^([A-ZÅÄÖ][A-ZÅÄÖ0-9]*(?:[.\-][A-ZÅÄÖ0-9]+)*(?:\s+[A-Z])?)(?:\s|$)/);
+      }
       if (m) rawTicker = m[1].trim();
     }
     return { broker:'montrose', date:cols[iDatum]?.trim()||'', type:txType, name, isin, rawTicker, ticker:'', quantity:qty, price:parseNum(cols[iKurs]), currency:cols[iKursvaluta]?.trim()||'SEK', totalSEK:parseNum(cols[iTotalt]), account:cols[iKonto]?.trim()||'' };
