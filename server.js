@@ -1808,7 +1808,7 @@ app.delete('/api/portfolio/cached', requireUser, async (req, res) => {
 // ── Dividends ───────────────────────────────────────────────────────────────
 app.get('/api/dividends', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data: txs } = await supabase.from('transactions').select('date, name, total_sek, isin').eq('user_id', req.user.id).eq('type', 'dividend');
+  const { data: txs } = await supabase.from('transactions').select('date, name, total_sek, isin, broker').eq('user_id', req.user.id).eq('type', 'dividend');
   const divs = (txs||[]).filter(t => t.total_sek);
   let bcRate = 1;
   if (BC !== 'SEK') {
@@ -1935,12 +1935,13 @@ app.get('/api/dividends', requireUser, async (req, res) => {
   const thisYear = new Date().getFullYear().toString();
   const totalAllTime = divs.reduce((s,t)=>s+conv(t.total_sek),0);
   const totalThisYear = divs.filter(t=>t.date?.startsWith(thisYear)).reduce((s,t)=>s+conv(t.total_sek),0);
+  const brokers = [...new Set(divs.map(t => t.broker).filter(Boolean))];
   const byYear = {};
   divs.forEach(t => { const y=t.date?.substring(0,4); if(!y) return; if(!byYear[y]) byYear[y]={year:y,total:0,stocks:{}}; byYear[y].total+=conv(t.total_sek); const n=resolveName(t); byYear[y].stocks[n]=(byYear[y].stocks[n]||0)+conv(t.total_sek); });
   const byYearArr = Object.values(byYear).sort((a,b)=>b.year.localeCompare(a.year)).map(y=>({...y,stocks:Object.entries(y.stocks).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total)}));
   const byStock = {};
   divs.forEach(t => { const n=resolveName(t); byStock[n]=(byStock[n]||0)+conv(t.total_sek); });
-  res.json({ totalAllTime, totalThisYear, byYear:byYearArr, byStock:Object.entries(byStock).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total), display_currency: BC });
+  res.json({ totalAllTime, totalThisYear, byYear:byYearArr, byStock:Object.entries(byStock).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total), display_currency: BC, brokers, dividends: divs.map(t => ({ name: resolveName(t), total: conv(t.total_sek), broker: t.broker })) });
 });
 
 // Public dividends endpoint

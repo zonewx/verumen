@@ -149,6 +149,8 @@ export default function App() {
   const [showRetryCountdown, setShowRetryCountdown] = useState(false);
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
   const [isClearingSnapshot, setIsClearingSnapshot] = useState(false); // prevents re-fetch loop when cache restores portfolio
+  const [dividendFilterOpen, setDividendFilterOpen] = useState(false);
+  const [dividendBrokerFilter, setDividendBrokerFilter] = useState(new Set());
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -1847,25 +1849,45 @@ const handleUpload = async (files) => {
                     {!dividends || dividends.totalAllTime === 0 ? <EmptyState title="No dividends" desc="Upload and sync your portfolio to see dividend history." /> : (() => {
                       const statCard = `bg-zinc-800 border-zinc-700 border rounded-2xl p-6`;
                       const statLabel = `text-[10px] font-semibold tracking-[0.14em] uppercase mb-4 text-zinc-400`;
-                      const maxDiv = Math.max(...dividends.byYear.map(y => y.total));
-                      const avgPerYear = dividends.byYear.length > 0 ? dividends.totalAllTime / dividends.byYear.length : 0;
+                      const filteredDivs = dividendBrokerFilter.size === 0 ? (dividends.dividends || []) : (dividends.dividends || []).filter(d => dividendBrokerFilter.has(d.broker));
+                      const displayByYear = dividendBrokerFilter.size === 0 ? dividends.byYear : (() => {
+                        const byYear = {};
+                        filteredDivs.forEach(d => {
+                          const y = d.date?.substring(0,4) || '';
+                          if(!y) return;
+                          if(!byYear[y]) byYear[y] = {year: y, total: 0, stocks: {}};
+                          byYear[y].total += d.total;
+                          byYear[y].stocks[d.name] = (byYear[y].stocks[d.name] || 0) + d.total;
+                        });
+                        return Object.values(byYear).sort((a,b) => b.year.localeCompare(a.year)).map(y => ({...y, stocks: Object.entries(y.stocks).map(([name, total]) => ({name, total})).sort((a,b) => b.total - a.total)}));
+                      })();
+                      const displayByStock = dividendBrokerFilter.size === 0 ? dividends.byStock : (() => {
+                        const byStock = {};
+                        filteredDivs.forEach(d => {
+                          byStock[d.name] = (byStock[d.name] || 0) + d.total;
+                        });
+                        return Object.entries(byStock).map(([name, total]) => ({name, total})).sort((a,b) => b.total - a.total);
+                      })();
+                      const filterTotal = filteredDivs.reduce((sum, d) => sum + d.total, 0);
+                      const maxDiv = Math.max(...displayByYear.map(y => y.total), 1);
+                      const avgPerYear = displayByYear.length > 0 ? filterTotal / displayByYear.length : 0;
                       return (
                         <>
                           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div className={statCard}>
-                              <p className={statLabel}>All-Time</p>
-                              <p className="text-4xl font-bold tracking-tight">{fmtH(dividends.totalAllTime)}</p>
-                              <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>{dividends.byYear.length} year{dividends.byYear.length !== 1 ? 's' : ''} of data</p>
+                              <p className={statLabel}>All-Time {dividendBrokerFilter.size > 0 && '(Filtered)'}</p>
+                              <p className="text-4xl font-bold tracking-tight">{fmtH(filterTotal)}</p>
+                              <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>{displayByYear.length} year{displayByYear.length !== 1 ? 's' : ''} of data</p>
                             </div>
                             <div className={statCard}>
-                              <p className={statLabel}>This Year</p>
-                              <p className="text-4xl font-bold tracking-tight text-pink-400">{fmtH(dividends.totalThisYear)}</p>
-                              {dividends.totalAllTime > 0 && <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>{((dividends.totalThisYear / dividends.totalAllTime) * 100).toFixed(1)}% of all time</p>}
+                              <p className={statLabel}>This Year {dividendBrokerFilter.size > 0 && '(Filtered)'}</p>
+                              <p className="text-4xl font-bold tracking-tight text-pink-400">{fmtH(filteredDivs.filter(d => d.date?.startsWith(new Date().getFullYear().toString())).reduce((s,d) => s+d.total, 0))}</p>
+                              {filterTotal > 0 && <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>{((filteredDivs.filter(d => d.date?.startsWith(new Date().getFullYear().toString())).reduce((s,d) => s+d.total, 0) / filterTotal) * 100).toFixed(1)}% of filtered</p>}
                             </div>
                             <div className={statCard}>
                               <p className={statLabel}>Avg per Year</p>
                               <p className="text-4xl font-bold tracking-tight">{fmtH(avgPerYear)}</p>
-                              {dividends.byStock.length > 0 && <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>from {dividends.byStock.length} stock{dividends.byStock.length !== 1 ? 's' : ''}</p>}
+                              {displayByStock.length > 0 && <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>from {displayByStock.length} stock{displayByStock.length !== 1 ? 's' : ''}</p>}
                             </div>
                           </div>
 
@@ -1873,10 +1895,43 @@ const handleUpload = async (files) => {
                             <div className={`${cardCls} p-6`}>
                               <div className="flex items-center justify-between mb-5">
                                 <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>By Year</h3>
-                                <button onClick={() => navigate('/portfolio/import-dividends')} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 transition">+ Import Dividends</button>
+                                <div className="flex items-center gap-2">
+                                  <button onClick={() => navigate('/portfolio/import-dividends')} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 transition">+ Import Dividends</button>
+                                  <div className="relative">
+                                    <button onClick={() => setDividendFilterOpen(!dividendFilterOpen)} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition flex items-center gap-1">
+                                      <span>⚙️</span> Filter {dividendBrokerFilter.size > 0 ? `(${dividendBrokerFilter.size})` : ''}
+                                    </button>
+                                    {dividendFilterOpen && dividends?.brokers && (
+                                      <div className="absolute right-0 top-full mt-2 bg-zinc-800 border border-zinc-700 rounded-lg p-3 z-50 min-w-48 shadow-xl">
+                                        <div className="flex flex-col gap-2">
+                                          {dividends.brokers.map(broker => (
+                                            <label key={broker} className="flex items-center gap-2 cursor-pointer text-sm text-zinc-200 hover:text-white">
+                                              <input
+                                                type="checkbox"
+                                                checked={dividendBrokerFilter.size === 0 || dividendBrokerFilter.has(broker)}
+                                                onChange={e => {
+                                                  const newFilter = new Set(dividendBrokerFilter);
+                                                  if (e.target.checked) {
+                                                    newFilter.add(broker);
+                                                  } else {
+                                                    newFilter.delete(broker);
+                                                  }
+                                                  setDividendBrokerFilter(newFilter);
+                                                }}
+                                                className="w-4 h-4 rounded"
+                                              />
+                                              {broker}
+                                            </label>
+                                          ))}
+                                        </div>
+                                        <button onClick={() => setDividendFilterOpen(false)} className="mt-3 w-full text-[10px] font-semibold px-2 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition">Close</button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                               <div className="flex flex-col gap-1">
-                                {dividends.byYear.map(({ year, total, stocks }) => (
+                                {displayByYear.map(({ year, total, stocks }) => (
                                   <div key={year}>
                                     <div onClick={() => setExpandedYear(expandedYear === year ? null : year)} className={`flex items-center gap-3 py-1.5 px-2 cursor-pointer rounded-lg hover:bg-zinc-700/50 transition`}>
                                       <span className={`text-sm font-bold w-12 shrink-0 text-zinc-200`}>{year}</span>
@@ -1910,8 +1965,8 @@ const handleUpload = async (files) => {
                                 <span className={`text-[10px] text-zinc-400`}>{dividends.byStock.length} stocks</span>
                               </div>
                               <div className="flex flex-col gap-2">
-                                {dividends.byStock.slice(0, 10).map(({ name, total }, idx) => {
-                                  const maxPayer = dividends.byStock[0]?.total || 1;
+                                {displayByStock.slice(0, 10).map(({ name, total }, idx) => {
+                                  const maxPayer = displayByStock[0]?.total || 1;
                                   const pct = dividends.totalAllTime > 0 ? (total / dividends.totalAllTime) * 100 : 0;
                                   return (
                                     <div key={name} className={`flex flex-col gap-1 p-2 rounded-lg bg-zinc-700/50 hover:bg-zinc-700 transition`}>
