@@ -150,7 +150,10 @@ export default function App() {
   const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
   const [isClearingSnapshot, setIsClearingSnapshot] = useState(false); // prevents re-fetch loop when cache restores portfolio
   const [dividendFilterOpen, setDividendFilterOpen] = useState(false);
-  const [dividendBrokerFilter, setDividendBrokerFilter] = useState(new Set());
+  const [dividendBrokerFilter, setDividendBrokerFilter] = useState(() => {
+    const cached = apiCache.get('/api/dividends');
+    return cached?.brokers ? new Set(cached.brokers) : new Set();
+  });
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -1849,8 +1852,8 @@ const handleUpload = async (files) => {
                     {!dividends || dividends.totalAllTime === 0 ? <EmptyState title="No dividends" desc="Upload and sync your portfolio to see dividend history." /> : (() => {
                       const statCard = `bg-zinc-800 border-zinc-700 border rounded-2xl p-6`;
                       const statLabel = `text-[10px] font-semibold tracking-[0.14em] uppercase mb-4 text-zinc-400`;
-                      const filteredDivs = dividendBrokerFilter.size === 0 ? (dividends.dividends || []) : (dividends.dividends || []).filter(d => dividendBrokerFilter.has(d.broker));
-                      const displayByYear = dividendBrokerFilter.size === 0 ? dividends.byYear : (() => {
+                      const filteredDivs = (dividends.dividends || []).filter(d => dividendBrokerFilter.has(d.broker));
+                      const displayByYear = (() => {
                         const byYear = {};
                         filteredDivs.forEach(d => {
                           const y = d.date?.substring(0,4) || '';
@@ -1861,7 +1864,7 @@ const handleUpload = async (files) => {
                         });
                         return Object.values(byYear).sort((a,b) => b.year.localeCompare(a.year)).map(y => ({...y, stocks: Object.entries(y.stocks).map(([name, total]) => ({name, total})).sort((a,b) => b.total - a.total)}));
                       })();
-                      const displayByStock = dividendBrokerFilter.size === 0 ? dividends.byStock : (() => {
+                      const displayByStock = (() => {
                         const byStock = {};
                         filteredDivs.forEach(d => {
                           byStock[d.name] = (byStock[d.name] || 0) + d.total;
@@ -1875,7 +1878,7 @@ const handleUpload = async (files) => {
                         <>
                           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div className={statCard}>
-                              <p className={statLabel}>All-Time {dividendBrokerFilter.size > 0 && '(Filtered)'}</p>
+                              <p className={statLabel}>All-Time {dividendBrokerFilter.size > 0 && dividendBrokerFilter.size < dividends.brokers.length && '(Filtered)'}</p>
                               <p className="text-4xl font-bold tracking-tight">{fmtH(filterTotal)}</p>
                               <p className={`text-sm font-medium mt-2.5 text-zinc-300`}>{displayByYear.length} year{displayByYear.length !== 1 ? 's' : ''} of data</p>
                             </div>
@@ -1911,9 +1914,9 @@ const handleUpload = async (files) => {
                                                 <label key={broker} className="flex items-center gap-2 cursor-pointer text-sm text-zinc-200 hover:text-white">
                                                   <input
                                                     type="checkbox"
-                                                    checked={dividendBrokerFilter.size === 0 || dividendBrokerFilter.has(broker)}
+                                                    checked={dividendBrokerFilter.has(broker)}
                                                     onChange={e => {
-                                                      const newFilter = new Set(dividendBrokerFilter.size === 0 ? dividends.brokers : dividendBrokerFilter);
+                                                      const newFilter = new Set(dividendBrokerFilter);
                                                       if (e.target.checked) {
                                                         newFilter.add(broker);
                                                       } else {
