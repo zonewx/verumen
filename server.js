@@ -702,6 +702,33 @@ async function finnhubName(yfTicker) {
   return null;
 }
 
+// Batch ISIN → company name via OpenFIGI (free, no key required, global coverage).
+// Returns map of { isin: displayName }.
+async function openFigiNames(isins) {
+  if (!isins.length) return {};
+  try {
+    const r = await fetch('https://api.openfigi.com/v3/mapping', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(isins.map(isin => ({ idType: 'ID_ISIN', idValue: isin }))),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!r.ok) return {};
+    const results = await r.json();
+    const map = {};
+    results.forEach((result, i) => {
+      const raw = result?.data?.[0]?.name;
+      if (!raw) return;
+      // OpenFIGI returns all-caps; title-case multi-char words for readability
+      const cased = raw.split(' ').map(w =>
+        w.length > 1 ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w
+      ).join(' ');
+      map[isins[i]] = cleanYFName(cased);
+    });
+    return map;
+  } catch { return {}; }
+}
+
 // Returns { 'USDSEK=X': 10.93, 'EURSEK=X': 11.52, ... }
 async function frankfurterFxRates() {
   const r = await fetch('https://api.frankfurter.app/latest?base=SEK&symbols=USD,EUR,GBP,NOK,DKK', {
@@ -1935,7 +1962,11 @@ app.get('/api/dividends', requireUser, async (req, res) => {
   const tickersNeedingLookup = new Map(); // base → full ticker (e.g. "EVO" → "EVO.ST")
   (buyTxs || []).forEach(t => {
     const cached = t.ticker ? _priceCache.get(t.ticker) : null;
-    const rawDisplayName = cached?.q?.longName || cached?.q?.shortName || t.name;
+    // Skip shortName if it looks like a bare ticker (e.g. "EVO", "VIT") — real company names have lowercase
+    const shortName = cached?.q?.shortName;
+    const rawDisplayName = cached?.q?.longName ||
+      (shortName && /[a-z]/.test(shortName) ? shortName : null) ||
+      t.name;
     const displayName = cached ? cleanYFName(rawDisplayName) : rawDisplayName;
     if (t.isin && !isinToName[t.isin]) isinToName[t.isin] = displayName;
     if (t.raw_ticker && !rawTickerToName[t.raw_ticker]) rawTickerToName[t.raw_ticker] = displayName;
@@ -1959,9 +1990,9 @@ app.get('/api/dividends', requireUser, async (req, res) => {
           rawTickerToName[base] = name;
           baseTickerToName[base] = name;
           for (const [isin, b] of Object.entries(isinToBase)) {
-            // Always overwrite with fresh Finnhub data — stored names can be wrong
-            // (e.g. EVO.ST stored as "Evotec" from a previous bad resolution).
-            if (b === base) isinToName[isin] = name;
+            // Only overwrite if existing name is ticker-like (no lowercase) — never clobber
+            // a good name from portfolio_cache (e.g. "Vitec Software Group B") with an API result
+            if (b === base && !/[a-z]/.test(isinToName[isin] || '')) isinToName[isin] = name;
           }
         }
       } catch {}
@@ -1985,22 +2016,33 @@ app.get('/api/dividends', requireUser, async (req, res) => {
       divNeedingLookup.push(t);
     }
     if (divNeedingLookup.length > 0) {
+      // Batch-resolve ISINs via OpenFIGI first (free, no key, global, unambiguous)
+      const isinBatch = [...new Set(divNeedingLookup.map(t => t.isin).filter(Boolean))];
+      const figiMap = await openFigiNames(isinBatch);
+
       await Promise.all(divNeedingLookup.map(async (t) => {
         const cleaned = cleanDivName(t.name);
         // Strip trailing share class (e.g. "SAGA D" → "SAGA", "VIT B" → "VIT") for symbol lookup
         const shareClassMatch = cleaned.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+[A-Z]$/);
         const lookupSymbol = shareClassMatch ? shareClassMatch[1] : cleaned;
         try {
-          // Search by ISIN first (unambiguous), then by ticker-like name.
-          // Prefer the description field from the search result — it works globally
-          // on the free tier unlike profile2 which is US-only.
-          const fhResults = t.isin
-            ? await finnhubSearch(t.isin)
-            : await finnhubSearch(lookupSymbol);
+          // 1. OpenFIGI via ISIN — most reliable, no ambiguity
+          const figiName = t.isin ? figiMap[t.isin] : null;
+          if (figiName) {
+            if (t.isin) isinToName[t.isin] = figiName;
+            rawTickerToName[cleaned] = figiName;
+            baseTickerToName[cleaned.toUpperCase()] = figiName;
+            return;
+          }
+          // 2. Finnhub search by ISIN only — never search by bare ticker like "VIT" or "SAGA"
+          //    because text-based searches match wrong companies without exchange context
+          const fhResults = t.isin ? await finnhubSearch(t.isin) : [];
           const best = fhResults[0];
           const nameFromSearch = best?.description ? cleanYFName(best.description) : null;
-          const fhSym = best?.symbol || toFinnhubSymbol(lookupSymbol);
-          const name = nameFromSearch || await finnhubName(toYFSymbol(fhSym));
+          // 3. Tiingo/Finnhub profile2 only when ticker has an exchange suffix (e.g. LVMH.PA)
+          const hasExchangeSuffix = /\.[A-Z]{1,3}$/.test(lookupSymbol);
+          const fhSym = best?.symbol || (hasExchangeSuffix ? toFinnhubSymbol(lookupSymbol) : null);
+          const name = nameFromSearch || (fhSym ? await finnhubName(toYFSymbol(fhSym)) : null);
           if (name) {
             if (t.isin) isinToName[t.isin] = name;
             rawTickerToName[cleaned] = name;
