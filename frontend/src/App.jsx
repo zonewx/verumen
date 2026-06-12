@@ -1067,7 +1067,7 @@ const handleUpload = async (files) => {
                                   <div>
                                     <p className="text-sm font-semibold capitalize">{broker}</p>
                                     <p className={`text-[10px] text-zinc-400`}>
-                                      {[hasTrades && 'Trades', hasDivs && 'Dividends'].filter(Boolean).join(' · ')}
+                                      {[hasTrades && 'Transactions', hasDivs && 'Dividends'].filter(Boolean).join(' · ')}
                                     </p>
                                   </div>
                                   <span className={`text-xs font-bold text-right text-zinc-300`}>{info.total}</span>
@@ -1146,7 +1146,7 @@ const handleUpload = async (files) => {
                                   <div>
                                     <p className="text-sm font-semibold capitalize">{broker}</p>
                                     <p className={`text-[10px] text-zinc-400`}>
-                                      {[hasTrades && 'Trades', hasDivs && 'Dividends'].filter(Boolean).join(' · ')}
+                                      {[hasTrades && 'Transactions', hasDivs && 'Dividends'].filter(Boolean).join(' · ')}
                                     </p>
                                   </div>
                                   <span className={`text-xs font-bold text-right text-zinc-300`}>{info.total}</span>
@@ -1296,7 +1296,7 @@ const handleUpload = async (files) => {
                                 <div key={broker} className="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-3 py-2.5 bg-zinc-800 hover:bg-zinc-750 transition">
                                   <div>
                                     <p className="text-sm font-semibold capitalize">{broker}</p>
-                                    <p className={`text-[10px] text-zinc-400`}>{[hasTrades && 'Trades', hasDivs && 'Dividends'].filter(Boolean).join(' · ')}</p>
+                                    <p className={`text-[10px] text-zinc-400`}>{[hasTrades && 'Transactions', hasDivs && 'Dividends'].filter(Boolean).join(' · ')}</p>
                                   </div>
                                   <span className="text-xs font-bold text-right text-zinc-300">{info.total}</span>
                                   <button onClick={() => handleClearBroker(broker)} className="text-[11px] font-semibold text-red-400 hover:text-red-300 transition w-14 text-right">Remove</button>
