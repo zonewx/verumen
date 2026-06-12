@@ -1384,7 +1384,13 @@ app.post('/api/transactions/upload', requireUser, async (req, res) => {
   if (newUnique.length > 0) {
     const rows = newUnique.map(t => ({ user_id:req.user.id, broker:t.broker, date:t.date, type:t.type, name:t.name, isin:t.isin, raw_ticker:t.rawTicker, ticker:t.ticker, quantity:t.quantity, price:t.price, currency:t.currency, total_sek:t.totalSEK, account:t.account }));
     await supabase.from('transactions').insert(rows);
-    
+
+    // If any dividend rows were inserted, resolve their names in the background
+    const hasDividends = newUnique.some(t => t.type === 'dividend' || t.type === 'foreign-tax');
+    if (hasDividends) {
+      resolveDividendNames(req.user.id).catch(() => {});
+    }
+
     // Log activity only when new transactions are added
     const { data: holdingsData } = await supabase.from('transactions').select('ticker').eq('user_id', req.user.id).not('ticker', 'is', null);
     const uniqueTickers = [...new Set((holdingsData || []).map(h => h.ticker))];
@@ -1904,6 +1910,96 @@ app.get('/api/portfolio/cached', requireUser, async (req, res) => {
 app.delete('/api/portfolio/cached', requireUser, async (req, res) => {
   await supabase.from('portfolio_cache').delete().eq('user_id', req.user.id);
   res.json({ success: true });
+});
+
+// ── Dividend name resolution ────────────────────────────────────────────────
+// Resolves ticker-like dividend names (e.g. "Utdelning EVO 547 SEK/aktie" → stored as "Evolution")
+// and writes the resolved company name back to transactions.name so future queries are instant.
+async function resolveDividendNames(userId) {
+  const { data: divRows } = await supabase.from('transactions')
+    .select('id, name, raw_ticker, isin, currency, broker, ticker')
+    .eq('user_id', userId)
+    .in('type', ['dividend', 'foreign-tax']);
+  if (!divRows?.length) return 0;
+
+  const stripDivName = (name) => {
+    if (!name) return '';
+    let n = name.replace(/^Utdelning\s+/i, '').replace(/^Källskatt\s+/i, '');
+    n = n.replace(/\s+[\d,.]+\s+[A-Z]{3}\/aktie.*$/i, '').replace(/\s+-\s+.*$/, '');
+    return n.trim();
+  };
+  const needsResolution = divRows.filter(r => {
+    const stripped = stripDivName(r.name || '');
+    return /^Utdelning\s+/i.test(r.name || '') || /^Källskatt\s+/i.test(r.name || '') || !/[a-z]/.test(stripped);
+  });
+  if (!needsResolution.length) return 0;
+
+  // Build name maps from portfolio_cache and buy/sell transactions
+  const nameMap = {};
+  const { data: snap } = await supabase.from('portfolio_cache')
+    .select('dashboard').eq('user_id', userId).limit(1).single();
+  (snap?.dashboard?.portfolio || []).forEach(h => {
+    if (!h.name || !h.ticker) return;
+    const n = cleanYFName(h.name);
+    if (!/[a-z]/.test(n)) return;
+    const base = h.ticker.split('.')[0].toUpperCase();
+    if (!nameMap[base]) nameMap[base] = n;
+    if (h.isin && !nameMap[h.isin]) nameMap[h.isin] = n;
+  });
+  const { data: buyTxs } = await supabase.from('transactions')
+    .select('isin, raw_ticker, name, ticker')
+    .eq('user_id', userId).in('type', ['buy', 'sell']).not('name', 'is', null);
+  (buyTxs || []).forEach(t => {
+    if (!t.name || !/[a-z]/.test(t.name)) return;
+    const n = cleanYFName(t.name);
+    if (t.isin && !nameMap[t.isin]) nameMap[t.isin] = n;
+    if (t.ticker) { const base = t.ticker.split('.')[0].toUpperCase(); if (!nameMap[base]) nameMap[base] = n; }
+    if (t.raw_ticker && !nameMap[t.raw_ticker]) nameMap[t.raw_ticker] = n;
+  });
+
+  // Batch OpenFIGI for ISINs not already resolved
+  const missingIsins = [...new Set(needsResolution.map(r => r.isin).filter(i => i && !nameMap[i]))];
+  const figiMap = missingIsins.length ? await openFigiNames(missingIsins) : {};
+  Object.assign(nameMap, figiMap);
+
+  let resolved = 0;
+  await Promise.all(needsResolution.map(async (row) => {
+    const stripped = stripDivName(row.name);
+    const shareClassMatch = stripped.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+([A-Z])$/);
+    const baseSymbol = shareClassMatch ? shareClassMatch[1] : stripped;
+    const shareClass = shareClassMatch ? shareClassMatch[2] : null;
+
+    let name = (row.isin && nameMap[row.isin]) || nameMap[baseSymbol] || nameMap[row.raw_ticker] || null;
+
+    // Fallback: resolve ticker then look up company name
+    if (!name) {
+      try {
+        const rawTick = row.raw_ticker || baseSymbol;
+        const resolvedTicker = await resolveSymbol(rawTick, row.isin, row.name, row.currency || 'SEK', row.broker, userId);
+        if (resolvedTicker) {
+          const fhName = await finnhubName(resolvedTicker);
+          if (fhName) name = fhName;
+          if (resolvedTicker !== row.ticker) {
+            await supabase.from('transactions').update({ ticker: resolvedTicker }).eq('id', row.id);
+          }
+        }
+      } catch {}
+    }
+
+    if (name) {
+      const finalName = shareClass && !name.includes(shareClass) ? `${name} ${shareClass}` : name;
+      if (finalName !== row.name) {
+        await supabase.from('transactions').update({ name: finalName }).eq('id', row.id);
+        resolved++;
+      }
+    }
+  }));
+  return resolved;
+}
+
+app.post('/api/dividends/fix-names', requireUser, async (req, res) => {
+  const resolved = await resolveDividendNames(req.user.id);
+  res.json({ resolved });
 });
 
 // ── Dividends ───────────────────────────────────────────────────────────────

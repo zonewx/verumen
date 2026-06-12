@@ -151,6 +151,7 @@ export default function App() {
   const [isClearingSnapshot, setIsClearingSnapshot] = useState(false); // prevents re-fetch loop when cache restores portfolio
   const [dividendFilterOpen, setDividendFilterOpen] = useState(false);
   const [dividendBrokerFilter, setDividendBrokerFilter] = useState(new Set());
+  const [isFixingDividendNames, setIsFixingDividendNames] = useState(false);
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
@@ -1905,6 +1906,19 @@ const handleUpload = async (files) => {
                                 <h3 className={`text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`}>By Year</h3>
                                 <div className="flex items-center gap-2">
                                   <button onClick={() => navigate('/portfolio/import-dividends')} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 transition">+ Import Dividends</button>
+                                  <button disabled={isFixingDividendNames} onClick={async () => {
+                                    setIsFixingDividendNames(true);
+                                    try {
+                                      await apiFetch('/api/dividends/fix-names', { method: 'POST' });
+                                      apiCache.bust('/api/dividends');
+                                      const r = await apiFetch(`/api/dividends?currency=${baseCurrency}`);
+                                      const d = await r.json();
+                                      if (d) { setDividends(d); apiCache.set(`/api/dividends?currency=${baseCurrency}`, d); }
+                                    } catch {}
+                                    setIsFixingDividendNames(false);
+                                  }} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition disabled:opacity-50">
+                                    {isFixingDividendNames ? 'Fixing…' : 'Fix Names'}
+                                  </button>
                                   <div className="relative">
                                     <button onClick={() => setDividendFilterOpen(!dividendFilterOpen)} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition">
                                       Filter {dividendBrokerFilter.size < (dividends?.brokers?.length ?? dividendBrokerFilter.size) ? `(${dividendBrokerFilter.size})` : ''}
