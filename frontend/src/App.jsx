@@ -1913,7 +1913,7 @@ const handleUpload = async (files) => {
                                         {dividends?.brokers && (
                                           <div className="absolute right-0 top-full mt-2 bg-zinc-800 border border-zinc-700 rounded-lg p-3 z-50 min-w-48 shadow-xl">
                                             <div className="flex flex-col gap-2">
-                                              {dividends.brokers.map(broker => (
+                                              {[...dividends.brokers].sort().map(broker => (
                                                 <label key={broker} className="flex items-center gap-2 cursor-pointer text-sm text-zinc-200 hover:text-white">
                                                   <input
                                                     type="checkbox"
