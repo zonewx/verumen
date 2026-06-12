@@ -1898,8 +1898,8 @@ const handleUpload = async (files) => {
                                 <div className="flex items-center gap-2">
                                   <button onClick={() => navigate('/portfolio/import-dividends')} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-pink-600/20 hover:bg-pink-600/30 text-pink-300 transition">+ Import Dividends</button>
                                   <div className="relative">
-                                    <button onClick={() => setDividendFilterOpen(!dividendFilterOpen)} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition flex items-center gap-1">
-                                      <span>⚙️</span> Filter {dividendBrokerFilter.size > 0 ? `(${dividendBrokerFilter.size})` : ''}
+                                    <button onClick={() => setDividendFilterOpen(!dividendFilterOpen)} className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition">
+                                      Filter {dividendBrokerFilter.size > 0 ? `(${dividendBrokerFilter.size})` : ''}
                                     </button>
                                     {dividendFilterOpen && dividends?.brokers && (
                                       <div className="absolute right-0 top-full mt-2 bg-zinc-800 border border-zinc-700 rounded-lg p-3 z-50 min-w-48 shadow-xl">
