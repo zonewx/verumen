@@ -1542,6 +1542,55 @@ const _marketIndexCache = new Map(); // symbol → { symbol, price, changePct, c
 const MARKET_INDEX_CACHE_TTL = 10 * 60 * 1000;
 const ALL_INDEX_SYMBOLS = ['^GDAXI','^NDX','^OMXC25','^GSPC','^OMX','^OMXH25','^OSEAX','^GSPTSE'];
 
+// Stooq provides free global index data without an API key.
+// Finnhub free tier only covers US equities; European/Nordic indices return {c:0}.
+const YF_TO_STOOQ = {
+  '^GSPC':   '^spx',    // S&P 500
+  '^NDX':    '^ndx',    // NASDAQ 100
+  '^DJI':    '^dji',    // Dow Jones
+  '^FTSE':   '^ukx',    // FTSE 100
+  '^GDAXI':  '^dax',    // DAX
+  '^OMX':    '^omx',    // OMXS30
+  '^OMXC25': '^omxc25', // OMX Copenhagen 25
+  '^OMXH25': '^omxh25', // OMX Helsinki 25
+  '^OSEAX':  '^oseax',  // Oslo All-Share
+  '^GSPTSE': '^tsx',    // S&P/TSX Composite
+};
+
+async function stooqIndexQuote(yfSymbol) {
+  const stooqSym = YF_TO_STOOQ[yfSymbol];
+  if (!stooqSym) return null;
+  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSym)}&i=d`;
+  const r = await fetch(url, {
+    signal: AbortSignal.timeout(8000),
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; verumen-market/1.0)' },
+  });
+  if (!r.ok) return null;
+  const text = await r.text();
+  const lines = text.trim().split('\n');
+  // Parse all data rows (skip header), sort newest-first by date string
+  const rows = lines.slice(1)
+    .filter(l => l && l.includes(','))
+    .map(l => { const p = l.split(','); return { date: p[0], close: parseFloat(p[4]) }; })
+    .filter(r => r.close && !isNaN(r.close))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  if (!rows.length) return null;
+  const close = rows[0].close;
+  const prevClose = rows[1]?.close ?? null;
+  const change = prevClose != null ? close - prevClose : 0;
+  const changePct = prevClose ? (change / prevClose) * 100 : 0;
+  return {
+    symbol: yfSymbol,
+    regularMarketPrice: close,
+    regularMarketPreviousClose: prevClose ?? close,
+    regularMarketChange: change,
+    regularMarketChangePercent: changePct,
+    regularMarketTime: Math.floor(Date.now() / 1000),
+    currency: currencyFromTicker(yfSymbol),
+    longName: null, shortName: null, sector: null, quoteType: 'INDEX',
+  };
+}
+
 function cacheEntry(q, fallbackSymbol) {
   if (!q?.regularMarketPrice) return;
   const price  = Number(q.regularMarketPrice);
@@ -1564,7 +1613,10 @@ async function refreshMarketIndexes() {
   let count = 0;
   for (const s of ALL_INDEX_SYMBOLS) {
     try {
-      const q = await finnhubQuote(s);
+      // Stooq is the primary source for ^ index symbols — Finnhub free tier
+      // returns {c:0} for European/Nordic indices, making the fallback useless.
+      let q = s.startsWith('^') ? await stooqIndexQuote(s) : null;
+      if (!q) q = await finnhubQuote(s);
       if (q) { cacheEntry(q, s); count++; }
     } catch {}
     await new Promise(r => setTimeout(r, 250));
