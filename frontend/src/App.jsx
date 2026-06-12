@@ -602,16 +602,18 @@ const handleUpload = async (files) => {
     // Dividends-only: skip ticker resolution and portfolio sync — fetch fresh dividends and redirect
     if (dividendsOnly) {
       apiCache.bust('/api/dividends');
+      apiCache.del('/api/txCount');
       updateProgress('done', 100, `✓ Imported ${totalNewAdded} dividend transaction${totalNewAdded !== 1 ? 's' : ''}`);
       setTimeout(async () => {
         setUploadProgress(null);
         navigate('/portfolio/dividends');
         try {
-          const divRes = await apiFetch(`/api/dividends?currency=${baseCurrency}`).then(r => r.json());
-          if (divRes) {
-            setDividends(divRes);
-            apiCache.set(`/api/dividends?currency=${baseCurrency}`, divRes);
-          }
+          const [divRes, txRes] = await Promise.all([
+            apiFetch(`/api/dividends?currency=${baseCurrency}`).then(r => r.json()),
+            apiFetch('/api/transactions/count').then(r => r.json()),
+          ]);
+          if (divRes) { setDividends(divRes); apiCache.set(`/api/dividends?currency=${baseCurrency}`, divRes); }
+          if (txRes) { setTxCount(txRes); apiCache.set('/api/txCount', txRes); }
         } catch(e) {}
       }, 3000);
       setUploadLoading(false);
