@@ -2067,7 +2067,16 @@ const handleUpload = async (files) => {
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 bg-sky-600/15 border border-sky-500/25 rounded-2xl mb-4" style={{ boxShadow: '0 0 32px rgba(14,165,233,0.18)' }}>
               <svg width="38" height="38" viewBox="0 0 28 28" fill="none">
-                <path d="M5 6 A12 12 0 0 1 23 6 L14 20 Z" fill="#38bdf8"/>
+                <defs>
+                  <mask id="vm">
+                    <rect width="28" height="28" fill="white"/>
+                    <path d="M4 7 L14 22.5 L24 7" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                    <rect x="20.5" y="10.5" width="5.5" height="2.2" rx="1" fill="black"/>
+                    <rect x="20.5" y="14.5" width="5.5" height="2.2" rx="1" fill="black"/>
+                    <rect x="20.5" y="18.5" width="5.5" height="2.2" rx="1" fill="black"/>
+                  </mask>
+                </defs>
+                <circle cx="14" cy="14" r="12" fill="#38bdf8" mask="url(#vm)"/>
               </svg>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
