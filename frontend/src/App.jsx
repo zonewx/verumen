@@ -174,38 +174,58 @@ export default function App() {
     return res;
   }, []);
 
-  // ── Blob repulsion physics ─────────────────────────────────────────────────
+  // ── Blob physics: free wander + cursor repulsion ───────────────────────────
   useEffect(() => {
     if (authStatus === 'logged-in') return;
-    const REPEL = 380, FORCE = 12, DAMP = 0.85, SPRING = 0.04;
+    const PAD = 180;
+    const randTarget = () => ({
+      x: PAD + Math.random() * (window.innerWidth  - PAD * 2),
+      y: PAD + Math.random() * (window.innerHeight - PAD * 2),
+    });
+    // Track blobs as screen-space center positions
+    const b1 = { x: 200,                      y: 200,                       vx: 0, vy: 0, ...randTarget() && {}, tx: 0, ty: 0 };
+    const b2 = { x: window.innerWidth - 200,  y: window.innerHeight - 200,  vx: 0, vy: 0, tx: 0, ty: 0 };
+    const t1 = randTarget(); b1.tx = t1.x; b1.ty = t1.y;
+    const t2 = randTarget(); b2.tx = t2.x; b2.ty = t2.y;
+
+    const REPEL = 380, REPEL_F = 14, DAMP = 0.93, WANDER = 0.018, ARRIVE = 120, BND_F = 0.025;
     const onMouse = e => { blobMouse.current = { x: e.clientX, y: e.clientY }; };
     window.addEventListener('mousemove', onMouse);
-    let t0 = null;
-    const tick = ts => {
-      if (!t0) t0 = ts;
-      const t = (ts - t0) * 0.001;
+
+    const tick = () => {
+      const W = window.innerWidth, H = window.innerHeight;
       const mx = blobMouse.current.x, my = blobMouse.current.y;
-      // Ambient drift targets via sine waves
-      const targets = [
-        { phys: b1Phys, ref: blob1Ref, bx: 80,  by: 80,  tx: Math.sin(t*0.28)*70 + Math.cos(t*0.19)*35, ty: Math.cos(t*0.23)*55 + Math.sin(t*0.31)*40 },
-        { phys: b2Phys, ref: blob2Ref, bx: window.innerWidth - 80, by: window.innerHeight - 80, tx: Math.cos(t*0.25)*65 + Math.sin(t*0.17)*30, ty: Math.sin(t*0.30)*50 + Math.cos(t*0.22)*45 },
-      ];
-      for (const { phys, ref, bx, by, tx, ty } of targets) {
-        const cx = bx + phys.current.ox, cy = by + phys.current.oy;
-        const dx = cx - mx, dy = cy - my, dist = Math.hypot(dx, dy);
+
+      for (const blob of [b1, b2]) {
+        // Wander toward random target; pick new one on arrival
+        const tdx = blob.tx - blob.x, tdy = blob.ty - blob.y;
+        const tdist = Math.hypot(tdx, tdy);
+        if (tdist < ARRIVE) { const p = randTarget(); blob.tx = p.x; blob.ty = p.y; }
+        else { blob.vx += (tdx / tdist) * WANDER; blob.vy += (tdy / tdist) * WANDER; }
+
+        // Cursor repulsion
+        const dx = blob.x - mx, dy = blob.y - my, dist = Math.hypot(dx, dy);
         if (dist < REPEL && dist > 0) {
-          const f = ((REPEL - dist) / REPEL) * FORCE;
-          phys.current.vx += (dx / dist) * f;
-          phys.current.vy += (dy / dist) * f;
+          const f = ((REPEL - dist) / REPEL) * REPEL_F;
+          blob.vx += (dx / dist) * f; blob.vy += (dy / dist) * f;
         }
-        phys.current.vx += (tx - phys.current.ox) * SPRING;
-        phys.current.vy += (ty - phys.current.oy) * SPRING;
-        phys.current.vx *= DAMP;
-        phys.current.vy *= DAMP;
-        phys.current.ox += phys.current.vx;
-        phys.current.oy += phys.current.vy;
-        if (ref.current) ref.current.style.transform = `translate(${phys.current.ox}px,${phys.current.oy}px)`;
+
+        // Soft screen boundary
+        if (blob.x < PAD)     blob.vx += (PAD - blob.x) * BND_F;
+        if (blob.x > W - PAD) blob.vx -= (blob.x - (W - PAD)) * BND_F;
+        if (blob.y < PAD)     blob.vy += (PAD - blob.y) * BND_F;
+        if (blob.y > H - PAD) blob.vy -= (blob.y - (H - PAD)) * BND_F;
+
+        blob.vx *= DAMP; blob.vy *= DAMP;
+        blob.x  += blob.vx; blob.y  += blob.vy;
       }
+
+      // Convert screen-center to CSS translate offset from each blob's base corner
+      // Blob1 base: top=-224px left=-224px size=650 → center offset (101,101)
+      // Blob2 base: bottom=-224px right=-224px size=600 → center offset (W-76, H-76)
+      if (blob1Ref.current) blob1Ref.current.style.transform = `translate(${b1.x - 101}px,${b1.y - 101}px)`;
+      if (blob2Ref.current) blob2Ref.current.style.transform = `translate(${b2.x - (W - 76)}px,${b2.y - (H - 76)}px)`;
+
       blobRaf.current = requestAnimationFrame(tick);
     };
     blobRaf.current = requestAnimationFrame(tick);
