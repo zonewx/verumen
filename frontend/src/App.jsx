@@ -2063,72 +2063,13 @@ const handleUpload = async (files) => {
         <div className="blob-2 absolute -bottom-56 -right-56 w-[500px] h-[500px] bg-sky-900/15 rounded-full blur-[110px] pointer-events-none" />
 
         <div className="relative w-full max-w-sm mx-4 flex flex-col items-center">
-          {/* Logo above card — 6 options for preview */}
+          {/* Logo above card */}
           <div className="text-center mb-8">
-            <div className="flex flex-col gap-4 items-center mb-6">
-              {[
-                [
-                  { label: 'A1', node: (
-                    // Left leg straight, right leg gentle single bump
-                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round"/>
-                      <path d="M14 22 L16.5 15 L18.5 17.5 L23 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )},
-                  { label: 'A2', node: (
-                    // Left leg straight, right leg two-move recovery (dip then climb)
-                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round"/>
-                      <path d="M14 22 L17 14 L15.5 17 L20 10 L23 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )},
-                  { label: 'A3', node: (
-                    // Left leg straight, right leg active zigzag chart
-                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round"/>
-                      <path d="M14 22 L16 16 L18 18.5 L20 13 L22.5 15 L23 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )},
-                ],
-                [
-                  { label: 'A4', node: (
-                    // Left leg straight, right leg step/staircase chart
-                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round"/>
-                      <path d="M14 22 L14 17 L18 17 L18 12 L23 12 L23 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )},
-                  { label: 'A5', node: (
-                    // Left leg straight bold, right leg thinner chart line — weight contrast
-                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round"/>
-                      <path d="M14 22 L17 14 L15.5 17 L20 10 L23 7" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )},
-                  { label: 'A6', node: (
-                    // Same as A5 but right leg has small dots at each inflection point
-                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round"/>
-                      <path d="M14 22 L17 14 L15.5 17 L20 10 L23 7" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                      <circle cx="17" cy="14" r="1.5" fill="#38bdf8"/>
-                      <circle cx="15.5" cy="17" r="1.5" fill="#38bdf8"/>
-                      <circle cx="20" cy="10" r="1.5" fill="#38bdf8"/>
-                      <circle cx="23" cy="7" r="1.8" fill="#38bdf8"/>
-                    </svg>
-                  )},
-                ],
-              ].map((row, ri) => (
-                <div key={ri} className="flex gap-5 justify-center">
-                  {row.map(({ label, node }) => (
-                    <div key={label} className="flex flex-col items-center gap-2">
-                      <div className="w-14 h-14 bg-sky-600/15 border border-sky-500/25 rounded-2xl flex items-center justify-center" style={{ boxShadow: '0 0 24px rgba(14,165,233,0.15)' }}>
-                        {node}
-                      </div>
-                      <span className="text-[11px] text-zinc-500 font-semibold tracking-wider">{label}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-sky-600/15 border border-sky-500/25 rounded-2xl mb-4" style={{ boxShadow: '0 0 32px rgba(14,165,233,0.18)' }}>
+              <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="2.8" strokeLinecap="round"/>
+                <path d="M14 22 L17 14 L15.5 17 L20 10 L23 7" stroke="#38bdf8" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
             <p className="text-sm text-zinc-500 mt-1.5">Your portfolio, tracked with clarity</p>
