@@ -2063,35 +2063,62 @@ const handleUpload = async (files) => {
         <div className="blob-2 absolute -bottom-56 -right-56 w-[500px] h-[500px] bg-sky-900/15 rounded-full blur-[110px] pointer-events-none" />
 
         <div className="relative w-full max-w-sm mx-4 flex flex-col items-center">
-          {/* Logo above card — 3 options for preview */}
+          {/* Logo above card — 6 options for preview */}
           <div className="text-center mb-8">
-            <div className="flex gap-5 justify-center mb-5">
+            <div className="flex flex-col gap-4 items-center mb-6">
               {[
-                { label: 'A', node: (
-                  <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                    <path d="M5 10 L14 21 L23 6" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="23" cy="6" r="2.5" fill="#38bdf8"/>
-                  </svg>
-                )},
-                { label: 'B', node: (
-                  <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                    <rect x="3" y="18" width="6" height="7" rx="1.5" fill="#38bdf8" opacity="0.45"/>
-                    <rect x="11" y="12" width="6" height="13" rx="1.5" fill="#38bdf8" opacity="0.7"/>
-                    <rect x="19" y="6" width="6" height="19" rx="1.5" fill="#38bdf8"/>
-                  </svg>
-                )},
-                { label: 'C', node: (
-                  <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                    <path d="M14 5 L23 14 L14 23 L5 14 Z" stroke="#38bdf8" strokeWidth="1.8" fill="rgba(14,165,233,0.07)" strokeLinejoin="round"/>
-                    <path d="M9 18 L13 13 L18 11 L22 9" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                )},
-              ].map(({ label, node }) => (
-                <div key={label} className="flex flex-col items-center gap-2">
-                  <div className="w-14 h-14 bg-sky-600/15 border border-sky-500/25 rounded-2xl flex items-center justify-center" style={{ boxShadow: '0 0 24px rgba(14,165,233,0.15)' }}>
-                    {node}
-                  </div>
-                  <span className="text-[11px] text-zinc-500 font-semibold tracking-wider">{label}</span>
+                [
+                  { label: 'A', node: (
+                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                      <path d="M5 10 L14 21 L23 6" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="23" cy="6" r="2.5" fill="#38bdf8"/>
+                    </svg>
+                  )},
+                  { label: 'B', node: (
+                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                      <rect x="3" y="18" width="6" height="7" rx="1.5" fill="#38bdf8" opacity="0.45"/>
+                      <rect x="11" y="12" width="6" height="13" rx="1.5" fill="#38bdf8" opacity="0.7"/>
+                      <rect x="19" y="6" width="6" height="19" rx="1.5" fill="#38bdf8"/>
+                    </svg>
+                  )},
+                  { label: 'C', node: (
+                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                      <path d="M14 5 L23 14 L14 23 L5 14 Z" stroke="#38bdf8" strokeWidth="1.8" fill="rgba(14,165,233,0.07)" strokeLinejoin="round"/>
+                      <path d="M9 18 L13 13 L18 11 L22 9" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )},
+                ],
+                [
+                  { label: 'D', node: (
+                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                      <path d="M5 22 Q14 3 23 8" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+                      <circle cx="23" cy="8" r="2.5" fill="#38bdf8"/>
+                      <circle cx="5" cy="22" r="1.5" fill="#38bdf8" opacity="0.4"/>
+                    </svg>
+                  )},
+                  { label: 'E', node: (
+                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                      <path d="M4 23 L4 17 L11 17 L11 12 L18 12 L18 7 L24 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                    </svg>
+                  )},
+                  { label: 'F', node: (
+                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                      <path d="M5 10 L14 21 L23 6" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M5 10 L14 21 L23 6 L23 26 L5 26 Z" fill="rgba(14,165,233,0.12)"/>
+                      <circle cx="23" cy="6" r="2.5" fill="#38bdf8"/>
+                    </svg>
+                  )},
+                ],
+              ].map((row, ri) => (
+                <div key={ri} className="flex gap-5 justify-center">
+                  {row.map(({ label, node }) => (
+                    <div key={label} className="flex flex-col items-center gap-2">
+                      <div className="w-14 h-14 bg-sky-600/15 border border-sky-500/25 rounded-2xl flex items-center justify-center" style={{ boxShadow: '0 0 24px rgba(14,165,233,0.15)' }}>
+                        {node}
+                      </div>
+                      <span className="text-[11px] text-zinc-500 font-semibold tracking-wider">{label}</span>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
