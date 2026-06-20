@@ -2066,9 +2066,9 @@ const handleUpload = async (files) => {
           {/* Logo above card */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 bg-sky-600/15 border border-sky-500/25 rounded-2xl mb-4" style={{ boxShadow: '0 0 32px rgba(14,165,233,0.18)' }}>
-              <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="2.8" strokeLinecap="round"/>
-                <path d="M14 22 L17 14 L15.5 17 L20 10 L23 7" stroke="#38bdf8" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="36" height="36" viewBox="0 0 28 28" fill="none">
+                <path d="M3 5 L14 24" stroke="#38bdf8" strokeWidth="2.8" strokeLinecap="round"/>
+                <path d="M14 24 L17 14 L15.5 17.5 L21 9 L25 5" stroke="#38bdf8" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
