@@ -151,7 +151,7 @@ export default function FriendsPage({ authUsername }) {
                         {friend.bio && <p className={`text-sm truncate ${textSecondary}`}>{friend.bio}</p>}
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button onClick={() => navigate(`/profile/@${friend.username}`)} className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-medium transition">View</button>
+                        <button onClick={() => navigate(`/profile/@${friend.username}`)} className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-medium transition">View</button>
                         <button onClick={() => handleRemove(friend.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition bg-zinc-700 hover:bg-red-900/40 hover:text-red-400`}>Remove</button>
                       </div>
                     </div>

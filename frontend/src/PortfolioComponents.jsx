@@ -5,7 +5,7 @@ export function EmptyState({ title, desc, action }) {
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <h3 className="text-lg font-semibold text-zinc-300 mb-2">{title}</h3>
       <p className="text-sm text-zinc-400 max-w-xs mb-6">{desc}</p>
-      {action && <button onClick={action.fn} className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-semibold transition">{action.label}</button>}
+      {action && <button onClick={action.fn} className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 rounded-lg text-sm font-semibold transition">{action.label}</button>}
     </div>
   );
 }

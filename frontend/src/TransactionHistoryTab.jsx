@@ -96,7 +96,7 @@ export default function TransactionHistoryTab({
             const isToday = ds === todayStr;
             return (
               <button key={i} onClick={() => onSelect(ds)} className={`text-[11px] w-full aspect-square rounded flex items-center justify-center leading-none transition
-                ${isSel ? 'bg-violet-500 text-white font-bold' : inRange ? 'bg-violet-500/20 text-zinc-200' : isToday ? 'border border-zinc-600 text-white' : 'text-zinc-400 hover:bg-zinc-700 hover:text-white'}`}>
+                ${isSel ? 'bg-sky-500 text-white font-bold' : inRange ? 'bg-sky-500/20 text-zinc-200' : isToday ? 'border border-zinc-600 text-white' : 'text-zinc-400 hover:bg-zinc-700 hover:text-white'}`}>
                 {d}
               </button>
             );
@@ -122,7 +122,7 @@ export default function TransactionHistoryTab({
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition ${txFilterOpen || activeFilterCount > 0 ? 'bg-zinc-700 border-zinc-500 text-white' : 'bg-transparent border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300'}`}>
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M7 12h10M11 20h2"/></svg>
               Filters
-              {activeFilterCount > 0 && <span className="flex items-center justify-center w-4 h-4 rounded-full bg-violet-500 text-white text-[10px] font-bold leading-none">{activeFilterCount}</span>}
+              {activeFilterCount > 0 && <span className="flex items-center justify-center w-4 h-4 rounded-full bg-sky-500 text-white text-[10px] font-bold leading-none">{activeFilterCount}</span>}
             </button>
             {txFilterOpen && (
               <div className="absolute top-full left-0 mt-1.5 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-3 min-w-[180px]">
@@ -133,7 +133,7 @@ export default function TransactionHistoryTab({
                     return (
                       <button key={key} onClick={() => toggleType(key)}
                         className={`flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-xs font-medium text-left transition ${checked ? 'bg-zinc-700/80 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'}`}>
-                        <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition ${checked ? 'bg-violet-500 border-violet-500' : 'border-zinc-600'}`}>
+                        <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition ${checked ? 'bg-sky-500 border-sky-500' : 'border-zinc-600'}`}>
                           {checked && <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>}
                         </span>
                         {label}

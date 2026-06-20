@@ -27,7 +27,7 @@ function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl
 
 const Toggle = ({ value, onChange }) => (
   <button type="button" onClick={() => onChange(!value)}
-    className={`relative w-11 h-6 rounded-full transition ${value ? 'bg-violet-500' : 'bg-zinc-700'}`}>
+    className={`relative w-11 h-6 rounded-full transition ${value ? 'bg-sky-500' : 'bg-zinc-700'}`}>
     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition transform ${value ? 'translate-x-5' : ''}`} />
   </button>
 );
@@ -301,7 +301,7 @@ export default function ProfileEditPage({ authUsername }) {
                 <button
                   onClick={handleUsernameChange}
                   disabled={usernameLoading || !newUsername.trim()}
-                  className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition shrink-0"
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition shrink-0"
                 >
                   {usernameLoading ? 'Saving...' : 'Change'}
                 </button>
@@ -434,7 +434,7 @@ export default function ProfileEditPage({ authUsername }) {
         <div className={`sticky bottom-0 mt-6 p-6 bg-zinc-900/95 border-zinc-700 border-t backdrop-blur-sm`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button onClick={saveProfile} disabled={saving} className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-lg transition disabled:opacity-50">
+              <button onClick={saveProfile} disabled={saving} className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-semibold rounded-lg transition disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save Profile'}
               </button>
               {saveMsg && <span className={`text-sm ${saveMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>{saveMsg}</span>}

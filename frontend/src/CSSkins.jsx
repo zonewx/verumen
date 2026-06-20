@@ -39,8 +39,8 @@ function SteamScreenshotEmbed({ url }) {
     <a href={url} target="_blank" rel="noreferrer" className="block mt-2 rounded-xl overflow-hidden group">
       {loading && (
         <div className={`flex items-center gap-2 p-3 rounded-xl border bg-zinc-700/50 border-zinc-600`}>
-          <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs text-violet-400">Loading preview...</span>
+          <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs text-sky-400">Loading preview...</span>
         </div>
       )}
       {!loading && preview && (
@@ -56,9 +56,9 @@ function SteamScreenshotEmbed({ url }) {
           <span className="text-xl">📷</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Steam Screenshot</p>
-            <p className="text-xs text-violet-400 truncate">{url}</p>
+            <p className="text-xs text-sky-400 truncate">{url}</p>
           </div>
-          <span className="text-xs text-violet-400 shrink-0">View ↗</span>
+          <span className="text-xs text-sky-400 shrink-0">View ↗</span>
         </div>
       )}
     </a>
@@ -221,10 +221,10 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const fmtBC = n => fmtCur(n, baseCurrency);
 
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
-  const input = `w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
+  const input = `w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
   const label = `text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-400`;
   const btn = `px-4 py-2 text-sm font-semibold rounded-lg transition`;
-  const btnOrange = `${btn} bg-violet-600 hover:bg-violet-500 text-white`;
+  const btnOrange = `${btn} bg-sky-600 hover:bg-sky-500 text-white`;
   const btnGhost = `${btn} bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const fetchAll = useCallback(async () => {
@@ -470,7 +470,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
 
   const SortIcon = ({ col }) => {
     if (sortCol !== col) return <span className="opacity-30 ml-1">↕</span>;
-    return <span className="ml-1 text-violet-400">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+    return <span className="ml-1 text-sky-400">{sortDir === 'asc' ? '↑' : '↓'}</span>;
   };
 
   const filteredInv = inventory
@@ -531,7 +531,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                 <div className={`${card} p-5`}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className={`text-sm font-bold uppercase tracking-wider text-zinc-400`}>Recent Trades</h3>
-                    <button onClick={() => setTab('tracker')} className={`text-xs text-violet-400 hover:underline`}>View all →</button>
+                    <button onClick={() => setTab('tracker')} className={`text-xs text-sky-400 hover:underline`}>View all →</button>
                   </div>
                   <div className="flex flex-col divide-y divide-zinc-700">
                     {inventory.slice(0, 5).map(item => {
@@ -645,13 +645,13 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
               {/* Filters & search */}
               <div className="flex flex-wrap gap-2 items-center">
                 {[['all','All'],['active','Holding'],['sold','Sold']].map(([v, l]) => (
-                  <button key={v} onClick={() => setFilterSold(v)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterSold === v ? 'bg-violet-600 text-white' : `bg-zinc-700 text-zinc-400 hover:bg-zinc-600`}`}>{l}</button>
+                  <button key={v} onClick={() => setFilterSold(v)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterSold === v ? 'bg-sky-600 text-white' : `bg-zinc-700 text-zinc-400 hover:bg-zinc-600`}`}>{l}</button>
                 ))}
                 <input
                   value={trackerSearch}
                   onChange={e => setTrackerSearch(e.target.value)}
                   placeholder="Search skins..."
-                  className={`ml-auto text-xs px-3 py-1.5 rounded-lg border outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 w-48 bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500`}
+                  className={`ml-auto text-xs px-3 py-1.5 rounded-lg border outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 w-48 bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500`}
                 />
                 <span className={`text-xs text-zinc-400`}>{filteredInv.length} trades</span>
               </div>
@@ -673,7 +673,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                         <button
                           key={t}
                           onClick={() => setAddModalTab(t)}
-                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${addModalTab === t ? 'border-violet-500 text-violet-500' : `border-transparent text-zinc-400 hover:text-zinc-100`}`}
+                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${addModalTab === t ? 'border-sky-500 text-sky-500' : `border-transparent text-zinc-400 hover:text-zinc-100`}`}
                         >
                           {tLabel}
                         </button>
@@ -695,7 +695,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             <>
                               {/* Selected skin preview */}
                               {selectedModalItem && (
-                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-violet-500 bg-violet-900/20`}>
+                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-sky-500 bg-sky-900/20`}>
                                   <img src={selectedModalItem.iconUrl} alt={selectedModalItem.name} className="w-14 h-14 object-contain shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="font-semibold text-sm truncate">{selectedModalItem.name}</p>
@@ -717,7 +717,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                   />
                                   {modalInvLoading ? (
                                     <div className="flex items-center justify-center py-12">
-                                      <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                                      <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
                                     </div>
                                   ) : modalInventory === null ? (
                                     <div className="text-center py-8">
@@ -733,7 +733,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                           <button
                                             key={item.assetId}
                                             onClick={() => selectModalSkin(item)}
-                                            className={`p-2 rounded-lg border-2 transition text-left border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-violet-500/60`}
+                                            className={`p-2 rounded-lg border-2 transition text-left border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-sky-500/60`}
                                           >
                                             <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-1" />
                                             <p className={`text-xs truncate text-zinc-300`}>{item.name}</p>
@@ -884,7 +884,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                         <button
                           key={t}
                           onClick={() => setEditModalTab(t)}
-                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${editModalTab === t ? 'border-violet-500 text-violet-500' : `border-transparent text-zinc-400 hover:text-zinc-100`}`}
+                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${editModalTab === t ? 'border-sky-500 text-sky-500' : `border-transparent text-zinc-400 hover:text-zinc-100`}`}
                         >
                           {tLabel}
                         </button>
@@ -905,7 +905,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             <>
                               {/* Currently attached or newly selected skin */}
                               {(selectedEditItem || showEditForm.steam_asset_id) && (
-                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-violet-500 bg-violet-900/20`}>
+                                <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-sky-500 bg-sky-900/20`}>
                                   {selectedEditItem ? (
                                     <>
                                       <img src={selectedEditItem.iconUrl} alt={selectedEditItem.name} className="w-14 h-14 object-contain shrink-0" />
@@ -939,7 +939,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               />
                               {modalInvLoading ? (
                                 <div className="flex items-center justify-center py-12">
-                                  <div className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                                  <div className="w-6 h-6 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
                                 </div>
                               ) : modalInventory === null ? (
                                 <div className="text-center py-8">
@@ -957,7 +957,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                         <button
                                           key={item.assetId}
                                           onClick={() => selectEditSkin(item)}
-                                          className={`p-2 rounded-lg border-2 transition text-left ${isAttached ? 'border-violet-500 bg-violet-500/10' : 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-violet-500/60'}`}
+                                          className={`p-2 rounded-lg border-2 transition text-left ${isAttached ? 'border-sky-500 bg-sky-500/10' : 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-sky-500/60'}`}
                                         >
                                           <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-1" />
                                           <p className={`text-xs truncate text-zinc-300`}>{item.name}</p>

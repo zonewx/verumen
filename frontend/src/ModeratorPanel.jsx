@@ -18,7 +18,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
   const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
-  const btnBlue = 'px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold rounded-lg transition';
+  const btnBlue = 'px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition';
   const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const flash = (msg, ms = 3000) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), ms); };
@@ -158,7 +158,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
 
         <div className={`flex gap-0 border-b border-zinc-700 mb-6`}>
           {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2.5 text-sm font-semibold transition border-b-2 -mb-px ${tab === t.id ? 'border-violet-500 text-violet-400' : `border-transparent text-zinc-400 hover:text-white`}`}>{t.label}</button>
+            <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-2.5 text-sm font-semibold transition border-b-2 -mb-px ${tab === t.id ? 'border-sky-500 text-sky-400' : `border-transparent text-zinc-400 hover:text-white`}`}>{t.label}</button>
           ))}
         </div>
 

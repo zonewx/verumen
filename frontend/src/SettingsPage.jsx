@@ -55,7 +55,7 @@ export default function SettingsPage({ baseCurrency, onSetBaseCurrency }) {
   const card = `rounded-2xl border p-6 bg-zinc-800 border-zinc-700`;
   const label = `text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-400`;
   const select = `w-full px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`;
-  const btnOrange = `px-4 py-2 text-sm font-semibold rounded-lg transition bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50 disabled:cursor-not-allowed`;
+  const btnOrange = `px-4 py-2 text-sm font-semibold rounded-lg transition bg-sky-600 hover:bg-sky-500 text-white disabled:opacity-50 disabled:cursor-not-allowed`;
 
   useEffect(() => {
     fetch('/api/cs/prices/last-sync', { headers: authHeaders() })
@@ -121,7 +121,7 @@ export default function SettingsPage({ baseCurrency, onSetBaseCurrency }) {
             <h2 className={`text-sm font-bold uppercase tracking-wider text-zinc-400`}>Market Bar</h2>
             <button
               onClick={toggleBar}
-              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${barEnabled ? 'bg-violet-500' : 'bg-zinc-700'}`}
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${barEnabled ? 'bg-sky-500' : 'bg-zinc-700'}`}
             >
               <span className={`inline-block h-4 w-4 mt-0.5 rounded-full bg-white shadow transition-transform duration-200 ${barEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
             </button>
