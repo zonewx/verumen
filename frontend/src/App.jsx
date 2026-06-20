@@ -2083,8 +2083,10 @@ const handleUpload = async (files) => {
                   )},
                   { label: 'C', node: (
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M14 5 L23 14 L14 23 L5 14 Z" stroke="#38bdf8" strokeWidth="1.8" fill="rgba(14,165,233,0.07)" strokeLinejoin="round"/>
-                      <path d="M9 18 L13 13 L18 11 L22 9" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M14 5 L23 14 L14 23 L5 14 Z" stroke="#38bdf8" strokeWidth="1.8" fill="none" strokeLinejoin="round"/>
+                      <circle cx="9" cy="17" r="1.8" fill="#38bdf8" opacity="0.4"/>
+                      <circle cx="14" cy="13" r="1.8" fill="#38bdf8" opacity="0.7"/>
+                      <circle cx="19" cy="10" r="1.8" fill="#38bdf8"/>
                     </svg>
                   )},
                 ],
@@ -2103,9 +2105,10 @@ const handleUpload = async (files) => {
                   )},
                   { label: 'F', node: (
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 10 L14 21 L23 6" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M5 10 L14 21 L23 6 L23 26 L5 26 Z" fill="rgba(14,165,233,0.12)"/>
-                      <circle cx="23" cy="6" r="2.5" fill="#38bdf8"/>
+                      <circle cx="6" cy="21" r="2" fill="#38bdf8" opacity="0.25"/>
+                      <circle cx="11" cy="17" r="2.2" fill="#38bdf8" opacity="0.45"/>
+                      <circle cx="16" cy="12" r="2.5" fill="#38bdf8" opacity="0.7"/>
+                      <circle cx="22" cy="7" r="3" fill="#38bdf8"/>
                     </svg>
                   )},
                 ],
