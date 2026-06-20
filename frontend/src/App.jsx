@@ -53,6 +53,14 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // ── Blob physics (login page only) ─────────────────────────────────────────
+  const blobMouse  = useRef({ x: -9999, y: -9999 });
+  const b1Phys     = useRef({ ox: 0, oy: 0, vx: 0, vy: 0 });
+  const b2Phys     = useRef({ ox: 0, oy: 0, vx: 0, vy: 0 });
+  const blob1Ref   = useRef(null);
+  const blob2Ref   = useRef(null);
+  const blobRaf    = useRef(null);
+
   // ── Auth ───────────────────────────────────────────────────────────────────
   // Initialise synchronously from sessionStorage — no loading spinner on page load
   const [authStatus, setAuthStatus] = useState(() => {
@@ -165,6 +173,44 @@ export default function App() {
     }
     return res;
   }, []);
+
+  // ── Blob repulsion physics ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (authStatus === 'logged-in') return;
+    const REPEL = 380, FORCE = 12, DAMP = 0.85, SPRING = 0.04;
+    const onMouse = e => { blobMouse.current = { x: e.clientX, y: e.clientY }; };
+    window.addEventListener('mousemove', onMouse);
+    let t0 = null;
+    const tick = ts => {
+      if (!t0) t0 = ts;
+      const t = (ts - t0) * 0.001;
+      const mx = blobMouse.current.x, my = blobMouse.current.y;
+      // Ambient drift targets via sine waves
+      const targets = [
+        { phys: b1Phys, ref: blob1Ref, bx: 80,  by: 80,  tx: Math.sin(t*0.28)*70 + Math.cos(t*0.19)*35, ty: Math.cos(t*0.23)*55 + Math.sin(t*0.31)*40 },
+        { phys: b2Phys, ref: blob2Ref, bx: window.innerWidth - 80, by: window.innerHeight - 80, tx: Math.cos(t*0.25)*65 + Math.sin(t*0.17)*30, ty: Math.sin(t*0.30)*50 + Math.cos(t*0.22)*45 },
+      ];
+      for (const { phys, ref, bx, by, tx, ty } of targets) {
+        const cx = bx + phys.current.ox, cy = by + phys.current.oy;
+        const dx = cx - mx, dy = cy - my, dist = Math.hypot(dx, dy);
+        if (dist < REPEL && dist > 0) {
+          const f = ((REPEL - dist) / REPEL) * FORCE;
+          phys.current.vx += (dx / dist) * f;
+          phys.current.vy += (dy / dist) * f;
+        }
+        phys.current.vx += (tx - phys.current.ox) * SPRING;
+        phys.current.vy += (ty - phys.current.oy) * SPRING;
+        phys.current.vx *= DAMP;
+        phys.current.vy *= DAMP;
+        phys.current.ox += phys.current.vx;
+        phys.current.oy += phys.current.vy;
+        if (ref.current) ref.current.style.transform = `translate(${phys.current.ox}px,${phys.current.oy}px)`;
+      }
+      blobRaf.current = requestAnimationFrame(tick);
+    };
+    blobRaf.current = requestAnimationFrame(tick);
+    return () => { window.removeEventListener('mousemove', onMouse); cancelAnimationFrame(blobRaf.current); };
+  }, [authStatus]);
 
   // ── Token refresh ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2059,8 +2105,8 @@ const handleUpload = async (files) => {
     return (
       <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
         {/* Ambient glow blobs */}
-        <div className="blob-1 absolute -top-56 -left-56 w-[650px] h-[650px] bg-sky-600/30 rounded-full blur-[120px] pointer-events-none" />
-        <div className="blob-2 absolute -bottom-56 -right-56 w-[600px] h-[600px] bg-sky-700/25 rounded-full blur-[100px] pointer-events-none" />
+        <div ref={blob1Ref} className="absolute -top-56 -left-56 w-[650px] h-[650px] bg-sky-600/30 rounded-full blur-[120px] pointer-events-none" />
+        <div ref={blob2Ref} className="absolute -bottom-56 -right-56 w-[600px] h-[600px] bg-sky-700/25 rounded-full blur-[100px] pointer-events-none" />
 
         <div className="relative w-full max-w-sm mx-4 flex flex-col items-center">
           {/* Logo above card */}

@@ -36,17 +36,4 @@ body {
 button, [role="button"], select, label[for] { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 
-/* Ambient glow blob drift animations */
-@keyframes blob-drift-1 {
-  0%, 100% { transform: translate(0px, 0px) scale(1); }
-  30%       { transform: translate(120px, -80px) scale(1.15); }
-  65%       { transform: translate(-60px, 100px) scale(0.9); }
-}
-@keyframes blob-drift-2 {
-  0%, 100% { transform: translate(0px, 0px) scale(1); }
-  35%       { transform: translate(-100px, 70px) scale(1.12); }
-  70%       { transform: translate(80px, -90px) scale(0.88); }
-}
-.blob-1 { animation: blob-drift-1 16s ease-in-out infinite; }
-.blob-2 { animation: blob-drift-2 20s ease-in-out infinite; }
 
