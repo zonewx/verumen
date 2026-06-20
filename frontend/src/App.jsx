@@ -1034,7 +1034,7 @@ const handleUpload = async (files) => {
                           <option value="nordnet">Nordnet</option>
                         </select>
                       </div>
-                      <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
+                      <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}>
                         {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
                       </button>
                       <p className={`text-xs text-zinc-400`}>Supports Montrose, Avanza and Nordnet.</p>
@@ -1181,7 +1181,7 @@ const handleUpload = async (files) => {
                         <p className="text-xs text-zinc-400 mt-0.5">Masks all currency amounts across the portfolio. Percentages remain visible.</p>
                       </div>
                       <button onClick={toggleHideValues}
-                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${hideValues ? 'bg-violet-600' : 'bg-zinc-600'}`}>
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${hideValues ? 'bg-sky-600' : 'bg-zinc-600'}`}>
                         <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${hideValues ? 'translate-x-5' : 'translate-x-0'}`}/>
                       </button>
                     </div>
@@ -1192,7 +1192,7 @@ const handleUpload = async (files) => {
                       <div className="flex gap-3 mb-6">
                         <input ref={overrideIsinRef} placeholder="ISIN" className={`w-32 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
                         <input ref={overrideTickerRef} placeholder="Yahoo Finance ticker" className={`w-44 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
-                        <button onClick={handleAddOverride} className="px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition whitespace-nowrap">Save Override</button>
+                        <button onClick={handleAddOverride} className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-semibold transition whitespace-nowrap">Save Override</button>
                       </div>
                       {overrideMsg && <p className={`text-xs mb-4 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
                       {(() => {
@@ -1240,7 +1240,7 @@ const handleUpload = async (files) => {
                         <p className={`text-sm mb-4 text-zinc-300`}>
                           Re-runs ticker resolution for all holdings using cached results where available. Use this if holdings are showing incorrect or missing data after an upload.
                         </p>
-                        <button onClick={handleForceResolve} disabled={resolveLoading} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
+                        <button onClick={handleForceResolve} disabled={resolveLoading} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
                           {resolveLoading && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>}
                           {resolveLoading ? 'Re-resolving…' : 'Force Re-Resolve All Tickers'}
                         </button>
@@ -1255,7 +1255,7 @@ const handleUpload = async (files) => {
                           onClick={handleRefreshPrices}
                           disabled={isRefreshingPrices}
                           title="Refresh prices from Yahoo Finance"
-                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isRefreshingPrices ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}
+                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isRefreshingPrices ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isRefreshingPrices ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
                           {isRefreshingPrices ? 'Refreshing…' : 'Refresh Prices'}
@@ -1282,7 +1282,7 @@ const handleUpload = async (files) => {
                         <button
                           onClick={handleClearPortfolioCache}
                           disabled={isClearingSnapshot}
-                          className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isClearingSnapshot ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}
+                          className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isClearingSnapshot ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}
                         >
                           {isClearingSnapshot && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>}
                           {isClearingSnapshot ? 'Clearing…' : 'Clear Snapshot'}
@@ -1323,7 +1323,7 @@ const handleUpload = async (files) => {
                           <p className={`text-sm flex-1 text-zinc-300`}>
                             Removes saved ticker-to-symbol mappings. Holdings and transaction history are untouched — tickers will be re-resolved on the next CSV upload.
                           </p>
-                          <button onClick={handleClearTickerCache} className="mt-4 w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition">
+                          <button onClick={handleClearTickerCache} className="mt-4 w-full px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-semibold transition">
                             Clear Ticker Cache
                           </button>
                         </div>
@@ -1415,7 +1415,7 @@ const handleUpload = async (files) => {
                             const active = cur >= start && cur <= end;
                             return (
                               <div key={step.label} className="flex items-center gap-2">
-                                {i > 0 && <div className={`w-10 h-px transition-colors ${done ? 'bg-violet-500' : 'bg-zinc-700'}`}/>}
+                                {i > 0 && <div className={`w-10 h-px transition-colors ${done ? 'bg-sky-500' : 'bg-zinc-700'}`}/>}
                                 <div className="flex flex-col items-center gap-1.5">
                                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                                     done   ? 'bg-zinc-600 text-white' :
@@ -1463,7 +1463,7 @@ const handleUpload = async (files) => {
                               <option value="nordnet">Nordnet</option>
                             </select>
                           </div>
-                          <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
+                          <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}>
                             {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
                           </button>
                           <p className={`text-xs text-zinc-400`}>Supports Montrose, Avanza and Nordnet. Select a broker manually or use auto-detect.</p>
@@ -2059,15 +2059,15 @@ const handleUpload = async (files) => {
     return (
       <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
         {/* Ambient glow blobs */}
-        <div className="absolute -top-56 -left-56 w-[550px] h-[550px] bg-violet-700/20 rounded-full blur-[130px] pointer-events-none" />
-        <div className="absolute -bottom-56 -right-56 w-[500px] h-[500px] bg-violet-900/15 rounded-full blur-[110px] pointer-events-none" />
+        <div className="blob-1 absolute -top-56 -left-56 w-[550px] h-[550px] bg-sky-700/18 rounded-full blur-[130px] pointer-events-none" />
+        <div className="blob-2 absolute -bottom-56 -right-56 w-[500px] h-[500px] bg-sky-900/15 rounded-full blur-[110px] pointer-events-none" />
 
         <div className="relative w-full max-w-sm mx-4 flex flex-col items-center">
           {/* Logo above card */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-violet-600/15 border border-violet-500/25 rounded-2xl mb-4" style={{ boxShadow: '0 0 32px rgba(139,92,246,0.18)' }}>
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-sky-600/15 border border-sky-500/25 rounded-2xl mb-4" style={{ boxShadow: '0 0 32px rgba(14,165,233,0.18)' }}>
               <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                <path d="M4 19l5-6 4.5 3.5 5-7 5-4" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M4 19l5-6 4.5 3.5 5-7 5-4" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
@@ -2093,7 +2093,7 @@ const handleUpload = async (files) => {
                     {field==='confirmPassword'?'Confirm Password':field.charAt(0).toUpperCase()+field.slice(1)}
                   </label>
                   <input type={field==='username'?'text':'password'} value={authForm[field]} onChange={e=>setAuthForm(f=>({...f,[field]:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} autoFocus={field==='username'}
-                    className="w-full px-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/15"/>
+                    className="w-full px-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
                 </div>
               ))}
               {isSignup && (
@@ -2119,8 +2119,8 @@ const handleUpload = async (files) => {
                 </div>
               )}
               <button onClick={handleAuth} disabled={authLoading}
-                className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1"
-                style={{ boxShadow: '0 4px 24px rgba(139,92,246,0.25)' }}>
+                className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1"
+                style={{ boxShadow: '0 4px 24px rgba(14,165,233,0.25)' }}>
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
               <div className="h-5 flex items-center justify-center">
