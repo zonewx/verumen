@@ -2069,45 +2069,51 @@ const handleUpload = async (files) => {
               {[
                 [
                   { label: 'A1', node: (
-                    // Symmetric solid V — original
+                    // Left leg straight, right leg gentle single bump
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 6 L14 22 L23 6 L20 6 L14 17 L8 6 Z" fill="#38bdf8"/>
+                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round"/>
+                      <path d="M14 22 L16.5 15 L18.5 17.5 L23 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )},
                   { label: 'A2', node: (
-                    // Asymmetric V — right leg taller, implies momentum
+                    // Left leg straight, right leg two-move recovery (dip then climb)
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 10 L14 23 L23 4 L20 4 L14 19 L8 10 Z" fill="#38bdf8"/>
+                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round"/>
+                      <path d="M14 22 L17 14 L15.5 17 L20 10 L23 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )},
                   { label: 'A3', node: (
-                    // Asymmetric V + floating accent dot above right tip
+                    // Left leg straight, right leg active zigzag chart
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 10 L14 23 L23 10 L20 10 L14 19 L8 10 Z" fill="#38bdf8"/>
-                      <circle cx="23" cy="5.5" r="2.5" fill="#38bdf8"/>
+                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round"/>
+                      <path d="M14 22 L16 16 L18 18.5 L20 13 L22.5 15 L23 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )},
                 ],
                 [
                   { label: 'A4', node: (
-                    // Bold rounded stroke V — thick, no fill, round caps
+                    // Left leg straight, right leg step/staircase chart
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 7 L14 22 L23 7" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round"/>
+                      <path d="M14 22 L14 17 L18 17 L18 12 L23 12 L23 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )},
                   { label: 'A5', node: (
-                    // Slab-serif V — flat horizontal terminals at the tips
+                    // Left leg straight bold, right leg thinner chart line — weight contrast
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 7 L14 22 L23 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="butt" strokeLinejoin="round"/>
-                      <line x1="2" y1="7" x2="8" y2="7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round"/>
-                      <line x1="20" y1="7" x2="26" y2="7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round"/>
+                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round"/>
+                      <path d="M14 22 L17 14 L15.5 17 L20 10 L23 7" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )},
                   { label: 'A6', node: (
-                    // V in a rounded-square frame — app icon treatment
+                    // Same as A5 but right leg has small dots at each inflection point
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <rect x="2" y="2" width="24" height="24" rx="6" fill="rgba(14,165,233,0.12)" stroke="#38bdf8" strokeWidth="1.2" strokeOpacity="0.35"/>
-                      <path d="M6 8 L14 20 L22 8 L19.5 8 L14 16 L8.5 8 Z" fill="#38bdf8"/>
+                      <path d="M5 7 L14 22" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round"/>
+                      <path d="M14 22 L17 14 L15.5 17 L20 10 L23 7" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="17" cy="14" r="1.5" fill="#38bdf8"/>
+                      <circle cx="15.5" cy="17" r="1.5" fill="#38bdf8"/>
+                      <circle cx="20" cy="10" r="1.5" fill="#38bdf8"/>
+                      <circle cx="23" cy="7" r="1.8" fill="#38bdf8"/>
                     </svg>
                   )},
                 ],
