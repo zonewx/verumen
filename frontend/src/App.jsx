@@ -2068,50 +2068,46 @@ const handleUpload = async (files) => {
             <div className="flex flex-col gap-4 items-center mb-6">
               {[
                 [
-                  { label: 'A', node: (
-                    // Solid V letterform
+                  { label: 'A1', node: (
+                    // Symmetric solid V — original
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
                       <path d="M5 6 L14 22 L23 6 L20 6 L14 17 L8 6 Z" fill="#38bdf8"/>
                     </svg>
                   )},
-                  { label: 'B', node: (
-                    // Compass needle — two-tone pointed diamond
+                  { label: 'A2', node: (
+                    // Asymmetric V — right leg taller, implies momentum
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M14 4 L20 14 L14 14 Z" fill="#38bdf8"/>
-                      <path d="M14 4 L8 14 L14 14 Z" fill="#38bdf8" opacity="0.45"/>
-                      <path d="M14 24 L20 14 L14 14 Z" fill="#38bdf8" opacity="0.15"/>
-                      <path d="M14 24 L8 14 L14 14 Z" fill="#38bdf8" opacity="0.08"/>
+                      <path d="M5 10 L14 23 L23 4 L20 4 L14 19 L8 10 Z" fill="#38bdf8"/>
                     </svg>
                   )},
-                  { label: 'C', node: (
-                    // Shield
+                  { label: 'A3', node: (
+                    // Asymmetric V + floating accent dot above right tip
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M14 4 L22 8 L22 15 Q22 21.5 14 25 Q6 21.5 6 15 L6 8 Z" stroke="#38bdf8" strokeWidth="1.8" fill="rgba(14,165,233,0.09)" strokeLinejoin="round"/>
+                      <path d="M5 10 L14 23 L23 10 L20 10 L14 19 L8 10 Z" fill="#38bdf8"/>
+                      <circle cx="23" cy="5.5" r="2.5" fill="#38bdf8"/>
                     </svg>
                   )},
                 ],
                 [
-                  { label: 'D', node: (
-                    // Signal arcs from corner
+                  { label: 'A4', node: (
+                    // Bold rounded stroke V — thick, no fill, round caps
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <circle cx="6" cy="22" r="1.8" fill="#38bdf8"/>
-                      <path d="M6 22 A6 6 0 0 1 12 16" stroke="#38bdf8" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
-                      <path d="M6 22 A11 11 0 0 1 17 11" stroke="#38bdf8" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.55"/>
-                      <path d="M6 22 A16 16 0 0 1 22 6" stroke="#38bdf8" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.25"/>
+                      <path d="M5 7 L14 22 L23 7" stroke="#38bdf8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )},
-                  { label: 'E', node: (
-                    // Hexagon with center dot
+                  { label: 'A5', node: (
+                    // Slab-serif V — flat horizontal terminals at the tips
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M14 3.5 L23 9 L23 19 L14 24.5 L5 19 L5 9 Z" stroke="#38bdf8" strokeWidth="1.8" fill="rgba(14,165,233,0.06)" strokeLinejoin="round"/>
-                      <circle cx="14" cy="14" r="2.2" fill="#38bdf8"/>
+                      <path d="M5 7 L14 22 L23 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="butt" strokeLinejoin="round"/>
+                      <line x1="2" y1="7" x2="8" y2="7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round"/>
+                      <line x1="20" y1="7" x2="26" y2="7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round"/>
                     </svg>
                   )},
-                  { label: 'F', node: (
-                    // Circle with V inscribed
+                  { label: 'A6', node: (
+                    // V in a rounded-square frame — app icon treatment
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <circle cx="14" cy="14" r="10" stroke="#38bdf8" strokeWidth="1.5" fill="rgba(14,165,233,0.07)"/>
-                      <path d="M8 10 L14 18 L20 10" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <rect x="2" y="2" width="24" height="24" rx="6" fill="rgba(14,165,233,0.12)" stroke="#38bdf8" strokeWidth="1.2" strokeOpacity="0.35"/>
+                      <path d="M6 8 L14 20 L22 8 L19.5 8 L14 16 L8.5 8 Z" fill="#38bdf8"/>
                     </svg>
                   )},
                 ],
