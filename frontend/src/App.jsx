@@ -2057,36 +2057,52 @@ const handleUpload = async (files) => {
   if (authStatus !== 'logged-in') {
     const isSignup = authMode === 'signup';
     return (
-      <div className={`flex h-screen items-center justify-center bg-zinc-900 text-white`}>
-        <div className={`w-full max-w-sm mx-4 bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl overflow-hidden`}>
-          <div className={`bg-zinc-900 border-b border-zinc-700 p-8 text-center`}>
-            <div className="flex flex-col items-center justify-center gap-3">
-              <svg width="32" height="32" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="rgba(255,255,255,0.15)"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <span className="text-2xl font-bold text-white" style={{ fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}>Verumen</span>
+      <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
+        {/* Ambient glow blobs */}
+        <div className="absolute -top-56 -left-56 w-[550px] h-[550px] bg-violet-700/20 rounded-full blur-[130px] pointer-events-none" />
+        <div className="absolute -bottom-56 -right-56 w-[500px] h-[500px] bg-violet-900/15 rounded-full blur-[110px] pointer-events-none" />
+
+        <div className="relative w-full max-w-sm mx-4 flex flex-col items-center">
+          {/* Logo above card */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-violet-600/15 border border-violet-500/25 rounded-2xl mb-4" style={{ boxShadow: '0 0 32px rgba(139,92,246,0.18)' }}>
+              <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+                <path d="M4 19l5-6 4.5 3.5 5-7 5-4" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
+            <p className="text-sm text-zinc-500 mt-1.5">Your portfolio, tracked with clarity</p>
           </div>
-          <div className="p-8">
+
+          {/* Form card */}
+          <div className="w-full bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
             {sessionExpiredMsg && (
-              <div className="bg-zinc-700/40 border border-zinc-600/30 rounded-lg px-4 py-3 mb-5 text-sm text-zinc-300">
+              <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-4 py-3 mb-5 text-sm text-zinc-300">
                 {sessionExpiredMsg}
               </div>
             )}
-            {authError && <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 mb-5 text-sm text-red-400">{authError}</div>}
+            {authError && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5 text-sm text-red-400">
+                {authError}
+              </div>
+            )}
             <div className="flex flex-col gap-4">
               {['username','password',...(isSignup?['confirmPassword']:[])].map(field => (
                 <div key={field}>
-                  <label className={`text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-400`}>{field==='confirmPassword'?'Confirm Password':field.charAt(0).toUpperCase()+field.slice(1)}</label>
+                  <label className="text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-500">
+                    {field==='confirmPassword'?'Confirm Password':field.charAt(0).toUpperCase()+field.slice(1)}
+                  </label>
                   <input type={field==='username'?'text':'password'} value={authForm[field]} onChange={e=>setAuthForm(f=>({...f,[field]:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} autoFocus={field==='username'}
-                    className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500 focus:border-zinc-600 focus:ring-2 focus:ring-zinc-600/20`}/>
+                    className="w-full px-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-violet-500/60 focus:ring-2 focus:ring-violet-500/15"/>
                 </div>
               ))}
               {isSignup && (
                 <div>
-                  <label className={`text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-400`}>Country</label>
+                  <label className="text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-500">Country</label>
                   <div className="flex items-center gap-2">
                     <img src={`https://flagcdn.com/${authForm.country||'se'}.svg`} alt="" className="w-8 h-6 rounded-sm shrink-0" />
                     <select value={authForm.country||'se'} onChange={e=>setAuthForm(f=>({...f,country:e.target.value}))}
-                      className={`flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-700 border-zinc-600 text-white`}>
+                      className="flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white">
                       {[
                         {code:'se',name:'🇸🇪 Sweden'},{code:'no',name:'🇳🇴 Norway'},{code:'dk',name:'🇩🇰 Denmark'},
                         {code:'fi',name:'🇫🇮 Finland'},{code:'de',name:'🇩🇪 Germany'},{code:'gb',name:'🇬🇧 United Kingdom'},
@@ -2102,12 +2118,14 @@ const handleUpload = async (files) => {
                   </div>
                 </div>
               )}
-              <button onClick={handleAuth} disabled={authLoading} className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition text-sm">
+              <button onClick={handleAuth} disabled={authLoading}
+                className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1"
+                style={{ boxShadow: '0 4px 24px rgba(139,92,246,0.25)' }}>
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
               <div className="h-5 flex items-center justify-center">
-                {authStatus==='logged-out' && allowRegistration === true && <button onClick={()=>{setAuthMode(isSignup?'login':'signup');setAuthError('');setAuthForm({username:'',password:'',confirmPassword:'',newPassword:''});}} className={`text-sm text-center text-zinc-400 hover:text-white transition`}>{isSignup?'Already have an account? Sign in':'Create an account'}</button>}
-                {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className={`text-xs text-center text-zinc-400`}>Registration is currently closed.</p>}
+                {authStatus==='logged-out' && allowRegistration === true && <button onClick={()=>{setAuthMode(isSignup?'login':'signup');setAuthError('');setAuthForm({username:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm text-center text-zinc-500 hover:text-zinc-300 transition">{isSignup?'Already have an account? Sign in':'Create an account'}</button>}
+                {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className="text-xs text-center text-zinc-600">Registration is currently closed.</p>}
               </div>
             </div>
           </div>
