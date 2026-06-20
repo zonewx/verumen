@@ -242,10 +242,7 @@ export default function GlobalBar({ authUsername, onNavigate, onLogout, userRole
       {/* Center — Search (absolutely centered so ticker width never shifts it) */}
       <div ref={searchRef} className="absolute left-1/2 -translate-x-1/2 w-full max-w-md z-10">
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm bg-zinc-800 border-zinc-700`}>
-          <svg width="16" height="16" viewBox="0 0 28 28" fill="none" className="shrink-0">
-            <rect width="28" height="28" rx="6" fill="#0f1e3c"/>
-            <path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <img src="/logo.png" alt="Verumen" className="w-4 h-4 object-contain shrink-0"/>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>

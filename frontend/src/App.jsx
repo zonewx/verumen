@@ -2065,16 +2065,8 @@ const handleUpload = async (files) => {
         <div className="relative w-full max-w-sm mx-4 flex flex-col items-center">
           {/* Logo above card */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-sky-600/15 border border-sky-500/25 rounded-2xl mb-4" style={{ boxShadow: '0 0 32px rgba(14,165,233,0.18)' }}>
-              <svg width="38" height="38" viewBox="0 0 28 28" fill="none">
-                <defs>
-                  <mask id="vm">
-                    <rect width="28" height="28" fill="white"/>
-                    <path d="M4 7 L14 22 A10 10 0 0 1 20 5" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                  </mask>
-                </defs>
-                <circle cx="14" cy="14" r="12" fill="#38bdf8" mask="url(#vm)"/>
-              </svg>
+            <div className="inline-flex items-center justify-center w-14 h-14 mb-4">
+              <img src="/logo.png" alt="Verumen" className="w-14 h-14 object-contain"/>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
             <p className="text-sm text-zinc-500 mt-1.5">Your portfolio, tracked with clarity</p>
@@ -2145,7 +2137,7 @@ const handleUpload = async (files) => {
     <div className={`flex h-screen items-center justify-center bg-zinc-900`}>
       <div className="flex flex-col items-center gap-4">
         <div className="flex items-center gap-3 mb-2">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#27272a"/><path d="M6 18l4-5 4 3 4-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <img src="/logo.png" alt="Verumen" className="w-7 h-7 object-contain"/>
           <span className={`text-xl font-bold text-white`} style={{ fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}>Verumen</span>
         </div>
         <div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
