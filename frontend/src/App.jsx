@@ -2063,55 +2063,12 @@ const handleUpload = async (files) => {
         <div className="blob-2 absolute -bottom-56 -right-56 w-[500px] h-[500px] bg-sky-900/15 rounded-full blur-[110px] pointer-events-none" />
 
         <div className="relative w-full max-w-sm mx-4 flex flex-col items-center">
-          {/* Logo above card — circle negative-space V concepts */}
+          {/* Logo above card */}
           <div className="text-center mb-8">
-            <div className="flex gap-5 justify-center mb-6">
-              {[
-                { label: 'A', node: (
-                  // Filled circle — straight V as cutout
-                  <svg width="38" height="38" viewBox="0 0 28 28" fill="none">
-                    <defs>
-                      <mask id="ma">
-                        <rect width="28" height="28" fill="white"/>
-                        <path d="M5 6 L14 20 L23 6" stroke="black" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </mask>
-                    </defs>
-                    <circle cx="14" cy="14" r="12" fill="#38bdf8" mask="url(#ma)"/>
-                  </svg>
-                )},
-                { label: 'B', node: (
-                  // Thick ring — straight V cuts through the ring
-                  <svg width="38" height="38" viewBox="0 0 28 28" fill="none">
-                    <defs>
-                      <mask id="mb">
-                        <rect width="28" height="28" fill="white"/>
-                        <path d="M5 6 L14 20 L23 6" stroke="black" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </mask>
-                    </defs>
-                    <circle cx="14" cy="14" r="10" stroke="#38bdf8" strokeWidth="7" fill="none" mask="url(#mb)"/>
-                  </svg>
-                )},
-                { label: 'C', node: (
-                  // Thick ring — chart-line V cuts through the ring
-                  <svg width="38" height="38" viewBox="0 0 28 28" fill="none">
-                    <defs>
-                      <mask id="mc">
-                        <rect width="28" height="28" fill="white"/>
-                        <path d="M5 6 L14 20" stroke="black" strokeWidth="3.5" strokeLinecap="round"/>
-                        <path d="M14 20 L17 12 L15.5 15.5 L20 8 L23 6" stroke="black" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </mask>
-                    </defs>
-                    <circle cx="14" cy="14" r="10" stroke="#38bdf8" strokeWidth="7" fill="none" mask="url(#mc)"/>
-                  </svg>
-                )},
-              ].map(({ label, node }) => (
-                <div key={label} className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-center">
-                    {node}
-                  </div>
-                  <span className="text-[11px] text-zinc-500 font-semibold tracking-wider">{label}</span>
-                </div>
-              ))}
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-sky-600/15 border border-sky-500/25 rounded-2xl mb-4" style={{ boxShadow: '0 0 32px rgba(14,165,233,0.18)' }}>
+              <svg width="38" height="38" viewBox="0 0 28 28" fill="none">
+                <path d="M5 6 A12 12 0 0 1 23 6 L14 20 Z" fill="#38bdf8"/>
+              </svg>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
             <p className="text-sm text-zinc-500 mt-1.5">Your portfolio, tracked with clarity</p>
