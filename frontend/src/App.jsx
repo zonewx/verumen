@@ -2069,46 +2069,49 @@ const handleUpload = async (files) => {
               {[
                 [
                   { label: 'A', node: (
+                    // Solid V letterform
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 10 L14 21 L23 6" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      <circle cx="23" cy="6" r="2.5" fill="#38bdf8"/>
+                      <path d="M5 6 L14 22 L23 6 L20 6 L14 17 L8 6 Z" fill="#38bdf8"/>
                     </svg>
                   )},
                   { label: 'B', node: (
+                    // Compass needle — two-tone pointed diamond
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <rect x="3" y="18" width="6" height="7" rx="1.5" fill="#38bdf8" opacity="0.45"/>
-                      <rect x="11" y="12" width="6" height="13" rx="1.5" fill="#38bdf8" opacity="0.7"/>
-                      <rect x="19" y="6" width="6" height="19" rx="1.5" fill="#38bdf8"/>
+                      <path d="M14 4 L20 14 L14 14 Z" fill="#38bdf8"/>
+                      <path d="M14 4 L8 14 L14 14 Z" fill="#38bdf8" opacity="0.45"/>
+                      <path d="M14 24 L20 14 L14 14 Z" fill="#38bdf8" opacity="0.15"/>
+                      <path d="M14 24 L8 14 L14 14 Z" fill="#38bdf8" opacity="0.08"/>
                     </svg>
                   )},
                   { label: 'C', node: (
+                    // Shield
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M14 5 L23 14 L14 23 L5 14 Z" stroke="#38bdf8" strokeWidth="1.8" fill="none" strokeLinejoin="round"/>
-                      <circle cx="9" cy="17" r="1.8" fill="#38bdf8" opacity="0.4"/>
-                      <circle cx="14" cy="13" r="1.8" fill="#38bdf8" opacity="0.7"/>
-                      <circle cx="19" cy="10" r="1.8" fill="#38bdf8"/>
+                      <path d="M14 4 L22 8 L22 15 Q22 21.5 14 25 Q6 21.5 6 15 L6 8 Z" stroke="#38bdf8" strokeWidth="1.8" fill="rgba(14,165,233,0.09)" strokeLinejoin="round"/>
                     </svg>
                   )},
                 ],
                 [
                   { label: 'D', node: (
+                    // Signal arcs from corner
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M5 22 Q14 3 23 8" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-                      <circle cx="23" cy="8" r="2.5" fill="#38bdf8"/>
-                      <circle cx="5" cy="22" r="1.5" fill="#38bdf8" opacity="0.4"/>
+                      <circle cx="6" cy="22" r="1.8" fill="#38bdf8"/>
+                      <path d="M6 22 A6 6 0 0 1 12 16" stroke="#38bdf8" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+                      <path d="M6 22 A11 11 0 0 1 17 11" stroke="#38bdf8" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.55"/>
+                      <path d="M6 22 A16 16 0 0 1 22 6" stroke="#38bdf8" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.25"/>
                     </svg>
                   )},
                   { label: 'E', node: (
+                    // Hexagon with center dot
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <path d="M4 23 L4 17 L11 17 L11 12 L18 12 L18 7 L24 7" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                      <path d="M14 3.5 L23 9 L23 19 L14 24.5 L5 19 L5 9 Z" stroke="#38bdf8" strokeWidth="1.8" fill="rgba(14,165,233,0.06)" strokeLinejoin="round"/>
+                      <circle cx="14" cy="14" r="2.2" fill="#38bdf8"/>
                     </svg>
                   )},
                   { label: 'F', node: (
+                    // Circle with V inscribed
                     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                      <circle cx="6" cy="21" r="2" fill="#38bdf8" opacity="0.25"/>
-                      <circle cx="11" cy="17" r="2.2" fill="#38bdf8" opacity="0.45"/>
-                      <circle cx="16" cy="12" r="2.5" fill="#38bdf8" opacity="0.7"/>
-                      <circle cx="22" cy="7" r="3" fill="#38bdf8"/>
+                      <circle cx="14" cy="14" r="10" stroke="#38bdf8" strokeWidth="1.5" fill="rgba(14,165,233,0.07)"/>
+                      <path d="M8 10 L14 18 L20 10" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )},
                 ],
