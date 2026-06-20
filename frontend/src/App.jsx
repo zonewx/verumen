@@ -2059,8 +2059,8 @@ const handleUpload = async (files) => {
     return (
       <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
         {/* Ambient glow blobs */}
-        <div className="blob-1 absolute -top-56 -left-56 w-[550px] h-[550px] bg-sky-700/18 rounded-full blur-[130px] pointer-events-none" />
-        <div className="blob-2 absolute -bottom-56 -right-56 w-[500px] h-[500px] bg-sky-900/15 rounded-full blur-[110px] pointer-events-none" />
+        <div className="blob-1 absolute -top-56 -left-56 w-[650px] h-[650px] bg-sky-600/30 rounded-full blur-[120px] pointer-events-none" />
+        <div className="blob-2 absolute -bottom-56 -right-56 w-[600px] h-[600px] bg-sky-700/25 rounded-full blur-[100px] pointer-events-none" />
 
         <div className="relative w-full max-w-sm mx-4 flex flex-col items-center">
           {/* Logo above card */}
@@ -2117,8 +2117,7 @@ const handleUpload = async (files) => {
                 </div>
               )}
               <button onClick={handleAuth} disabled={authLoading}
-                className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1"
-                style={{ boxShadow: '0 4px 24px rgba(14,165,233,0.25)' }}>
+                className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1">
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
               <div className="h-5 flex items-center justify-center">
