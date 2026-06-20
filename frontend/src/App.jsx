@@ -2070,7 +2070,7 @@ const handleUpload = async (files) => {
                 <defs>
                   <mask id="vm">
                     <rect width="28" height="28" fill="white"/>
-                    <path d="M4 7 L14 22 Q26 24 20 5" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M4 7 L14 22 A10 10 0 0 1 20 5" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
                   </mask>
                 </defs>
                 <circle cx="14" cy="14" r="12" fill="#38bdf8" mask="url(#vm)"/>
