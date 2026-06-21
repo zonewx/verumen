@@ -53,11 +53,9 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ── Blob physics (login page only) ─────────────────────────────────────────
-  const blob1Ref = useRef(null);
-  const blob2Ref = useRef(null);
-  const blob3Ref = useRef(null);
-  const blobRaf  = useRef(null);
+  // ── Aurora canvas (login page only) ────────────────────────────────────────
+  const auroraCanvas = useRef(null);
+  const auroraRaf    = useRef(null);
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   // Initialise synchronously from sessionStorage — no loading spinner on page load
@@ -173,44 +171,50 @@ export default function App() {
     return res;
   }, []);
 
-  // ── Blob physics: free wander ──────────────────────────────────────────────
+  // ── Aurora canvas animation ────────────────────────────────────────────────
   useEffect(() => {
     if (authStatus === 'logged-in') return;
-    const PAD = 160;
-    const rnd = () => ({
-      x: PAD + Math.random() * (window.innerWidth  - PAD * 2),
-      y: PAD + Math.random() * (window.innerHeight - PAD * 2),
-    });
-    const mk = (x, y) => { const t = rnd(); return { x, y, vx: 0, vy: 0, tx: t.x, ty: t.y }; };
-    const b1 = mk(200, 200);
-    const b2 = mk(window.innerWidth - 200, window.innerHeight - 200);
-    const b3 = mk(window.innerWidth / 2, window.innerHeight / 2);
+    const canvas = auroraCanvas.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
-    const DAMP = 0.97, WANDER = 0.010, ARRIVE = 100, BND_F = 0.018;
+    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    resize();
+    window.addEventListener('resize', resize);
 
-    const tick = () => {
-      const W = window.innerWidth, H = window.innerHeight;
-      for (const blob of [b1, b2, b3]) {
-        const tdx = blob.tx - blob.x, tdy = blob.ty - blob.y, tdist = Math.hypot(tdx, tdy);
-        if (tdist < ARRIVE) { const p = rnd(); blob.tx = p.x; blob.ty = p.y; }
-        else { blob.vx += (tdx / tdist) * WANDER; blob.vy += (tdy / tdist) * WANDER; }
-        if (blob.x < PAD)     blob.vx += (PAD - blob.x) * BND_F;
-        if (blob.x > W - PAD) blob.vx -= (blob.x - (W - PAD)) * BND_F;
-        if (blob.y < PAD)     blob.vy += (PAD - blob.y) * BND_F;
-        if (blob.y > H - PAD) blob.vy -= (blob.y - (H - PAD)) * BND_F;
-        blob.vx *= DAMP; blob.vy *= DAMP;
-        blob.x  += blob.vx; blob.y  += blob.vy;
+    // Orbs: normalized base pos, lissajous coefficients, color, opacity
+    const orbs = [
+      { bx: 0.18, by: 0.25, ax: 0.22, ay: 0.18, fx: 0.00028, fy: 0.00019, ph: 0.0, r: 0.42, rgb: [14, 165, 233],  a: 0.55 },
+      { bx: 0.80, by: 0.70, ax: 0.20, ay: 0.22, fx: 0.00020, fy: 0.00031, ph: 2.1, r: 0.45, rgb: [2,  132, 199],  a: 0.50 },
+      { bx: 0.50, by: 0.10, ax: 0.28, ay: 0.15, fx: 0.00033, fy: 0.00024, ph: 1.3, r: 0.35, rgb: [56, 189, 248],  a: 0.45 },
+      { bx: 0.15, by: 0.80, ax: 0.18, ay: 0.20, fx: 0.00025, fy: 0.00037, ph: 4.2, r: 0.32, rgb: [3,  105, 161],  a: 0.40 },
+      { bx: 0.78, by: 0.18, ax: 0.24, ay: 0.26, fx: 0.00022, fy: 0.00028, ph: 3.0, r: 0.36, rgb: [125,211, 252],  a: 0.35 },
+    ];
+
+    const draw = (ts) => {
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'screen';
+
+      for (const o of orbs) {
+        const x = (o.bx + Math.sin(ts * o.fx + o.ph) * o.ax) * W;
+        const y = (o.by + Math.cos(ts * o.fy + o.ph) * o.ay) * H;
+        const r = o.r * Math.min(W, H);
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        const [rr, gg, bb] = o.rgb;
+        g.addColorStop(0,   `rgba(${rr},${gg},${bb},${o.a})`);
+        g.addColorStop(0.4, `rgba(${rr},${gg},${bb},${o.a * 0.4})`);
+        g.addColorStop(1,   `rgba(${rr},${gg},${bb},0)`);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
       }
-      // Blob base offsets: b1 corner top=-224 left=-224 size=650 → center=(101,101)
-      //                    b2 corner bottom=-224 right=-224 size=600 → center=(W-76,H-76)
-      //                    b3 inline top=50%-250 left=50%-250 size=500 → center=(W/2,H/2)
-      if (blob1Ref.current) blob1Ref.current.style.transform = `translate(${b1.x - 101}px,${b1.y - 101}px)`;
-      if (blob2Ref.current) blob2Ref.current.style.transform = `translate(${b2.x - (W - 76)}px,${b2.y - (H - 76)}px)`;
-      if (blob3Ref.current) blob3Ref.current.style.transform = `translate(${b3.x - W / 2}px,${b3.y - H / 2}px)`;
-      blobRaf.current = requestAnimationFrame(tick);
+
+      auroraRaf.current = requestAnimationFrame(draw);
     };
-    blobRaf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(blobRaf.current);
+    auroraRaf.current = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(auroraRaf.current); window.removeEventListener('resize', resize); };
   }, [authStatus]);
 
   // ── Token refresh ──────────────────────────────────────────────────────────
@@ -2107,17 +2111,15 @@ const handleUpload = async (files) => {
     const isSignup = authMode === 'signup';
     return (
       <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
-        {/* Ambient glow blobs */}
-        <div ref={blob1Ref} className="absolute -top-56 -left-56 w-[650px] h-[650px] bg-sky-500/25 rounded-full blur-[120px] pointer-events-none" />
-        <div ref={blob2Ref} className="absolute -bottom-56 -right-56 w-[600px] h-[600px] bg-sky-700/20 rounded-full blur-[100px] pointer-events-none" />
-        <div ref={blob3Ref} className="absolute w-[500px] h-[500px] bg-sky-400/12 rounded-full blur-[140px] pointer-events-none" style={{top:'calc(50% - 250px)',left:'calc(50% - 250px)'}} />
+        {/* Aurora canvas */}
+        <canvas ref={auroraCanvas} className="absolute inset-0 w-full h-full pointer-events-none" style={{filter:'blur(48px)'}}/>
         {/* Film grain */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{opacity:0.045}}>
           <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="4" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
           <rect width="100%" height="100%" filter="url(#grain)"/>
         </svg>
         {/* Vignette */}
-        <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.7) 100%)'}} />
+        <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.75) 100%)'}} />
 
         <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
           {/* Form card */}
@@ -2127,7 +2129,7 @@ const handleUpload = async (files) => {
             {/* Logo */}
             <div className="text-center mb-7">
               <div className="inline-flex items-center justify-center w-14 h-14 mb-4 relative">
-                <div className="absolute inset-0 bg-sky-500/20 rounded-full blur-xl"/>
+                <div className="absolute inset-0 bg-sky-500/10 rounded-full blur-lg"/>
                 <img src="/logo.png" alt="Verumen" className="w-14 h-14 object-contain relative"/>
               </div>
               <h1 className="text-2xl font-bold text-white" style={{letterSpacing:'-0.02em'}}>Verumen</h1>
@@ -2142,7 +2144,6 @@ const handleUpload = async (files) => {
             <div className="flex flex-col gap-4">
               {/* Username */}
               <div>
-                <label className="text-xs font-medium tracking-wide block mb-1.5 text-zinc-500">Username</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
                     <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-4.5 5c0-2 2-3.5 4.5-3.5s4.5 1.5 4.5 3.5H3.5z"/></svg>
@@ -2153,7 +2154,6 @@ const handleUpload = async (files) => {
               </div>
               {/* Password */}
               <div>
-                <label className="text-xs font-medium tracking-wide block mb-1.5 text-zinc-500">Password</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
                     <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
@@ -2170,7 +2170,6 @@ const handleUpload = async (files) => {
               {/* Confirm password (signup) */}
               {isSignup && (
                 <div>
-                  <label className="text-xs font-medium tracking-wide block mb-1.5 text-zinc-500">Confirm password</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
                       <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
@@ -2183,7 +2182,6 @@ const handleUpload = async (files) => {
               {/* Country (signup) */}
               {isSignup && (
                 <div>
-                  <label className="text-xs font-medium tracking-wide block mb-1.5 text-zinc-500">Country</label>
                   <div className="flex items-center gap-2">
                     <img src={`https://flagcdn.com/${authForm.country||'se'}.svg`} alt="" className="w-8 h-6 rounded-sm shrink-0"/>
                     <select value={authForm.country||'se'} onChange={e=>setAuthForm(f=>({...f,country:e.target.value}))}
