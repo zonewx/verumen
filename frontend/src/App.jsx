@@ -2137,7 +2137,7 @@ const handleUpload = async (files) => {
                 <img src="/logo.png" alt="Verumen" className="w-14 h-14 object-contain"/>
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
-              <p className="text-sm text-zinc-500 mt-1.5">Track your AUM</p>
+              <p className="text-sm text-zinc-500 mt-1.5">Manage your AUM</p>
             </div>
             {sessionExpiredMsg && (
               <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-4 py-3 mb-5 text-sm text-zinc-300">
