@@ -2160,10 +2160,10 @@ const handleUpload = async (files) => {
                   </span>
                   <input type={showPassword?'text':'password'} value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} placeholder="Enter password"
                     className="w-full pl-9 pr-10 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
-                  <button type="button" onClick={()=>setShowPassword(s=>!s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition">
+                  <button type="button" onClick={()=>setShowPassword(s=>!s)} className={`absolute right-3 top-1/2 -translate-y-1/2 transition ${showPassword?'text-sky-400':'text-zinc-500 hover:text-zinc-300'}`}>
                     {showPassword
-                      ? <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M1 1l14 14M8 3C4.5 3 1.8 5.4.3 7.8a.5.5 0 000 .4C1.4 10 3.5 12 6.2 12.8M9.5 12.7C11.9 11.8 14 9.8 15.7 8.2a.5.5 0 000-.4C14.2 5.4 11.5 3 8 3zM5.5 5.5A3 3 0 0111 8a3 3 0 01-.4 1.5M8 5a3 3 0 013 3"/></svg>
-                      : <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3C4.5 3 1.8 5.4.3 7.8a.5.5 0 000 .4C1.8 10.6 4.5 13 8 13s6.2-2.4 7.7-4.8a.5.5 0 000-.4C14.2 5.4 11.5 3 8 3zm0 8a3 3 0 110-6 3 3 0 010 6zm0-5a2 2 0 100 4 2 2 0 000-4z"/></svg>}
+                      ? <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                      : <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
                   </button>
                 </div>
               </div>
@@ -2212,7 +2212,7 @@ const handleUpload = async (files) => {
             </div>
           </div>
           {/* Footer */}
-          <p className="mt-6 text-xs text-zinc-700">© 2026 Verumen</p>
+          <p className="mt-6 text-xs text-zinc-700">© 2026</p>
         </div>
       </div>
     );
