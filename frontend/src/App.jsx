@@ -54,12 +54,10 @@ export default function App() {
   const location = useLocation();
 
   // ── Blob physics (login page only) ─────────────────────────────────────────
-  const blobMouse  = useRef({ x: -9999, y: -9999 });
-  const b1Phys     = useRef({ ox: 0, oy: 0, vx: 0, vy: 0 });
-  const b2Phys     = useRef({ ox: 0, oy: 0, vx: 0, vy: 0 });
-  const blob1Ref   = useRef(null);
-  const blob2Ref   = useRef(null);
-  const blobRaf    = useRef(null);
+  const blob1Ref = useRef(null);
+  const blob2Ref = useRef(null);
+  const blob3Ref = useRef(null);
+  const blobRaf  = useRef(null);
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   // Initialise synchronously from sessionStorage — no loading spinner on page load
@@ -174,62 +172,44 @@ export default function App() {
     return res;
   }, []);
 
-  // ── Blob physics: free wander + cursor repulsion ───────────────────────────
+  // ── Blob physics: free wander ──────────────────────────────────────────────
   useEffect(() => {
     if (authStatus === 'logged-in') return;
-    const PAD = 180;
-    const randTarget = () => ({
+    const PAD = 160;
+    const rnd = () => ({
       x: PAD + Math.random() * (window.innerWidth  - PAD * 2),
       y: PAD + Math.random() * (window.innerHeight - PAD * 2),
     });
-    // Track blobs as screen-space center positions
-    const b1 = { x: 200,                      y: 200,                       vx: 0, vy: 0, ...randTarget() && {}, tx: 0, ty: 0 };
-    const b2 = { x: window.innerWidth - 200,  y: window.innerHeight - 200,  vx: 0, vy: 0, tx: 0, ty: 0 };
-    const t1 = randTarget(); b1.tx = t1.x; b1.ty = t1.y;
-    const t2 = randTarget(); b2.tx = t2.x; b2.ty = t2.y;
+    const mk = (x, y) => { const t = rnd(); return { x, y, vx: 0, vy: 0, tx: t.x, ty: t.y }; };
+    const b1 = mk(200, 200);
+    const b2 = mk(window.innerWidth - 200, window.innerHeight - 200);
+    const b3 = mk(window.innerWidth / 2, window.innerHeight / 2);
 
-    const REPEL = 380, REPEL_F = 14, DAMP = 0.93, WANDER = 0.018, ARRIVE = 120, BND_F = 0.025;
-    const onMouse = e => { blobMouse.current = { x: e.clientX, y: e.clientY }; };
-    window.addEventListener('mousemove', onMouse);
+    const DAMP = 0.97, WANDER = 0.010, ARRIVE = 100, BND_F = 0.018;
 
     const tick = () => {
       const W = window.innerWidth, H = window.innerHeight;
-      const mx = blobMouse.current.x, my = blobMouse.current.y;
-
-      for (const blob of [b1, b2]) {
-        // Wander toward random target; pick new one on arrival
-        const tdx = blob.tx - blob.x, tdy = blob.ty - blob.y;
-        const tdist = Math.hypot(tdx, tdy);
-        if (tdist < ARRIVE) { const p = randTarget(); blob.tx = p.x; blob.ty = p.y; }
+      for (const blob of [b1, b2, b3]) {
+        const tdx = blob.tx - blob.x, tdy = blob.ty - blob.y, tdist = Math.hypot(tdx, tdy);
+        if (tdist < ARRIVE) { const p = rnd(); blob.tx = p.x; blob.ty = p.y; }
         else { blob.vx += (tdx / tdist) * WANDER; blob.vy += (tdy / tdist) * WANDER; }
-
-        // Cursor repulsion
-        const dx = blob.x - mx, dy = blob.y - my, dist = Math.hypot(dx, dy);
-        if (dist < REPEL && dist > 0) {
-          const f = ((REPEL - dist) / REPEL) * REPEL_F;
-          blob.vx += (dx / dist) * f; blob.vy += (dy / dist) * f;
-        }
-
-        // Soft screen boundary
         if (blob.x < PAD)     blob.vx += (PAD - blob.x) * BND_F;
         if (blob.x > W - PAD) blob.vx -= (blob.x - (W - PAD)) * BND_F;
         if (blob.y < PAD)     blob.vy += (PAD - blob.y) * BND_F;
         if (blob.y > H - PAD) blob.vy -= (blob.y - (H - PAD)) * BND_F;
-
         blob.vx *= DAMP; blob.vy *= DAMP;
         blob.x  += blob.vx; blob.y  += blob.vy;
       }
-
-      // Convert screen-center to CSS translate offset from each blob's base corner
-      // Blob1 base: top=-224px left=-224px size=650 → center offset (101,101)
-      // Blob2 base: bottom=-224px right=-224px size=600 → center offset (W-76, H-76)
+      // Blob base offsets: b1 corner top=-224 left=-224 size=650 → center=(101,101)
+      //                    b2 corner bottom=-224 right=-224 size=600 → center=(W-76,H-76)
+      //                    b3 inline top=50%-250 left=50%-250 size=500 → center=(W/2,H/2)
       if (blob1Ref.current) blob1Ref.current.style.transform = `translate(${b1.x - 101}px,${b1.y - 101}px)`;
       if (blob2Ref.current) blob2Ref.current.style.transform = `translate(${b2.x - (W - 76)}px,${b2.y - (H - 76)}px)`;
-
+      if (blob3Ref.current) blob3Ref.current.style.transform = `translate(${b3.x - W / 2}px,${b3.y - H / 2}px)`;
       blobRaf.current = requestAnimationFrame(tick);
     };
     blobRaf.current = requestAnimationFrame(tick);
-    return () => { window.removeEventListener('mousemove', onMouse); cancelAnimationFrame(blobRaf.current); };
+    return () => cancelAnimationFrame(blobRaf.current);
   }, [authStatus]);
 
   // ── Token refresh ──────────────────────────────────────────────────────────
@@ -2127,8 +2107,16 @@ const handleUpload = async (files) => {
     return (
       <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
         {/* Ambient glow blobs */}
-        <div ref={blob1Ref} className="absolute -top-56 -left-56 w-[650px] h-[650px] bg-sky-600/30 rounded-full blur-[120px] pointer-events-none" />
-        <div ref={blob2Ref} className="absolute -bottom-56 -right-56 w-[600px] h-[600px] bg-sky-700/25 rounded-full blur-[100px] pointer-events-none" />
+        <div ref={blob1Ref} className="absolute -top-56 -left-56 w-[650px] h-[650px] bg-sky-500/25 rounded-full blur-[120px] pointer-events-none" />
+        <div ref={blob2Ref} className="absolute -bottom-56 -right-56 w-[600px] h-[600px] bg-sky-700/20 rounded-full blur-[100px] pointer-events-none" />
+        <div ref={blob3Ref} className="absolute w-[500px] h-[500px] bg-sky-400/12 rounded-full blur-[140px] pointer-events-none" style={{top:'calc(50% - 250px)',left:'calc(50% - 250px)'}} />
+        {/* Film grain */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{opacity:0.045}}>
+          <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="4" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
+          <rect width="100%" height="100%" filter="url(#grain)"/>
+        </svg>
+        {/* Vignette */}
+        <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.7) 100%)'}} />
 
         <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
           {/* Form card with logo inside */}
