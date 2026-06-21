@@ -2130,9 +2130,9 @@ const handleUpload = async (files) => {
         <div ref={blob1Ref} className="absolute -top-56 -left-56 w-[650px] h-[650px] bg-sky-600/30 rounded-full blur-[120px] pointer-events-none" />
         <div ref={blob2Ref} className="absolute -bottom-56 -right-56 w-[600px] h-[600px] bg-sky-700/25 rounded-full blur-[100px] pointer-events-none" />
 
-        <div className="relative w-full max-w-sm mx-4 flex flex-col items-center">
+        <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
           {/* Form card with logo inside */}
-          <div className="w-full bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-12 shadow-2xl">
+          <div className="w-full bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
             {/* Logo inside card */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-14 h-14 mb-4">
