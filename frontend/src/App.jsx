@@ -2200,14 +2200,14 @@ const handleUpload = async (files) => {
 
   // ── Initializing screen (shown once after login until first data fetch completes) ──
   if (isInitializing) return (
-    <div className="fixed inset-0 bg-zinc-900">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4">
-        <div className="flex items-center gap-3 mb-2">
-          <img src="/logo.png" alt="Verumen" className="w-7 h-7 object-contain"/>
-          <span className={`text-xl font-bold text-white`} style={{ fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}>Verumen</span>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#18181b', zIndex: 9999 }}>
+      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+          <img src="/logo.png" alt="Verumen" style={{ width: '28px', height: '28px', objectFit: 'contain' }}/>
+          <span style={{ fontSize: '20px', fontWeight: 700, color: 'white', fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}>Verumen</span>
         </div>
-        <div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-        <p className={`text-sm font-medium text-zinc-400`}>{appLoadingLabel}</p>
+        <div className="animate-spin" style={{ width: '32px', height: '32px', border: '4px solid #a1a1aa', borderTopColor: 'transparent', borderRadius: '50%' }}/>
+        <p style={{ fontSize: '14px', color: '#a1a1aa' }}>{appLoadingLabel}</p>
       </div>
     </div>
   );
