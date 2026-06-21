@@ -2115,7 +2115,7 @@ const handleUpload = async (files) => {
 
   // ── Auth screens ────────────────────────────────────────────────────────────
   if (authStatus === 'loading') return (
-    <div className={`flex h-screen items-center justify-center bg-zinc-900`}>
+    <div className={`fixed inset-0 flex items-center justify-center bg-zinc-900`}>
       <div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
     </div>
   );
@@ -2198,7 +2198,7 @@ const handleUpload = async (files) => {
 
   // ── Initializing screen (shown once after login until first data fetch completes) ──
   if (isInitializing) return (
-    <div className={`flex h-screen items-center justify-center bg-zinc-900`}>
+    <div className={`fixed inset-0 flex items-center justify-center bg-zinc-900`}>
       <div className="flex flex-col items-center gap-4">
         <div className="flex items-center gap-3 mb-2">
           <img src="/logo.png" alt="Verumen" className="w-7 h-7 object-contain"/>
