@@ -71,6 +71,7 @@ export default function App() {
   const [authForm, setAuthForm] = useState({ username: '', password: '', confirmPassword: '', newPassword: '' });
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
   const [announcements, setAnnouncements] = useState([]);
@@ -2119,41 +2120,72 @@ const handleUpload = async (files) => {
         <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.7) 100%)'}} />
 
         <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
-          {/* Form card with logo inside */}
-          <div className="w-full bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
-            {/* Logo inside card */}
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-14 h-14 mb-4">
-                <img src="/logo.png" alt="Verumen" className="w-14 h-14 object-contain"/>
+          {/* Form card */}
+          <div className="relative w-full bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
+            {/* Glass top-edge highlight */}
+            <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"/>
+            {/* Logo */}
+            <div className="text-center mb-7">
+              <div className="inline-flex items-center justify-center w-14 h-14 mb-4 relative">
+                <div className="absolute inset-0 bg-sky-500/20 rounded-full blur-xl"/>
+                <img src="/logo.png" alt="Verumen" className="w-14 h-14 object-contain relative"/>
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
+              <h1 className="text-2xl font-bold text-white" style={{letterSpacing:'-0.02em'}}>Verumen</h1>
               <p className="text-sm text-zinc-500 mt-1.5">Capital management</p>
             </div>
             {sessionExpiredMsg && (
-              <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-4 py-3 mb-5 text-sm text-zinc-300">
-                {sessionExpiredMsg}
-              </div>
+              <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-4 py-3 mb-5 text-sm text-zinc-300">{sessionExpiredMsg}</div>
             )}
             {authError && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5 text-sm text-red-400">
-                {authError}
-              </div>
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5 text-sm text-red-400">{authError}</div>
             )}
             <div className="flex flex-col gap-4">
-              {['username','password',...(isSignup?['confirmPassword']:[])].map(field => (
-                <div key={field}>
-                  <label className="text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-500">
-                    {field==='confirmPassword'?'Confirm Password':field.charAt(0).toUpperCase()+field.slice(1)}
-                  </label>
-                  <input type={field==='username'?'text':'password'} value={authForm[field]} onChange={e=>setAuthForm(f=>({...f,[field]:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} autoFocus={field==='username'}
-                    className="w-full px-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+              {/* Username */}
+              <div>
+                <label className="text-xs font-medium tracking-wide block mb-1.5 text-zinc-500">Username</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
+                    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-4.5 5c0-2 2-3.5 4.5-3.5s4.5 1.5 4.5 3.5H3.5z"/></svg>
+                  </span>
+                  <input type="text" value={authForm.username} onChange={e=>setAuthForm(f=>({...f,username:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} autoFocus placeholder="Enter username"
+                    className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
                 </div>
-              ))}
+              </div>
+              {/* Password */}
+              <div>
+                <label className="text-xs font-medium tracking-wide block mb-1.5 text-zinc-500">Password</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
+                    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                  </span>
+                  <input type={showPassword?'text':'password'} value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} placeholder="Enter password"
+                    className="w-full pl-9 pr-10 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+                  <button type="button" onClick={()=>setShowPassword(s=>!s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition">
+                    {showPassword
+                      ? <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M1 1l14 14M8 3C4.5 3 1.8 5.4.3 7.8a.5.5 0 000 .4C1.4 10 3.5 12 6.2 12.8M9.5 12.7C11.9 11.8 14 9.8 15.7 8.2a.5.5 0 000-.4C14.2 5.4 11.5 3 8 3zM5.5 5.5A3 3 0 0111 8a3 3 0 01-.4 1.5M8 5a3 3 0 013 3"/></svg>
+                      : <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3C4.5 3 1.8 5.4.3 7.8a.5.5 0 000 .4C1.8 10.6 4.5 13 8 13s6.2-2.4 7.7-4.8a.5.5 0 000-.4C14.2 5.4 11.5 3 8 3zm0 8a3 3 0 110-6 3 3 0 010 6zm0-5a2 2 0 100 4 2 2 0 000-4z"/></svg>}
+                  </button>
+                </div>
+              </div>
+              {/* Confirm password (signup) */}
               {isSignup && (
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-500">Country</label>
+                  <label className="text-xs font-medium tracking-wide block mb-1.5 text-zinc-500">Confirm password</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
+                      <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                    </span>
+                    <input type="password" value={authForm.confirmPassword} onChange={e=>setAuthForm(f=>({...f,confirmPassword:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()}
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+                  </div>
+                </div>
+              )}
+              {/* Country (signup) */}
+              {isSignup && (
+                <div>
+                  <label className="text-xs font-medium tracking-wide block mb-1.5 text-zinc-500">Country</label>
                   <div className="flex items-center gap-2">
-                    <img src={`https://flagcdn.com/${authForm.country||'se'}.svg`} alt="" className="w-8 h-6 rounded-sm shrink-0" />
+                    <img src={`https://flagcdn.com/${authForm.country||'se'}.svg`} alt="" className="w-8 h-6 rounded-sm shrink-0"/>
                     <select value={authForm.country||'se'} onChange={e=>setAuthForm(f=>({...f,country:e.target.value}))}
                       className="flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white">
                       {[
@@ -2181,6 +2213,8 @@ const handleUpload = async (files) => {
               </div>
             </div>
           </div>
+          {/* Footer */}
+          <p className="mt-6 text-xs text-zinc-700">© 2026 Verumen</p>
         </div>
       </div>
     );
