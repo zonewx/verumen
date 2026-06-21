@@ -2129,17 +2129,16 @@ const handleUpload = async (files) => {
         <div ref={blob2Ref} className="absolute -bottom-56 -right-56 w-[600px] h-[600px] bg-sky-700/25 rounded-full blur-[100px] pointer-events-none" />
 
         <div className="relative w-full max-w-sm mx-4 flex flex-col items-center">
-          {/* Logo above card */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 mb-4">
-              <img src="/logo.png" alt="Verumen" className="w-14 h-14 object-contain"/>
+          {/* Form card with logo inside */}
+          <div className="w-full bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-12 shadow-2xl">
+            {/* Logo inside card */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-14 h-14 mb-4">
+                <img src="/logo.png" alt="Verumen" className="w-14 h-14 object-contain"/>
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
+              <p className="text-sm text-zinc-500 mt-1.5">Track your AUM</p>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white" style={{ letterSpacing: '-0.02em' }}>Verumen</h1>
-            <p className="text-sm text-zinc-500 mt-1.5">Your portfolio, tracked with clarity</p>
-          </div>
-
-          {/* Form card */}
-          <div className="w-full bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
             {sessionExpiredMsg && (
               <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-4 py-3 mb-5 text-sm text-zinc-300">
                 {sessionExpiredMsg}
