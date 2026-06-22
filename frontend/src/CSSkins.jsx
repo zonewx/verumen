@@ -1064,7 +1064,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                     <div className={`flex items-center justify-between px-6 py-4 border-b border-zinc-700`}>
                       <div>
                         <h3 className="font-bold text-base">Mark as Sold</h3>
-                        <p className={`text-sm text-zinc-400`}>{showSellForm.skin_name}</p>
+                        <p className={`text-sm text-zinc-400`}>{withVanilla(showSellForm.skin_name)}</p>
                       </div>
                       <button onClick={() => setShowSellForm(null)} className={`text-xl leading-none text-zinc-400 hover:text-white`}>✕</button>
                     </div>
@@ -1158,7 +1158,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             >
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="font-semibold max-w-xs truncate">{item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')}</span>
+                                  <span className="font-semibold max-w-xs truncate">{withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, ''))}</span>
                                 </div>
                               </td>
                               <td className={`px-4 py-3 text-xs text-zinc-400 whitespace-nowrap`}>{item.exterior || '—'}</td>
@@ -1206,7 +1206,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           {/* Left: item details */}
                           <div className="w-48 shrink-0 flex flex-col gap-3">
                             {[
-                              ['Skin',     item.skin_name?.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')],
+                              ['Skin',     withVanilla(item.skin_name?.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, ''))],
                               ['Exterior', item.exterior],
                               ['Float',    item.float_value ? parseFloat(item.float_value).toFixed(4) : null],
                               ['Pattern',  item.pattern],
