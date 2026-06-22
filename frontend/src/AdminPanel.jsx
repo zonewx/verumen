@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import apiCache from './apiCache';
 
 export default function AdminPanel({ authUsername }) {
@@ -45,6 +45,7 @@ export default function AdminPanel({ authUsername }) {
   const [tableData, setTableData] = useState(null);
   const [tableLoading, setTableLoading] = useState(false);
   const [tablePage, setTablePage] = useState(0);
+  const tableScrollRef = useRef(null);
 
   const token = sessionStorage.getItem('auth_token');
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
@@ -823,12 +824,26 @@ export default function AdminPanel({ authUsername }) {
                         </div>
                       ) : tableData?.rows?.length > 0 ? (
                         <>
-                          <div className="overflow-x-auto">
+                          <div
+                            ref={tableScrollRef}
+                            className="overflow-x-auto pb-3"
+                            onWheel={e => {
+                              if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+                              const el = tableScrollRef.current;
+                              if (!el) return;
+                              const atLeft = el.scrollLeft === 0 && e.deltaY < 0;
+                              const atRight = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 && e.deltaY > 0;
+                              if (atLeft || atRight) return;
+                              e.preventDefault();
+                              el.scrollLeft += e.deltaY;
+                            }}
+                            style={{ overscrollBehaviorX: 'contain' }}
+                          >
                             <table className="w-full text-xs">
                               <thead className="bg-zinc-900 border-b border-zinc-700">
                                 <tr>
                                   {Object.keys(tableData.rows[0]).map(col => (
-                                    <th key={col} className="px-3 py-2.5 text-left font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap">{col}</th>
+                                    <th key={col} className="px-3 py-2.5 text-left font-bold uppercase tracking-wider text-zinc-500 whitespace-nowrap">{col}</th>
                                   ))}
                                 </tr>
                               </thead>
@@ -836,7 +851,7 @@ export default function AdminPanel({ authUsername }) {
                                 {tableData.rows.map((row, i) => (
                                   <tr key={i} className="border-t border-zinc-700/60 hover:bg-zinc-700/20">
                                     {Object.values(row).map((val, j) => (
-                                      <td key={j} className="px-3 py-2 text-zinc-300 max-w-xs whitespace-nowrap overflow-hidden text-ellipsis font-mono">
+                                      <td key={j} className="px-3 py-2 text-zinc-100 max-w-xs whitespace-nowrap overflow-hidden text-ellipsis font-mono">
                                         {val === null ? <span className="text-zinc-600">null</span> : val === true ? <span className="text-green-400">true</span> : val === false ? <span className="text-red-400">false</span> : String(val).length > 80 ? String(val).slice(0, 80) + '…' : String(val)}
                                       </td>
                                     ))}
