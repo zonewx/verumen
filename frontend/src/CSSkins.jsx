@@ -832,7 +832,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     <label className={label}>Buy price *</label>
                                     <div className="flex gap-2">
                                       <NumInput step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} wrapperClass="flex-1" />
-                                      <select value={addForm.purchase_currency} onChange={e => setAddForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-20`}>
+                                      <select value={addForm.purchase_currency} onChange={e => setAddForm(f => ({ ...f, purchase_currency: e.target.value }))} className="shrink-0 w-16 px-2 py-2 rounded-lg border text-sm outline-none transition bg-zinc-700 border-zinc-600 text-white">
                                         {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                                       </select>
                                     </div>
@@ -903,7 +903,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             <label className={label}>Buy price *</label>
                             <div className="flex gap-2">
                               <NumInput step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} wrapperClass="flex-1" />
-                              <select value={addForm.purchase_currency} onChange={e => setAddForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-20`}>
+                              <select value={addForm.purchase_currency} onChange={e => setAddForm(f => ({ ...f, purchase_currency: e.target.value }))} className="shrink-0 w-16 px-2 py-2 rounded-lg border text-sm outline-none transition bg-zinc-700 border-zinc-600 text-white">
                                 {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                               </select>
                             </div>
@@ -1076,7 +1076,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             <label className={label}>Buy price *</label>
                             <div className="flex gap-2">
                               <NumInput step="0.01" value={editForm.purchase_price} onChange={e => setEditForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} wrapperClass="flex-1" />
-                              <select value={editForm.purchase_currency} onChange={e => setEditForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-20`}>
+                              <select value={editForm.purchase_currency} onChange={e => setEditForm(f => ({ ...f, purchase_currency: e.target.value }))} className="shrink-0 w-16 px-2 py-2 rounded-lg border text-sm outline-none transition bg-zinc-700 border-zinc-600 text-white">
                                 {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                               </select>
                             </div>
@@ -1133,7 +1133,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                         <label className={label}>Sale price *</label>
                         <div className="flex gap-2">
                           <NumInput step="0.01" value={sellForm.sale_price} onChange={e => setSellForm(f => ({ ...f, sale_price: e.target.value }))} placeholder="0.00" className={input} />
-                          <select value={sellForm.sale_currency} onChange={e => setSellForm(f => ({ ...f, sale_currency: e.target.value }))} className={`${input} w-20`}>
+                          <select value={sellForm.sale_currency} onChange={e => setSellForm(f => ({ ...f, sale_currency: e.target.value }))} className="shrink-0 w-16 px-2 py-2 rounded-lg border text-sm outline-none transition bg-zinc-700 border-zinc-600 text-white">
                             {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                           </select>
                         </div>
