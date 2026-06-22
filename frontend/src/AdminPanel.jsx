@@ -148,6 +148,18 @@ export default function AdminPanel({ authUsername }) {
   useEffect(() => { if (tab === 'global-overrides') fetchGlobalOverrides(); }, [tab]);
   useEffect(() => { if (tab === 'database') fetchDbTables(); }, [tab]);
 
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const handler = e => {
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, [tableData, selectedTable]);
+
   const deleteUser = (username) => {
     setDeleteModal(username);
     setDeletePw('');
@@ -827,16 +839,6 @@ export default function AdminPanel({ authUsername }) {
                           <div
                             ref={tableScrollRef}
                             className="overflow-x-auto pb-3"
-                            onWheel={e => {
-                              if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-                              const el = tableScrollRef.current;
-                              if (!el) return;
-                              const atLeft = el.scrollLeft === 0 && e.deltaY < 0;
-                              const atRight = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 && e.deltaY > 0;
-                              if (atLeft || atRight) return;
-                              e.preventDefault();
-                              el.scrollLeft += e.deltaY;
-                            }}
                             style={{ overscrollBehaviorX: 'contain' }}
                           >
                             <table className="w-full text-xs">
