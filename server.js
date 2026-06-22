@@ -483,7 +483,7 @@ app.get('/api/users/:username/inventory', async (req, res) => {
 });
 
 // ── CS float lookup (proxy to CSFloat API) ──────────────────────────────────
-app.get('/api/cs/float', requireAuth, async (req, res) => {
+app.get('/api/cs/float', requireUser, async (req, res) => {
   const { link } = req.query;
   if (!link) return res.status(400).json({ error: 'Missing link' });
   try {
@@ -2365,6 +2365,31 @@ app.delete('/api/admin/global-overrides', requireModerator, async (req, res) => 
   if (error) return res.status(401).json({ error: 'Incorrect password' });
   await supabase.from('global_ticker_overrides').delete().neq('isin', '');
   res.json({ success: true });
+});
+
+// ── Admin DB browser ────────────────────────────────────────────────────────
+const DB_TABLES = [
+  'profiles', 'transactions', 'cs_inventory', 'cs_price_cache', 'cs_price_overrides',
+  'price_cache', 'portfolio_cache', 'ticker_cache', 'ticker_overrides',
+  'global_isin_cache', 'global_ticker_overrides', 'app_settings', 'announcements',
+];
+
+app.get('/api/admin/db/tables', requireAdmin, async (req, res) => {
+  const counts = await Promise.all(DB_TABLES.map(async t => {
+    const { count, error } = await supabase.from(t).select('*', { count: 'exact', head: true });
+    return { table: t, rows: error ? null : count };
+  }));
+  res.json(counts);
+});
+
+app.get('/api/admin/db/table/:name', requireAdmin, async (req, res) => {
+  const { name } = req.params;
+  if (!DB_TABLES.includes(name)) return res.status(400).json({ error: 'Unknown table' });
+  const page = Math.max(0, parseInt(req.query.page || '0', 10));
+  const limit = 50;
+  const { data, error, count } = await supabase.from(name).select('*', { count: 'exact' }).range(page * limit, page * limit + limit - 1);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ rows: data, total: count, page, limit });
 });
 
 // ── Ownership ───────────────────────────────────────────────────────────────

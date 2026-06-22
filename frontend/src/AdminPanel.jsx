@@ -38,6 +38,14 @@ export default function AdminPanel({ authUsername }) {
   const [userSearch, setUserSearch] = useState('');
   const [roleSearch, setRoleSearch] = useState('');
 
+  // Database browser
+  const [dbTables, setDbTables] = useState([]);
+  const [dbTablesLoading, setDbTablesLoading] = useState(false);
+  const [selectedTable, setSelectedTable] = useState(null);
+  const [tableData, setTableData] = useState(null);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [tablePage, setTablePage] = useState(0);
+
   const token = sessionStorage.getItem('auth_token');
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
@@ -137,6 +145,7 @@ export default function AdminPanel({ authUsername }) {
   useEffect(() => { fetchStats(); }, []);
   useEffect(() => { if (tab === 'tickers') fetchFailures(); }, [tab]);
   useEffect(() => { if (tab === 'global-overrides') fetchGlobalOverrides(); }, [tab]);
+  useEffect(() => { if (tab === 'database') fetchDbTables(); }, [tab]);
 
   const deleteUser = (username) => {
     setDeleteModal(username);
@@ -268,7 +277,24 @@ export default function AdminPanel({ authUsername }) {
     { id: 'tickers', label: 'Ticker Failures' },
     { id: 'global-overrides', label: 'Global Overrides' },
     { id: 'announcements', label: 'Announcements' },
+    { id: 'database', label: 'Database' },
   ];
+
+  const fetchDbTables = useCallback(async () => {
+    setDbTablesLoading(true);
+    const res = await fetch('/api/admin/db/tables', { headers: h });
+    const data = await res.json();
+    setDbTablesLoading(false);
+    if (Array.isArray(data)) setDbTables(data);
+  }, []);
+
+  const fetchTableData = useCallback(async (name, page = 0) => {
+    setTableLoading(true);
+    const res = await fetch(`/api/admin/db/table/${name}?page=${page}`, { headers: h });
+    const data = await res.json();
+    setTableLoading(false);
+    if (!data.error) setTableData(data);
+  }, []);
 
   const typeColors = {
     info: 'bg-blue-900/40 text-blue-400 border-blue-800',
@@ -737,6 +763,110 @@ export default function AdminPanel({ authUsername }) {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* DATABASE */}
+            {tab === 'database' && (
+              <div className="flex flex-col gap-4">
+                {dbTablesLoading ? (
+                  <div className="flex items-center gap-3 py-10 justify-center">
+                    <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                    <span className="text-sm text-zinc-400">Loading tables…</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Table list */}
+                    <div className={`${card} overflow-hidden`}>
+                      <table className="w-full text-sm">
+                        <thead className="bg-zinc-900 border-b border-zinc-700">
+                          <tr>
+                            {['Table', 'Rows', ''].map(col => (
+                              <th key={col} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400">{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dbTables.map(t => (
+                            <tr key={t.table} className={`border-t border-zinc-700 hover:bg-zinc-700/20 ${selectedTable === t.table ? 'bg-zinc-700/30' : ''}`}>
+                              <td className="px-4 py-2.5 font-mono text-xs font-semibold text-white">{t.table}</td>
+                              <td className="px-4 py-2.5 text-xs text-zinc-400">{t.rows === null ? '—' : t.rows.toLocaleString()}</td>
+                              <td className="px-4 py-2.5 text-right">
+                                <button
+                                  onClick={() => { setSelectedTable(t.table); setTablePage(0); setTableData(null); fetchTableData(t.table, 0); }}
+                                  className={btnBlue}
+                                >
+                                  Browse
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Table viewer */}
+                    {selectedTable && (
+                      <div className={`${card} overflow-hidden`}>
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700">
+                          <span className="font-mono text-sm font-bold">{selectedTable}</span>
+                          {tableData && (
+                            <span className="text-xs text-zinc-400">
+                              {tableData.page * tableData.limit + 1}–{Math.min((tableData.page + 1) * tableData.limit, tableData.total)} of {tableData.total.toLocaleString()} rows
+                            </span>
+                          )}
+                        </div>
+                        {tableLoading ? (
+                          <div className="flex items-center gap-3 py-8 justify-center">
+                            <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                          </div>
+                        ) : tableData?.rows?.length > 0 ? (
+                          <>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead className="bg-zinc-900 border-b border-zinc-700">
+                                  <tr>
+                                    {Object.keys(tableData.rows[0]).map(col => (
+                                      <th key={col} className="px-3 py-2 text-left font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap">{col}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {tableData.rows.map((row, i) => (
+                                    <tr key={i} className="border-t border-zinc-700/60 hover:bg-zinc-700/20">
+                                      {Object.values(row).map((val, j) => (
+                                        <td key={j} className="px-3 py-2 text-zinc-300 max-w-xs whitespace-nowrap overflow-hidden text-ellipsis font-mono">
+                                          {val === null ? <span className="text-zinc-600">null</span> : val === true ? <span className="text-green-400">true</span> : val === false ? <span className="text-red-400">false</span> : String(val).length > 80 ? String(val).slice(0, 80) + '…' : String(val)}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            {tableData.total > tableData.limit && (
+                              <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-700">
+                                <button
+                                  disabled={tablePage === 0}
+                                  onClick={() => { const p = tablePage - 1; setTablePage(p); fetchTableData(selectedTable, p); }}
+                                  className={`${btnGhost} disabled:opacity-40`}
+                                >← Prev</button>
+                                <span className="text-xs text-zinc-400">Page {tablePage + 1} of {Math.ceil(tableData.total / tableData.limit)}</span>
+                                <button
+                                  disabled={(tablePage + 1) * tableData.limit >= tableData.total}
+                                  onClick={() => { const p = tablePage + 1; setTablePage(p); fetchTableData(selectedTable, p); }}
+                                  className={`${btnGhost} disabled:opacity-40`}
+                                >Next →</button>
+                              </div>
+                            )}
+                          </>
+                        ) : tableData?.rows?.length === 0 ? (
+                          <p className="px-4 py-6 text-sm text-zinc-400">Table is empty.</p>
+                        ) : null}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
