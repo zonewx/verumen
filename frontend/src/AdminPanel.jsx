@@ -842,10 +842,10 @@ export default function AdminPanel({ authUsername }) {
                             style={{ overscrollBehaviorX: 'contain' }}
                           >
                             <table className="w-full text-xs">
-                              <thead className="bg-zinc-900 border-b border-zinc-700">
+                              <thead className="bg-zinc-900 border-b border-zinc-700 sticky top-0 z-10">
                                 <tr>
                                   {Object.keys(tableData.rows[0]).map(col => (
-                                    <th key={col} className="px-3 py-2.5 text-left font-bold uppercase tracking-wider text-zinc-500 whitespace-nowrap">{col}</th>
+                                    <th key={col} className="px-3 py-2.5 text-left font-bold uppercase tracking-wider text-zinc-500 whitespace-nowrap bg-zinc-900">{col}</th>
                                   ))}
                                 </tr>
                               </thead>
