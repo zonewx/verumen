@@ -11,6 +11,47 @@ const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | 
 const parseExteriorFromName = n => { const m = n?.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)/); return m?.[1] || null; };
 const floatToExterior = v => { const f = parseFloat(v); if (isNaN(f)) return null; if (f < 0.07) return 'Factory New'; if (f < 0.15) return 'Minimal Wear'; if (f < 0.38) return 'Field-Tested'; if (f < 0.45) return 'Well-Worn'; return 'Battle-Scarred'; };
 
+function NumInput({ value, onChange, step = 1, min, max, placeholder, disabled, className }) {
+  const dp = String(parseFloat(step) || 1).replace(/^[^.]*\.?/, '').length;
+  const fire = val => onChange({ target: { value: String(val) } });
+  const adj = dir => {
+    const s = parseFloat(step) || 1;
+    const next = parseFloat((parseFloat(value || 0) + dir * s).toFixed(dp));
+    if (max !== undefined && next > parseFloat(max)) return;
+    if (min !== undefined && next < parseFloat(min)) return;
+    fire(next);
+  };
+  const ChevUp = () => (
+    <svg className="w-3 h-3" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 5L5 1L9 5"/>
+    </svg>
+  );
+  const ChevDown = () => (
+    <svg className="w-3 h-3" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 1L5 5L9 1"/>
+    </svg>
+  );
+  return (
+    <div className="relative">
+      <input
+        type="number" step={step} min={min} max={max}
+        value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
+        className={`${className} pr-8 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden`}
+      />
+      <div className="absolute right-0 top-0 bottom-0 w-7 flex flex-col border-l border-zinc-600 rounded-r-lg overflow-hidden pointer-events-auto">
+        <button type="button" tabIndex={-1} onClick={() => adj(1)} disabled={disabled}
+          className="flex-1 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-600 transition disabled:opacity-30">
+          <ChevUp />
+        </button>
+        <button type="button" tabIndex={-1} onClick={() => adj(-1)} disabled={disabled}
+          className="flex-1 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-600 transition border-t border-zinc-600 disabled:opacity-30">
+          <ChevDown />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function fmt(n) { return (n || 0).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 const CUR_SYM = { SEK: 'kr', USD: '$', EUR: '€', GBP: '£' };
 function fmtCur(n, bc = 'SEK') {
@@ -785,12 +826,12 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                   </div>
                                   <div>
                                     <label className={label}>Float {fetchingFloat && <span className="text-zinc-500 normal-case font-normal tracking-normal ml-1">fetching…</span>}</label>
-                                    <input type="number" step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => setAddForm(f => ({ ...f, float_value: e.target.value }))} placeholder={fetchingFloat ? 'Fetching…' : '0.0000'} disabled={fetchingFloat} className={input} />
+                                    <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => setAddForm(f => ({ ...f, float_value: e.target.value }))} placeholder={fetchingFloat ? 'Fetching…' : '0.0000'} disabled={fetchingFloat} className={input} />
                                   </div>
                                   <div>
                                     <label className={label}>Buy price *</label>
                                     <div className="flex gap-2">
-                                      <input type="number" step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} />
+                                      <NumInput step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} />
                                       <select value={addForm.purchase_currency} onChange={e => setAddForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-24`}>
                                         {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                                       </select>
@@ -802,7 +843,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                   </div>
                                   <div>
                                     <label className={label}>Pattern / Seed</label>
-                                    <input type="number" value={addForm.pattern} onChange={e => setAddForm(f => ({ ...f, pattern: e.target.value }))} placeholder="Optional" className={input} />
+                                    <NumInput value={addForm.pattern} onChange={e => setAddForm(f => ({ ...f, pattern: e.target.value }))} placeholder="Optional" className={input} />
                                   </div>
                                   <div>
                                     <label className={label}>Notes</label>
@@ -856,12 +897,12 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           </div>
                           <div>
                             <label className={label}>Float *</label>
-                            <input type="number" step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => { const ext = floatToExterior(e.target.value); setAddForm(f => ({ ...f, float_value: e.target.value, ...(ext ? { exterior: ext } : {}) })); }} placeholder="0.0000" className={input} />
+                            <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => { const ext = floatToExterior(e.target.value); setAddForm(f => ({ ...f, float_value: e.target.value, ...(ext ? { exterior: ext } : {}) })); }} placeholder="0.0000" className={input} />
                           </div>
                           <div>
                             <label className={label}>Buy price *</label>
                             <div className="flex gap-2">
-                              <input type="number" step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} />
+                              <NumInput step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} />
                               <select value={addForm.purchase_currency} onChange={e => setAddForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-24`}>
                                 {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                               </select>
@@ -873,7 +914,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           </div>
                           <div>
                             <label className={label}>Pattern / Seed</label>
-                            <input type="number" value={addForm.pattern} onChange={e => setAddForm(f => ({ ...f, pattern: e.target.value }))} placeholder="Optional" className={input} />
+                            <NumInput value={addForm.pattern} onChange={e => setAddForm(f => ({ ...f, pattern: e.target.value }))} placeholder="Optional" className={input} />
                           </div>
                           <div>
                             <label className={label}>Notes</label>
@@ -1029,12 +1070,12 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           </div>
                           <div>
                             <label className={label}>Float</label>
-                            <input type="number" step="0.0001" min="0" max="1" value={editForm.float_value} onChange={e => setEditForm(f => ({ ...f, float_value: e.target.value }))} placeholder="0.0000" className={input} />
+                            <NumInput step="0.0001" min="0" max="1" value={editForm.float_value} onChange={e => setEditForm(f => ({ ...f, float_value: e.target.value }))} placeholder="0.0000" className={input} />
                           </div>
                           <div>
                             <label className={label}>Buy price *</label>
                             <div className="flex gap-2">
-                              <input type="number" step="0.01" value={editForm.purchase_price} onChange={e => setEditForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} />
+                              <NumInput step="0.01" value={editForm.purchase_price} onChange={e => setEditForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} />
                               <select value={editForm.purchase_currency} onChange={e => setEditForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-24`}>
                                 {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                               </select>
@@ -1046,7 +1087,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           </div>
                           <div>
                             <label className={label}>Pattern / Seed</label>
-                            <input type="number" value={editForm.pattern} onChange={e => setEditForm(f => ({ ...f, pattern: e.target.value }))} placeholder="Optional" className={input} />
+                            <NumInput value={editForm.pattern} onChange={e => setEditForm(f => ({ ...f, pattern: e.target.value }))} placeholder="Optional" className={input} />
                           </div>
                           <div>
                             <label className={label}>Notes</label>
@@ -1091,7 +1132,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                       <div>
                         <label className={label}>Sale price *</label>
                         <div className="flex gap-2">
-                          <input type="number" step="0.01" value={sellForm.sale_price} onChange={e => setSellForm(f => ({ ...f, sale_price: e.target.value }))} placeholder="0.00" className={input} />
+                          <NumInput step="0.01" value={sellForm.sale_price} onChange={e => setSellForm(f => ({ ...f, sale_price: e.target.value }))} placeholder="0.00" className={input} />
                           <select value={sellForm.sale_currency} onChange={e => setSellForm(f => ({ ...f, sale_currency: e.target.value }))} className={`${input} w-24`}>
                             {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                           </select>
