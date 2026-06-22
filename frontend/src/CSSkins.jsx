@@ -728,7 +728,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
               {/* Add trade modal */}
               {showAddForm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col`} style={{ maxHeight: '90vh' }}>
+                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col`} style={{ maxHeight: '92vh' }}>
 
                     {/* Header */}
                     <div className={`flex items-center justify-between px-6 py-4 border-b border-zinc-700 shrink-0`}>
@@ -795,7 +795,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                   ) : modalInventory.length === 0 ? (
                                     <p className={`text-center py-8 text-sm text-zinc-400`}>No CS items found in your inventory.</p>
                                   ) : (
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-64 overflow-y-auto">
+                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 overflow-y-auto" style={{ maxHeight: '52vh' }}>
                                       {modalInventory
                                         .filter(i => !modalInvSearch || i.name.toLowerCase().includes(modalInvSearch.toLowerCase()))
                                         .map(item => (
@@ -804,9 +804,9 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                             onClick={() => selectModalSkin(item)}
                                             className={`p-2 rounded-lg border-2 transition text-left border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-sky-500/60`}
                                           >
-                                            <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-1" />
-                                            <p className={`text-xs truncate text-zinc-300`}>{item.name}</p>
-                                            {item.price > 0 && <p className="text-xs text-green-400 font-bold">{fmtBC(item.price)}</p>}
+                                            <img src={item.iconUrl} alt={item.name} className="w-full h-20 object-contain mb-1.5" />
+                                            <p className={`text-xs truncate text-zinc-300 leading-tight`}>{item.name}</p>
+                                            {item.price > 0 && <p className="text-xs text-green-400 font-bold mt-0.5">{fmtBC(item.price)}</p>}
                                           </button>
                                         ))
                                       }
@@ -1218,7 +1218,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             >
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
-                                  {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); return (<span className="font-semibold flex items-baseline min-w-0"><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
+                                  {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return (<span className={`font-semibold flex items-baseline min-w-0 ${nameColor}`}><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
                                 </div>
                               </td>
                               <td className={`px-4 py-3 text-xs text-zinc-400 whitespace-nowrap`}>{item.exterior || '—'}</td>
