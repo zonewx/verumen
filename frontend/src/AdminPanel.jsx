@@ -272,12 +272,12 @@ export default function AdminPanel({ authUsername }) {
 
   const TABS = [
     { id: 'overview', label: 'Overview' },
+    { id: 'database', label: 'Database' },
     { id: 'users', label: 'Users' },
     { id: 'roles', label: 'Roles' },
     { id: 'tickers', label: 'Ticker Failures' },
     { id: 'global-overrides', label: 'Global Overrides' },
     { id: 'announcements', label: 'Announcements' },
-    { id: 'database', label: 'Database' },
   ];
 
   const fetchDbTables = useCallback(async () => {
@@ -337,7 +337,7 @@ export default function AdminPanel({ authUsername }) {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className={`${tab === 'database' ? 'max-w-7xl' : 'max-w-4xl'} mx-auto px-6 py-8`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -768,105 +768,97 @@ export default function AdminPanel({ authUsername }) {
 
             {/* DATABASE */}
             {tab === 'database' && (
-              <div className="flex flex-col gap-4">
-                {dbTablesLoading ? (
-                  <div className="flex items-center gap-3 py-10 justify-center">
-                    <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                    <span className="text-sm text-zinc-400">Loading tables…</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* Table list */}
-                    <div className={`${card} overflow-hidden`}>
-                      <table className="w-full text-sm">
-                        <thead className="bg-zinc-900 border-b border-zinc-700">
-                          <tr>
-                            {['Table', 'Rows', ''].map(col => (
-                              <th key={col} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400">{col}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {dbTables.map(t => (
-                            <tr key={t.table} className={`border-t border-zinc-700 hover:bg-zinc-700/20 ${selectedTable === t.table ? 'bg-zinc-700/30' : ''}`}>
-                              <td className="px-4 py-2.5 font-mono text-xs font-semibold text-white">{t.table}</td>
-                              <td className="px-4 py-2.5 text-xs text-zinc-400">{t.rows === null ? '—' : t.rows.toLocaleString()}</td>
-                              <td className="px-4 py-2.5 text-right">
-                                <button
-                                  onClick={() => { setSelectedTable(t.table); setTablePage(0); setTableData(null); fetchTableData(t.table, 0); }}
-                                  className={btnBlue}
-                                >
-                                  Browse
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+              <div className="flex gap-4 items-start">
+                {/* Sidebar — table list */}
+                <div className="w-52 shrink-0">
+                  <div className={`${card} overflow-hidden`}>
+                    <div className="px-4 py-2.5 border-b border-zinc-700">
+                      <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Tables</p>
                     </div>
+                    {dbTablesLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-zinc-700/40">
+                        {dbTables.map(t => (
+                          <button
+                            key={t.table}
+                            onClick={() => { setSelectedTable(t.table); setTablePage(0); setTableData(null); fetchTableData(t.table, 0); }}
+                            className={`w-full flex items-center justify-between px-4 py-2 text-left transition ${selectedTable === t.table ? 'bg-zinc-700/70 text-white' : 'text-zinc-400 hover:bg-zinc-700/30 hover:text-zinc-200'}`}
+                          >
+                            <span className="font-mono text-xs truncate">{t.table}</span>
+                            <span className={`text-xs ml-2 shrink-0 tabular-nums ${selectedTable === t.table ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                              {t.rows === null ? '—' : t.rows.toLocaleString()}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                    {/* Table viewer */}
-                    {selectedTable && (
-                      <div className={`${card} overflow-hidden`}>
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700">
-                          <span className="font-mono text-sm font-bold">{selectedTable}</span>
+                {/* Content panel */}
+                <div className="flex-1 min-w-0">
+                  {!selectedTable ? (
+                    <div className={`${card} flex items-center justify-center py-24`}>
+                      <p className="text-sm text-zinc-600">Select a table</p>
+                    </div>
+                  ) : (
+                    <div className={`${card} overflow-hidden`}>
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700">
+                        <span className="font-mono text-sm font-bold">{selectedTable}</span>
+                        <div className="flex items-center gap-3">
                           {tableData && (
                             <span className="text-xs text-zinc-400">
                               {tableData.page * tableData.limit + 1}–{Math.min((tableData.page + 1) * tableData.limit, tableData.total)} of {tableData.total.toLocaleString()} rows
                             </span>
                           )}
+                          <button onClick={() => fetchTableData(selectedTable, tablePage)} className={btnGhost}>↺</button>
                         </div>
-                        {tableLoading ? (
-                          <div className="flex items-center gap-3 py-8 justify-center">
-                            <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                          </div>
-                        ) : tableData?.rows?.length > 0 ? (
-                          <>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-xs">
-                                <thead className="bg-zinc-900 border-b border-zinc-700">
-                                  <tr>
-                                    {Object.keys(tableData.rows[0]).map(col => (
-                                      <th key={col} className="px-3 py-2 text-left font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap">{col}</th>
+                      </div>
+                      {tableLoading ? (
+                        <div className="flex items-center gap-3 py-12 justify-center">
+                          <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                        </div>
+                      ) : tableData?.rows?.length > 0 ? (
+                        <>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead className="bg-zinc-900 border-b border-zinc-700">
+                                <tr>
+                                  {Object.keys(tableData.rows[0]).map(col => (
+                                    <th key={col} className="px-3 py-2.5 text-left font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap">{col}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {tableData.rows.map((row, i) => (
+                                  <tr key={i} className="border-t border-zinc-700/60 hover:bg-zinc-700/20">
+                                    {Object.values(row).map((val, j) => (
+                                      <td key={j} className="px-3 py-2 text-zinc-300 max-w-xs whitespace-nowrap overflow-hidden text-ellipsis font-mono">
+                                        {val === null ? <span className="text-zinc-600">null</span> : val === true ? <span className="text-green-400">true</span> : val === false ? <span className="text-red-400">false</span> : String(val).length > 80 ? String(val).slice(0, 80) + '…' : String(val)}
+                                      </td>
                                     ))}
                                   </tr>
-                                </thead>
-                                <tbody>
-                                  {tableData.rows.map((row, i) => (
-                                    <tr key={i} className="border-t border-zinc-700/60 hover:bg-zinc-700/20">
-                                      {Object.values(row).map((val, j) => (
-                                        <td key={j} className="px-3 py-2 text-zinc-300 max-w-xs whitespace-nowrap overflow-hidden text-ellipsis font-mono">
-                                          {val === null ? <span className="text-zinc-600">null</span> : val === true ? <span className="text-green-400">true</span> : val === false ? <span className="text-red-400">false</span> : String(val).length > 80 ? String(val).slice(0, 80) + '…' : String(val)}
-                                        </td>
-                                      ))}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          {tableData.total > tableData.limit && (
+                            <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-700">
+                              <button disabled={tablePage === 0} onClick={() => { const p = tablePage - 1; setTablePage(p); fetchTableData(selectedTable, p); }} className={`${btnGhost} disabled:opacity-40`}>← Prev</button>
+                              <span className="text-xs text-zinc-400">Page {tablePage + 1} of {Math.ceil(tableData.total / tableData.limit)}</span>
+                              <button disabled={(tablePage + 1) * tableData.limit >= tableData.total} onClick={() => { const p = tablePage + 1; setTablePage(p); fetchTableData(selectedTable, p); }} className={`${btnGhost} disabled:opacity-40`}>Next →</button>
                             </div>
-                            {tableData.total > tableData.limit && (
-                              <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-700">
-                                <button
-                                  disabled={tablePage === 0}
-                                  onClick={() => { const p = tablePage - 1; setTablePage(p); fetchTableData(selectedTable, p); }}
-                                  className={`${btnGhost} disabled:opacity-40`}
-                                >← Prev</button>
-                                <span className="text-xs text-zinc-400">Page {tablePage + 1} of {Math.ceil(tableData.total / tableData.limit)}</span>
-                                <button
-                                  disabled={(tablePage + 1) * tableData.limit >= tableData.total}
-                                  onClick={() => { const p = tablePage + 1; setTablePage(p); fetchTableData(selectedTable, p); }}
-                                  className={`${btnGhost} disabled:opacity-40`}
-                                >Next →</button>
-                              </div>
-                            )}
-                          </>
-                        ) : tableData?.rows?.length === 0 ? (
-                          <p className="px-4 py-6 text-sm text-zinc-400">Table is empty.</p>
-                        ) : null}
-                      </div>
-                    )}
-                  </>
-                )}
+                          )}
+                        </>
+                      ) : tableData?.rows?.length === 0 ? (
+                        <p className="px-4 py-8 text-sm text-zinc-500 text-center">Table is empty.</p>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

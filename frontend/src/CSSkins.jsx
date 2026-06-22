@@ -11,7 +11,7 @@ const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | 
 const parseExteriorFromName = n => { const m = n?.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)/); return m?.[1] || null; };
 const floatToExterior = v => { const f = parseFloat(v); if (isNaN(f)) return null; if (f < 0.07) return 'Factory New'; if (f < 0.15) return 'Minimal Wear'; if (f < 0.38) return 'Field-Tested'; if (f < 0.45) return 'Well-Worn'; return 'Battle-Scarred'; };
 
-function NumInput({ value, onChange, step = 1, min, max, placeholder, disabled, className }) {
+function NumInput({ value, onChange, step = 1, min, max, placeholder, disabled, className, wrapperClass = '' }) {
   const dp = String(parseFloat(step) || 1).replace(/^[^.]*\.?/, '').length;
   const fire = val => onChange({ target: { value: String(val) } });
   const adj = dir => {
@@ -32,7 +32,7 @@ function NumInput({ value, onChange, step = 1, min, max, placeholder, disabled, 
     </svg>
   );
   return (
-    <div className="relative">
+    <div className={`relative ${wrapperClass}`}>
       <input
         type="number" step={step} min={min} max={max}
         value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
@@ -831,8 +831,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                   <div>
                                     <label className={label}>Buy price *</label>
                                     <div className="flex gap-2">
-                                      <NumInput step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} />
-                                      <select value={addForm.purchase_currency} onChange={e => setAddForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-24`}>
+                                      <NumInput step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} wrapperClass="flex-1" />
+                                      <select value={addForm.purchase_currency} onChange={e => setAddForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-20`}>
                                         {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                                       </select>
                                     </div>
@@ -902,8 +902,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           <div>
                             <label className={label}>Buy price *</label>
                             <div className="flex gap-2">
-                              <NumInput step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} />
-                              <select value={addForm.purchase_currency} onChange={e => setAddForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-24`}>
+                              <NumInput step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} wrapperClass="flex-1" />
+                              <select value={addForm.purchase_currency} onChange={e => setAddForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-20`}>
                                 {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                               </select>
                             </div>
@@ -1075,8 +1075,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           <div>
                             <label className={label}>Buy price *</label>
                             <div className="flex gap-2">
-                              <NumInput step="0.01" value={editForm.purchase_price} onChange={e => setEditForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} />
-                              <select value={editForm.purchase_currency} onChange={e => setEditForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-24`}>
+                              <NumInput step="0.01" value={editForm.purchase_price} onChange={e => setEditForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} wrapperClass="flex-1" />
+                              <select value={editForm.purchase_currency} onChange={e => setEditForm(f => ({ ...f, purchase_currency: e.target.value }))} className={`${input} w-20`}>
                                 {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                               </select>
                             </div>
@@ -1133,7 +1133,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                         <label className={label}>Sale price *</label>
                         <div className="flex gap-2">
                           <NumInput step="0.01" value={sellForm.sale_price} onChange={e => setSellForm(f => ({ ...f, sale_price: e.target.value }))} placeholder="0.00" className={input} />
-                          <select value={sellForm.sale_currency} onChange={e => setSellForm(f => ({ ...f, sale_currency: e.target.value }))} className={`${input} w-24`}>
+                          <select value={sellForm.sale_currency} onChange={e => setSellForm(f => ({ ...f, sale_currency: e.target.value }))} className={`${input} w-20`}>
                             {CURRENCIES.map(c => <option key={c}>{c}</option>)}
                           </select>
                         </div>
