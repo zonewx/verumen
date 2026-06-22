@@ -2651,8 +2651,24 @@ app.post('/api/cs/prices/sync', requireUser, async (req, res) => {
 
 app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data } = await supabase.from('cs_price_cache').select('skin_name, price_usd, price_sek').ilike('skin_name', `%${req.params.query}%`).limit(20);
+  // Normalize query: strip CS special chars, split into words for flexible matching
+  const words = req.params.query.replace(/[|★™®]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 1);
+  if (words.length === 0) return res.json([]);
+  let q = supabase.from('cs_price_cache').select('skin_name, price_sek').limit(200);
+  for (const word of words) q = q.ilike('skin_name', `%${word}%`);
+  const { data } = await q;
   if (!data) return res.json([]);
+  // Deduplicate: strip exterior + StatTrak prefix → unique base names
+  const EXTS = ['Factory New','Minimal Wear','Field-Tested','Well-Worn','Battle-Scarred'];
+  const stripExt = n => { let r = n; for (const e of EXTS) r = r.replace(` (${e})`, ''); return r.trim(); };
+  const stripST  = n => n.replace(/^StatTrak™\s*/, '').trim();
+  const getBase  = n => stripExt(stripST(n));
+  const baseMap = {};
+  for (const r of data) {
+    const base = getBase(r.skin_name);
+    const hadExt = EXTS.some(e => r.skin_name.includes(`(${e})`));
+    if (!baseMap[base]) baseMap[base] = { skin_name: base, price_sek: r.price_sek, hasExterior: hadExt };
+  }
   let bcRate = 1;
   if (BC !== 'SEK') {
     try {
@@ -2661,7 +2677,7 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
       if (fxd?.rates?.[BC]) bcRate = fxd.rates[BC];
     } catch(e) {}
   }
-  res.json(data.map(r => ({ ...r, price: parseFloat(((r.price_sek || 0) * bcRate).toFixed(2)) })));
+  res.json(Object.values(baseMap).slice(0, 15).map(r => ({ ...r, price: parseFloat(((r.price_sek || 0) * bcRate).toFixed(2)) })));
 });
 
 app.get('/api/cs/prices/overrides', requireUser, async (req, res) => {
@@ -2918,7 +2934,7 @@ app.get('/api/cs/inventory', requireUser, async (req, res) => {
   const { data, error } = await supabase.from('cs_inventory').select('*, cs_sales(*)').eq('user_id', req.user.id).order('purchase_date', { ascending:false });
   if (error) { log.error('cs_inventory GET failed', { error: error.message, userId: req.user.id }); return res.status(500).json({ error: error.message }); }
   const items = data || [];
-  const names = [...new Set(items.map(i => i.skin_name))];
+  const names = [...new Set(items.map(i => normSkinName(i.skin_name)))];
   let priceMap = {};
   if (names.length > 0) {
     const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek, price_usd').in('skin_name', names);
@@ -2946,7 +2962,7 @@ app.get('/api/cs/inventory', requireUser, async (req, res) => {
   };
   res.json(items.map(item => ({
     ...item,
-    current_price: sekToBC(priceMap[item.skin_name]?.price_sek || 0),
+    current_price: sekToBC(priceMap[normSkinName(item.skin_name)]?.price_sek || 0),
     purchase_price_display: sekToBC(item.purchase_price_sek || item.purchase_price),
     sale_price_display: salePriceBC(item),
     sale_price: item.cs_sales?.[0]?.sale_price,
@@ -2955,6 +2971,8 @@ app.get('/api/cs/inventory', requireUser, async (req, res) => {
     display_currency: BC,
   })));
 });
+
+const normSkinName = n => (n || '').replace(' | Vanilla', '');
 
 async function toSEK(amount, currency) {
   if (!amount) return 0;
@@ -3037,7 +3055,7 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
   const holdingItems = holding || [];
   let priceMap = {};
   if (holdingItems.length > 0) {
-    const names = [...new Set(holdingItems.map(i => i.skin_name))];
+    const names = [...new Set(holdingItems.map(i => normSkinName(i.skin_name)))];
     const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
     (prices || []).forEach(p => { priceMap[p.skin_name] = p.price_sek; });
   }
@@ -3063,12 +3081,12 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
     const sale = r.cs_sales?.[0];
     return s + (saleToBC(sale?.sale_price, sale?.sale_currency) - sekToBC(costOf(r)));
   }, 0);
-  const unrealised = holdingItems.reduce((s,r) => s + (sekToBC(priceMap[r.skin_name]||0) - sekToBC(costOf(r))), 0);
+  const unrealised = holdingItems.reduce((s,r) => s + (sekToBC(priceMap[normSkinName(r.skin_name)]||0) - sekToBC(costOf(r))), 0);
   res.json({
     realised: parseFloat(realised.toFixed(2)),
     unrealised: parseFloat(unrealised.toFixed(2)),
     totalInvested: sekToBC(holdingItems.reduce((s,r) => s + costOf(r), 0)),
-    currentValue: sekToBC(holdingItems.reduce((s,r) => s + (priceMap[r.skin_name]||0), 0)),
+    currentValue: sekToBC(holdingItems.reduce((s,r) => s + (priceMap[normSkinName(r.skin_name)]||0), 0)),
     totalPnl: parseFloat((realised + unrealised).toFixed(2)),
     soldCount: (sold||[]).length, holdingCount: holdingItems.length,
     display_currency: BC,

@@ -5,6 +5,9 @@ import apiCache from './apiCache';
 const EXTERIORS = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
 const CURRENCIES = ['SEK', 'USD', 'EUR'];
 
+// Vanilla = special item (★) with no skin pattern (no |)
+const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | Vanilla` : (n || '');
+
 function fmt(n) { return (n || 0).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 const CUR_SYM = { SEK: 'kr', USD: '$', EUR: '€', GBP: '£' };
 function fmtCur(n, bc = 'SEK') {
@@ -207,7 +210,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [sortCol, setSortCol] = useState('purchase_date');
   const [sortDir, setSortDir] = useState('desc');
   const [addForm, setAddForm] = useState({
-    skin_name: '', exterior: 'Factory New', float_value: '', pattern: '',
+    skin_name: '', statTrak: false, hasExterior: true, exterior: 'Factory New', float_value: '', pattern: '',
     purchase_price: '', purchase_currency: 'SEK',
     purchase_date: new Date().toISOString().split('T')[0],
     notes: '', screenshot_url: ''
@@ -369,7 +372,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
 
   const selectModalSkin = (item) => {
     setSelectedModalItem(item);
-    setAddForm(f => ({ ...f, skin_name: item.name, purchase_price: item.price > 0 ? String(item.price.toFixed(2)) : f.purchase_price }));
+    setAddForm(f => ({ ...f, skin_name: withVanilla(item.name), purchase_price: item.price > 0 ? String(item.price.toFixed(2)) : f.purchase_price }));
   };
 
   const searchSkins = async (q) => {
@@ -382,7 +385,15 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
 
   const addItem = async () => {
     if (!addForm.skin_name || !addForm.purchase_price || !addForm.purchase_date) return;
-    const payload = { ...addForm };
+    // Construct full skin name from parts (only in manual tab)
+    const isManual = !selectedModalItem;
+    let finalSkinName = addForm.skin_name;
+    if (isManual) {
+      const stripped = finalSkinName.replace(/^StatTrak™\s*/, '').replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/, '').trim();
+      finalSkinName = (addForm.statTrak ? 'StatTrak™ ' : '') + stripped + (addForm.hasExterior ? ` (${addForm.exterior})` : '');
+    }
+    const payload = { ...addForm, skin_name: finalSkinName };
+    delete payload.statTrak; delete payload.hasExterior;
     if (selectedModalItem) payload.steam_asset_id = selectedModalItem.assetId;
     await fetch('/api/cs/inventory', {
       method: 'POST',
@@ -391,7 +402,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
     });
     closeAddModal();
     setAddForm({
-      skin_name: '', exterior: 'Factory New', float_value: '', pattern: '',
+      skin_name: '', statTrak: false, hasExterior: true, exterior: 'Factory New', float_value: '', pattern: '',
       purchase_price: '', purchase_currency: 'SEK',
       purchase_date: new Date().toISOString().split('T')[0],
       notes: '', screenshot_url: ''
@@ -543,7 +554,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                         <div key={item.id} className={`flex items-center gap-4 py-3 first:pt-0 last:pb-0`}>
                           <div className={`w-2 h-2 rounded-full shrink-0 ${item.sold ? 'bg-gray-500' : 'bg-green-400'}`} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">{item.skin_name}</p>
+                            <p className="text-sm font-semibold truncate">{withVanilla(item.skin_name)}</p>
                             <p className={`text-xs text-zinc-400`}>
                               {item.purchase_date}
                               {item.exterior && <span className="ml-1">· {item.exterior}</span>}
@@ -801,13 +812,24 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             {skinSearchResults.length > 0 && (
                               <div className={`absolute z-50 w-full mt-1 bg-zinc-800 border-zinc-600 border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto`}>
                                 {skinSearchResults.map((r, i) => (
-                                  <div key={i} onClick={() => { setAddForm(f => ({ ...f, skin_name: r.skin_name })); setSkinSearch(r.skin_name); setSkinSearchResults([]); }} className={`flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-zinc-600 border-b border-zinc-700 last:border-0`}>
-                                    <span className="text-sm">{r.skin_name}</span>
+                                  <div key={i} onClick={() => { const n = withVanilla(r.skin_name); setAddForm(f => ({ ...f, skin_name: n, hasExterior: r.hasExterior ?? true })); setSkinSearch(n); setSkinSearchResults([]); }} className={`flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-zinc-600 border-b border-zinc-700 last:border-0`}>
+                                    <span className="text-sm">{withVanilla(r.skin_name)}</span>
                                     <span className="text-xs text-green-400 font-bold">{fmtBC(r.price)}</span>
                                   </div>
                                 ))}
                               </div>
                             )}
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className={label}>StatTrak™</label>
+                            <div className="flex gap-2">
+                              {[false, true].map(val => (
+                                <button key={String(val)} type="button" onClick={() => setAddForm(f => ({ ...f, statTrak: val }))}
+                                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition border ${addForm.statTrak === val ? (val ? 'bg-orange-600/20 border-orange-500/60 text-orange-400' : 'bg-sky-600/20 border-sky-500/60 text-sky-400') : 'bg-zinc-800/60 border-zinc-700/60 text-zinc-500 hover:text-zinc-300'}`}>
+                                  {val ? 'StatTrak™' : 'Standard'}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                           <div>
                             <label className={label}>Exterior</label>
@@ -873,7 +895,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                     <div className={`flex items-center justify-between px-6 py-4 border-b border-zinc-700 shrink-0`}>
                       <div>
                         <h3 className="font-bold text-base">Edit Trade</h3>
-                        <p className={`text-xs mt-0.5 text-zinc-400`}>{showEditForm.skin_name}</p>
+                        <p className={`text-xs mt-0.5 text-zinc-400`}>{withVanilla(showEditForm.skin_name)}</p>
                       </div>
                       <button onClick={closeEditModal} className={`text-xl leading-none text-zinc-400 hover:text-white`}>✕</button>
                     </div>
@@ -917,7 +939,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     </>
                                   ) : (
                                     <div className="flex-1 min-w-0">
-                                      <p className="font-semibold text-sm truncate">{editForm.skin_name}</p>
+                                      <p className="font-semibold text-sm truncate">{withVanilla(editForm.skin_name)}</p>
                                       <p className={`text-xs text-zinc-400`}>Previously attached — select from inventory to change</p>
                                     </div>
                                   )}
