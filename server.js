@@ -472,10 +472,26 @@ app.get('/api/users/:username/inventory', async (req, res) => {
     const items = (data.assets || []).map(asset => {
       const desc = descMap[`${asset.classid}_${asset.instanceid}`];
       const name = desc?.market_hash_name || desc?.name || 'Unknown';
-      return { name, iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/128x128` : null, type: desc?.type || '', priceSEK: priceMap[name] || 0 };
+      const actionLink = desc?.actions?.[0]?.link;
+      const inspectLink = actionLink
+        ? actionLink.replace('%owner_steamid%', profile.steam_id).replace('%assetid%', asset.assetid).replace('%d%', '0')
+        : null;
+      return { name, iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/128x128` : null, type: desc?.type || '', priceSEK: priceMap[name] || 0, assetId: asset.assetid, inspectLink };
     }).filter(i => i.name !== 'Unknown');
     res.json({ items, totalValue: items.reduce((s, i) => s + i.priceSEK, 0), count: items.length });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── CS float lookup (proxy to CSFloat API) ──────────────────────────────────
+app.get('/api/cs/float', requireAuth, async (req, res) => {
+  const { link } = req.query;
+  if (!link) return res.status(400).json({ error: 'Missing link' });
+  try {
+    const r = await fetchJSON(`https://api.csfloat.com/?url=${encodeURIComponent(link)}`);
+    if (r.error) return res.status(400).json({ error: r.error });
+    const info = r.iteminfo;
+    res.json({ float: info.floatvalue, paintSeed: info.paintseed, paintIndex: info.paintindex });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Global ISIN cache ────────────────────────────────────────────────────────

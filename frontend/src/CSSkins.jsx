@@ -207,6 +207,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [showSellForm, setShowSellForm] = useState(null);
   const [skinSearch, setSkinSearch] = useState('');
   const [skinSearchResults, setSkinSearchResults] = useState([]);
+  const [fetchingFloat, setFetchingFloat] = useState(false);
   const [filterSold, setFilterSold] = useState('all');
   const [expandedRow, setExpandedRow] = useState(null);
   const [trackerSearch, setTrackerSearch] = useState('');
@@ -373,10 +374,22 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
     });
   };
 
-  const selectModalSkin = (item) => {
+  const selectModalSkin = async (item) => {
     setSelectedModalItem(item);
     const exterior = parseExteriorFromName(item.name);
     setAddForm(f => ({ ...f, skin_name: withVanilla(item.name), purchase_price: item.price > 0 ? String(item.price.toFixed(2)) : f.purchase_price, ...(exterior ? { exterior } : {}) }));
+    if (item.inspectLink) {
+      setFetchingFloat(true);
+      try {
+        const r = await fetch(`/api/cs/float?link=${encodeURIComponent(item.inspectLink)}`, { headers: authHeaders() });
+        const data = await r.json();
+        if (data.float !== undefined) {
+          const ext = floatToExterior(data.float);
+          setAddForm(f => ({ ...f, float_value: data.float.toFixed(4), ...(ext ? { exterior: ext } : {}), ...(data.paintSeed ? { pattern: String(data.paintSeed) } : {}) }));
+        }
+      } catch { /* float fetch failed silently */ }
+      setFetchingFloat(false);
+    }
   };
 
   const searchSkins = async (q) => {
@@ -771,8 +784,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     </select>
                                   </div>
                                   <div>
-                                    <label className={label}>Float</label>
-                                    <input type="number" step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => setAddForm(f => ({ ...f, float_value: e.target.value }))} placeholder="0.0000" className={input} />
+                                    <label className={label}>Float {fetchingFloat && <span className="text-zinc-500 normal-case font-normal tracking-normal ml-1">fetching…</span>}</label>
+                                    <input type="number" step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => setAddForm(f => ({ ...f, float_value: e.target.value }))} placeholder={fetchingFloat ? 'Fetching…' : '0.0000'} disabled={fetchingFloat} className={input} />
                                   </div>
                                   <div>
                                     <label className={label}>Buy price *</label>
@@ -842,7 +855,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             </select>
                           </div>
                           <div>
-                            <label className={label}>Float</label>
+                            <label className={label}>Float *</label>
                             <input type="number" step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => { const ext = floatToExterior(e.target.value); setAddForm(f => ({ ...f, float_value: e.target.value, ...(ext ? { exterior: ext } : {}) })); }} placeholder="0.0000" className={input} />
                           </div>
                           <div>
@@ -879,7 +892,9 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                     <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
                       <button
                         onClick={addItem}
-                        disabled={!addForm.skin_name || !addForm.purchase_price || !addForm.purchase_date}
+                        disabled={addModalTab === 'inventory'
+                          ? !selectedModalItem || !addForm.purchase_price
+                          : !addForm.skin_name || !addForm.purchase_price || (addForm.hasExterior && !addForm.float_value)}
                         className={`${btnOrange} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-600`}
                       >
                         Add to Registry
@@ -1162,7 +1177,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             >
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
-                                  {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); return (<span className="font-semibold flex items-baseline min-w-0"><span className="shrink-0 w-4 text-zinc-500 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
+                                  {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); return (<span className="font-semibold flex items-baseline min-w-0"><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
                                 </div>
                               </td>
                               <td className={`px-4 py-3 text-xs text-zinc-400 whitespace-nowrap`}>{item.exterior || '—'}</td>
