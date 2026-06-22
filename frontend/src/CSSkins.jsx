@@ -8,6 +8,9 @@ const CURRENCIES = ['SEK', 'USD', 'EUR'];
 // Vanilla = special item (★) with no skin pattern (no |)
 const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | Vanilla` : (n || '');
 
+const parseExteriorFromName = n => { const m = n?.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)/); return m?.[1] || null; };
+const floatToExterior = v => { const f = parseFloat(v); if (isNaN(f)) return null; if (f < 0.07) return 'Factory New'; if (f < 0.15) return 'Minimal Wear'; if (f < 0.38) return 'Field-Tested'; if (f < 0.45) return 'Well-Worn'; return 'Battle-Scarred'; };
+
 function fmt(n) { return (n || 0).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 const CUR_SYM = { SEK: 'kr', USD: '$', EUR: '€', GBP: '£' };
 function fmtCur(n, bc = 'SEK') {
@@ -372,7 +375,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
 
   const selectModalSkin = (item) => {
     setSelectedModalItem(item);
-    setAddForm(f => ({ ...f, skin_name: withVanilla(item.name), purchase_price: item.price > 0 ? String(item.price.toFixed(2)) : f.purchase_price }));
+    const exterior = parseExteriorFromName(item.name);
+    setAddForm(f => ({ ...f, skin_name: withVanilla(item.name), purchase_price: item.price > 0 ? String(item.price.toFixed(2)) : f.purchase_price, ...(exterior ? { exterior } : {}) }));
   };
 
   const searchSkins = async (q) => {
@@ -839,7 +843,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           </div>
                           <div>
                             <label className={label}>Float</label>
-                            <input type="number" step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => setAddForm(f => ({ ...f, float_value: e.target.value }))} placeholder="0.0000" className={input} />
+                            <input type="number" step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => { const ext = floatToExterior(e.target.value); setAddForm(f => ({ ...f, float_value: e.target.value, ...(ext ? { exterior: ext } : {}) })); }} placeholder="0.0000" className={input} />
                           </div>
                           <div>
                             <label className={label}>Buy price *</label>
@@ -876,7 +880,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                       <button
                         onClick={addItem}
                         disabled={!addForm.skin_name || !addForm.purchase_price || !addForm.purchase_date}
-                        className={`${btnOrange} disabled:opacity-40 disabled:cursor-not-allowed`}
+                        className={`${btnOrange} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sky-600`}
                       >
                         Add to Registry
                       </button>
@@ -1158,7 +1162,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             >
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="font-semibold max-w-xs truncate">{withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, ''))}</span>
+                                  {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); return (<span className="font-semibold flex items-baseline min-w-0"><span className="shrink-0 w-4 text-zinc-500 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
                                 </div>
                               </td>
                               <td className={`px-4 py-3 text-xs text-zinc-400 whitespace-nowrap`}>{item.exterior || '—'}</td>
