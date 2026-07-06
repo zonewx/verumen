@@ -2123,7 +2123,7 @@ const handleUpload = async (files) => {
 
         <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
           {/* Form card */}
-          <div className="relative w-full bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-2xl p-8 shadow-2xl">
+          <div className="relative w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl">
             {/* Glass top-edge highlight */}
             <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"/>
             {/* Logo */}
