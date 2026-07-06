@@ -2128,9 +2128,8 @@ const handleUpload = async (files) => {
             <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"/>
             {/* Logo */}
             <div className="text-center mb-7">
-              <div className="inline-flex items-center justify-center w-14 h-14 mb-4 relative">
-                <div className="absolute inset-0 bg-sky-500/10 rounded-full blur-lg"/>
-                <img src="/logo.png" alt="Verumen" className="w-14 h-14 object-contain relative"/>
+              <div className="inline-flex items-center justify-center w-14 h-14 mb-4">
+                <img src="/logo.png" alt="Verumen" className="w-14 h-14 object-contain"/>
               </div>
               <h1 className="text-2xl font-bold text-white" style={{letterSpacing:'-0.02em'}}>Verumen</h1>
             </div>
