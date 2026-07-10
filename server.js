@@ -255,11 +255,19 @@ app.get('/api/health', (req, res) => {
 
 // Connectivity diagnostic — tests US (Finnhub) + Nordic (Twelve Data fallback)
 app.get('/api/diag/yf', requireAdmin, async (req, res) => {
-  const [usResult, nordicResult] = await Promise.all([
-    finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'finnhub' })).catch(e => ({ ok: false, error: e?.message })),
-    finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'tiingo' })).catch(e => ({ ok: false, error: e?.message })),
+  const US_SYMBOLS     = ['AAPL', 'MSFT', 'NVDA'];
+  const NORDIC_SYMBOLS = ['VOLV-B.ST', 'ERIC-B.ST', 'EVO.ST'];
+  const test = async (symbol) => {
+    try {
+      const q = await finnhubQuote(symbol);
+      return { symbol, ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice ?? null };
+    } catch(e) { return { symbol, ok: false, error: e?.message }; }
+  };
+  const [us, nordic] = await Promise.all([
+    Promise.all(US_SYMBOLS.map(test)),
+    Promise.all(NORDIC_SYMBOLS.map(test)),
   ]);
-  res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us: usResult, nordic: nordicResult });
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us, nordic });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────

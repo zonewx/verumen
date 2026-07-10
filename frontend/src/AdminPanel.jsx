@@ -377,7 +377,7 @@ export default function AdminPanel({ authUsername }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 overflow-x-auto overflow-y-hidden">
+        <div className="flex gap-1 mb-6 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 text-sm font-semibold rounded-lg whitespace-nowrap shrink-0 transition ${tab === t.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700/50'}`}>{t.label}</button>
           ))}
@@ -934,28 +934,36 @@ export default function AdminPanel({ authUsername }) {
                       <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Connectivity</h2>
                       <div className="flex flex-col gap-3">
                         {[
-                          { label: 'US Market', subtitle: 'AAPL via Finnhub', result: diagData.us },
-                          { label: 'Nordic Market', subtitle: 'VOLV-B.ST via Tiingo', result: diagData.nordic },
-                        ].map(({ label, subtitle, result }) => (
-                          <div key={label} className="bg-zinc-700/50 rounded-xl p-4 flex items-center gap-4">
-                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${result?.ok ? 'bg-green-400' : 'bg-red-400'}`}/>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold">{label}</p>
-                              <p className={`text-xs mt-0.5 text-zinc-400`}>{subtitle} · {result?.source}</p>
-                              {result?.error && <p className="text-xs text-red-400 mt-1">{result.error}</p>}
+                          { label: 'US Market', subtitle: 'Finnhub', results: diagData.us },
+                          { label: 'Nordic Market', subtitle: 'Tiingo', results: diagData.nordic },
+                        ].map(({ label, subtitle, results }) => {
+                          const okCount = results.filter(r => r.ok).length;
+                          const allOk = okCount === results.length;
+                          const anyOk = okCount > 0;
+                          return (
+                            <div key={label} className="bg-zinc-700/50 rounded-xl p-4">
+                              <div className="flex items-center gap-3 mb-3">
+                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${allOk ? 'bg-green-400' : anyOk ? 'bg-yellow-400' : 'bg-red-400'}`}/>
+                                <p className="text-sm font-semibold">{label}</p>
+                                <span className={`text-xs text-zinc-400`}>{subtitle}</span>
+                                <span className={`text-xs ml-auto font-semibold ${allOk ? 'text-green-400' : anyOk ? 'text-yellow-400' : 'text-red-400'}`}>
+                                  {okCount}/{results.length} OK
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                {results.map(r => (
+                                  <div key={r.symbol} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-zinc-800/60">
+                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${r.ok ? 'bg-green-400' : 'bg-red-400'}`}/>
+                                    <span className="font-mono text-xs text-zinc-300">{r.symbol}</span>
+                                    {r.ok
+                                      ? <span className="text-xs text-green-400 ml-auto">${r.price?.toFixed(2)}</span>
+                                      : <span className="text-xs text-red-400 ml-auto">{r.error || 'Failed'}</span>}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                            <div className="text-right shrink-0">
-                              {result?.ok ? (
-                                <>
-                                  <p className={`text-xs text-zinc-400`}>Price</p>
-                                  <p className="text-sm font-bold text-green-400">${result.price?.toFixed(2)}</p>
-                                </>
-                              ) : (
-                                <span className="text-xs font-semibold text-red-400">Failed</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </>
