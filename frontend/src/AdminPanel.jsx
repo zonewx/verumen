@@ -38,6 +38,10 @@ export default function AdminPanel({ authUsername }) {
   const [userSearch, setUserSearch] = useState('');
   const [roleSearch, setRoleSearch] = useState('');
 
+  // Diagnostics
+  const [diagData, setDiagData] = useState(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+
   // Database browser
   const [dbTables, setDbTables] = useState([]);
   const [dbTablesLoading, setDbTablesLoading] = useState(false);
@@ -147,6 +151,7 @@ export default function AdminPanel({ authUsername }) {
   useEffect(() => { if (tab === 'tickers') fetchFailures(); }, [tab]);
   useEffect(() => { if (tab === 'global-overrides') fetchGlobalOverrides(); }, [tab]);
   useEffect(() => { if (tab === 'database') fetchDbTables(); }, [tab]);
+  useEffect(() => { if (tab === 'diagnostics') fetchDiag(); }, [tab]);
 
   useEffect(() => {
     const el = tableScrollRef.current;
@@ -291,7 +296,18 @@ export default function AdminPanel({ authUsername }) {
     { id: 'tickers', label: 'Ticker Failures' },
     { id: 'global-overrides', label: 'Global Overrides' },
     { id: 'announcements', label: 'Announcements' },
+    { id: 'diagnostics', label: 'Diagnostics' },
   ];
+
+  const fetchDiag = useCallback(async () => {
+    setDiagLoading(true);
+    try {
+      const res = await fetch('/api/diag/yf', { headers: h });
+      const data = await res.json();
+      setDiagData(data);
+    } catch(e) { setDiagData({ error: e.message }); }
+    setDiagLoading(false);
+  }, []);
 
   const fetchDbTables = useCallback(async () => {
     setDbTablesLoading(true);
@@ -876,6 +892,74 @@ export default function AdminPanel({ authUsername }) {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* DIAGNOSTICS */}
+            {tab === 'diagnostics' && (
+              <div className="flex flex-col gap-5">
+                <div className="flex items-center justify-between">
+                  <p className={`text-sm text-zinc-400`}>Live connectivity test against market data APIs.</p>
+                  <button onClick={fetchDiag} disabled={diagLoading} className={`${btnGhost} disabled:opacity-50`}>
+                    {diagLoading ? '⏳ Running...' : '↺ Run Test'}
+                  </button>
+                </div>
+
+                {diagLoading && !diagData ? (
+                  <div className="flex items-center gap-3 py-12 justify-center">
+                    <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                    <span className={`text-sm text-zinc-400`}>Running diagnostics…</span>
+                  </div>
+                ) : diagData?.error ? (
+                  <div className={`${card} p-5 text-sm text-red-400`}>{diagData.error}</div>
+                ) : diagData ? (
+                  <>
+                    <div className={`${card} p-5`}>
+                      <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>API Keys</h2>
+                      <div className="grid grid-cols-2 gap-4">
+                        {[
+                          { label: 'Finnhub', ok: diagData.finnhubKeySet },
+                          { label: 'Tiingo', ok: diagData.tiingoKeySet },
+                        ].map(({ label, ok }) => (
+                          <div key={label} className="bg-zinc-700 rounded-lg p-3 flex items-center gap-3">
+                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ok ? 'bg-green-400' : 'bg-red-400'}`}/>
+                            <span className="text-sm font-semibold">{label}</span>
+                            <span className={`text-xs ml-auto ${ok ? 'text-green-400' : 'text-red-400'}`}>{ok ? 'Configured' : 'Missing'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={`${card} p-5`}>
+                      <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Connectivity</h2>
+                      <div className="flex flex-col gap-3">
+                        {[
+                          { label: 'US Market', subtitle: 'AAPL via Finnhub', result: diagData.us },
+                          { label: 'Nordic Market', subtitle: 'VOLV-B.ST via Tiingo', result: diagData.nordic },
+                        ].map(({ label, subtitle, result }) => (
+                          <div key={label} className="bg-zinc-700/50 rounded-xl p-4 flex items-center gap-4">
+                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${result?.ok ? 'bg-green-400' : 'bg-red-400'}`}/>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold">{label}</p>
+                              <p className={`text-xs mt-0.5 text-zinc-400`}>{subtitle} · {result?.source}</p>
+                              {result?.error && <p className="text-xs text-red-400 mt-1">{result.error}</p>}
+                            </div>
+                            <div className="text-right shrink-0">
+                              {result?.ok ? (
+                                <>
+                                  <p className={`text-xs text-zinc-400`}>Price</p>
+                                  <p className="text-sm font-bold text-green-400">${result.price?.toFixed(2)}</p>
+                                </>
+                              ) : (
+                                <span className="text-xs font-semibold text-red-400">Failed</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
             )}
 
