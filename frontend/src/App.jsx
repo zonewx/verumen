@@ -2225,7 +2225,6 @@ const handleUpload = async (files) => {
           <span style={{ fontSize: '20px', fontWeight: 700, color: 'white', fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}>Verumen</span>
         </div>
         <div className="animate-spin" style={{ width: '32px', height: '32px', border: '4px solid #a1a1aa', borderTopColor: 'transparent', borderRadius: '50%' }}/>
-        <p style={{ fontSize: '14px', color: '#a1a1aa' }}>{appLoadingLabel}</p>
       </div>
     </div>
   );
