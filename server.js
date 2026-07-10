@@ -199,6 +199,23 @@ function rateLimit(maxRequests, windowMs) {
 }
 const authRateLimit = rateLimit(10, 60 * 1000); // 10 attempts per minute
 
+const heavyRateLimitMap = new Map();
+setInterval(() => { const now = Date.now(); for (const [k, v] of heavyRateLimitMap) if (now > v) heavyRateLimitMap.delete(k); }, 5 * 60 * 1000).unref();
+function heavyRateLimit(cooldownMs, label) {
+  return (req, res, next) => {
+    if (req.role === 'admin' || req.role === 'moderator') return next();
+    const key = `${req.user?.id}:${label}`;
+    const now = Date.now();
+    const resetAt = heavyRateLimitMap.get(key);
+    if (resetAt && now < resetAt) {
+      const secsLeft = Math.ceil((resetAt - now) / 1000);
+      return res.status(429).json({ error: `Please wait ${secsLeft}s before refreshing again.` });
+    }
+    heavyRateLimitMap.set(key, now + cooldownMs);
+    next();
+  };
+}
+
 const app = express();
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '20mb' }));
@@ -237,7 +254,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Connectivity diagnostic — tests US (Finnhub) + Nordic (Twelve Data fallback)
-app.get('/api/diag/yf', async (req, res) => {
+app.get('/api/diag/yf', requireAdmin, async (req, res) => {
   const [usResult, nordicResult] = await Promise.all([
     finnhubQuote('AAPL').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'finnhub' })).catch(e => ({ ok: false, error: e?.message })),
     finnhubQuote('VOLV-B.ST').then(q => ({ ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice, source: 'tiingo' })).catch(e => ({ ok: false, error: e?.message })),
@@ -298,7 +315,7 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   if (regSetting && regSetting.value === 'false') return res.status(403).json({ error: 'Registration is currently disabled.' });
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(username.trim())) return res.status(400).json({ error: 'Username must be 3-20 characters, letters/numbers/underscore only.' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
-  const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.trim()).single();
+  const { data: existing } = await supabase.from('profiles').select('id').ilike('username', username.trim()).single();
   if (existing) return res.status(400).json({ error: 'Username already taken.' });
   const [{ count }, { data: limitSetting }] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
@@ -382,6 +399,7 @@ app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   if (showPortfolioValue !== undefined) update.show_portfolio_value = showPortfolioValue;
   if (avatarBase64 !== undefined) {
     if (avatarBase64 && avatarBase64.length > 1.5 * 1024 * 1024) return res.status(400).json({ error: 'Avatar too large. Maximum 1.5 MB.' });
+    if (avatarBase64 && !avatarBase64.startsWith('data:image/')) return res.status(400).json({ error: 'Invalid image format.' });
     update.avatar_base64 = avatarBase64;
   }
   if (showcaseItems !== undefined) {
@@ -1708,7 +1726,7 @@ app.get('/api/market-indexes', requireUser, (req, res) => {
 });
 
 // ── Portfolio valuation ─────────────────────────────────────────────────────
-app.post('/api/portfolio', requireUser, async (req, res) => {
+app.post('/api/portfolio', requireUser, heavyRateLimit(30000, 'portfolio'), async (req, res) => {
   const { portfolio, baseCurrency, forceRefresh } = req.body;
   if (!portfolio?.length) return res.json({ portfolio:[], totals:null });
   const BC = baseCurrency || 'SEK';
@@ -2416,7 +2434,7 @@ app.get('/api/ownership/search/:query', requireUser, async (req, res) => {
 });
 
 // ── Performance history ─────────────────────────────────────────────────────
-app.post('/api/history', requireUser, async (req, res) => {
+app.post('/api/history', requireUser, heavyRateLimit(60000, 'history'), async (req, res) => {
   const { portfolio, baseCurrency, period } = req.body;
   if (!portfolio?.length) return res.json([]);
   const days = { '1W':7,'1M':30,'3M':90,'1Y':365,'3Y':1095 }[period]||90;
@@ -2557,6 +2575,7 @@ app.post('/api/activity/screenshot', requireUser, async (req, res) => {
   const { skinName, caption, imageBase64 } = req.body;
   if (!skinName) return res.status(400).json({ error: 'Skin name required.' });
   if (imageBase64 && imageBase64.length > 1.5 * 1024 * 1024) return res.status(400).json({ error: 'Image too large. Maximum 1.5 MB.' });
+  if (imageBase64 && !imageBase64.startsWith('data:image/')) return res.status(400).json({ error: 'Invalid image format.' });
   await appendActivity(req.user.id, 'skin_screenshot', { skinName: skinName||'Unknown skin', caption: caption||'', imageBase64: imageBase64||null });
   res.json({ success:true });
 });
@@ -2747,7 +2766,7 @@ app.delete('/api/cs/prices/override/:skinName', requireUser, async (req, res) =>
 });
 
 
-app.get('/api/cs/steam/inventory/:steamId', requireUser, async (req, res) => {
+app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, 'steam-inv'), async (req, res) => {
   if (!/^\d{17}$/.test(req.params.steamId)) return res.status(400).json({ error: 'Invalid Steam ID' });
   const BC = (req.query.currency || 'SEK').toUpperCase();
   try {
@@ -3140,7 +3159,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
     // Fetch profiles and transaction counts in parallel — no N+1
     const [{ data: profiles }, { data: txCounts }, { count: totalTx }] = await Promise.all([
       supabase.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64'),
-      supabase.from('transactions').select('user_id').then(r => r), // get all for grouping
+      supabase.from('transactions').select('user_id').limit(100000), // capped to avoid unbounded memory usage
       supabase.from('transactions').select('*', { count:'exact', head:true }),
     ]);
 
@@ -3253,6 +3272,7 @@ app.get('/api/mod/log', requireModerator, async (req, res) => {
 
 app.post('/api/mod/users/:username/reset-password', requireModerator, async (req, res) => {
   const { newPassword } = req.body;
+  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
   const { data: profile } = await supabase.from('profiles').select('id, role').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error:'User not found.' });
   if (profile.role==='admin') return res.status(403).json({ error:'Cannot reset admin password.' });
