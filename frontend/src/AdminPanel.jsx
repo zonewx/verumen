@@ -366,7 +366,7 @@ export default function AdminPanel({ authUsername }) {
         </div>
       )}
 
-      <div className={`${tab === 'database' ? 'max-w-7xl' : 'max-w-4xl'} mx-auto px-6 py-8`}>
+      <div className={`max-w-7xl mx-auto px-6 py-8`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -966,6 +966,21 @@ export default function AdminPanel({ authUsername }) {
                         })}
                       </div>
                     </div>
+
+                    {diagData.tiingoProbe && (
+                      <div className={`${card} p-5`}>
+                        <h2 className="text-xs font-bold uppercase tracking-wider mb-3 text-zinc-400">Tiingo Raw Probe <span className="text-zinc-600 normal-case font-normal">(volv-b.st)</span></h2>
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className={`text-xs font-mono font-bold ${diagData.tiingoProbe.status === 200 ? 'text-green-400' : 'text-red-400'}`}>
+                            HTTP {diagData.tiingoProbe.status ?? 'error'}
+                          </span>
+                          {diagData.tiingoProbe.error && <span className="text-xs text-red-400">{diagData.tiingoProbe.error}</span>}
+                        </div>
+                        {diagData.tiingoProbe.body && (
+                          <pre className="text-xs font-mono text-zinc-400 bg-zinc-900 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">{diagData.tiingoProbe.body}</pre>
+                        )}
+                      </div>
+                    )}
                   </>
                 ) : null}
               </div>

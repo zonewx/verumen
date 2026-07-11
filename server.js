@@ -253,21 +253,37 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString(), indexCache: cacheSnapshot });
 });
 
-// Connectivity diagnostic — tests US (Finnhub) + Nordic (Twelve Data fallback)
+// Connectivity diagnostic — tests US (Finnhub) + Nordic (Tiingo fallback)
 app.get('/api/diag/yf', requireAdmin, async (req, res) => {
   const US_SYMBOLS     = ['AAPL', 'MSFT', 'NVDA'];
   const NORDIC_SYMBOLS = ['VOLV-B.ST', 'ERIC-B.ST', 'EVO.ST'];
   const test = async (symbol) => {
     try {
       const q = await finnhubQuote(symbol);
+      if (!q) return { symbol, ok: false, error: 'No data returned' };
       return { symbol, ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice ?? null };
     } catch(e) { return { symbol, ok: false, error: e?.message }; }
   };
+
+  // Raw Tiingo probe — reveals HTTP status + actual response body for a Nordic ticker
+  let tiingoProbe = null;
+  if (TIINGO_KEY) {
+    try {
+      const d1 = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+      const r = await fetch(
+        `https://api.tiingo.com/tiingo/daily/volv-b.st/prices?startDate=${d1}&token=${TIINGO_KEY}`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      const body = await r.text();
+      tiingoProbe = { status: r.status, body: body.slice(0, 300) };
+    } catch(e) { tiingoProbe = { error: e.message }; }
+  }
+
   const [us, nordic] = await Promise.all([
     Promise.all(US_SYMBOLS.map(test)),
     Promise.all(NORDIC_SYMBOLS.map(test)),
   ]);
-  res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us, nordic });
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us, nordic, tiingoProbe });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
