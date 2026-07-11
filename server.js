@@ -278,25 +278,22 @@ app.get('/api/diag/yf', requireAdmin, async (req, res) => {
     } catch(e) { finnhubProbe = { error: e.message }; }
   }
 
-  // Raw Tiingo probe — reveals HTTP status + actual response body for a Nordic ticker
-  let tiingoProbe = null;
-  if (TIINGO_KEY) {
-    try {
-      const d1 = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
-      const r = await fetch(
-        `https://api.tiingo.com/tiingo/daily/volv-b.st/prices?startDate=${d1}&token=${TIINGO_KEY}`,
-        { signal: AbortSignal.timeout(8000) }
-      );
-      const body = await r.text();
-      tiingoProbe = { status: r.status, body: body.slice(0, 300) };
-    } catch(e) { tiingoProbe = { error: e.message }; }
-  }
+  // Raw Yahoo Finance probe — reveals HTTP status + response for a Nordic ticker
+  let yahooProbe = null;
+  try {
+    const r = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/VOLV-B.ST?interval=1d&range=5d`,
+      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' }, signal: AbortSignal.timeout(8000) }
+    );
+    const body = await r.text();
+    yahooProbe = { status: r.status, body: body.slice(0, 300) };
+  } catch(e) { yahooProbe = { error: e.message }; }
 
   const [us, nordic] = await Promise.all([
     Promise.all(US_SYMBOLS.map(test)),
     Promise.all(NORDIC_SYMBOLS.map(test)),
   ]);
-  res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us, nordic, finnhubProbe, tiingoProbe });
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us, nordic, finnhubProbe, yahooProbe });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────
@@ -639,11 +636,10 @@ const ISIN_CURRENCY_MAP = {
   HK: 'HKD', JP: 'JPY', SG: 'SGD', CN: 'CNY',
 };
 
-// ── Finnhub (US prices) + Tiingo (international EOD) + Frankfurter (FX) ──
+// ── Finnhub (US prices) + Yahoo Finance (international) + Frankfurter (FX) ──
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
 if (!FINNHUB_KEY) log.warn('FINNHUB_API_KEY not set — live price fetching will fail');
-const TIINGO_KEY = process.env.TIINGO_API_KEY || '';
-if (!TIINGO_KEY) log.warn('TIINGO_API_KEY not set — Nordic/international price fetching will fail');
+const TIINGO_KEY = process.env.TIINGO_API_KEY || ''; // kept for env compat, no longer used
 
 // Yahoo Finance exchange suffix → Finnhub MIC exchange code
 const YF_TO_FH_EXCHANGE = {
@@ -692,46 +688,40 @@ async function finnhubFetch(path) {
 }
 
 // Fallback for exchanges Finnhub free tier doesn't cover (Nordic, European, etc.)
-// Tiingo EOD daily prices — free tier covers international stocks, works from cloud.
-// Uses lowercase Yahoo Finance-format tickers: volv-b.st, equinor.ol
-async function tiingoQuote(yfTicker) {
-  if (!TIINGO_KEY) return null;
-  const d1 = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+// Uses the unofficial Yahoo Finance chart API — no key, no rate cap, same ticker format.
+async function yahooQuote(yfTicker) {
   const r = await fetch(
-    `https://api.tiingo.com/tiingo/daily/${encodeURIComponent(yfTicker.toLowerCase())}/prices?startDate=${d1}&token=${TIINGO_KEY}`,
-    { signal: AbortSignal.timeout(8000) }
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfTicker)}?interval=1d&range=5d`,
+    { headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' }, signal: AbortSignal.timeout(8000) }
   );
-  if (r.status === 429) { log.warn('Tiingo rate limit hit', { ticker: yfTicker }); return null; }
-  if (!r.ok) throw new Error(`Tiingo HTTP ${r.status}`);
+  if (r.status === 429) { log.warn('Yahoo Finance rate limit hit', { ticker: yfTicker }); return null; }
+  if (!r.ok) throw new Error(`Yahoo Finance HTTP ${r.status}`);
   const data = await r.json();
-  if (!Array.isArray(data) || data.length === 0) return null;
-  const latest = data[data.length - 1];
-  const price = latest?.close ?? latest?.adjClose;
-  if (!price) return null;
-  const prevClose = data.length > 1 ? (data[data.length - 2]?.close ?? null) : null;
+  const meta = data?.chart?.result?.[0]?.meta;
+  if (!meta?.regularMarketPrice) return null;
   const cached = _priceCache.get(yfTicker);
   return {
     symbol: yfTicker,
-    regularMarketPrice: price,
-    regularMarketPreviousClose: prevClose,
-    regularMarketTime: Math.floor(new Date(latest.date).getTime() / 1000),
-    regularMarketChangePercent: prevClose ? ((price - prevClose) / prevClose) * 100 : null,
-    regularMarketChange: prevClose ? price - prevClose : null,
-    currency: currencyFromTicker(yfTicker),
-    longName:  cached?.q?.longName  || null,
-    shortName: cached?.q?.shortName || null,
-    sector:    cached?.q?.sector    || null,
-    quoteType: cached?.q?.quoteType || 'EQUITY',
+    regularMarketPrice: meta.regularMarketPrice,
+    regularMarketPreviousClose: meta.chartPreviousClose ?? meta.previousClose ?? null,
+    regularMarketTime: meta.regularMarketTime ?? null,
+    regularMarketChangePercent: meta.regularMarketChangePercent ?? null,
+    regularMarketChange: meta.regularMarketChange ?? null,
+    currency: meta.currency ?? currencyFromTicker(yfTicker),
+    longName:  meta.longName  ?? cached?.q?.longName  ?? null,
+    shortName: meta.shortName ?? cached?.q?.shortName ?? null,
+    sector:    cached?.q?.sector ?? null,
+    quoteType: meta.instrumentType ?? cached?.q?.quoteType ?? 'EQUITY',
   };
 }
 
 // Returns a YF-compatible quote object. Preserves name/sector from existing cache
 // so repeated fetches don't lose metadata that Finnhub's /quote doesn't return.
-// Falls back to Tiingo when Finnhub returns no data (free tier covers US only).
+// Falls back to Yahoo Finance when Finnhub returns no data (free tier covers US only).
 async function finnhubQuote(yfTicker) {
   const fhSymbol = toFinnhubSymbol(yfTicker);
   const data = await finnhubFetch(`/quote?symbol=${encodeURIComponent(fhSymbol)}`);
-  if (!data?.c) return tiingoQuote(yfTicker); // Finnhub no-data → try Tiingo
+  if (!data?.c) return yahooQuote(yfTicker); // Finnhub no-data → try Yahoo Finance
   const cached = _priceCache.get(yfTicker);
   return {
     symbol: yfTicker,
@@ -749,27 +739,19 @@ async function finnhubQuote(yfTicker) {
 }
 
 // Returns company name for a YF-format ticker.
-// Tries Finnhub profile2 first; falls back to Tiingo metadata (covers European stocks
-// that Finnhub free tier doesn't serve via profile2).
+// Tries Finnhub profile2 first; falls back to Yahoo Finance chart meta (covers
+// international stocks that Finnhub free tier doesn't serve via profile2).
 async function finnhubName(yfTicker) {
   try {
     const fhSymbol = toFinnhubSymbol(yfTicker);
     const p = await finnhubFetch(`/stock/profile2?symbol=${encodeURIComponent(fhSymbol)}`);
     if (p?.name) return cleanYFName(p.name);
   } catch {}
-  // Tiingo fallback — free tier covers international stocks
-  if (TIINGO_KEY) {
-    try {
-      const r = await fetch(
-        `https://api.tiingo.com/tiingo/daily/${encodeURIComponent(yfTicker.toLowerCase())}?token=${TIINGO_KEY}`,
-        { signal: AbortSignal.timeout(8000) }
-      );
-      if (r.ok) {
-        const d = await r.json();
-        if (d?.name) return cleanYFName(d.name);
-      }
-    } catch {}
-  }
+  try {
+    const q = await yahooQuote(yfTicker);
+    if (q?.longName) return cleanYFName(q.longName);
+    if (q?.shortName) return cleanYFName(q.shortName);
+  } catch {}
   return null;
 }
 

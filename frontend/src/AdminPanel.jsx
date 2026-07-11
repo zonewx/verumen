@@ -969,7 +969,7 @@ export default function AdminPanel({ authUsername }) {
 
                     {[
                       { label: 'Finnhub Raw Probe', hint: 'AAPL', probe: diagData.finnhubProbe },
-                      { label: 'Tiingo Raw Probe', hint: 'volv-b.st', probe: diagData.tiingoProbe },
+                      { label: 'Yahoo Finance Raw Probe', hint: 'VOLV-B.ST', probe: diagData.yahooProbe },
                     ].filter(p => p.probe).map(({ label, hint, probe }) => (
                       <div key={label} className={`${card} p-5`}>
                         <h2 className="text-xs font-bold uppercase tracking-wider mb-3 text-zinc-400">{label} <span className="text-zinc-600 normal-case font-normal">({hint})</span></h2>
