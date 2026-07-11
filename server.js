@@ -265,6 +265,19 @@ app.get('/api/diag/yf', requireAdmin, async (req, res) => {
     } catch(e) { return { symbol, ok: false, error: e?.message }; }
   };
 
+  // Raw Finnhub probe — reveals HTTP status + actual response body for a US ticker
+  let finnhubProbe = null;
+  if (FINNHUB_KEY) {
+    try {
+      const r = await fetch(
+        `https://finnhub.io/api/v1/quote?symbol=AAPL&token=${FINNHUB_KEY}`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      const body = await r.text();
+      finnhubProbe = { status: r.status, body: body.slice(0, 300) };
+    } catch(e) { finnhubProbe = { error: e.message }; }
+  }
+
   // Raw Tiingo probe — reveals HTTP status + actual response body for a Nordic ticker
   let tiingoProbe = null;
   if (TIINGO_KEY) {
@@ -283,7 +296,7 @@ app.get('/api/diag/yf', requireAdmin, async (req, res) => {
     Promise.all(US_SYMBOLS.map(test)),
     Promise.all(NORDIC_SYMBOLS.map(test)),
   ]);
-  res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us, nordic, tiingoProbe });
+  res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us, nordic, finnhubProbe, tiingoProbe });
 });
 
 // ── Auth middleware ─────────────────────────────────────────────────────────

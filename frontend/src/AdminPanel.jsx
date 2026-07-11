@@ -967,20 +967,23 @@ export default function AdminPanel({ authUsername }) {
                       </div>
                     </div>
 
-                    {diagData.tiingoProbe && (
-                      <div className={`${card} p-5`}>
-                        <h2 className="text-xs font-bold uppercase tracking-wider mb-3 text-zinc-400">Tiingo Raw Probe <span className="text-zinc-600 normal-case font-normal">(volv-b.st)</span></h2>
+                    {[
+                      { label: 'Finnhub Raw Probe', hint: 'AAPL', probe: diagData.finnhubProbe },
+                      { label: 'Tiingo Raw Probe', hint: 'volv-b.st', probe: diagData.tiingoProbe },
+                    ].filter(p => p.probe).map(({ label, hint, probe }) => (
+                      <div key={label} className={`${card} p-5`}>
+                        <h2 className="text-xs font-bold uppercase tracking-wider mb-3 text-zinc-400">{label} <span className="text-zinc-600 normal-case font-normal">({hint})</span></h2>
                         <div className="flex items-center gap-3 mb-2">
-                          <span className={`text-xs font-mono font-bold ${diagData.tiingoProbe.status === 200 ? 'text-green-400' : 'text-red-400'}`}>
-                            HTTP {diagData.tiingoProbe.status ?? 'error'}
+                          <span className={`text-xs font-mono font-bold ${probe.status === 200 ? 'text-green-400' : 'text-red-400'}`}>
+                            HTTP {probe.status ?? 'error'}
                           </span>
-                          {diagData.tiingoProbe.error && <span className="text-xs text-red-400">{diagData.tiingoProbe.error}</span>}
+                          {probe.error && <span className="text-xs text-red-400">{probe.error}</span>}
                         </div>
-                        {diagData.tiingoProbe.body && (
-                          <pre className="text-xs font-mono text-zinc-400 bg-zinc-900 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">{diagData.tiingoProbe.body}</pre>
+                        {probe.body && (
+                          <pre className="text-xs font-mono text-zinc-400 bg-zinc-900 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">{probe.body}</pre>
                         )}
                       </div>
-                    )}
+                    ))}
                   </>
                 ) : null}
               </div>
