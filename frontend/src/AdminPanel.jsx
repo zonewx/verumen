@@ -935,7 +935,7 @@ export default function AdminPanel({ authUsername }) {
                       <div className="flex flex-col gap-3">
                         {[
                           { label: 'US Market', subtitle: 'Finnhub', results: diagData.us },
-                          { label: 'Nordic Market', subtitle: 'Tiingo', results: diagData.nordic },
+                          { label: 'Nordic Market', subtitle: 'Yahoo Finance', results: diagData.nordic },
                         ].map(({ label, subtitle, results }) => {
                           const okCount = results.filter(r => r.ok).length;
                           const allOk = okCount === results.length;
