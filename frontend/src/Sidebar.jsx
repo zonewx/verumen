@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿﻿import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // Inline accordion content for portfolio actions
@@ -29,14 +29,19 @@ function ActionContent({ id, pa, selectedBroker, onBrokerChange }) {
       </div>
 
       <label className={`${btn} cursor-pointer ${pa.uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}>
-        {pa.uploadLoading ? <>{spinner}Processingâ€¦</> : pa.uploadStatus ? 'â†º Re-upload' : 'â†‘ Upload CSV'}
+        {pa.uploadLoading
+          ? <>{spinner}Processing...</>
+          : pa.uploadStatus
+          ? <><svg className="w-3.5 h-3.5 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Re-upload</>
+          : <><svg className="w-3.5 h-3.5 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Upload CSV</>
+        }
         <input type="file" accept=".csv" multiple className="hidden" disabled={pa.uploadLoading} onChange={e => { const f = Array.from(e.target.files); e.target.value = ''; pa.onUpload(f); }} />
       </label>
       <p className={`text-[10px] ${sub}`}>Supports Avanza, Montrose, Nordnet.</p>
       {pa.uploadProgress && (
         <div className="rounded-lg px-3 py-2.5 text-sm border bg-zinc-700/40 border-zinc-600/40 text-zinc-300">
           <div className="flex items-center gap-2">
-            <div className="animate-spin">â³</div>
+            <span className="inline-block w-4 h-4 border-2 border-zinc-300 border-t-transparent rounded-full animate-spin shrink-0" />
             <span className="font-medium flex-1">{pa.uploadProgress.label}</span>
           </div>
         </div>
@@ -64,11 +69,11 @@ function ActionContent({ id, pa, selectedBroker, onBrokerChange }) {
       {pa.txCount?.trades > 0 && (
         <>
           <button onClick={pa.onSync} disabled={pa.syncLoading} className={`${btn} ${pa.syncLoading ? 'bg-zinc-700 text-zinc-400' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
-            {pa.syncLoading ? <>{spinner}Syncingâ€¦</> : 'âŸ³ Sync Portfolio'}
+            {pa.syncLoading ? <>{spinner}Syncingâ€¦</> : (<><svg className="w-3.5 h-3.5 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>Sync Portfolio</>)}
           </button>
           {pa.syncStatus && <p className={`text-[10px] ${pa.syncStatus.startsWith('âœ“') ? 'text-green-400' : sub}`}>{pa.syncStatus}</p>}
           <button onClick={pa.onResolve} disabled={pa.resolveLoading} className={`${btn} bg-zinc-700 hover:bg-zinc-600 text-zinc-200`}>
-            {pa.resolveLoading ? <>{spinner}Resolvingâ€¦</> : 'ðŸ” Resolve Tickers'}
+            {pa.resolveLoading ? <>{spinner}Resolvingâ€¦</> : (<><svg className="w-3.5 h-3.5 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Resolve Tickers</>)}
           </button>
           {pa.resolveStatus && <p className={`text-[10px] ${pa.resolveStatus.startsWith('âœ“') ? 'text-green-400' : sub}`}>{pa.resolveStatus}</p>}
         </>

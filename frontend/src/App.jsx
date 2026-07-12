@@ -1086,12 +1086,17 @@ const handleUpload = async (files) => {
                         </select>
                       </div>
                       <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}>
-                        {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
+                        {uploadLoading
+                          ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />Processing…</>
+                          : uploadStatus
+                          ? <><svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Re-upload CSV</>
+                          : <><svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Upload CSV files</>
+                        }
                       </button>
                       <p className={`text-xs text-zinc-400`}>Supports Montrose, Avanza and Nordnet.</p>
                       {uploadProgress && (
                         <div className={`rounded-lg px-3 py-2.5 text-sm border bg-zinc-700/40 border-zinc-600/40 text-zinc-300`}>
-                          <div className="flex items-center gap-2"><div className="animate-spin">⏳</div><span className="font-medium">{uploadProgress.label}</span></div>
+                          <div className="flex items-center gap-2"><span className="inline-block w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin shrink-0" /><span className="font-medium">{uploadProgress.label}</span></div>
                         </div>
                       )}
                       {uploadStatus?.error && <div className="rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400">✗ {uploadStatus.error}</div>}
@@ -1166,7 +1171,10 @@ const handleUpload = async (files) => {
                         </select>
                       </div>
                       <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-pink-600 hover:bg-pink-500 text-white'}`}>
-                        {uploadLoading ? '⏳ Processing…' : '↑ Upload CSV files'}
+                        {uploadLoading
+                          ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />Processing…</>
+                          : <><svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Upload CSV files</>
+                        }
                       </button>
                       <p className={`text-xs text-zinc-400`}>Supports Montrose, Avanza and Nordnet.</p>
                       {uploadProgress && (
@@ -1515,12 +1523,17 @@ const handleUpload = async (files) => {
                             </select>
                           </div>
                           <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}>
-                            {uploadLoading ? '⏳ Processing…' : uploadStatus ? '↺ Re-upload CSV' : '↑ Upload CSV files'}
+                            {uploadLoading
+                              ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />Processing…</>
+                              : uploadStatus
+                              ? <><svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Re-upload CSV</>
+                              : <><svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Upload CSV files</>
+                            }
                           </button>
                           <p className={`text-xs text-zinc-400`}>Supports Montrose, Avanza and Nordnet. Select a broker manually or use auto-detect.</p>
                           {uploadProgress && (
                             <div className={`rounded-lg px-3 py-2.5 text-sm border bg-zinc-700/40 border-zinc-600/40 text-zinc-300`}>
-                              <div className="flex items-center gap-2"><div className="animate-spin">⏳</div><span className="font-medium">{uploadProgress.label}</span></div>
+                              <div className="flex items-center gap-2"><span className="inline-block w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin shrink-0" /><span className="font-medium">{uploadProgress.label}</span></div>
                             </div>
                           )}
                           {uploadStatus?.error && <div className="rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400">✗ {uploadStatus.error}</div>}
@@ -1609,15 +1622,26 @@ const handleUpload = async (files) => {
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                           {(() => {
-                            const statCard = `bg-zinc-800 border-zinc-700 border rounded-2xl p-6`;
-                            const statLabel = `text-[10px] font-semibold tracking-[0.14em] uppercase mb-4 text-zinc-400`;
+                            const statCard = `bg-zinc-800 border-zinc-700 border rounded-2xl p-6 relative overflow-hidden`;
+                            const statLabel = `text-[10px] font-semibold tracking-[0.14em] uppercase text-zinc-400`;
                             return (<>
                               <div className={statCard}>
-                                <p className={statLabel}>Total Value</p>
+                                <div className="absolute inset-x-0 top-0 h-[3px] bg-zinc-600" />
+                                <div className="flex items-center justify-between mb-4">
+                                  <p className={statLabel}>Total Value</p>
+                                  <svg className="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                                </div>
                                 <p className="text-4xl font-bold tracking-tight">{fmtH(totals?.value)}</p>
                               </div>
                               <div className={statCard}>
-                                <p className={statLabel}>Today's Gain</p>
+                                <div className={`absolute inset-x-0 top-0 h-[3px] ${todayPositive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                <div className="flex items-center justify-between mb-4">
+                                  <p className={statLabel}>Today's Gain</p>
+                                  {todayPositive
+                                    ? <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                                    : <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+                                  }
+                                </div>
                                 <p className={`text-4xl font-bold tracking-tight ${todayPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                                   {todayTotal !== null ? `${todayPositive ? '+' : ''}${fmtH(todayTotal)}` : '—'}
                                 </p>
@@ -1628,7 +1652,11 @@ const handleUpload = async (files) => {
                                 )}
                               </div>
                               <div className={statCard}>
-                                <p className={statLabel}>Total Return</p>
+                                <div className={`absolute inset-x-0 top-0 h-[3px] ${plPositive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                <div className="flex items-center justify-between mb-4">
+                                  <p className={statLabel}>Total Return</p>
+                                  <svg className={`w-4 h-4 ${plPositive ? 'text-emerald-500' : 'text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                </div>
                                 <p className={`text-4xl font-bold tracking-tight ${plColor}`}>
                                   {totals ? `${plSign}${totals.returnPct.toFixed(2)}%` : '—'}
                                 </p>
@@ -1825,7 +1853,7 @@ const handleUpload = async (files) => {
                           </thead>
                           <tbody>
                             {rows.map(s => (
-                              <tr key={s.ticker} className={`border-t ${s.noData ? 'border-red-900/40 bg-red-900/10' : 'border-zinc-700 hover:bg-zinc-600/30'} transition`}>
+                              <tr key={s.ticker} className={`border-t ${s.noData ? 'border-red-900/40 bg-red-900/10' : 'border-zinc-700/60 hover:bg-zinc-700/50 cursor-pointer'} transition-colors`}>
                                 <td className="p-4 font-bold"><span className="flex items-center gap-2"><img src={`https://flagcdn.com/${s.flag}.svg`} alt={s.flag} className="w-4 h-3 object-cover rounded-sm shrink-0" /><span>{s.cleanName || s.name}</span>{s.noData && <span className={`text-xs font-normal text-red-500`}>no data</span>}</span></td>
                                 <td className={`p-4 text-zinc-300`}>{s.ticker}</td>
                                 <td className="p-4 whitespace-nowrap">
