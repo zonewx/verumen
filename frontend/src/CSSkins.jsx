@@ -727,7 +727,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
 
               {/* Add trade modal */}
               {showAddForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
                   <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col`} style={{ maxHeight: '92vh' }}>
 
                     {/* Header */}
@@ -948,7 +948,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
 
               {/* Edit trade modal */}
               {showEditForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
                   <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col`} style={{ maxHeight: '90vh' }}>
 
                     {/* Header */}
@@ -1119,7 +1119,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
 
               {/* Sell modal */}
               {showSellForm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
                   <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-lg`}>
                     <div className={`flex items-center justify-between px-6 py-4 border-b border-zinc-700`}>
                       <div>

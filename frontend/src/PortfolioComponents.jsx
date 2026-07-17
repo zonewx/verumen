@@ -12,7 +12,7 @@ export function EmptyState({ title, desc, action }) {
 
 export function ShortcutsModal({ onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={onClose}>
       <div className="bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-80 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-bold">Keyboard shortcuts</h3>

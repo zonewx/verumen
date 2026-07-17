@@ -118,7 +118,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
       {resetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setResetModal(null)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setResetModal(null)}>
           <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
             <h3 className="font-bold mb-1">Reset password</h3>
             <p className={`text-sm mb-4 text-zinc-400`}>{resetModal.username}</p>

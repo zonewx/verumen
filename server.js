@@ -699,14 +699,20 @@ async function yahooQuote(yfTicker) {
   const data = await r.json();
   const meta = data?.chart?.result?.[0]?.meta;
   if (!meta?.regularMarketPrice) return null;
+  const price = meta.regularMarketPrice;
+  const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? null;
+  const change = meta.regularMarketChange != null ? meta.regularMarketChange
+    : (prevClose != null ? price - prevClose : null);
+  const changePct = meta.regularMarketChangePercent != null ? meta.regularMarketChangePercent
+    : (change != null && prevClose ? (change / prevClose) * 100 : null);
   const cached = _priceCache.get(yfTicker);
   return {
     symbol: yfTicker,
-    regularMarketPrice: meta.regularMarketPrice,
-    regularMarketPreviousClose: meta.chartPreviousClose ?? meta.previousClose ?? null,
+    regularMarketPrice: price,
+    regularMarketPreviousClose: prevClose,
     regularMarketTime: meta.regularMarketTime ?? null,
-    regularMarketChangePercent: meta.regularMarketChangePercent ?? null,
-    regularMarketChange: meta.regularMarketChange ?? null,
+    regularMarketChangePercent: changePct,
+    regularMarketChange: change,
     currency: meta.currency ?? currencyFromTicker(yfTicker),
     longName:  meta.longName  ?? cached?.q?.longName  ?? null,
     shortName: meta.shortName ?? cached?.q?.shortName ?? null,
@@ -1662,7 +1668,9 @@ const YF_TO_STOOQ = {
 async function stooqIndexQuote(yfSymbol) {
   const stooqSym = YF_TO_STOOQ[yfSymbol];
   if (!stooqSym) return null;
-  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSym)}&i=d`;
+  const d2 = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const d1 = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSym)}&i=d&d1=${d1}&d2=${d2}`;
   const r = await fetch(url, {
     signal: AbortSignal.timeout(8000),
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; verumen-market/1.0)' },
@@ -1698,10 +1706,13 @@ function cacheEntry(q, fallbackSymbol) {
   const price  = Number(q.regularMarketPrice);
   const rawChg = q.regularMarketChange;
   const change = Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0;
-  // Calculate % from price/change directly — regularMarketChangePercent returns
-  // inconsistent formats (decimal vs percent, daily vs YTD) for some index symbols.
   const prevClose = price - change;
-  const changePct = prevClose !== 0 ? (change / prevClose) * 100 : 0;
+  const rawPct = q.regularMarketChangePercent;
+  const directPct = rawPct != null ? Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) : null;
+  // Use regularMarketChangePercent directly when change is 0 (Yahoo Finance sometimes omits regularMarketChange).
+  const changePct = change !== 0 && prevClose !== 0
+    ? (change / prevClose) * 100
+    : (directPct ?? 0);
   _marketIndexCache.set(q.symbol || fallbackSymbol, {
     symbol: q.symbol || fallbackSymbol,
     price, change, changePct,
