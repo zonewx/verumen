@@ -1726,9 +1726,11 @@ async function refreshMarketIndexes() {
   let count = 0;
   for (const s of ALL_INDEX_SYMBOLS) {
     try {
-      // Stooq is the primary source for ^ index symbols — Finnhub free tier
-      // returns {c:0} for European/Nordic indices, making the fallback useless.
-      let q = s.startsWith('^') ? await stooqIndexQuote(s) : null;
+      // Yahoo Finance is primary for ^ index symbols — gives live intraday price + correct
+      // daily change%. Stooq is EOD-only so during market hours it shows yesterday's close.
+      // Finnhub free tier covers US indices but returns {c:0} for Nordic/European ones.
+      let q = s.startsWith('^') ? await yahooQuote(s) : null;
+      if (!q && s.startsWith('^')) q = await stooqIndexQuote(s);
       if (!q) q = await finnhubQuote(s);
       if (q) { cacheEntry(q, s); count++; }
     } catch {}
