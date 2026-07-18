@@ -1650,6 +1650,32 @@ const _marketIndexCache = new Map(); // symbol → { symbol, price, changePct, c
 const MARKET_INDEX_CACHE_TTL = 10 * 60 * 1000;
 const ALL_INDEX_SYMBOLS = ['^GDAXI','^NDX','^OMXC25','^GSPC','^OMX','^OMXH25','^OSEAX','^GSPTSE'];
 
+// Regular session hours per index (weekdays only; holidays are not tracked).
+const INDEX_MARKET_HOURS = {
+  '^GSPC':   { tz: 'America/New_York',   open: { h:  9, m: 30 }, close: { h: 16, m:  0 } },
+  '^NDX':    { tz: 'America/New_York',   open: { h:  9, m: 30 }, close: { h: 16, m:  0 } },
+  '^GSPTSE': { tz: 'America/Toronto',    open: { h:  9, m: 30 }, close: { h: 16, m:  0 } },
+  '^GDAXI':  { tz: 'Europe/Berlin',      open: { h:  9, m:  0 }, close: { h: 17, m: 30 } },
+  '^OMX':    { tz: 'Europe/Stockholm',   open: { h:  9, m:  0 }, close: { h: 17, m: 30 } },
+  '^OMXC25': { tz: 'Europe/Copenhagen',  open: { h:  9, m:  0 }, close: { h: 17, m:  0 } },
+  '^OMXH25': { tz: 'Europe/Helsinki',    open: { h:  9, m:  0 }, close: { h: 18, m: 30 } },
+  '^OSEAX':  { tz: 'Europe/Oslo',        open: { h:  9, m:  0 }, close: { h: 16, m: 25 } },
+};
+
+function isIndexMarketOpen(symbol) {
+  const m = INDEX_MARKET_HOURS[symbol];
+  if (!m) return false;
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: m.tz, weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: false,
+  });
+  const parts = fmt.formatToParts(new Date());
+  const p = {};
+  parts.forEach(({ type, value }) => { p[type] = value; });
+  if (p.weekday === 'Sat' || p.weekday === 'Sun') return false;
+  const nowMins = parseInt(p.hour, 10) * 60 + parseInt(p.minute, 10);
+  return nowMins >= m.open.h * 60 + m.open.m && nowMins < m.close.h * 60 + m.close.m;
+}
+
 // Stooq provides free global index data without an API key.
 // Finnhub free tier only covers US equities; European/Nordic indices return {c:0}.
 const YF_TO_STOOQ = {
@@ -1726,6 +1752,13 @@ async function refreshMarketIndexes() {
   let count = 0;
   for (const s of ALL_INDEX_SYMBOLS) {
     try {
+      const cached = _marketIndexCache.get(s);
+      const cacheAgeMs = cached ? Date.now() - cached.ts : Infinity;
+      // Skip this symbol when its market is closed AND the cache is < 60 min old.
+      // The 60 min window ensures one post-close fetch captures the final EOD price,
+      // and handles cold restarts where the cache may be empty.
+      if (!isIndexMarketOpen(s) && cacheAgeMs < 60 * 60 * 1000) continue;
+
       // Yahoo Finance is primary for ^ index symbols — gives live intraday price + correct
       // daily change%. Stooq is EOD-only so during market hours it shows yesterday's close.
       // Finnhub free tier covers US indices but returns {c:0} for Nordic/European ones.
