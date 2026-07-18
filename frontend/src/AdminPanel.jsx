@@ -480,7 +480,7 @@ export default function AdminPanel({ authUsername }) {
                         )}
                       </div>
                       <button onClick={syncPrices} disabled={syncingPrices} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
-                        {syncingPrices ? '⏳ Syncing...' : '↺ Sync Now'}
+                        {syncingPrices ? 'Syncing...' : '↺ Sync Now'}
                       </button>
                     </div>
                     <div className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-zinc-700/50`}>
@@ -494,7 +494,7 @@ export default function AdminPanel({ authUsername }) {
                         )}
                       </div>
                       <button onClick={syncIndexes} disabled={syncingIndexes} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
-                        {syncingIndexes ? '⏳ Refreshing...' : '↺ Sync Now'}
+                        {syncingIndexes ? 'Refreshing...' : '↺ Sync Now'}
                       </button>
                     </div>
                   </div>
@@ -933,7 +933,7 @@ export default function AdminPanel({ authUsername }) {
                 <div className="flex items-center justify-between">
                   <p className={`text-sm text-zinc-400`}>Live connectivity test against market data APIs.</p>
                   <button onClick={fetchDiag} disabled={diagLoading} className={`${btnGhost} disabled:opacity-50`}>
-                    {diagLoading ? '⏳ Running...' : '↺ Run Test'}
+                    {diagLoading ? 'Running...' : '↺ Run Test'}
                   </button>
                 </div>
 
