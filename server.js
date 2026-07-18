@@ -1761,12 +1761,12 @@ function cacheEntry(q, fallbackSymbol) {
 
 // Background refresh — runs on startup and every 60s so the HTTP endpoint
 // always serves instantly from cache with no per-request Finnhub latency.
-async function refreshMarketIndexes() {
+async function refreshMarketIndexes(force = false) {
   let count = 0;
   for (const s of ALL_INDEX_SYMBOLS) {
     try {
       // Only fetch when the market is open AND the cache predates the current scheduled window.
-      if (!shouldRefetchIndex(s)) continue;
+      if (!force && !shouldRefetchIndex(s)) continue;
 
       // Yahoo Finance is primary for ^ index symbols — gives live intraday price + correct
       // daily change%. Stooq is EOD-only so during market hours it shows yesterday's close.
@@ -1779,6 +1779,7 @@ async function refreshMarketIndexes() {
     await new Promise(r => setTimeout(r, 250));
   }
   if (count > 0) log.info('market-index cache refreshed', { count });
+  return count;
 }
 
 refreshMarketIndexes();
@@ -1789,6 +1790,11 @@ supabase.from('global_isin_cache').select('isin').limit(1).then(({ error }) => {
   if (error) log.warn('global_isin_cache table missing — cross-user ISIN caching disabled. Create it with:\n  CREATE TABLE global_isin_cache (isin TEXT PRIMARY KEY, ticker TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW());');
   else log.info('global_isin_cache ready');
 }).catch(() => {});
+
+app.post('/api/admin/indexes/refresh', requireAdmin, async (req, res) => {
+  const count = await refreshMarketIndexes(true);
+  res.json({ ok: true, count });
+});
 
 app.get('/api/market-indexes', requireUser, (req, res) => {
   const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 15);

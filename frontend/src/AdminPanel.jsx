@@ -11,6 +11,9 @@ export default function AdminPanel({ authUsername }) {
   const [syncingPrices, setSyncingPrices] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
   const [lastPriceSync, setLastPriceSync] = useState(null);
+  const [syncingIndexes, setSyncingIndexes] = useState(false);
+  const [indexSyncStatus, setIndexSyncStatus] = useState('');
+  const [lastIndexSync, setLastIndexSync] = useState(null);
 
   // Modals
   const [resetModal, setResetModal] = useState(null); // { username }
@@ -236,6 +239,19 @@ export default function AdminPanel({ authUsername }) {
     flash('✓ Announcement removed');
   };
 
+  const syncIndexes = async () => {
+    setSyncingIndexes(true);
+    setIndexSyncStatus('Refreshing...');
+    try {
+      const res = await fetch('/api/admin/indexes/refresh', { method: 'POST', headers: h });
+      const data = await res.json();
+      if (!data.ok) { setIndexSyncStatus('Failed'); setSyncingIndexes(false); return; }
+      setIndexSyncStatus(`✓ Updated ${data.count} index${data.count !== 1 ? 'es' : ''}`);
+      setLastIndexSync(Date.now());
+    } catch(e) { setIndexSyncStatus('Error: ' + e.message); }
+    setSyncingIndexes(false);
+  };
+
   const syncPrices = async () => {
     setSyncingPrices(true);
     setSyncStatus('Starting sync...');
@@ -449,22 +465,38 @@ export default function AdminPanel({ authUsername }) {
                   </div>
                 </div>
 
-                {/* CS Prices */}
+                {/* Data Sync */}
                 <div className={`${card} p-5`}>
-                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>CS Item Prices</h2>
-                  <div className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-zinc-700/50`}>
-                    <div>
-                      <p className="text-sm font-semibold">Manual price sync</p>
-                      <p className={`text-xs mt-0.5 text-zinc-400`}>
-                        Last sync: {fmtAgo(lastPriceSync)} — auto-syncs every 24h. Admin sync bypasses the 1-hour cooldown.
-                      </p>
-                      {syncStatus && (
-                        <p className={`text-xs mt-1 ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{syncStatus}</p>
-                      )}
+                  <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Data Sync</h2>
+                  <div className="flex flex-col gap-3">
+                    <div className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-zinc-700/50`}>
+                      <div>
+                        <p className="text-sm font-semibold">CS Item Prices</p>
+                        <p className={`text-xs mt-0.5 text-zinc-400`}>
+                          Last sync: {fmtAgo(lastPriceSync)} — auto-syncs every 24h. Admin sync bypasses the 1-hour cooldown.
+                        </p>
+                        {syncStatus && (
+                          <p className={`text-xs mt-1 ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{syncStatus}</p>
+                        )}
+                      </div>
+                      <button onClick={syncPrices} disabled={syncingPrices} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
+                        {syncingPrices ? '⏳ Syncing...' : '↺ Sync Now'}
+                      </button>
                     </div>
-                    <button onClick={syncPrices} disabled={syncingPrices} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
-                      {syncingPrices ? '⏳ Syncing...' : '↺ Sync Now'}
-                    </button>
+                    <div className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-zinc-700/50`}>
+                      <div>
+                        <p className="text-sm font-semibold">Market Indexes</p>
+                        <p className={`text-xs mt-0.5 text-zinc-400`}>
+                          Last sync: {fmtAgo(lastIndexSync)} — force-fetches all index symbols, bypassing market-hours gate.
+                        </p>
+                        {indexSyncStatus && (
+                          <p className={`text-xs mt-1 ${indexSyncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{indexSyncStatus}</p>
+                        )}
+                      </div>
+                      <button onClick={syncIndexes} disabled={syncingIndexes} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
+                        {syncingIndexes ? '⏳ Refreshing...' : '↺ Sync Now'}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -916,15 +948,16 @@ export default function AdminPanel({ authUsername }) {
                   <>
                     <div className={`${card} p-5`}>
                       <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>API Keys</h2>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                         {[
-                          { label: 'Finnhub', ok: diagData.finnhubKeySet },
-                          { label: 'Tiingo', ok: diagData.tiingoKeySet },
-                        ].map(({ label, ok }) => (
+                          { label: 'Finnhub', ok: diagData.finnhubKeySet, statusText: diagData.finnhubKeySet ? 'Configured' : 'Missing' },
+                          { label: 'Tiingo', ok: diagData.tiingoKeySet, statusText: diagData.tiingoKeySet ? 'Configured' : 'Missing' },
+                          { label: 'Yahoo Finance', ok: diagData.yahooProbe?.status === 200, statusText: diagData.yahooProbe?.status === 200 ? 'Reachable' : diagData.yahooProbe ? 'Unreachable' : '—' },
+                        ].map(({ label, ok, statusText }) => (
                           <div key={label} className="bg-zinc-700 rounded-lg p-3 flex items-center gap-3">
                             <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ok ? 'bg-green-400' : 'bg-red-400'}`}/>
                             <span className="text-sm font-semibold">{label}</span>
-                            <span className={`text-xs ml-auto ${ok ? 'text-green-400' : 'text-red-400'}`}>{ok ? 'Configured' : 'Missing'}</span>
+                            <span className={`text-xs ml-auto ${ok ? 'text-green-400' : 'text-red-400'}`}>{statusText}</span>
                           </div>
                         ))}
                       </div>
