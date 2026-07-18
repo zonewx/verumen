@@ -1650,16 +1650,17 @@ const _marketIndexCache = new Map(); // symbol → { symbol, price, changePct, c
 const MARKET_INDEX_CACHE_TTL = 10 * 60 * 1000;
 const ALL_INDEX_SYMBOLS = ['^GDAXI','^NDX','^OMXC25','^GSPC','^OMX','^OMXH25','^OSEAX','^GSPTSE'];
 
-// Regular session hours per index (weekdays only; holidays are not tracked).
+// Regular session hours + 3 intraday fetch windows per index (weekdays only).
+// fetchHours: local hours at which a fresh fetch is triggered (open, midday, pre-close).
 const INDEX_MARKET_HOURS = {
-  '^GSPC':   { tz: 'America/New_York',   open: { h:  9, m: 30 }, close: { h: 16, m:  0 } },
-  '^NDX':    { tz: 'America/New_York',   open: { h:  9, m: 30 }, close: { h: 16, m:  0 } },
-  '^GSPTSE': { tz: 'America/Toronto',    open: { h:  9, m: 30 }, close: { h: 16, m:  0 } },
-  '^GDAXI':  { tz: 'Europe/Berlin',      open: { h:  9, m:  0 }, close: { h: 17, m: 30 } },
-  '^OMX':    { tz: 'Europe/Stockholm',   open: { h:  9, m:  0 }, close: { h: 17, m: 30 } },
-  '^OMXC25': { tz: 'Europe/Copenhagen',  open: { h:  9, m:  0 }, close: { h: 17, m:  0 } },
-  '^OMXH25': { tz: 'Europe/Helsinki',    open: { h:  9, m:  0 }, close: { h: 18, m: 30 } },
-  '^OSEAX':  { tz: 'Europe/Oslo',        open: { h:  9, m:  0 }, close: { h: 16, m: 25 } },
+  '^GSPC':   { tz: 'America/New_York',   open: { h:  9, m: 30 }, close: { h: 16, m:  0 }, fetchHours: [10, 13, 15] },
+  '^NDX':    { tz: 'America/New_York',   open: { h:  9, m: 30 }, close: { h: 16, m:  0 }, fetchHours: [10, 13, 15] },
+  '^GSPTSE': { tz: 'America/Toronto',    open: { h:  9, m: 30 }, close: { h: 16, m:  0 }, fetchHours: [10, 13, 15] },
+  '^GDAXI':  { tz: 'Europe/Berlin',      open: { h:  9, m:  0 }, close: { h: 17, m: 30 }, fetchHours: [ 9, 13, 16] },
+  '^OMX':    { tz: 'Europe/Stockholm',   open: { h:  9, m:  0 }, close: { h: 17, m: 30 }, fetchHours: [ 9, 13, 16] },
+  '^OMXC25': { tz: 'Europe/Copenhagen',  open: { h:  9, m:  0 }, close: { h: 17, m:  0 }, fetchHours: [ 9, 13, 16] },
+  '^OMXH25': { tz: 'Europe/Helsinki',    open: { h:  9, m:  0 }, close: { h: 18, m: 30 }, fetchHours: [ 9, 13, 17] },
+  '^OSEAX':  { tz: 'Europe/Oslo',        open: { h:  9, m:  0 }, close: { h: 16, m: 25 }, fetchHours: [ 9, 12, 15] },
 };
 
 function isIndexMarketOpen(symbol) {
@@ -1674,6 +1675,18 @@ function isIndexMarketOpen(symbol) {
   if (p.weekday === 'Sat' || p.weekday === 'Sun') return false;
   const nowMins = parseInt(p.hour, 10) * 60 + parseInt(p.minute, 10);
   return nowMins >= m.open.h * 60 + m.open.m && nowMins < m.close.h * 60 + m.close.m;
+}
+
+// Returns true when the market is open AND the cache predates the current fetch window.
+function shouldRefetchIndex(symbol) {
+  if (!isIndexMarketOpen(symbol)) return false;
+  const m = INDEX_MARKET_HOURS[symbol];
+  if (!m) return false;
+  const cached = _marketIndexCache.get(symbol);
+  if (!cached) return true;
+  const windowAt = lastWindowOpenedAt(m.tz, m.fetchHours);
+  if (!windowAt) return true;
+  return cached.ts < windowAt;
 }
 
 // Stooq provides free global index data without an API key.
@@ -1752,12 +1765,8 @@ async function refreshMarketIndexes() {
   let count = 0;
   for (const s of ALL_INDEX_SYMBOLS) {
     try {
-      const cached = _marketIndexCache.get(s);
-      const cacheAgeMs = cached ? Date.now() - cached.ts : Infinity;
-      // Skip this symbol when its market is closed AND the cache is < 60 min old.
-      // The 60 min window ensures one post-close fetch captures the final EOD price,
-      // and handles cold restarts where the cache may be empty.
-      if (!isIndexMarketOpen(s) && cacheAgeMs < 60 * 60 * 1000) continue;
+      // Only fetch when the market is open AND the cache predates the current scheduled window.
+      if (!shouldRefetchIndex(s)) continue;
 
       // Yahoo Finance is primary for ^ index symbols — gives live intraday price + correct
       // daily change%. Stooq is EOD-only so during market hours it shows yesterday's close.
