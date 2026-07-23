@@ -78,10 +78,7 @@ export default function App() {
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
   const [announcements, setAnnouncements] = useState([]);
   const [userRole, setUserRole] = useState(() => sessionStorage.getItem('auth_role') || 'user');
-  const [allowRegistration, setAllowRegistration] = useState(() => {
-    const c = localStorage.getItem('allowRegistration');
-    return c === null ? null : c === 'true';
-  });
+  const [allowRegistration, setAllowRegistration] = useState(null);
   // True from login (or page-load while already logged in) until first fetchAllData completes
   const [isInitializing, setIsInitializing] = useState(() => {
     return !!(sessionStorage.getItem('auth_user') && sessionStorage.getItem('auth_token'));
@@ -219,7 +216,7 @@ export default function App() {
     };
     auroraRaf.current = requestAnimationFrame(draw);
     return () => { cancelAnimationFrame(auroraRaf.current); window.removeEventListener('resize', resize); };
-  }, [authStatus]);
+  }, [authStatus, authMode]);
 
   // ── Token refresh ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -264,7 +261,6 @@ export default function App() {
     fetch('/api/auth/status').then(r => r.json()).then(d => {
       const val = d.allowRegistration !== false && !d.reachedLimit;
       setAllowRegistration(val);
-      localStorage.setItem('allowRegistration', String(val));
       if (!d.hasUsers) { setAuthStatus('no-user'); setAuthMode('signup'); }
       else {
         const saved = sessionStorage.getItem('auth_user');
@@ -335,6 +331,10 @@ export default function App() {
     apiCache.bust('/api/portfolio'); apiCache.bust('/api/cs/'); apiCache.bust('/api/users/'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides'); apiCache.del('/api/transactions'); apiCache.del('/api/announcements'); apiCache.del('/api/feed'); apiCache.del('/api/friends');
     sessionStorage.removeItem('auth_role'); sessionStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_refresh');
     if (msg) setSessionExpiredMsg(msg);
+    fetch('/api/auth/status').then(r => r.json()).then(d => {
+      const val = d.allowRegistration !== false && !d.reachedLimit;
+      setAllowRegistration(val);
+    }).catch(() => {});
   };
 
   const handleChangePassword = async () => {
@@ -2273,7 +2273,13 @@ const handleUpload = async (files) => {
               <h1 className="text-2xl font-bold text-white" style={{letterSpacing:'-0.02em'}}>Verumen</h1>
             </div>
             {sessionExpiredMsg && (
-              <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-4 py-3 mb-5 text-sm text-zinc-300">{sessionExpiredMsg}</div>
+              <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3.5 mb-5">
+                <svg className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                <div>
+                  <p className="text-sm font-semibold text-amber-300">Your session has expired.</p>
+                  <p className="text-xs text-amber-400/80 mt-0.5">Please sign in again.</p>
+                </div>
+              </div>
             )}
             {authError && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5 text-sm text-red-400">{authError}</div>
