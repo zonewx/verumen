@@ -4,8 +4,9 @@ import apiCache from './apiCache';
 
 const TAB_MAP = {
   '': 'overview', 'overview': 'overview', 'database': 'database',
-  'users': 'users', 'ticker-failures': 'ticker-mgmt',
-  'global-overrides': 'ticker-mgmt', 'announcements': 'announcements',
+  'users': 'users', 'ticker-management': 'ticker-mgmt',
+  'ticker-failures': 'ticker-mgmt', 'global-overrides': 'ticker-mgmt',
+  'announcements': 'announcements',
   'diagnostics': 'diagnostics',
 };
 
