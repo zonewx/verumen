@@ -16,7 +16,9 @@ export default function AdminPanel({ authUsername }) {
   const [lastIndexSync, setLastIndexSync] = useState(null);
 
   // Modals
-  const [resetModal, setResetModal] = useState(null); // { username }
+  const [resetModal, setResetModal] = useState(null); // { username, email }
+  const [resetTab, setResetTab] = useState('set'); // 'set' | 'send'
+  const [resetEmailStatus, setResetEmailStatus] = useState('');
   const [resetPw, setResetPw] = useState('');
   const [deleteModal, setDeleteModal] = useState(null); // username
   const [deletePw, setDeletePw] = useState('');
@@ -189,6 +191,14 @@ export default function AdminPanel({ authUsername }) {
     const data = await res.json();
     if (data.success) { flash(`✓ Password reset for ${resetModal.username}`); setResetModal(null); setResetPw(''); }
     else flash('Error: ' + data.error);
+  };
+
+  const sendResetEmail = async () => {
+    setResetEmailStatus('Sending...');
+    const res = await fetch(`/api/admin/users/${resetModal.username}/send-reset-email`, { method: 'POST', headers: h });
+    const data = await res.json();
+    if (data.success) setResetEmailStatus('✓ Reset link sent');
+    else setResetEmailStatus(`Error: ${data.error}`);
   };
 
   const clearBio = async (username) => {
@@ -370,14 +380,42 @@ export default function AdminPanel({ authUsername }) {
       {/* Reset password modal */}
       {resetModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setResetModal(null)}>
-          <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
-            <h3 className="font-bold mb-1">Reset password</h3>
-            <p className={`text-sm mb-4 text-zinc-300`}>{resetModal.username}</p>
-            <input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} placeholder="New password (6+ chars)" className={`${inputCls} mb-3`} />
-            <div className="flex gap-2">
-              <button onClick={resetPassword} className={btnBlue + ' flex-1 py-2'}>Reset</button>
-              <button onClick={() => { setResetModal(null); setResetPw(''); }} className={btnGhost + ' flex-1 py-2'}>Cancel</button>
+          <div className="bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-84 shadow-2xl" style={{ width: '22rem' }} onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold mb-0.5">Reset password</h3>
+            <p className="text-sm text-zinc-400 mb-4">{resetModal.username}</p>
+
+            {/* Tabs */}
+            <div className="flex gap-1 p-1 bg-zinc-900 rounded-xl mb-5">
+              {[['set', 'Set Password'], ['send', 'Send Reset Link']].map(([id, label]) => (
+                <button key={id} onClick={() => { setResetTab(id); setResetEmailStatus(''); }} className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${resetTab === id ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>{label}</button>
+              ))}
             </div>
+
+            {resetTab === 'set' ? (
+              <>
+                <input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && resetPassword()} placeholder="New password (6+ chars)" className={`${inputCls} mb-3`} autoFocus />
+                <div className="flex gap-2">
+                  <button onClick={resetPassword} className={btnBlue + ' flex-1 py-2'}>Set Password</button>
+                  <button onClick={() => { setResetModal(null); setResetPw(''); }} className={btnGhost + ' flex-1 py-2'}>Cancel</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="bg-zinc-700/50 rounded-xl p-3 mb-4">
+                  <p className="text-xs text-zinc-400 mb-0.5">Reset link will be sent to</p>
+                  {resetModal.email
+                    ? <p className="text-sm font-medium text-white">{resetModal.email}</p>
+                    : <p className="text-sm text-zinc-500 italic">No email on file for this user</p>}
+                </div>
+                {resetEmailStatus && (
+                  <p className={`text-xs mb-3 ${resetEmailStatus.startsWith('✓') ? 'text-green-400' : resetEmailStatus === 'Sending...' ? 'text-zinc-400' : 'text-red-400'}`}>{resetEmailStatus}</p>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={sendResetEmail} disabled={!resetModal.email || resetEmailStatus === 'Sending...' || resetEmailStatus.startsWith('✓')} className={btnBlue + ' flex-1 py-2 disabled:opacity-40'}>Send Link</button>
+                  <button onClick={() => setResetModal(null)} className={btnGhost + ' flex-1 py-2'}>Close</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -601,7 +639,7 @@ export default function AdminPanel({ authUsername }) {
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-2 px-4 py-3 flex-wrap">
-                      <button onClick={() => setResetModal({ username: u.username })} className={btnBlue}>Reset Password</button>
+                      <button onClick={() => { setResetModal({ username: u.username, email: u.email }); setResetTab('set'); setResetPw(''); setResetEmailStatus(''); }} className={btnBlue}>Reset Password</button>
                       <button onClick={() => clearCache(u.username)} className={btnGhost}>Clear Cache</button>
                       <button onClick={() => resolveUser(u.username)} className={btnGhost}>Re-resolve Tickers</button>
                       <button onClick={() => clearBio(u.username)} className={btnGhost}>Clear Bio</button>

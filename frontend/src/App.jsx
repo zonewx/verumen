@@ -65,7 +65,11 @@ export default function App() {
     return (u && t) ? 'logged-in' : 'logged-out';
   });
   const [authUsername, setAuthUsername] = useState(() => sessionStorage.getItem('auth_user') || '');
-  const [authMode, setAuthMode] = useState('login');
+  const [authMode, setAuthMode] = useState(() => {
+    const token = new URLSearchParams(window.location.search).get('reset_token');
+    return token ? 'reset-password' : 'login';
+  });
+  const [resetToken] = useState(() => new URLSearchParams(window.location.search).get('reset_token') || '');
   const [authForm, setAuthForm] = useState({ username: '', email: '', password: '', confirmPassword: '', newPassword: '' });
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -293,6 +297,31 @@ export default function App() {
         setAuthUsername(data.username); setUserRole(data.role || 'user'); setIsInitializing(true); setAuthStatus('logged-in');
         setUserRole(data.role || 'user');
       }
+    } catch { setAuthError('Connection error.'); }
+    setAuthLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    setAuthError(''); setAuthLoading(true);
+    try {
+      await fetch('/api/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: authForm.email }) });
+      setAuthMode('forgot-sent');
+    } catch { setAuthError('Connection error.'); }
+    setAuthLoading(false);
+  };
+
+  const handleResetPassword = async () => {
+    setAuthError(''); setAuthLoading(true);
+    try {
+      if (authForm.password !== authForm.confirmPassword) { setAuthError('Passwords do not match.'); setAuthLoading(false); return; }
+      if (authForm.password.length < 6) { setAuthError('Password must be at least 6 characters.'); setAuthLoading(false); return; }
+      const res = await fetch('/api/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resetToken, password: authForm.password }) });
+      const data = await res.json();
+      if (!res.ok) { setAuthError(data.error || 'Reset failed.'); setAuthLoading(false); return; }
+      window.history.replaceState({}, '', '/');
+      setAuthMode('login');
+      setAuthForm(f => ({ ...f, password: '', confirmPassword: '' }));
+      setSessionExpiredMsg('Password updated — please sign in.');
     } catch { setAuthError('Connection error.'); }
     setAuthLoading(false);
   };
@@ -2123,17 +2152,113 @@ const handleUpload = async (files) => {
 
   if (authStatus !== 'logged-in') {
     const isSignup = authMode === 'signup';
-    return (
+    const isForgot = authMode === 'forgot-password';
+    const isForgotSent = authMode === 'forgot-sent';
+    const isReset = authMode === 'reset-password';
+
+    const authBackground = (
       <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
-        {/* Aurora canvas */}
         <canvas ref={auroraCanvas} className="absolute inset-0 w-full h-full pointer-events-none" style={{filter:'blur(48px)'}}/>
-        {/* Film grain */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{opacity:0.045}}>
           <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="4" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
           <rect width="100%" height="100%" filter="url(#grain)"/>
         </svg>
-        {/* Vignette */}
         <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.75) 100%)'}} />
+      </div>
+    );
+
+    const AuthLogo = () => (
+      <div className="text-center mb-7">
+        <div className="inline-flex items-center justify-center w-14 h-14 mb-4">
+          <img src="/logo.png" alt="Verumen" className="w-14 h-14 object-contain"/>
+        </div>
+        <h1 className="text-2xl font-bold text-white" style={{letterSpacing:'-0.02em'}}>Verumen</h1>
+      </div>
+    );
+
+    if (isForgot) return (
+      <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
+        {authBackground}
+        <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
+          <div className="relative w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl">
+            <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"/>
+            <AuthLogo/>
+            <p className="text-sm text-zinc-400 text-center mb-5 -mt-2">Enter your email and we'll send a reset link.</p>
+            {authError && <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5 text-sm text-red-400">{authError}</div>}
+            <div className="flex flex-col gap-4">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
+                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M0 4a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H2a2 2 0 01-2-2V4zm2-1a1 1 0 00-1 1v.217l7 4.2 7-4.2V4a1 1 0 00-1-1H2zm13 2.383l-4.758 2.855L15 11.114V5.383zm-.034 6.878L9.271 8.82 8 9.583 6.728 8.82l-5.694 3.44A1 1 0 002 13h12a1 1 0 00.966-.739zM1 11.114l4.758-2.876L1 5.383v5.731z"/></svg>
+                </span>
+                <input type="email" value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleForgotPassword()} autoFocus placeholder="Enter your email"
+                  className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+              </div>
+              <button onClick={handleForgotPassword} disabled={authLoading} className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
+                {authLoading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Sending...</span> : 'Send Reset Link'}
+              </button>
+              <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-center text-zinc-500 hover:text-zinc-300 transition">Back to sign in</button>
+            </div>
+          </div>
+          <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>
+        </div>
+      </div>
+    );
+
+    if (isForgotSent) return (
+      <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
+        {authBackground}
+        <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
+          <div className="relative w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl text-center">
+            <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"/>
+            <div className="w-12 h-12 rounded-full bg-sky-500/10 border border-sky-500/20 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </div>
+            <p className="font-bold text-white mb-2">Check your email</p>
+            <p className="text-sm text-zinc-400 mb-6">If an account exists for <span className="text-zinc-300">{authForm.email}</span>, a reset link has been sent. It expires in 1 hour.</p>
+            <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-zinc-500 hover:text-zinc-300 transition">Back to sign in</button>
+          </div>
+          <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>
+        </div>
+      </div>
+    );
+
+    if (isReset) return (
+      <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
+        {authBackground}
+        <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
+          <div className="relative w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl">
+            <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"/>
+            <AuthLogo/>
+            <p className="text-sm text-zinc-400 text-center mb-5 -mt-2">Enter your new password.</p>
+            {authError && <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-5 text-sm text-red-400">{authError}</div>}
+            <div className="flex flex-col gap-4">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
+                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                </span>
+                <input type="password" value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleResetPassword()} autoFocus placeholder="New password (6+ chars)"
+                  className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
+                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                </span>
+                <input type="password" value={authForm.confirmPassword} onChange={e=>setAuthForm(f=>({...f,confirmPassword:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleResetPassword()} placeholder="Confirm new password"
+                  className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+              </div>
+              <button onClick={handleResetPassword} disabled={authLoading} className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
+                {authLoading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Updating...</span> : 'Set New Password'}
+              </button>
+            </div>
+          </div>
+          <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
+        {authBackground}
 
         <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
           {/* Form card */}
@@ -2229,14 +2354,14 @@ const handleUpload = async (files) => {
                 className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1">
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
-              <div className="h-5 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
                 {authStatus==='logged-out' && allowRegistration === true && <button onClick={()=>{setAuthMode(isSignup?'login':'signup');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm text-center text-zinc-500 hover:text-zinc-300 transition">{isSignup?'Already have an account? Sign in':'Create an account'}</button>}
                 {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className="text-xs text-center text-zinc-600">Registration is currently closed.</p>}
+                {!isSignup && <button onClick={()=>{setAuthMode('forgot-password');setAuthError('');setAuthForm(f=>({...f,email:''}));}} className="text-xs text-center text-zinc-600 hover:text-zinc-400 transition">Forgot password?</button>}
               </div>
             </div>
           </div>
-          {/* Footer */}
-          <p className="mt-6 text-xs text-zinc-700">© 2026</p>
+          <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>
         </div>
       </div>
     );

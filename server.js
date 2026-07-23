@@ -6,7 +6,11 @@ const crypto = require('crypto');
 const zlib = require('zlib');
 const { promisify } = require('util');
 const brotliDecompress = promisify(zlib.brotliDecompress);
+const { Resend } = require('resend');
 const { supabase } = require('./supabase');
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const APP_URL = process.env.APP_URL || 'https://verumen.com';
 
 // In-memory price cache — populated from Supabase on startup so restarts don't force a YF burst
 const _priceCache = new Map(); // ticker -> { q: quoteObject, cachedAt: timestamp }
@@ -397,6 +401,56 @@ app.post('/api/auth/change-password', requireUser, async (req, res) => {
   if (verifyError) return res.status(401).json({ error: 'Current password is incorrect.' });
   const { error } = await supabase.auth.admin.updateUserById(req.user.id, { password: newPassword });
   if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required.' });
+  // Always respond with success to prevent email enumeration
+  const { data: profile } = await supabase.from('profiles').select('username').ilike('email', email.trim()).single();
+  if (!profile) return res.json({ success: true });
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+  await supabase.from('password_reset_tokens').insert({ username: profile.username, token, expires_at: expiresAt });
+  if (resend) {
+    const resetUrl = `${APP_URL}/?reset_token=${token}`;
+    await resend.emails.send({
+      from: 'Verumen <noreply@verumen.com>',
+      to: email.trim(),
+      subject: 'Reset your Verumen password',
+      html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:48px 16px">
+<table width="100%" style="max-width:480px" cellpadding="0" cellspacing="0">
+  <tr><td style="padding:0 0 24px 0">
+    <img src="${APP_URL}/logo.png" alt="Verumen" width="48" height="48" style="display:block"/>
+  </td></tr>
+  <tr><td style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:36px">
+    <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#fff">Reset your password</p>
+    <p style="margin:0 0 28px;font-size:14px;color:#a1a1aa;line-height:1.6">Someone requested a password reset for the Verumen account associated with this email. If this wasn't you, you can safely ignore this email.</p>
+    <a href="${resetUrl}" style="display:inline-block;background:#0284c7;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:10px">Reset Password</a>
+    <p style="margin:24px 0 0;font-size:12px;color:#52525b">This link expires in 1 hour. If the button doesn't work, copy this URL:<br/><span style="color:#71717a;word-break:break-all">${resetUrl}</span></p>
+  </td></tr>
+  <tr><td style="padding:24px 0 0"><p style="margin:0;font-size:12px;color:#3f3f46;text-align:center">© ${new Date().getFullYear()} Verumen</p></td></tr>
+</table></td></tr></table></body></html>`,
+    }).catch(e => log.error('resend failed', { error: e.message }));
+  }
+  res.json({ success: true });
+});
+
+app.post('/api/auth/reset-password', authRateLimit, async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'Token and password required.' });
+  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  const { data: resetEntry } = await supabase.from('password_reset_tokens').select('*').eq('token', token).single();
+  if (!resetEntry || resetEntry.used || new Date(resetEntry.expires_at) < new Date()) {
+    return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
+  }
+  const { data: profile } = await supabase.from('profiles').select('id').eq('username', resetEntry.username).single();
+  if (!profile) return res.status(404).json({ error: 'User not found.' });
+  const { error } = await supabase.auth.admin.updateUserById(profile.id, { password });
+  if (error) return res.status(500).json({ error: error.message });
+  await supabase.from('password_reset_tokens').update({ used: true }).eq('token', token);
   res.json({ success: true });
 });
 
@@ -3293,6 +3347,35 @@ app.post('/api/admin/users/:username/reset-password', requireAdmin, async (req, 
   await supabase.auth.admin.updateUserById(profile.id, { password:newPassword });
   await appendModLog('admin', 'reset-password', req.params.username);
   res.json({ success:true });
+});
+
+app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req, res) => {
+  const { data: profile } = await supabase.from('profiles').select('email').eq('username', req.params.username).single();
+  if (!profile) return res.status(404).json({ error: 'User not found.' });
+  if (!profile.email) return res.status(400).json({ error: 'This user has no email address on file.' });
+  if (!resend) return res.status(500).json({ error: 'Email service not configured.' });
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  await supabase.from('password_reset_tokens').insert({ username: req.params.username, token, expires_at: expiresAt });
+  const resetUrl = `${APP_URL}/?reset_token=${token}`;
+  await resend.emails.send({
+    from: 'Verumen <noreply@verumen.com>',
+    to: profile.email,
+    subject: 'Reset your Verumen password',
+    html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:48px 16px">
+<table width="100%" style="max-width:480px" cellpadding="0" cellspacing="0">
+  <tr><td style="padding:0 0 24px 0"><img src="${APP_URL}/logo.png" alt="Verumen" width="48" height="48" style="display:block"/></td></tr>
+  <tr><td style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:36px">
+    <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#fff">Reset your password</p>
+    <p style="margin:0 0 28px;font-size:14px;color:#a1a1aa;line-height:1.6">An administrator has sent you a password reset link for your Verumen account.</p>
+    <a href="${resetUrl}" style="display:inline-block;background:#0284c7;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:10px">Reset Password</a>
+    <p style="margin:24px 0 0;font-size:12px;color:#52525b">This link expires in 1 hour. If the button doesn't work, copy this URL:<br/><span style="color:#71717a;word-break:break-all">${resetUrl}</span></p>
+  </td></tr>
+  <tr><td style="padding:24px 0 0"><p style="margin:0;font-size:12px;color:#3f3f46;text-align:center">© ${new Date().getFullYear()} Verumen</p></td></tr>
+</table></td></tr></table></body></html>`,
+  }).catch(e => log.error('resend admin reset failed', { error: e.message }));
+  res.json({ success: true });
 });
 
 app.post('/api/admin/users/:username/set-role', requireAdmin, async (req, res) => {
