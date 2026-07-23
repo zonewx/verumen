@@ -997,6 +997,22 @@ export default function AdminPanel({ authUsername }) {
             {/* DIAGNOSTICS */}
             {tab === 'diagnostics' && (
               <div className="flex flex-col gap-5">
+
+                {/* Email previews */}
+                <div className={`${card} p-5`}>
+                  <h3 className="font-semibold text-sm mb-3">Email Previews</h3>
+                  <div className="flex gap-2 flex-wrap">
+                    {['verify', 'reset', 'admin-reset'].map(type => {
+                      const labels = { verify: 'Verify Email', reset: 'Password Reset (self)', 'admin-reset': 'Password Reset (admin)' };
+                      return (
+                        <a key={type} href={`/api/admin/preview-email?type=${type}&token=${token}`} target="_blank" rel="noreferrer" className={btnGhost}>
+                          {labels[type]}
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between">
                   <p className={`text-sm text-zinc-400`}>Live connectivity test against market data APIs.</p>
                   <button onClick={fetchDiag} disabled={diagLoading} className={`${btnGhost} disabled:opacity-50`}>
