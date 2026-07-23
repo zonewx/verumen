@@ -3333,6 +3333,41 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
 });
 
 // ── Admin routes ─────────────────────────────────────────────────────────────
+
+// Email preview — open in browser while logged in as admin
+app.get('/api/admin/preview-email', requireAdmin, (req, res) => {
+  const type = req.query.type || 'verify';
+  const templates = {
+    verify: {
+      title: 'Verify your email',
+      heading: 'Verify your email',
+      body: `An administrator has linked this email address to your Verumen account (<strong style="color:#09090b;font-weight:600">william</strong>). Click below to confirm it's yours.`,
+      buttonText: 'Verify Email',
+      buttonUrl: '#',
+      footerNote: 'This link expires in 10 minutes. If you weren\'t expecting this, you can safely ignore it.',
+    },
+    reset: {
+      title: 'Reset your password',
+      heading: 'Reset your password',
+      body: 'Someone requested a password reset for the Verumen account associated with this email. If this wasn\'t you, you can safely ignore this email.',
+      buttonText: 'Reset Password',
+      buttonUrl: '#',
+      footerNote: 'This link expires in 10 minutes.',
+    },
+    'admin-reset': {
+      title: 'Reset your password',
+      heading: 'Reset your password',
+      body: 'An administrator has sent you a password reset link for your Verumen account.',
+      buttonText: 'Reset Password',
+      buttonUrl: '#',
+      footerNote: 'This link expires in 10 minutes.',
+    },
+  };
+  const tpl = templates[type] || templates.verify;
+  res.setHeader('Content-Type', 'text/html');
+  res.send(buildEmail(tpl));
+});
+
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
     // Fetch profiles and transaction counts in parallel — no N+1
