@@ -1670,7 +1670,7 @@ const handleUpload = async (files) => {
                                 </select>
                               </div>
                             </div>
-                            <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} fmt={fmt} fmtSym={fmtH} />
+                            <TodayCards data={dashboardData.portfolio} sortMode={todaySortMode} fmt={fmt} fmtSym={fmtH} hideValues={hideValues} />
                           </div>
                         )}
 

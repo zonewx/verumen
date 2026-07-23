@@ -82,7 +82,7 @@ export function LineChart({ data, loading }) {
   );
 }
 
-export function TodayCards({ data, sortMode, fmt, fmtSym }) {
+export function TodayCards({ data, sortMode, fmt, fmtSym, hideValues }) {
   const sorted = [...data].filter(s => s.todayChangePct != null).sort((a, b) => sortMode === 'currency' ? (b.todayGainBase ?? 0) - (a.todayGainBase ?? 0) : b.todayChangePct - a.todayChangePct);
   const best = sorted.slice(0, 3), worst = [...sorted].reverse().slice(0, 3);
   const Card = ({ s }) => {
@@ -98,7 +98,7 @@ export function TodayCards({ data, sortMode, fmt, fmtSym }) {
           {s.cleanName || s.name}
         </div>
         <div className="text-xs text-zinc-400">{fmt(s.nativePrice)} {s.currency}</div>
-        <div className={`text-xs font-semibold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>{`${s.todayGainBase >= 0 ? '+' : ''}${fmtSym(s.todayGainBase)}`}</div>
+        <div className={`text-xs font-semibold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>{hideValues ? '•••••' : `${s.todayGainBase >= 0 ? '+' : ''}${fmtSym(s.todayGainBase)}`}</div>
       </div>
     );
   };
