@@ -3349,6 +3349,20 @@ app.post('/api/admin/users/:username/reset-password', requireAdmin, async (req, 
   res.json({ success:true });
 });
 
+app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) => {
+  const { username } = req.params;
+  const { email } = req.body;
+  const { data: profile } = await supabase.from('profiles').select('id').eq('username', username).single();
+  if (!profile) return res.status(404).json({ error: 'User not found.' });
+  if (email) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format.' });
+    const { data: existing } = await supabase.from('profiles').select('username').ilike('email', email).single();
+    if (existing && existing.username !== username) return res.status(400).json({ error: 'Email already in use by another user.' });
+  }
+  await supabase.from('profiles').update({ email: email || null }).eq('username', username);
+  res.json({ success: true });
+});
+
 app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req, res) => {
   const { data: profile } = await supabase.from('profiles').select('email').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found.' });

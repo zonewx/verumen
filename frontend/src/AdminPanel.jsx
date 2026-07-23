@@ -17,9 +17,11 @@ export default function AdminPanel({ authUsername }) {
 
   // Modals
   const [resetModal, setResetModal] = useState(null); // { username, email }
-  const [resetTab, setResetTab] = useState('set'); // 'set' | 'send'
+  const [resetTab, setResetTab] = useState('set'); // 'set' | 'send' | 'email'
   const [resetEmailStatus, setResetEmailStatus] = useState('');
   const [resetPw, setResetPw] = useState('');
+  const [emailEditVal, setEmailEditVal] = useState('');
+  const [emailEditStatus, setEmailEditStatus] = useState('');
   const [deleteModal, setDeleteModal] = useState(null); // username
   const [deletePw, setDeletePw] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -199,6 +201,24 @@ export default function AdminPanel({ authUsername }) {
     const data = await res.json();
     if (data.success) setResetEmailStatus('✓ Reset link sent');
     else setResetEmailStatus(`Error: ${data.error}`);
+  };
+
+  const saveEmail = async () => {
+    const trimmed = emailEditVal.trim().toLowerCase();
+    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setEmailEditStatus('Invalid email format.'); return; }
+    setEmailEditStatus('Saving...');
+    const res = await fetch(`/api/admin/users/${resetModal.username}/set-email`, { method: 'POST', headers: h, body: JSON.stringify({ email: trimmed }) });
+    const data = await res.json();
+    if (data.success) {
+      setResetModal(m => ({ ...m, email: trimmed || null }));
+      if (stats) {
+        setStats(s => ({ ...s, users: s.users.map(u => u.username === resetModal.username ? { ...u, email: trimmed || null } : u) }));
+      }
+      setEmailEditStatus('✓ Saved');
+      flash(`✓ Email updated for ${resetModal.username}`);
+    } else {
+      setEmailEditStatus(`Error: ${data.error}`);
+    }
   };
 
   const clearBio = async (username) => {
@@ -386,8 +406,8 @@ export default function AdminPanel({ authUsername }) {
 
             {/* Tabs */}
             <div className="flex gap-1 p-1 bg-zinc-900 rounded-xl mb-5">
-              {[['set', 'Set Password'], ['send', 'Send Reset Link']].map(([id, label]) => (
-                <button key={id} onClick={() => { setResetTab(id); setResetEmailStatus(''); }} className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${resetTab === id ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>{label}</button>
+              {[['set', 'Set Password'], ['send', 'Send Reset Link'], ['email', 'Edit Email']].map(([id, label]) => (
+                <button key={id} onClick={() => { setResetTab(id); setResetEmailStatus(''); setEmailEditStatus(''); }} className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${resetTab === id ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>{label}</button>
               ))}
             </div>
 
@@ -399,7 +419,7 @@ export default function AdminPanel({ authUsername }) {
                   <button onClick={() => { setResetModal(null); setResetPw(''); }} className={btnGhost + ' flex-1 py-2'}>Cancel</button>
                 </div>
               </>
-            ) : (
+            ) : resetTab === 'send' ? (
               <>
                 <div className="bg-zinc-700/50 rounded-xl p-3 mb-4">
                   <p className="text-xs text-zinc-400 mb-0.5">Reset link will be sent to</p>
@@ -412,6 +432,17 @@ export default function AdminPanel({ authUsername }) {
                 )}
                 <div className="flex gap-2">
                   <button onClick={sendResetEmail} disabled={!resetModal.email || resetEmailStatus === 'Sending...' || resetEmailStatus.startsWith('✓')} className={btnBlue + ' flex-1 py-2 disabled:opacity-40'}>Send Link</button>
+                  <button onClick={() => setResetModal(null)} className={btnGhost + ' flex-1 py-2'}>Close</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <input type="email" value={emailEditVal} onChange={e => { setEmailEditVal(e.target.value); setEmailEditStatus(''); }} onKeyDown={e => e.key === 'Enter' && saveEmail()} placeholder="Email address" className={`${inputCls} mb-3`} autoFocus />
+                {emailEditStatus && (
+                  <p className={`text-xs mb-3 ${emailEditStatus.startsWith('✓') ? 'text-green-400' : emailEditStatus === 'Saving...' ? 'text-zinc-400' : 'text-red-400'}`}>{emailEditStatus}</p>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={saveEmail} disabled={emailEditStatus === 'Saving...'} className={btnBlue + ' flex-1 py-2 disabled:opacity-40'}>Save Email</button>
                   <button onClick={() => setResetModal(null)} className={btnGhost + ' flex-1 py-2'}>Close</button>
                 </div>
               </>
@@ -639,7 +670,7 @@ export default function AdminPanel({ authUsername }) {
                     </div>
                     {/* Actions */}
                     <div className="flex items-center gap-2 px-4 py-3 flex-wrap">
-                      <button onClick={() => { setResetModal({ username: u.username, email: u.email }); setResetTab('set'); setResetPw(''); setResetEmailStatus(''); }} className={btnBlue}>Reset Password</button>
+                      <button onClick={() => { setResetModal({ username: u.username, email: u.email }); setResetTab('set'); setResetPw(''); setResetEmailStatus(''); setEmailEditVal(u.email || ''); setEmailEditStatus(''); }} className={btnBlue}>Reset Password</button>
                       <button onClick={() => clearCache(u.username)} className={btnGhost}>Clear Cache</button>
                       <button onClick={() => resolveUser(u.username)} className={btnGhost}>Re-resolve Tickers</button>
                       <button onClick={() => clearBio(u.username)} className={btnGhost}>Clear Bio</button>
