@@ -731,8 +731,8 @@ export default function AdminPanel({ authUsername }) {
               <div className="flex flex-col gap-4">
 
                 {/* Ticker Failures */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
+                <div className={`${card} overflow-hidden`}>
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700/60">
                     <h3 className="font-semibold text-sm">Unresolved Tickers</h3>
                     <div className="flex items-center gap-3">
                       <span className={`text-sm text-zinc-400`}>{failures.length} unique</span>
@@ -740,34 +740,32 @@ export default function AdminPanel({ authUsername }) {
                     </div>
                   </div>
                   {failures.length === 0 ? (
-                    <div className={`${card} p-8 text-center`}>
+                    <div className="p-10 text-center">
                       <p className="text-3xl mb-3">✅</p>
                       <p className="font-semibold">No ticker failures</p>
                       <p className={`text-sm mt-1 text-zinc-400`}>All tickers resolved successfully.</p>
                     </div>
                   ) : (
-                    <div className={`${card} overflow-hidden`}>
-                      <table className="w-full text-sm">
-                        <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
-                          <tr>
-                            {['Raw Ticker', 'ISIN', 'Name', 'Count', 'Users'].map(col => (
-                              <th key={col} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400`}>{col}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {failures.map((f, i) => (
-                            <tr key={i} className={`border-t border-zinc-700 hover:bg-zinc-700/20`}>
-                              <td className="px-4 py-3 font-mono text-xs font-bold text-red-400">{f.key || '—'}</td>
-                              <td className={`px-4 py-3 text-xs font-mono text-zinc-400`}>{f.isin || '—'}</td>
-                              <td className={`px-4 py-3 text-xs text-zinc-300 max-w-xs truncate`}>{f.name || '—'}</td>
-                              <td className="px-4 py-3 text-xs font-bold">{f.count}</td>
-                              <td className={`px-4 py-3 text-xs text-zinc-400`}>{f.users.join(', ')}</td>
-                            </tr>
+                    <table className="w-full text-sm">
+                      <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
+                        <tr>
+                          {['Raw Ticker', 'ISIN', 'Name', 'Count', 'Users'].map(col => (
+                            <th key={col} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400`}>{col}</th>
                           ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {failures.map((f, i) => (
+                          <tr key={i} className={`border-t border-zinc-700 hover:bg-zinc-700/20`}>
+                            <td className="px-4 py-3 font-mono text-xs font-bold text-red-400">{f.key || '—'}</td>
+                            <td className={`px-4 py-3 text-xs font-mono text-zinc-400`}>{f.isin || '—'}</td>
+                            <td className={`px-4 py-3 text-xs text-zinc-300 max-w-xs truncate`}>{f.name || '—'}</td>
+                            <td className="px-4 py-3 text-xs font-bold">{f.count}</td>
+                            <td className={`px-4 py-3 text-xs text-zinc-400`}>{f.users.join(', ')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
                 </div>
 
