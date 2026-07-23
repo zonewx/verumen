@@ -665,11 +665,8 @@ export default function AdminPanel({ authUsername }) {
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <div className={`${fieldBox} flex-1 flex items-center justify-between text-zinc-500`}>
+                              <div className={`${fieldBox} flex-1 flex items-center text-zinc-500`}>
                                 <span className="tracking-widest">••••••••••••</span>
-                                <button type="button" onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className="text-zinc-600 hover:text-zinc-300 transition" title="Set new password">
-                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                                </button>
                               </div>
                               <button onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className={btnBlue}>Set Password</button>
                               <button onClick={() => sendResetLinkInline(u.username)} disabled={!u.email || resetStatus === 'sending' || resetStatus === 'sent'} className={`${btnGhost} disabled:opacity-40`} title={!u.email ? 'No email on file' : ''}>
