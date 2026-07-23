@@ -314,8 +314,7 @@ export default function App() {
         const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: authForm.username, password: authForm.password, country: authForm.country || 'se', email: authForm.email.trim() }) });
         const data = await res.json();
         if (!res.ok) { setAuthError(data.error); setAuthLoading(false); return; }
-        sessionStorage.setItem('auth_user', data.username);
-        setAuthUsername(data.username); setIsInitializing(true); setAuthStatus('logged-in');
+        setAuthMode('verify-pending');
       } else {
         const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: authForm.username, password: authForm.password }) });
         const data = await res.json();
@@ -2239,6 +2238,25 @@ const handleUpload = async (files) => {
       </div>
     );
 
+    if (authMode === 'verify-pending') return (
+      <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
+        {authBackground}
+        <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
+          <div className="relative w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl text-center">
+            <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"/>
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </div>
+            <p className="font-bold text-white mb-2">Verify your email</p>
+            <p className="text-sm text-zinc-400 mb-2">Account created! A verification link has been sent to <span className="text-zinc-300">{authForm.email}</span>.</p>
+            <p className="text-sm text-zinc-500 mb-6">Click the link in that email to activate your account. It expires in 24 hours.</p>
+            <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-zinc-500 hover:text-zinc-300 transition">Back to sign in</button>
+          </div>
+          <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>
+        </div>
+      </div>
+    );
+
     if (isForgotSent) return (
       <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
         {authBackground}
@@ -2249,7 +2267,7 @@ const handleUpload = async (files) => {
               <svg className="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             </div>
             <p className="font-bold text-white mb-2">Check your email</p>
-            <p className="text-sm text-zinc-400 mb-6">If an account exists for <span className="text-zinc-300">{authForm.email}</span>, a reset link has been sent. It expires in 1 hour.</p>
+            <p className="text-sm text-zinc-400 mb-6">If an account exists for <span className="text-zinc-300">{authForm.email}</span>, a reset link has been sent. It expires in 10 minutes.</p>
             <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-zinc-500 hover:text-zinc-300 transition">Back to sign in</button>
           </div>
           <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>

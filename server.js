@@ -416,11 +416,32 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email: fakeEmail, password, email_confirm: true });
   if (authError) return res.status(400).json({ error: authError.message });
   const role = username.trim().toLowerCase() === 'admin' ? 'admin' : 'user';
-  const { error: profileError } = await supabase.from('profiles').insert({ id: authData.user.id, username: username.trim(), role, bio: '', steam_id: '', public_inventory: false, public_holdings: false, country: country || 'se', email: email.trim().toLowerCase() });
+  const { error: profileError } = await supabase.from('profiles').insert({ id: authData.user.id, username: username.trim(), role, bio: '', steam_id: '', public_inventory: false, public_holdings: false, country: country || 'se', email: email.trim().toLowerCase(), email_verified: false });
   if (profileError) return res.status(500).json({ error: profileError.message });
   const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
   if (signInError) return res.status(500).json({ error: signInError.message });
-  res.json({ success: true, username: username.trim(), role, token: signInData.session.access_token, refreshToken: signInData.session.refresh_token });
+  // Send verification email — 24h expiry since new users may not check immediately
+  if (resend) {
+    const vToken = crypto.randomBytes(32).toString('hex');
+    const vExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    await supabase.from('email_verification_tokens').insert({ username: username.trim(), email: email.trim().toLowerCase(), token: vToken, expires_at: vExpiry });
+    const verifyUrl = `${APP_URL}/?email_token=${vToken}`;
+    resend.emails.send({
+      from: 'Verumen <noreply@verumen.com>',
+      to: email.trim(),
+      subject: 'Verify your Verumen email address',
+      html: buildEmail({
+        title: 'Verify your email',
+        heading: 'Welcome to Verumen!',
+        body: `Your account (<strong style="color:#09090b;font-weight:600">${username.trim()}</strong>) has been created. Click below to verify your email address and confirm it's yours.`,
+        buttonText: 'Verify Email',
+        buttonUrl: verifyUrl,
+        footerNote: 'This link expires in 24 hours. If you didn\'t create this account, you can safely ignore this email.',
+      }),
+    }).catch(e => log.error('registration verify email failed', { error: e.message }));
+  }
+  // Don't log the user in — require email verification first
+  res.json({ success: true, needsVerification: true, username: username.trim() });
 });
 
 app.post('/api/auth/login', authRateLimit, async (req, res) => {
@@ -429,7 +450,11 @@ app.post('/api/auth/login', authRateLimit, async (req, res) => {
   const email = `${username.trim().toLowerCase()}@statera.local`;
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return res.status(401).json({ error: 'Invalid username or password.' });
-  const { data: profile } = await supabase.from('profiles').select('username, role').eq('id', data.user.id).single();
+  const { data: profile } = await supabase.from('profiles').select('username, role, email, email_verified').eq('id', data.user.id).single();
+  // Block login for accounts with an unverified email
+  if (profile.email && !profile.email_verified) {
+    return res.status(403).json({ error: 'Please verify your email address before signing in. Check your inbox for the verification link.' });
+  }
   res.json({ success: true, username: profile.username, role: profile.role, token: data.session.access_token, refreshToken: data.session.refresh_token });
 });
 
@@ -3368,6 +3393,14 @@ app.get('/api/admin/preview-email', async (req, res) => {
       buttonText: 'Reset Password',
       buttonUrl: '#',
       footerNote: 'This link expires in 10 minutes.',
+    },
+    'welcome': {
+      title: 'Verify your email',
+      heading: 'Welcome to Verumen!',
+      body: `Your account (<strong style="color:#09090b;font-weight:600">william</strong>) has been created. Click below to verify your email address and confirm it's yours.`,
+      buttonText: 'Verify Email',
+      buttonUrl: '#',
+      footerNote: 'This link expires in 24 hours. If you didn\'t create this account, you can safely ignore this email.',
     },
   };
   const tpl = templates[type] || templates.verify;
