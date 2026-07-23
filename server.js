@@ -12,6 +12,48 @@ const { supabase } = require('./supabase');
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const APP_URL = process.env.APP_URL || 'https://verumen.com';
 
+function buildEmail({ title, heading, body, buttonText, buttonUrl, footerNote }) {
+  const year = new Date().getFullYear();
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${title}</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5">
+  <tr><td align="center" style="padding:48px 16px 32px">
+
+    <!-- Wordmark -->
+    <table width="100%" style="max-width:520px" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:0 0 20px 4px">
+        <span style="font-size:20px;font-weight:800;color:#09090b;letter-spacing:-0.5px">Verumen</span>
+      </td></tr>
+    </table>
+
+    <!-- Card -->
+    <table width="100%" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)" cellpadding="0" cellspacing="0">
+      <!-- Accent bar -->
+      <tr><td style="background:#0284c7;height:4px;font-size:0;line-height:0">&nbsp;</td></tr>
+
+      <!-- Content -->
+      <tr><td style="padding:36px 40px 32px">
+        <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#09090b;line-height:1.2">${heading}</p>
+        <p style="margin:0 0 28px;font-size:14px;color:#71717a;line-height:1.65">${body}</p>
+        <table cellpadding="0" cellspacing="0"><tr><td>
+          <a href="${buttonUrl}" style="display:inline-block;background:#0284c7;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:13px 28px;border-radius:10px;letter-spacing:0.1px">${buttonText}</a>
+        </td></tr></table>
+        <p style="margin:28px 0 0;font-size:12px;color:#a1a1aa;line-height:1.6">${footerNote}<br/>Or copy this link: <span style="color:#71717a;word-break:break-all">${buttonUrl}</span></p>
+      </td></tr>
+
+      <!-- Card footer -->
+      <tr><td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 40px">
+        <p style="margin:0;font-size:11px;color:#a1a1aa">© ${year} Verumen &nbsp;·&nbsp; You received this email because an admin action was taken on your account.</p>
+      </td></tr>
+    </table>
+
+  </td></tr>
+</table>
+</body></html>`;
+}
+
 // In-memory price cache — populated from Supabase on startup so restarts don't force a YF burst
 const _priceCache = new Map(); // ticker -> { q: quoteObject, cachedAt: timestamp }
 const _fxRateCache = {};       // 'USDSEK=X' -> { rate, cachedAt }
@@ -419,20 +461,14 @@ app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
       from: 'Verumen <noreply@verumen.com>',
       to: email.trim(),
       subject: 'Reset your Verumen password',
-      html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:48px 16px">
-<table width="100%" style="max-width:480px" cellpadding="0" cellspacing="0">
-  <tr><td style="padding:0 0 24px 0">
-    <img src="${APP_URL}/logo.png" alt="Verumen" width="48" height="48" style="display:block"/>
-  </td></tr>
-  <tr><td style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:36px">
-    <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#fff">Reset your password</p>
-    <p style="margin:0 0 28px;font-size:14px;color:#a1a1aa;line-height:1.6">Someone requested a password reset for the Verumen account associated with this email. If this wasn't you, you can safely ignore this email.</p>
-    <a href="${resetUrl}" style="display:inline-block;background:#0284c7;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:10px">Reset Password</a>
-    <p style="margin:24px 0 0;font-size:12px;color:#52525b">This link expires in 1 hour. If the button doesn't work, copy this URL:<br/><span style="color:#71717a;word-break:break-all">${resetUrl}</span></p>
-  </td></tr>
-  <tr><td style="padding:24px 0 0"><p style="margin:0;font-size:12px;color:#3f3f46;text-align:center">© ${new Date().getFullYear()} Verumen</p></td></tr>
-</table></td></tr></table></body></html>`,
+      html: buildEmail({
+        title: 'Reset your password',
+        heading: 'Reset your password',
+        body: 'Someone requested a password reset for the Verumen account associated with this email. If this wasn\'t you, you can safely ignore this email.',
+        buttonText: 'Reset Password',
+        buttonUrl: resetUrl,
+        footerNote: 'This link expires in 1 hour.',
+      }),
     }).catch(e => log.error('resend failed', { error: e.message }));
   }
   res.json({ success: true });
@@ -3371,18 +3407,14 @@ app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) 
       from: 'Verumen <noreply@verumen.com>',
       to: email,
       subject: 'Verify your Verumen email address',
-      html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:48px 16px">
-<table width="100%" style="max-width:480px" cellpadding="0" cellspacing="0">
-  <tr><td style="padding:0 0 24px 0"><img src="${APP_URL}/logo.png" alt="Verumen" width="48" height="48" style="display:block"/></td></tr>
-  <tr><td style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:36px">
-    <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#fff">Verify your email</p>
-    <p style="margin:0 0 28px;font-size:14px;color:#a1a1aa;line-height:1.6">An administrator has linked this email address to your Verumen account (<strong style="color:#e4e4e7">${username}</strong>). Click below to confirm it's yours.</p>
-    <a href="${verifyUrl}" style="display:inline-block;background:#0284c7;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:10px">Verify Email</a>
-    <p style="margin:24px 0 0;font-size:12px;color:#52525b">This link expires in 24 hours. If you weren't expecting this, you can safely ignore it.<br/>If the button doesn't work, copy this URL:<br/><span style="color:#71717a;word-break:break-all">${verifyUrl}</span></p>
-  </td></tr>
-  <tr><td style="padding:24px 0 0"><p style="margin:0;font-size:12px;color:#3f3f46;text-align:center">© ${new Date().getFullYear()} Verumen</p></td></tr>
-</table></td></tr></table></body></html>`,
+      html: buildEmail({
+        title: 'Verify your email',
+        heading: 'Verify your email',
+        body: `An administrator has linked this email address to your Verumen account (<strong style="color:#09090b;font-weight:600">${username}</strong>). Click below to confirm it's yours.`,
+        buttonText: 'Verify Email',
+        buttonUrl: verifyUrl,
+        footerNote: 'This link expires in 24 hours. If you weren\'t expecting this, you can safely ignore it.',
+      }),
     }).then(() => { emailSent = true; }).catch(e => log.error('verify email send failed', { error: e.message }));
   }
   res.json({ success: true, emailSent });
@@ -3413,18 +3445,14 @@ app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req
     from: 'Verumen <noreply@verumen.com>',
     to: profile.email,
     subject: 'Reset your Verumen password',
-    html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:48px 16px">
-<table width="100%" style="max-width:480px" cellpadding="0" cellspacing="0">
-  <tr><td style="padding:0 0 24px 0"><img src="${APP_URL}/logo.png" alt="Verumen" width="48" height="48" style="display:block"/></td></tr>
-  <tr><td style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:36px">
-    <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#fff">Reset your password</p>
-    <p style="margin:0 0 28px;font-size:14px;color:#a1a1aa;line-height:1.6">An administrator has sent you a password reset link for your Verumen account.</p>
-    <a href="${resetUrl}" style="display:inline-block;background:#0284c7;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:10px">Reset Password</a>
-    <p style="margin:24px 0 0;font-size:12px;color:#52525b">This link expires in 1 hour. If the button doesn't work, copy this URL:<br/><span style="color:#71717a;word-break:break-all">${resetUrl}</span></p>
-  </td></tr>
-  <tr><td style="padding:24px 0 0"><p style="margin:0;font-size:12px;color:#3f3f46;text-align:center">© ${new Date().getFullYear()} Verumen</p></td></tr>
-</table></td></tr></table></body></html>`,
+    html: buildEmail({
+      title: 'Reset your password',
+      heading: 'Reset your password',
+      body: 'An administrator has sent you a password reset link for your Verumen account.',
+      buttonText: 'Reset Password',
+      buttonUrl: resetUrl,
+      footerNote: 'This link expires in 1 hour.',
+    }),
   }).catch(e => log.error('resend admin reset failed', { error: e.message }));
   res.json({ success: true });
 });

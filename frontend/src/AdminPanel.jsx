@@ -405,13 +405,11 @@ export default function AdminPanel({ authUsername }) {
 
       <div className={`max-w-7xl mx-auto px-6 py-8`}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Admin Panel</h1>
-            <p className={`text-sm mt-1 text-zinc-400`}>Logged in as <span className="font-semibold text-red-400">{authUsername}</span></p>
+        {actionMsg && (
+          <div className="flex justify-end mb-6">
+            <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : actionMsg.includes('Error') ? 'bg-red-900/40 text-red-400 border-red-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg}</div>
           </div>
-          {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : actionMsg.includes('Error') ? 'bg-red-900/40 text-red-400 border-red-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg}</div>}
-        </div>
+        )}
 
 
         {loading && tab === 'overview' ? (
@@ -629,7 +627,7 @@ export default function AdminPanel({ authUsername }) {
                                   <>
                                     <span className="flex-1 truncate">{u.email}</span>
                                     {u.emailVerified
-                                      ? <span className="text-emerald-400 text-xs font-semibold shrink-0">✓ Verified</span>
+                                      ? <span className="text-emerald-400 text-xs font-semibold shrink-0">Verified</span>
                                       : <span className="text-amber-400 text-xs font-semibold shrink-0">! Unverified</span>}
                                   </>
                                 ) : (
