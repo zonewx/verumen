@@ -4,8 +4,8 @@ import apiCache from './apiCache';
 
 const TAB_MAP = {
   '': 'overview', 'overview': 'overview', 'database': 'database',
-  'users': 'users', 'roles': 'roles', 'ticker-failures': 'tickers',
-  'global-overrides': 'global-overrides', 'announcements': 'announcements',
+  'users': 'users', 'ticker-failures': 'ticker-mgmt',
+  'global-overrides': 'ticker-mgmt', 'announcements': 'announcements',
   'diagnostics': 'diagnostics',
 };
 
@@ -55,7 +55,6 @@ export default function AdminPanel({ authUsername }) {
   const [goSearch, setGoSearch] = useState('');
   const [goLoading, setGoLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
-  const [roleSearch, setRoleSearch] = useState('');
 
   // Diagnostics
   const [diagData, setDiagData] = useState(null);
@@ -167,8 +166,7 @@ export default function AdminPanel({ authUsername }) {
   };
 
   useEffect(() => { fetchStats(); }, []);
-  useEffect(() => { if (tab === 'tickers') fetchFailures(); }, [tab]);
-  useEffect(() => { if (tab === 'global-overrides') fetchGlobalOverrides(); }, [tab]);
+  useEffect(() => { if (tab === 'ticker-mgmt') { fetchFailures(); fetchGlobalOverrides(); } }, [tab]);
   useEffect(() => { if (tab === 'database') fetchDbTables(); }, [tab]);
   useEffect(() => { if (tab === 'diagnostics') fetchDiag(); }, [tab]);
 
@@ -334,6 +332,13 @@ export default function AdminPanel({ authUsername }) {
 
   const setRole = async (username, role) => {
     const res = await fetch(`/api/admin/users/${username}/set-role`, { method: 'POST', headers: h, body: JSON.stringify({ role }) });
+    const data = await res.json();
+    if (data.success) { flash(`✓ ${username} is now ${role}`); fetchStats(); }
+    else flash('Error: ' + data.error);
+  };
+
+  const setAdminRole = async (username, role) => {
+    const res = await fetch(`/api/admin/users/${username}/set-role-admin`, { method: 'POST', headers: h, body: JSON.stringify({ role }) });
     const data = await res.json();
     if (data.success) { flash(`✓ ${username} is now ${role}`); fetchStats(); }
     else flash('Error: ' + data.error);
@@ -569,7 +574,7 @@ export default function AdminPanel({ authUsername }) {
 
             {/* USERS */}
             {tab === 'users' && stats && (
-              <div className="flex flex-col gap-3 max-w-2xl">
+              <div className="flex flex-col gap-3 max-w-2xl mx-auto">
                 <div className="flex items-center gap-3">
                   <input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search users…" className={`${inputCls} flex-1`} />
                   <p className={`text-sm shrink-0 text-zinc-400`}>{stats.users.length} user(s)</p>
@@ -660,7 +665,12 @@ export default function AdminPanel({ authUsername }) {
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <div className={`${fieldBox} flex-1 text-zinc-500 tracking-widest`}>••••••••••••</div>
+                              <div className={`${fieldBox} flex-1 flex items-center justify-between text-zinc-500`}>
+                                <span className="tracking-widest">••••••••••••</span>
+                                <button type="button" onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className="text-zinc-600 hover:text-zinc-300 transition" title="Set new password">
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </button>
+                              </div>
                               <button onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className={btnBlue}>Set Password</button>
                               <button onClick={() => sendResetLinkInline(u.username)} disabled={!u.email || resetStatus === 'sending' || resetStatus === 'sent'} className={`${btnGhost} disabled:opacity-40`} title={!u.email ? 'No email on file' : ''}>
                                 {resetStatus === 'sending' ? 'Sending…' : resetStatus === 'sent' ? '✓ Sent' : resetStatus === 'error' ? 'Error' : 'Send Reset Link'}
@@ -668,6 +678,35 @@ export default function AdminPanel({ authUsername }) {
                             </div>
                           )}
                         </div>
+
+                        {/* Role */}
+                        {u.username !== 'admin' && (
+                          <div>
+                            <label className={fieldLabel}>Role</label>
+                            <div className="flex gap-2 flex-wrap">
+                              {(() => {
+                                const role = u.role || 'user';
+                                const isRootAdmin = u.username === 'admin';
+                                const isSelf = u.username === authUsername;
+                                return (
+                                  <>
+                                    {!isRootAdmin && role !== 'admin' && (
+                                      role !== 'moderator'
+                                        ? <button onClick={() => setRole(u.username, 'moderator')} className={btnBlue}>Promote to Mod</button>
+                                        : <button onClick={() => setRole(u.username, 'user')} className={btnGhost}>Demote to User</button>
+                                    )}
+                                    {authUsername?.toLowerCase() === 'admin' && !isRootAdmin && !isSelf && (
+                                      role !== 'admin'
+                                        ? <button onClick={() => setAdminRole(u.username, 'admin')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-red-700 hover:bg-red-600 text-white`}>Promote to Admin</button>
+                                        : <button onClick={() => setAdminRole(u.username, 'user')} className={btnGhost}>Revoke Admin</button>
+                                    )}
+                                    {role === 'user' && !authUsername?.toLowerCase() === 'admin' && <span className="text-xs text-zinc-500 self-center">No role changes available</span>}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Actions */}
                         <div>
@@ -691,50 +730,54 @@ export default function AdminPanel({ authUsername }) {
               </div>
             )}
 
-            {/* TICKER FAILURES */}
-            {tab === 'tickers' && (
+            {/* TICKER MANAGEMENT */}
+            {tab === 'ticker-mgmt' && (
               <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <p className={`text-sm text-zinc-400`}>{failures.length} unique unresolved tickers</p>
-                  <button onClick={fetchFailures} className={btnGhost}>↺ Refresh</button>
-                </div>
-                {failures.length === 0 ? (
-                  <div className={`${card} p-10 text-center`}>
-                    <p className="text-3xl mb-3">✅</p>
-                    <p className="font-semibold">No ticker failures</p>
-                    <p className={`text-sm mt-1 text-zinc-400`}>All tickers resolved successfully.</p>
-                  </div>
-                ) : (
-                  <div className={`${card} overflow-hidden`}>
-                    <table className="w-full text-sm">
-                      <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
-                        <tr>
-                          {['Raw Ticker', 'ISIN', 'Name', 'Count', 'Users'].map(h => (
-                            <th key={h} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400`}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {failures.map((f, i) => (
-                          <tr key={i} className={`border-t border-zinc-700 hover:bg-zinc-700/20`}>
-                            <td className="px-4 py-3 font-mono text-xs font-bold text-red-400">{f.key || '—'}</td>
-                            <td className={`px-4 py-3 text-xs font-mono text-zinc-400`}>{f.isin || '—'}</td>
-                            <td className={`px-4 py-3 text-xs text-zinc-300 max-w-xs truncate`}>{f.name || '—'}</td>
-                            <td className="px-4 py-3 text-xs font-bold">{f.count}</td>
-                            <td className={`px-4 py-3 text-xs text-zinc-400`}>{f.users.join(', ')}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
 
-            {/* GLOBAL OVERRIDES */}
-            {tab === 'global-overrides' && (
-              <div className="flex flex-col gap-4">
+                {/* Ticker Failures */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-sm">Unresolved Tickers</h3>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-sm text-zinc-400`}>{failures.length} unique</span>
+                      <button onClick={fetchFailures} className={btnGhost}>↺ Refresh</button>
+                    </div>
+                  </div>
+                  {failures.length === 0 ? (
+                    <div className={`${card} p-8 text-center`}>
+                      <p className="text-3xl mb-3">✅</p>
+                      <p className="font-semibold">No ticker failures</p>
+                      <p className={`text-sm mt-1 text-zinc-400`}>All tickers resolved successfully.</p>
+                    </div>
+                  ) : (
+                    <div className={`${card} overflow-hidden`}>
+                      <table className="w-full text-sm">
+                        <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
+                          <tr>
+                            {['Raw Ticker', 'ISIN', 'Name', 'Count', 'Users'].map(col => (
+                              <th key={col} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400`}>{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {failures.map((f, i) => (
+                            <tr key={i} className={`border-t border-zinc-700 hover:bg-zinc-700/20`}>
+                              <td className="px-4 py-3 font-mono text-xs font-bold text-red-400">{f.key || '—'}</td>
+                              <td className={`px-4 py-3 text-xs font-mono text-zinc-400`}>{f.isin || '—'}</td>
+                              <td className={`px-4 py-3 text-xs text-zinc-300 max-w-xs truncate`}>{f.name || '—'}</td>
+                              <td className="px-4 py-3 text-xs font-bold">{f.count}</td>
+                              <td className={`px-4 py-3 text-xs text-zinc-400`}>{f.users.join(', ')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Override Management */}
                 <div className={`${card} p-5`}>
+                  <h3 className="font-semibold text-sm mb-3">Override Management</h3>
                   <p className={`text-sm mb-4 text-zinc-300`}>
                     Global overrides apply to <strong>all users</strong> and take priority over per-user overrides. Use this to pin commonly misresolved ISINs to the correct Yahoo Finance ticker.
                   </p>
@@ -843,64 +886,6 @@ export default function AdminPanel({ authUsername }) {
                     </div>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* ROLES */}
-            {tab === 'roles' && stats && (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <input value={roleSearch} onChange={e => setRoleSearch(e.target.value)} placeholder="Search users…" className={`${inputCls} flex-1`} />
-                </div>
-                <p className={`text-sm text-zinc-400`}>
-                  Promote users to moderator or demote them back.
-                  {authUsername?.toLowerCase() === 'admin' && <span className="ml-1">As the root admin you can also grant or revoke admin access.</span>}
-                </p>
-                {[...stats.users]
-                  .filter(u => !roleSearch || u.username.toLowerCase().includes(roleSearch.toLowerCase()))
-                  .sort((a, b) => a.username.localeCompare(b.username))
-                  .map(u => {
-                  const role = u.role || 'user';
-                  const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800', user: `bg-zinc-700 text-zinc-400` };
-                  const isRootAdmin = u.username === 'admin';
-                  const isSelf = u.username === authUsername;
-
-                  const setAdminRole = async (newRole) => {
-                    const res = await fetch(`/api/admin/users/${u.username}/set-role-admin`, { method: 'POST', headers: h, body: JSON.stringify({ role: newRole }) });
-                    const data = await res.json();
-                    if (data.success) { flash(`✓ ${u.username} is now ${newRole}`); fetchStats(); }
-                    else flash('Error: ' + data.error);
-                  };
-
-                  return (
-                    <div key={u.username} className={`${card} p-4 flex items-center gap-4`}>
-                      <div className="w-10 h-10 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
-                        {u.avatarBase64 ? <img src={u.avatarBase64} className="w-full h-full object-cover" alt={u.username}/> : u.username[0].toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold">{u.username}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadge[role]}`}>{role.charAt(0).toUpperCase() + role.slice(1)}</span>
-                        </div>
-                        <p className={`text-xs text-zinc-400`}>Joined {new Date(u.createdAt).toLocaleDateString()}</p>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        {/* Mod promote/demote — visible to all admins, not for root admin account */}
-                        {!isRootAdmin && role !== 'admin' && (
-                          role !== 'moderator'
-                            ? <button onClick={() => setRole(u.username, 'moderator')} className={btnBlue}>Promote to Mod</button>
-                            : <button onClick={() => setRole(u.username, 'user')} className={btnGhost}>Demote to User</button>
-                        )}
-                        {/* Admin promote/demote — only visible to the root "admin" account */}
-                        {authUsername?.toLowerCase() === 'admin' && !isRootAdmin && !isSelf && (
-                          role !== 'admin'
-                            ? <button onClick={() => setAdminRole('admin')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-red-700 hover:bg-red-600 text-white`}>Promote to Admin</button>
-                            : <button onClick={() => setAdminRole('user')} className={btnGhost}>Revoke Admin</button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             )}
 
