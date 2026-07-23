@@ -66,7 +66,7 @@ export default function App() {
   });
   const [authUsername, setAuthUsername] = useState(() => sessionStorage.getItem('auth_user') || '');
   const [authMode, setAuthMode] = useState('login');
-  const [authForm, setAuthForm] = useState({ username: '', password: '', confirmPassword: '', newPassword: '' });
+  const [authForm, setAuthForm] = useState({ username: '', email: '', password: '', confirmPassword: '', newPassword: '' });
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -276,7 +276,8 @@ export default function App() {
     try {
       if (authMode === 'signup') {
         if (authForm.password !== authForm.confirmPassword) { setAuthError('Passwords do not match.'); setAuthLoading(false); return; }
-        const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: authForm.username, password: authForm.password, country: authForm.country || 'se' }) });
+        if (!authForm.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authForm.email.trim())) { setAuthError('A valid email address is required.'); setAuthLoading(false); return; }
+        const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: authForm.username, password: authForm.password, country: authForm.country || 'se', email: authForm.email.trim() }) });
         const data = await res.json();
         if (!res.ok) { setAuthError(data.error); setAuthLoading(false); return; }
         sessionStorage.setItem('auth_user', data.username);
@@ -2163,6 +2164,18 @@ const handleUpload = async (files) => {
                     className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
                 </div>
               </div>
+              {/* Email (signup only) */}
+              {isSignup && (
+                <div>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
+                      <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M0 4a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H2a2 2 0 01-2-2V4zm2-1a1 1 0 00-1 1v.217l7 4.2 7-4.2V4a1 1 0 00-1-1H2zm13 2.383l-4.758 2.855L15 11.114V5.383zm-.034 6.878L9.271 8.82 8 9.583 6.728 8.82l-5.694 3.44A1 1 0 002 13h12a1 1 0 00.966-.739zM1 11.114l4.758-2.876L1 5.383v5.731z"/></svg>
+                    </span>
+                    <input type="email" value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} placeholder="Enter email address"
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+                  </div>
+                </div>
+              )}
               {/* Password */}
               <div>
                 <div className="relative">
@@ -2217,7 +2230,7 @@ const handleUpload = async (files) => {
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
               <div className="h-5 flex items-center justify-center">
-                {authStatus==='logged-out' && allowRegistration === true && <button onClick={()=>{setAuthMode(isSignup?'login':'signup');setAuthError('');setAuthForm({username:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm text-center text-zinc-500 hover:text-zinc-300 transition">{isSignup?'Already have an account? Sign in':'Create an account'}</button>}
+                {authStatus==='logged-out' && allowRegistration === true && <button onClick={()=>{setAuthMode(isSignup?'login':'signup');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm text-center text-zinc-500 hover:text-zinc-300 transition">{isSignup?'Already have an account? Sign in':'Create an account'}</button>}
                 {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className="text-xs text-center text-zinc-600">Registration is currently closed.</p>}
               </div>
             </div>

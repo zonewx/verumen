@@ -343,27 +343,30 @@ app.get('/api/auth/status', async (req, res) => {
 });
 
 app.post('/api/auth/register', authRateLimit, async (req, res) => {
-  const { username, password, country } = req.body;
+  const { username, password, country, email } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required.' });
   const { data: regSetting } = await supabase.from('app_settings').select('value').eq('key', 'allowRegistration').single();
   if (regSetting && regSetting.value === 'false') return res.status(403).json({ error: 'Registration is currently disabled.' });
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(username.trim())) return res.status(400).json({ error: 'Username must be 3-20 characters, letters/numbers/underscore only.' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ error: 'A valid email address is required.' });
   const { data: existing } = await supabase.from('profiles').select('id').ilike('username', username.trim()).single();
   if (existing) return res.status(400).json({ error: 'Username already taken.' });
+  const { data: existingEmail } = await supabase.from('profiles').select('id').ilike('email', email.trim()).single();
+  if (existingEmail) return res.status(400).json({ error: 'An account with this email already exists.' });
   const [{ count }, { data: limitSetting }] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('app_settings').select('value').eq('key', 'userLimit').single(),
   ]);
   const userLimit = parseInt(limitSetting?.value || '0', 10);
   if (userLimit > 0 && count >= userLimit) return res.status(400).json({ error: `User limit of ${userLimit} reached.` });
-  const email = `${username.trim().toLowerCase()}@statera.local`;
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
+  const fakeEmail = `${username.trim().toLowerCase()}@statera.local`;
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email: fakeEmail, password, email_confirm: true });
   if (authError) return res.status(400).json({ error: authError.message });
   const role = username.trim().toLowerCase() === 'admin' ? 'admin' : 'user';
-  const { error: profileError } = await supabase.from('profiles').insert({ id: authData.user.id, username: username.trim(), role, bio: '', steam_id: '', public_inventory: false, public_holdings: false, country: country || 'se' });
+  const { error: profileError } = await supabase.from('profiles').insert({ id: authData.user.id, username: username.trim(), role, bio: '', steam_id: '', public_inventory: false, public_holdings: false, country: country || 'se', email: email.trim().toLowerCase() });
   if (profileError) return res.status(500).json({ error: profileError.message });
-  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
   if (signInError) return res.status(500).json({ error: signInError.message });
   res.json({ success: true, username: username.trim(), role, token: signInData.session.access_token, refreshToken: signInData.session.refresh_token });
 });
@@ -3238,7 +3241,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
     // Fetch profiles and transaction counts in parallel — no N+1
     const [{ data: profiles }, { data: txCounts }, { count: totalTx }] = await Promise.all([
-      supabase.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64'),
+      supabase.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64, email'),
       supabase.from('transactions').select('user_id').limit(100000), // capped to avoid unbounded memory usage
       supabase.from('transactions').select('*', { count:'exact', head:true }),
     ]);
@@ -3252,6 +3255,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
       transactionCount: txCountMap[p.id] || 0,
       publicInventory: p.public_inventory, publicHoldings: p.public_holdings,
       avatarBase64: p.avatar_base64 || null,
+      email: p.email || null,
     }));
 
     const mem = process.memoryUsage();

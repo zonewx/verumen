@@ -583,6 +583,7 @@ export default function AdminPanel({ authUsername }) {
                           {roleBadge[u.role] && <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadge[u.role]}`}>{u.role.charAt(0).toUpperCase() + u.role.slice(1)}</span>}
                           {u.hasSteam && <span className="text-xs text-orange-400 bg-orange-900/30 px-1.5 py-0.5 rounded-full border border-orange-800/50">Steam</span>}
                         </div>
+                        {u.email && <p className="text-xs text-zinc-500 mt-0.5">{u.email}</p>}
                       </div>
                       <div className="flex items-start gap-4 shrink-0 text-right">
                         <div className="flex flex-col items-end">
