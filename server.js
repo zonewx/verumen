@@ -3295,7 +3295,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
     // Fetch profiles and transaction counts in parallel — no N+1
     const [{ data: profiles }, { data: txCounts }, { count: totalTx }] = await Promise.all([
-      supabase.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64, email'),
+      supabase.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64, email, email_verified'),
       supabase.from('transactions').select('user_id').limit(100000), // capped to avoid unbounded memory usage
       supabase.from('transactions').select('*', { count:'exact', head:true }),
     ]);
@@ -3310,6 +3310,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
       publicInventory: p.public_inventory, publicHoldings: p.public_holdings,
       avatarBase64: p.avatar_base64 || null,
       email: p.email || null,
+      emailVerified: p.email_verified || false,
     }));
 
     const mem = process.memoryUsage();
@@ -3359,8 +3360,44 @@ app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) 
     const { data: existing } = await supabase.from('profiles').select('username').ilike('email', email).single();
     if (existing && existing.username !== username) return res.status(400).json({ error: 'Email already in use by another user.' });
   }
-  await supabase.from('profiles').update({ email: email || null }).eq('username', username);
-  res.json({ success: true });
+  await supabase.from('profiles').update({ email: email || null, email_verified: false }).eq('username', username);
+  let emailSent = false;
+  if (email && resend) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    await supabase.from('email_verification_tokens').insert({ username, email, token, expires_at: expiresAt });
+    const verifyUrl = `${APP_URL}/?email_token=${token}`;
+    await resend.emails.send({
+      from: 'Verumen <noreply@verumen.com>',
+      to: email,
+      subject: 'Verify your Verumen email address',
+      html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:48px 16px">
+<table width="100%" style="max-width:480px" cellpadding="0" cellspacing="0">
+  <tr><td style="padding:0 0 24px 0"><img src="${APP_URL}/logo.png" alt="Verumen" width="48" height="48" style="display:block"/></td></tr>
+  <tr><td style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:36px">
+    <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#fff">Verify your email</p>
+    <p style="margin:0 0 28px;font-size:14px;color:#a1a1aa;line-height:1.6">An administrator has linked this email address to your Verumen account (<strong style="color:#e4e4e7">${username}</strong>). Click below to confirm it's yours.</p>
+    <a href="${verifyUrl}" style="display:inline-block;background:#0284c7;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:10px">Verify Email</a>
+    <p style="margin:24px 0 0;font-size:12px;color:#52525b">This link expires in 24 hours. If you weren't expecting this, you can safely ignore it.<br/>If the button doesn't work, copy this URL:<br/><span style="color:#71717a;word-break:break-all">${verifyUrl}</span></p>
+  </td></tr>
+  <tr><td style="padding:24px 0 0"><p style="margin:0;font-size:12px;color:#3f3f46;text-align:center">© ${new Date().getFullYear()} Verumen</p></td></tr>
+</table></td></tr></table></body></html>`,
+    }).then(() => { emailSent = true; }).catch(e => log.error('verify email send failed', { error: e.message }));
+  }
+  res.json({ success: true, emailSent });
+});
+
+app.post('/api/auth/verify-email', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'Token required.' });
+  const { data: record } = await supabase.from('email_verification_tokens').select('*').eq('token', token).single();
+  if (!record) return res.status(400).json({ error: 'Invalid or expired verification link.' });
+  if (record.used) return res.status(400).json({ error: 'This link has already been used.' });
+  if (new Date(record.expires_at) < new Date()) return res.status(400).json({ error: 'Verification link has expired.' });
+  await supabase.from('profiles').update({ email_verified: true }).eq('username', record.username);
+  await supabase.from('email_verification_tokens').update({ used: true }).eq('token', token);
+  res.json({ success: true, username: record.username });
 });
 
 app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req, res) => {

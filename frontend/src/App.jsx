@@ -45,6 +45,37 @@ function PageShell({ title, children }) {
   );
 }
 
+function EmailVerifyView({ token, onDone }) {
+  const [status, setStatus] = useState('loading');
+  const [error, setError] = useState('');
+  useEffect(() => {
+    fetch('/api/auth/verify-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) })
+      .then(r => r.json()).then(d => { if (d.success) setStatus('success'); else { setStatus('error'); setError(d.error); } })
+      .catch(() => { setStatus('error'); setError('Connection error.'); });
+  }, []);
+  if (status === 'loading') return <div className="flex justify-center py-4"><div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div>;
+  if (status === 'success') return (
+    <>
+      <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
+        <svg className="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <p className="text-base font-semibold text-white mb-1">Email verified!</p>
+      <p className="text-sm text-zinc-400 mb-6">Your email address has been confirmed.</p>
+      <button onClick={onDone} className="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-3 rounded-xl transition text-sm">Sign In</button>
+    </>
+  );
+  return (
+    <>
+      <div className="w-12 h-12 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
+        <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </div>
+      <p className="text-base font-semibold text-white mb-1">Verification failed</p>
+      <p className="text-sm text-zinc-400 mb-6">{error}</p>
+      <button onClick={onDone} className="w-full bg-zinc-700 hover:bg-zinc-600 text-white font-semibold py-3 rounded-xl transition text-sm">Back to Sign In</button>
+    </>
+  );
+}
+
 // Stable fingerprint of the current portfolio + currency — used as cache key discriminator
 const portfolioFingerprint = (p, c) =>
   (c || '') + ':' + (p || []).map(h => `${h.ticker}:${h.quantity}`).sort().join('|');
@@ -66,10 +97,13 @@ export default function App() {
   });
   const [authUsername, setAuthUsername] = useState(() => sessionStorage.getItem('auth_user') || '');
   const [authMode, setAuthMode] = useState(() => {
-    const token = new URLSearchParams(window.location.search).get('reset_token');
-    return token ? 'reset-password' : 'login';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reset_token')) return 'reset-password';
+    if (params.get('email_token')) return 'verify-email';
+    return 'login';
   });
   const [resetToken] = useState(() => new URLSearchParams(window.location.search).get('reset_token') || '');
+  const [emailVerifyToken] = useState(() => new URLSearchParams(window.location.search).get('email_token') || '');
   const [authForm, setAuthForm] = useState({ username: '', email: '', password: '', confirmPassword: '', newPassword: '' });
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -2155,6 +2189,7 @@ const handleUpload = async (files) => {
     const isForgot = authMode === 'forgot-password';
     const isForgotSent = authMode === 'forgot-sent';
     const isReset = authMode === 'reset-password';
+    const isVerifyEmail = authMode === 'verify-email';
 
     const authBackground = (
       <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
@@ -2250,6 +2285,20 @@ const handleUpload = async (files) => {
                 {authLoading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Updating...</span> : 'Set New Password'}
               </button>
             </div>
+          </div>
+          <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>
+        </div>
+      </div>
+    );
+
+    if (isVerifyEmail) return (
+      <div className="relative flex h-screen items-center justify-center bg-zinc-950 text-white overflow-hidden">
+        {authBackground}
+        <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
+          <div className="relative w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl text-center">
+            <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"/>
+            <AuthLogo/>
+            <EmailVerifyView token={emailVerifyToken} onDone={() => { window.history.replaceState({}, '', '/'); setAuthMode('login'); setSessionExpiredMsg('Email verified — please sign in.'); }}/>
           </div>
           <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>
         </div>

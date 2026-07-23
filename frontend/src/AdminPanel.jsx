@@ -24,13 +24,16 @@ export default function AdminPanel({ authUsername }) {
   const [indexSyncStatus, setIndexSyncStatus] = useState('');
   const [lastIndexSync, setLastIndexSync] = useState(null);
 
-  // Modals
-  const [resetModal, setResetModal] = useState(null); // { username, email }
-  const [resetTab, setResetTab] = useState('set'); // 'set' | 'send' | 'email'
-  const [resetEmailStatus, setResetEmailStatus] = useState('');
-  const [resetPw, setResetPw] = useState('');
-  const [emailEditVal, setEmailEditVal] = useState('');
-  const [emailEditStatus, setEmailEditStatus] = useState('');
+  // User accordion + inline editing
+  const [expandedUser, setExpandedUser] = useState(null);
+  const [editingEmailFor, setEditingEmailFor] = useState(null);
+  const [inlineEmailVal, setInlineEmailVal] = useState('');
+  const [inlineEmailStatus, setInlineEmailStatus] = useState('');
+  const [settingPasswordFor, setSettingPasswordFor] = useState(null);
+  const [inlinePasswordVal, setInlinePasswordVal] = useState('');
+  const [showInlinePassword, setShowInlinePassword] = useState(false);
+  const [inlinePasswordStatus, setInlinePasswordStatus] = useState('');
+  const [sendingResetFor, setSendingResetFor] = useState({});
   const [deleteModal, setDeleteModal] = useState(null); // username
   const [deletePw, setDeletePw] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -196,37 +199,35 @@ export default function AdminPanel({ authUsername }) {
     flash(`✓ Deleted ${deleteModal}`); fetchStats();
   };
 
-  const resetPassword = async () => {
-    if (!resetPw || resetPw.length < 6) { flash('Password must be 6+ chars'); return; }
-    const res = await fetch(`/api/admin/users/${resetModal.username}/reset-password`, { method: 'POST', headers: h, body: JSON.stringify({ newPassword: resetPw }) });
+  const setPasswordInline = async (username) => {
+    if (!inlinePasswordVal || inlinePasswordVal.length < 6) { setInlinePasswordStatus('Must be 6+ characters.'); return; }
+    setInlinePasswordStatus('Saving...');
+    const res = await fetch(`/api/admin/users/${username}/reset-password`, { method: 'POST', headers: h, body: JSON.stringify({ newPassword: inlinePasswordVal }) });
     const data = await res.json();
-    if (data.success) { flash(`✓ Password reset for ${resetModal.username}`); setResetModal(null); setResetPw(''); }
-    else flash('Error: ' + data.error);
+    if (data.success) { setSettingPasswordFor(null); setInlinePasswordVal(''); setInlinePasswordStatus(''); flash(`✓ Password updated for ${username}`); }
+    else setInlinePasswordStatus(`Error: ${data.error}`);
   };
 
-  const sendResetEmail = async () => {
-    setResetEmailStatus('Sending...');
-    const res = await fetch(`/api/admin/users/${resetModal.username}/send-reset-email`, { method: 'POST', headers: h });
+  const sendResetLinkInline = async (username) => {
+    setSendingResetFor(s => ({ ...s, [username]: 'sending' }));
+    const res = await fetch(`/api/admin/users/${username}/send-reset-email`, { method: 'POST', headers: h });
     const data = await res.json();
-    if (data.success) setResetEmailStatus('✓ Reset link sent');
-    else setResetEmailStatus(`Error: ${data.error}`);
+    setSendingResetFor(s => ({ ...s, [username]: data.success ? 'sent' : 'error' }));
   };
 
-  const saveEmail = async () => {
-    const trimmed = emailEditVal.trim().toLowerCase();
-    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setEmailEditStatus('Invalid email format.'); return; }
-    setEmailEditStatus('Saving...');
-    const res = await fetch(`/api/admin/users/${resetModal.username}/set-email`, { method: 'POST', headers: h, body: JSON.stringify({ email: trimmed }) });
+  const saveInlineEmail = async (username) => {
+    const trimmed = inlineEmailVal.trim().toLowerCase();
+    if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) { setInlineEmailStatus('Invalid email format.'); return; }
+    setInlineEmailStatus('Saving...');
+    const res = await fetch(`/api/admin/users/${username}/set-email`, { method: 'POST', headers: h, body: JSON.stringify({ email: trimmed }) });
     const data = await res.json();
     if (data.success) {
-      setResetModal(m => ({ ...m, email: trimmed || null }));
-      if (stats) {
-        setStats(s => ({ ...s, users: s.users.map(u => u.username === resetModal.username ? { ...u, email: trimmed || null } : u) }));
-      }
-      setEmailEditStatus('✓ Saved');
-      flash(`✓ Email updated for ${resetModal.username}`);
+      if (stats) setStats(s => ({ ...s, users: s.users.map(u => u.username === username ? { ...u, email: trimmed || null, emailVerified: false } : u) }));
+      setEditingEmailFor(null);
+      setInlineEmailStatus('');
+      flash(data.emailSent ? `✓ Email set — verification link sent to ${trimmed}` : `✓ Email updated for ${username}`);
     } else {
-      setEmailEditStatus(`Error: ${data.error}`);
+      setInlineEmailStatus(`Error: ${data.error}`);
     }
   };
 
@@ -396,59 +397,6 @@ export default function AdminPanel({ authUsername }) {
         </div>
       )}
 
-      {/* Reset password modal */}
-      {resetModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setResetModal(null)}>
-          <div className="bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-84 shadow-2xl" style={{ width: '22rem' }} onClick={e => e.stopPropagation()}>
-            <h3 className="font-bold mb-0.5">Reset password</h3>
-            <p className="text-sm text-zinc-400 mb-4">{resetModal.username}</p>
-
-            {/* Tabs */}
-            <div className="flex gap-1 p-1 bg-zinc-900 rounded-xl mb-5">
-              {[['set', 'Set Password'], ['send', 'Send Reset Link'], ['email', 'Edit Email']].map(([id, label]) => (
-                <button key={id} onClick={() => { setResetTab(id); setResetEmailStatus(''); setEmailEditStatus(''); }} className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition ${resetTab === id ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>{label}</button>
-              ))}
-            </div>
-
-            {resetTab === 'set' ? (
-              <>
-                <input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && resetPassword()} placeholder="New password (6+ chars)" className={`${inputCls} mb-3`} autoFocus />
-                <div className="flex gap-2">
-                  <button onClick={resetPassword} className={btnBlue + ' flex-1 py-2'}>Set Password</button>
-                  <button onClick={() => { setResetModal(null); setResetPw(''); }} className={btnGhost + ' flex-1 py-2'}>Cancel</button>
-                </div>
-              </>
-            ) : resetTab === 'send' ? (
-              <>
-                <div className="bg-zinc-700/50 rounded-xl p-3 mb-4">
-                  <p className="text-xs text-zinc-400 mb-0.5">Reset link will be sent to</p>
-                  {resetModal.email
-                    ? <p className="text-sm font-medium text-white">{resetModal.email}</p>
-                    : <p className="text-sm text-zinc-500 italic">No email on file for this user</p>}
-                </div>
-                {resetEmailStatus && (
-                  <p className={`text-xs mb-3 ${resetEmailStatus.startsWith('✓') ? 'text-green-400' : resetEmailStatus === 'Sending...' ? 'text-zinc-400' : 'text-red-400'}`}>{resetEmailStatus}</p>
-                )}
-                <div className="flex gap-2">
-                  <button onClick={sendResetEmail} disabled={!resetModal.email || resetEmailStatus === 'Sending...' || resetEmailStatus.startsWith('✓')} className={btnBlue + ' flex-1 py-2 disabled:opacity-40'}>Send Link</button>
-                  <button onClick={() => setResetModal(null)} className={btnGhost + ' flex-1 py-2'}>Close</button>
-                </div>
-              </>
-            ) : (
-              <>
-                <input type="email" value={emailEditVal} onChange={e => { setEmailEditVal(e.target.value); setEmailEditStatus(''); }} onKeyDown={e => e.key === 'Enter' && saveEmail()} placeholder="Email address" className={`${inputCls} mb-3`} autoFocus />
-                {emailEditStatus && (
-                  <p className={`text-xs mb-3 ${emailEditStatus.startsWith('✓') ? 'text-green-400' : emailEditStatus === 'Saving...' ? 'text-zinc-400' : 'text-red-400'}`}>{emailEditStatus}</p>
-                )}
-                <div className="flex gap-2">
-                  <button onClick={saveEmail} disabled={emailEditStatus === 'Saving...'} className={btnBlue + ' flex-1 py-2 disabled:opacity-40'}>Save Email</button>
-                  <button onClick={() => setResetModal(null)} className={btnGhost + ' flex-1 py-2'}>Close</button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
 
       <div className={`max-w-7xl mx-auto px-6 py-8`}>
         {/* Header */}
@@ -621,7 +569,7 @@ export default function AdminPanel({ authUsername }) {
 
             {/* USERS */}
             {tab === 'users' && stats && (
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 max-w-2xl">
                 <div className="flex items-center gap-3">
                   <input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search users…" className={`${inputCls} flex-1`} />
                   <p className={`text-sm shrink-0 text-zinc-400`}>{stats.users.length} user(s)</p>
@@ -631,46 +579,112 @@ export default function AdminPanel({ authUsername }) {
                   .filter(u => !userSearch || u.username.toLowerCase().includes(userSearch.toLowerCase()))
                   .sort((a, b) => a.username.localeCompare(b.username))
                   .map(u => {
-                  const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800' };
+                  const roleBadgeCls = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800' };
+                  const isExpanded = expandedUser === u.username;
+                  const isEditingEmail = editingEmailFor === u.username;
+                  const isSettingPassword = settingPasswordFor === u.username;
+                  const resetStatus = sendingResetFor[u.username];
+                  const fieldBox = 'w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm';
+                  const fieldLabel = 'text-[10px] font-semibold uppercase tracking-widest text-zinc-500 mb-1.5 block';
                   return (
                   <div key={u.username} className={`${card} overflow-hidden`}>
-                    {/* Header */}
-                    <div className="flex items-center gap-3 p-4 border-b border-zinc-700/50">
-                      <div className="w-9 h-9 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold shrink-0 overflow-hidden">
+                    {/* Collapsed header row — click to toggle */}
+                    <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-700/20 transition" onClick={() => { setExpandedUser(isExpanded ? null : u.username); setEditingEmailFor(null); setSettingPasswordFor(null); setInlinePasswordStatus(''); setInlineEmailStatus(''); }}>
+                      <div className="w-8 h-8 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">
                         {u.avatarBase64 ? <img src={u.avatarBase64} className="w-full h-full object-cover" alt={u.username}/> : u.username[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-sm">{u.username}</span>
-                          {roleBadge[u.role] && <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadge[u.role]}`}>{u.role.charAt(0).toUpperCase() + u.role.slice(1)}</span>}
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-sm">{u.username}</span>
+                          {roleBadgeCls[u.role] && <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadgeCls[u.role]}`}>{u.role.charAt(0).toUpperCase() + u.role.slice(1)}</span>}
                           {u.hasSteam && <span className="text-xs text-orange-400 bg-orange-900/30 px-1.5 py-0.5 rounded-full border border-orange-800/50">Steam</span>}
                         </div>
-                        {u.email && <p className="text-xs text-zinc-500 mt-0.5">{u.email}</p>}
+                        <p className="text-xs text-zinc-500 mt-0.5">{u.transactionCount.toLocaleString()} tx · Joined {new Date(u.createdAt).toLocaleDateString()}</p>
                       </div>
-                      <div className="flex items-start gap-4 shrink-0 text-right">
-                        <div className="flex flex-col items-end">
-                          <p className={`text-xs text-zinc-400`}>Transactions</p>
-                          <p className="text-xs font-semibold mb-2">{u.transactionCount.toLocaleString()}</p>
-                          {u.username !== 'admin' && (
-                            <button onClick={() => deleteUser(u.username)} className={btnRed}>Delete User</button>
+                      <svg className={`w-4 h-4 text-zinc-500 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+
+                    {/* Expanded details */}
+                    {isExpanded && (
+                      <div className="border-t border-zinc-700/50 px-4 py-4 flex flex-col gap-5">
+
+                        {/* Email field */}
+                        <div>
+                          <label className={fieldLabel}>Email</label>
+                          {isEditingEmail ? (
+                            <div className="flex gap-2">
+                              <input type="email" value={inlineEmailVal} onChange={e => { setInlineEmailVal(e.target.value); setInlineEmailStatus(''); }} onKeyDown={e => { if (e.key === 'Enter') saveInlineEmail(u.username); if (e.key === 'Escape') setEditingEmailFor(null); }} placeholder="email@example.com" autoFocus className={`${fieldBox} flex-1 focus:border-sky-500/60 focus:outline-none`}/>
+                              <button onClick={() => saveInlineEmail(u.username)} disabled={inlineEmailStatus === 'Saving...'} className={`${btnBlue} disabled:opacity-50`}>Save</button>
+                              <button onClick={() => setEditingEmailFor(null)} className={btnGhost}>Cancel</button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className={`${fieldBox} flex-1 flex items-center gap-2 text-zinc-300`}>
+                                {u.email ? (
+                                  <>
+                                    <span className="flex-1 truncate">{u.email}</span>
+                                    {u.emailVerified
+                                      ? <span className="text-emerald-400 text-xs font-semibold shrink-0">✓ Verified</span>
+                                      : <span className="text-amber-400 text-xs font-semibold shrink-0">! Unverified</span>}
+                                  </>
+                                ) : (
+                                  <span className="text-zinc-500 italic">No email set</span>
+                                )}
+                              </div>
+                              <button onClick={() => { setEditingEmailFor(u.username); setInlineEmailVal(u.email || ''); setInlineEmailStatus(''); }} className="p-2 text-zinc-500 hover:text-zinc-200 transition" title="Edit email">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                              </button>
+                            </div>
+                          )}
+                          {inlineEmailStatus && isEditingEmail && <p className={`text-xs mt-1.5 ${inlineEmailStatus.startsWith('Error') ? 'text-red-400' : 'text-zinc-400'}`}>{inlineEmailStatus}</p>}
+                        </div>
+
+                        {/* Password field */}
+                        <div>
+                          <label className={fieldLabel}>Password</label>
+                          {isSettingPassword ? (
+                            <div className="flex flex-col gap-2">
+                              <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                  <input type={showInlinePassword ? 'text' : 'password'} value={inlinePasswordVal} onChange={e => { setInlinePasswordVal(e.target.value); setInlinePasswordStatus(''); }} onKeyDown={e => { if (e.key === 'Enter') setPasswordInline(u.username); if (e.key === 'Escape') { setSettingPasswordFor(null); setInlinePasswordVal(''); setInlinePasswordStatus(''); }}} placeholder="New password (6+ chars)" autoFocus className={`${fieldBox} pr-10 focus:border-sky-500/60 focus:outline-none`}/>
+                                  <button type="button" onClick={() => setShowInlinePassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200 transition">
+                                    {showInlinePassword
+                                      ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                      : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                                  </button>
+                                </div>
+                                <button onClick={() => setPasswordInline(u.username)} disabled={inlinePasswordStatus === 'Saving...'} className={`${btnBlue} disabled:opacity-50`}>Set</button>
+                                <button onClick={() => { setSettingPasswordFor(null); setInlinePasswordVal(''); setInlinePasswordStatus(''); }} className={btnGhost}>Cancel</button>
+                              </div>
+                              {inlinePasswordStatus && <p className={`text-xs ${inlinePasswordStatus.startsWith('Error') ? 'text-red-400' : 'text-zinc-400'}`}>{inlinePasswordStatus}</p>}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className={`${fieldBox} flex-1 text-zinc-500 tracking-widest`}>••••••••••••</div>
+                              <button onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className={btnBlue}>Set Password</button>
+                              <button onClick={() => sendResetLinkInline(u.username)} disabled={!u.email || resetStatus === 'sending' || resetStatus === 'sent'} className={`${btnGhost} disabled:opacity-40`} title={!u.email ? 'No email on file' : ''}>
+                                {resetStatus === 'sending' ? 'Sending…' : resetStatus === 'sent' ? '✓ Sent' : resetStatus === 'error' ? 'Error' : 'Send Reset Link'}
+                              </button>
+                            </div>
                           )}
                         </div>
+
+                        {/* Actions */}
                         <div>
-                          <p className={`text-xs text-zinc-400`}>Joined</p>
-                          <p className="text-xs font-semibold">{new Date(u.createdAt).toLocaleDateString()}</p>
+                          <label className={fieldLabel}>Actions</label>
+                          <div className="flex gap-2 flex-wrap">
+                            <button onClick={() => clearCache(u.username)} className={btnGhost}>Clear Cache</button>
+                            <button onClick={() => resolveUser(u.username)} className={btnGhost}>Re-resolve Tickers</button>
+                            <button onClick={() => clearBio(u.username)} className={btnGhost}>Clear Bio</button>
+                            <button onClick={() => exportUser(u.username)} className={btnGhost}>Export Data</button>
+                            {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnGhost}>Make CS Private</button>}
+                            {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnGhost}>Make Stocks Private</button>}
+                            {u.username !== 'admin' && <button onClick={() => deleteUser(u.username)} className={btnRed}>Delete User</button>}
+                          </div>
                         </div>
+
                       </div>
-                    </div>
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 px-4 py-3 flex-wrap">
-                      <button onClick={() => { setResetModal({ username: u.username, email: u.email }); setResetTab('set'); setResetPw(''); setResetEmailStatus(''); setEmailEditVal(u.email || ''); setEmailEditStatus(''); }} className={btnBlue}>Reset Password</button>
-                      <button onClick={() => clearCache(u.username)} className={btnGhost}>Clear Cache</button>
-                      <button onClick={() => resolveUser(u.username)} className={btnGhost}>Re-resolve Tickers</button>
-                      <button onClick={() => clearBio(u.username)} className={btnGhost}>Clear Bio</button>
-                      <button onClick={() => exportUser(u.username)} className={btnGhost}>Export Data</button>
-                      {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnGhost}>Make CS Private</button>}
-                      {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnGhost}>Make Stocks Private</button>}
-                    </div>
+                    )}
                   </div>
                   );
                 })}
