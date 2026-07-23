@@ -19,38 +19,38 @@ function buildEmail({ title, heading, body, buttonText, buttonUrl, footerNote })
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${title}</title></head>
 <body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5">
-  <tr><td align="center" style="padding:40px 24px 32px">
-
-    <!-- Wordmark -->
-    <table width="100%" style="max-width:680px" cellpadding="0" cellspacing="0">
-      <tr><td style="padding:0 0 16px 4px">
-        <span style="font-size:20px;font-weight:800;color:#09090b;letter-spacing:-0.5px">Verumen</span>
-      </td></tr>
-    </table>
+  <tr><td align="center" style="padding:48px 24px 40px">
 
     <!-- Card -->
-    <table width="100%" style="max-width:680px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)" cellpadding="0" cellspacing="0">
+    <table width="100%" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)" cellpadding="0" cellspacing="0">
       <!-- Accent bar -->
       <tr><td style="background:#0284c7;height:4px;font-size:0;line-height:0">&nbsp;</td></tr>
 
+      <!-- Wordmark inside card -->
+      <tr><td style="padding:32px 44px 0">
+        <span style="font-size:18px;font-weight:800;color:#09090b;letter-spacing:-0.5px">Verumen</span>
+      </td></tr>
+
       <!-- Content -->
-      <tr><td style="padding:40px 48px 36px" align="center">
+      <tr><td style="padding:28px 44px 36px">
         <table width="100%" cellpadding="0" cellspacing="0">
-          <tr><td>
-            <p style="margin:0 0 8px;font-size:24px;font-weight:700;color:#09090b;line-height:1.2">${heading}</p>
-            <p style="margin:0 0 32px;font-size:15px;color:#71717a;line-height:1.65">${body}</p>
+          <tr><td style="padding-bottom:12px">
+            <p style="margin:0;font-size:24px;font-weight:700;color:#09090b;line-height:1.25">${heading}</p>
           </td></tr>
-          <tr><td align="center" style="padding-bottom:32px">
-            <a href="${buttonUrl}" style="display:inline-block;background:#0284c7;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:10px;letter-spacing:0.1px">${buttonText}</a>
+          <tr><td style="padding-bottom:36px">
+            <p style="margin:0;font-size:15px;color:#71717a;line-height:1.7">${body}</p>
           </td></tr>
-          <tr><td>
-            <p style="margin:0;font-size:12px;color:#a1a1aa;line-height:1.7">${footerNote}<br/>Or copy this link: <span style="color:#71717a;word-break:break-all">${buttonUrl}</span></p>
+          <tr><td align="center" style="padding-bottom:36px">
+            <a href="${buttonUrl}" style="display:inline-block;background:#0284c7;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:15px 40px;border-radius:10px;letter-spacing:0.1px">${buttonText}</a>
+          </td></tr>
+          <tr><td style="border-top:1px solid #f0f0f0;padding-top:24px">
+            <p style="margin:0;font-size:12px;color:#a1a1aa;line-height:1.7">${footerNote}<br/>Or copy this link:<br/><span style="color:#71717a;word-break:break-all">${buttonUrl}</span></p>
           </td></tr>
         </table>
       </td></tr>
 
       <!-- Card footer -->
-      <tr><td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 48px">
+      <tr><td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 44px">
         <p style="margin:0;font-size:11px;color:#a1a1aa">© ${year} Verumen &nbsp;·&nbsp; You received this email because an admin action was taken on your account.</p>
       </td></tr>
     </table>
@@ -459,7 +459,7 @@ app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
   const { data: profile } = await supabase.from('profiles').select('username').ilike('email', email.trim()).single();
   if (!profile) return res.json({ success: true });
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
   await supabase.from('password_reset_tokens').insert({ username: profile.username, token, expires_at: expiresAt });
   if (resend) {
     const resetUrl = `${APP_URL}/?reset_token=${token}`;
@@ -473,7 +473,7 @@ app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
         body: 'Someone requested a password reset for the Verumen account associated with this email. If this wasn\'t you, you can safely ignore this email.',
         buttonText: 'Reset Password',
         buttonUrl: resetUrl,
-        footerNote: 'This link expires in 1 hour.',
+        footerNote: 'This link expires in 10 minutes.',
       }),
     }).catch(e => log.error('resend failed', { error: e.message }));
   }
@@ -3336,15 +3336,20 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
     // Fetch profiles and transaction counts in parallel — no N+1
-    const [{ data: profiles }, { data: txCounts }, { count: totalTx }] = await Promise.all([
+    const [{ data: profiles }, { data: txCounts }, { count: totalTx }, { data: pendingTokens }] = await Promise.all([
       supabase.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64, email, email_verified'),
       supabase.from('transactions').select('user_id').limit(100000), // capped to avoid unbounded memory usage
       supabase.from('transactions').select('*', { count:'exact', head:true }),
+      supabase.from('email_verification_tokens').select('username, email, expires_at').eq('used', false).gt('expires_at', new Date().toISOString()),
     ]);
 
     // Group transaction counts by user_id client-side
     const txCountMap = {};
     (txCounts || []).forEach(t => { txCountMap[t.user_id] = (txCountMap[t.user_id] || 0) + 1; });
+
+    // Latest active pending verification token per user
+    const pendingEmailMap = {};
+    (pendingTokens || []).forEach(t => { pendingEmailMap[t.username] = { email: t.email, expiresAt: t.expires_at }; });
 
     const usersStats = (profiles || []).map(p => ({
       username: p.username, role: p.role, createdAt: p.created_at,
@@ -3353,6 +3358,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
       avatarBase64: p.avatar_base64 || null,
       email: p.email || null,
       emailVerified: p.email_verified || false,
+      pendingEmail: pendingEmailMap[p.username] || null,
     }));
 
     const mem = process.memoryUsage();
@@ -3402,11 +3408,18 @@ app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) 
     const { data: existing } = await supabase.from('profiles').select('username').ilike('email', email).single();
     if (existing && existing.username !== username) return res.status(400).json({ error: 'Email already in use by another user.' });
   }
-  await supabase.from('profiles').update({ email: email || null, email_verified: false }).eq('username', username);
+  // If clearing email, update profiles immediately. Otherwise, don't commit until user verifies —
+  // so if the link expires unused, profiles.email stays unchanged.
+  if (!email) {
+    await supabase.from('profiles').update({ email: null, email_verified: false }).eq('username', username);
+    return res.json({ success: true, emailSent: false });
+  }
+  // Invalidate any prior pending tokens for this user
+  await supabase.from('email_verification_tokens').update({ used: true }).eq('username', username).eq('used', false);
   let emailSent = false;
-  if (email && resend) {
+  if (resend) {
     const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
     await supabase.from('email_verification_tokens').insert({ username, email, token, expires_at: expiresAt });
     const verifyUrl = `${APP_URL}/?email_token=${token}`;
     await resend.emails.send({
@@ -3419,7 +3432,7 @@ app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) 
         body: `An administrator has linked this email address to your Verumen account (<strong style="color:#09090b;font-weight:600">${username}</strong>). Click below to confirm it's yours.`,
         buttonText: 'Verify Email',
         buttonUrl: verifyUrl,
-        footerNote: 'This link expires in 24 hours. If you weren\'t expecting this, you can safely ignore it.',
+        footerNote: 'This link expires in 10 minutes. If you weren\'t expecting this, you can safely ignore it.',
       }),
     }).then(() => { emailSent = true; }).catch(e => log.error('verify email send failed', { error: e.message }));
   }
@@ -3433,7 +3446,8 @@ app.post('/api/auth/verify-email', async (req, res) => {
   if (!record) return res.status(400).json({ error: 'Invalid or expired verification link.' });
   if (record.used) return res.status(400).json({ error: 'This link has already been used.' });
   if (new Date(record.expires_at) < new Date()) return res.status(400).json({ error: 'Verification link has expired.' });
-  await supabase.from('profiles').update({ email_verified: true }).eq('username', record.username);
+  // Commit the email to profiles now that the user confirmed ownership
+  await supabase.from('profiles').update({ email: record.email, email_verified: true }).eq('username', record.username);
   await supabase.from('email_verification_tokens').update({ used: true }).eq('token', token);
   res.json({ success: true, username: record.username });
 });
@@ -3444,7 +3458,7 @@ app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req
   if (!profile.email) return res.status(400).json({ error: 'This user has no email address on file.' });
   if (!resend) return res.status(500).json({ error: 'Email service not configured.' });
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
   await supabase.from('password_reset_tokens').insert({ username: req.params.username, token, expires_at: expiresAt });
   const resetUrl = `${APP_URL}/?reset_token=${token}`;
   await resend.emails.send({
@@ -3457,7 +3471,7 @@ app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req
       body: 'An administrator has sent you a password reset link for your Verumen account.',
       buttonText: 'Reset Password',
       buttonUrl: resetUrl,
-      footerNote: 'This link expires in 1 hour.',
+      footerNote: 'This link expires in 10 minutes.',
     }),
   }).catch(e => log.error('resend admin reset failed', { error: e.message }));
   res.json({ success: true });
