@@ -2453,12 +2453,8 @@ const handleUpload = async (files) => {
           <Route path="/profile" element={<ProfileRoute authUsername={authUsername} shellProps={shellProps}/>}/>
           <Route path="/profile/:username" element={<ProfileRoute authUsername={authUsername} shellProps={shellProps}/>}/>
 
-          {/* Admin routes */}
-          <Route path="/adminpanel" element={<PageShell {...shellProps}><AdminPanel authUsername={authUsername}/></PageShell>}/>
-          <Route path="/adminpanel/users" element={<PageShell {...shellProps}><AdminPanel authUsername={authUsername}/></PageShell>}/>
-          <Route path="/adminpanel/roles" element={<PageShell {...shellProps}><AdminPanel authUsername={authUsername}/></PageShell>}/>
-          <Route path="/adminpanel/ticker-failures" element={<PageShell {...shellProps}><AdminPanel authUsername={authUsername}/></PageShell>}/>
-          <Route path="/adminpanel/announcements" element={<PageShell {...shellProps}><AdminPanel authUsername={authUsername}/></PageShell>}/>
+          {/* Admin routes — single wildcard prevents remount on sub-nav */}
+          <Route path="/adminpanel/*" element={<PageShell {...shellProps}><AdminPanel authUsername={authUsername}/></PageShell>}/>
 
           <Route path="/moderatorpanel" element={<PageShell {...shellProps}><ModeratorPanel authUsername={authUsername} userRole={userRole}/></PageShell>}/>
           <Route path="*" element={<Navigate to="/home" replace/>}/>

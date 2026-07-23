@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import apiCache from './apiCache';
 
+const TAB_MAP = {
+  '': 'overview', 'overview': 'overview', 'database': 'database',
+  'users': 'users', 'roles': 'roles', 'ticker-failures': 'tickers',
+  'global-overrides': 'global-overrides', 'announcements': 'announcements',
+  'diagnostics': 'diagnostics',
+};
+
 export default function AdminPanel({ authUsername }) {
-  const [tab, setTab] = useState('overview');
+  const { pathname } = useLocation();
+  const tab = TAB_MAP[pathname.replace(/^\/adminpanel\/?/, '')] ?? 'overview';
   const [stats, setStats] = useState(() => apiCache.get('/api/admin/stats'));
   const [failures, setFailures] = useState([]);
   const [announcements, setAnnouncements] = useState(() => apiCache.get('/api/announcements') || []);
@@ -334,16 +343,6 @@ export default function AdminPanel({ authUsername }) {
     return [d && `${d}d`, h && `${h}h`, `${m}m`].filter(Boolean).join(' ');
   };
 
-  const TABS = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'database', label: 'Database' },
-    { id: 'users', label: 'Users' },
-    { id: 'roles', label: 'Roles' },
-    { id: 'tickers', label: 'Ticker Failures' },
-    { id: 'global-overrides', label: 'Global Overrides' },
-    { id: 'announcements', label: 'Announcements' },
-    { id: 'diagnostics', label: 'Diagnostics' },
-  ];
 
   const fetchDiag = useCallback(async () => {
     setDiagLoading(true);
@@ -461,12 +460,6 @@ export default function AdminPanel({ authUsername }) {
           {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : actionMsg.includes('Error') ? 'bg-red-900/40 text-red-400 border-red-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg}</div>}
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 text-sm font-semibold rounded-lg whitespace-nowrap shrink-0 transition ${tab === t.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-700/50'}`}>{t.label}</button>
-          ))}
-        </div>
 
         {loading && tab === 'overview' ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
