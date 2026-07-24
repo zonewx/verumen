@@ -561,12 +561,12 @@ export default function App() {
   }, [authUsername, apiFetch]);
 
   useEffect(() => {
-    if (!authUsername || !portfolio) return;
+    if (!authUsername || authStatus !== 'logged-in') return;
     localStorage.setItem('portfolio', JSON.stringify(portfolio));
     localStorage.setItem('baseCurrency', baseCurrency);
     if (suppressNextFetch.current) { suppressNextFetch.current = false; return; }
     fetchAllData(portfolio, baseCurrency);
-  }, [portfolio, baseCurrency, authUsername, fetchAllData]);
+  }, [portfolio, baseCurrency, authUsername, authStatus, fetchAllData]);
 
 
   // Shortcuts
@@ -1060,7 +1060,7 @@ const handleUpload = async (files) => {
   const plPositive = totals?.profit >= 0;
   const plColor = plPositive ? 'text-green-400' : 'text-red-400';
   const plSign = plPositive ? '+' : '';
-  const todayTotal = dashboardData ? dashboardData.portfolio.reduce((s, x) => s + (x.todayGainBase ?? 0), 0) : null;
+  const todayTotal = dashboardData?.portfolio ? dashboardData.portfolio.reduce((s, x) => s + (x.todayGainBase ?? 0), 0) : null;
   const todayPositive = todayTotal >= 0;
   const todayPct = todayTotal !== null && totals && (totals.value - todayTotal) !== 0 ? (todayTotal / (totals.value - todayTotal)) * 100 : null;
   const fmt = n => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—';
