@@ -589,7 +589,7 @@ export default function App() {
 
 
   const fetchPerfData = useCallback(async (period) => {
-    if (!portfolio.length || !authUsername) return;
+    if (!portfolio.length || !authUsername || !getToken()) return;
     setPerfLoading(true);
     try {
       const res = await apiFetch('/api/history', { method: 'POST', body: JSON.stringify({ portfolio, baseCurrency, period }) });
@@ -598,7 +598,7 @@ export default function App() {
   }, [portfolio, baseCurrency, authUsername, apiFetch]);
 
   const fetchTxHistory = useCallback(async () => {
-    if (!authUsername) return;
+    if (!authUsername || !getToken()) return;
     setTxHistoryLoading(true);
     try { const res = await apiFetch(`/api/transactions?currency=${baseCurrency}`); const data = await res.json(); setTxHistory(data); apiCache.set('/api/transactions', data); }
     catch(e) {} finally { setTxHistoryLoading(false); }
