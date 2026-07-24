@@ -2438,7 +2438,7 @@ const handleUpload = async (files) => {
                 {authStatus==='logged-out' && allowRegistration === true && !isSignup && (
                   <button onClick={()=>{setAuthMode('signup');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm font-semibold text-center text-zinc-200 hover:text-white transition">Create an account</button>
                 )}
-                {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className="text-xs text-center text-zinc-600">Registration is currently closed.</p>}
+                {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className="text-xs text-center text-zinc-400">Registration is currently closed.</p>}
                 {!isSignup && <button onClick={()=>{setAuthMode('forgot-password');setAuthError('');setAuthForm(f=>({...f,email:''}));}} className="text-xs font-semibold text-center text-zinc-200 hover:text-white transition">Forgot password?</button>}
               </div>
             </div>
