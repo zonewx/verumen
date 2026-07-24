@@ -1008,7 +1008,9 @@ export default function AdminPanel({ authUsername }) {
                       const labels = { welcome: 'Welcome (registration)', verify: 'Verify Email (admin)', reset: 'Password Reset (self)', 'admin-reset': 'Password Reset (admin)' };
                       return (
                         <button key={type} className={btnGhost} onClick={async () => {
-                          const res = await fetch(`/api/admin/preview-email?type=${type}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                          const tok = sessionStorage.getItem('auth_token');
+                          const res = await fetch(`/api/admin/preview-email?type=${type}`, { headers: { 'Authorization': `Bearer ${tok}` } });
+                          if (!res.ok) { flash(`Email preview failed (${res.status})`); return; }
                           const html = await res.text();
                           const blob = new Blob([html], { type: 'text/html' });
                           const url = URL.createObjectURL(blob);

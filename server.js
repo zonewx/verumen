@@ -3395,14 +3395,7 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
 // ── Admin routes ─────────────────────────────────────────────────────────────
 
 // Email preview — open in browser; accepts token as query param for convenience
-app.get('/api/admin/preview-email', async (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) return res.status(401).send('Not authenticated — pass Authorization: Bearer <token>');
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) return res.status(401).send('Invalid or expired session');
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-  if (!profile || profile.role !== 'admin') return res.status(403).send('Admin access required');
-
+app.get('/api/admin/preview-email', requireAdmin, async (req, res) => {
   const type = req.query.type || 'verify';
   const templates = {
     verify: {

@@ -359,6 +359,7 @@ export default function App() {
   const handleLogout = (msg = '') => {
     sessionStorage.removeItem('auth_user');
     setAuthStatus('logged-out'); setAuthUsername('');
+    setAuthMode('login');
     setAuthForm({ username: '', password: '', confirmPassword: '', newPassword: '' });
     navigate('/');
     setPortfolio([]); setDashboardData(null); setUserRole('user');
@@ -368,6 +369,7 @@ export default function App() {
     fetch('/api/auth/status').then(r => r.json()).then(d => {
       const val = d.allowRegistration !== false && !d.reachedLimit;
       setAllowRegistration(val);
+      if (!val) setAuthMode('login');
     }).catch(() => {});
   };
 
