@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+const helmet = require('helmet');
+const cors = require('cors');
 const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
@@ -237,7 +239,7 @@ const rateLimitMap = new Map();
 setInterval(() => { const now = Date.now(); for (const [k, v] of rateLimitMap) if (now > v.resetAt) rateLimitMap.delete(k); }, 5 * 60 * 1000).unref();
 function rateLimit(maxRequests, windowMs) {
   return (req, res, next) => {
-    const key = req.ip || req.connection.remoteAddress;
+    const key = req.ip || req.socket.remoteAddress;
     const now = Date.now();
     const record = rateLimitMap.get(key) || { count: 0, resetAt: now + windowMs };
     if (now > record.resetAt) { record.count = 0; record.resetAt = now + windowMs; }
@@ -270,7 +272,19 @@ function heavyRateLimit(cooldownMs, label) {
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(express.json({ limit: '20mb' }));
+
+app.use(helmet({
+  contentSecurityPolicy: false, // served behind Vercel/Railway CDN which sets its own
+  crossOriginEmbedderPolicy: false,
+}));
+
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [process.env.APP_URL || 'https://verumen.com']
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4173'];
+app.use(cors({ origin: allowedOrigins, credentials: false }));
+
+app.use(express.json({ limit: '100kb' }));
+const largeJson = express.json({ limit: '20mb' });
 
 // ── Structured logging ──────────────────────────────────────────────────────
 const log = {
@@ -405,7 +419,7 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   const { data: existing } = await supabase.from('profiles').select('id').ilike('username', username.trim()).single();
   if (existing) return res.status(400).json({ error: 'Username already taken.' });
   const { data: existingEmail } = await supabase.from('profiles').select('id').ilike('email', email.trim()).single();
-  if (existingEmail) return res.status(400).json({ error: 'An account with this email already exists.' });
+  if (existingEmail) return res.status(400).json({ error: 'Unable to complete registration. Please check your details and try again.' });
   const [{ count }, { data: limitSetting }] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('app_settings').select('value').eq('key', 'userLimit').single(),
@@ -466,7 +480,7 @@ app.post('/api/auth/refresh', async (req, res) => {
   res.json({ token: data.session.access_token, refreshToken: data.session.refresh_token });
 });
 
-app.post('/api/auth/change-password', requireUser, async (req, res) => {
+app.post('/api/auth/change-password', requireUser, authRateLimit, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'New password must be at least 6 characters.' });
   const email = `${req.username.toLowerCase()}@statera.local`;
@@ -480,9 +494,9 @@ app.post('/api/auth/change-password', requireUser, async (req, res) => {
 app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required.' });
-  // Always respond with success to prevent email enumeration
+  // Always respond with success to prevent email enumeration; add delay for non-existing emails to match timing of the full send path
   const { data: profile } = await supabase.from('profiles').select('username').ilike('email', email.trim()).single();
-  if (!profile) return res.json({ success: true });
+  if (!profile) { await new Promise(r => setTimeout(r, 400)); return res.json({ success: true }); }
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
   await supabase.from('password_reset_tokens').insert({ username: profile.username, token, expires_at: expiresAt });
@@ -509,19 +523,21 @@ app.post('/api/auth/reset-password', authRateLimit, async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password) return res.status(400).json({ error: 'Token and password required.' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
-  const { data: resetEntry } = await supabase.from('password_reset_tokens').select('*').eq('token', token).single();
-  if (!resetEntry || resetEntry.used || new Date(resetEntry.expires_at) < new Date()) {
+  const { data: resetEntry } = await supabase.from('password_reset_tokens').select('*').eq('token', token).eq('used', false).single();
+  if (!resetEntry || new Date(resetEntry.expires_at) < new Date()) {
     return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
   }
+  // Mark token used atomically before changing password to prevent TOCTOU race
+  const { count } = await supabase.from('password_reset_tokens').update({ used: true }).eq('token', token).eq('used', false);
+  if (count === 0) return res.status(400).json({ error: 'This reset link has already been used.' });
   const { data: profile } = await supabase.from('profiles').select('id').eq('username', resetEntry.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found.' });
   const { error } = await supabase.auth.admin.updateUserById(profile.id, { password });
   if (error) return res.status(500).json({ error: error.message });
-  await supabase.from('password_reset_tokens').update({ used: true }).eq('token', token);
   res.json({ success: true });
 });
 
-app.post('/api/auth/verify-password', requireUser, async (req, res) => {
+app.post('/api/auth/verify-password', requireUser, authRateLimit, async (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'Password required.' });
   const email = `${req.username.toLowerCase()}@statera.local`;
@@ -543,12 +559,12 @@ app.get('/api/users/:username/profile', async (req, res) => {
   res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, publicCsTrades: data.public_cs_trades || false, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_verified ? (data.steam_id || null) : null, steamVerified: data.steam_verified || false, steamLevel: data.steam_verified ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
 });
 
-app.put('/api/users/:username/profile', requireUser, async (req, res) => {
+app.put('/api/users/:username/profile', requireUser, largeJson, async (req, res) => {
   if (req.username !== req.params.username) return res.status(403).json({ error: "Cannot edit another user's profile." });
   const { bio, steamId, publicInventory, publicHoldings, publicDividends, publicCsTrades, showPortfolioValue, avatarBase64, showcaseItems, country } = req.body;
   const update = {};
   if (bio !== undefined) { if (typeof bio === 'string' && bio.length > 500) return res.status(400).json({ error: 'Bio must be 500 characters or fewer.' }); update.bio = bio; }
-  if (country !== undefined) update.country = country;
+  if (country !== undefined) { if (!/^[a-z]{2}$/.test(country)) return res.status(400).json({ error: 'Invalid country code.' }); update.country = country; }
   if (steamId !== undefined) { update.steam_id = steamId; if (steamId !== (await supabase.from('profiles').select('steam_id').eq('id', req.user.id).single()).data?.steam_id) update.steam_verified = false; }
   if (publicInventory !== undefined) update.public_inventory = publicInventory;
   if (publicHoldings !== undefined) update.public_holdings = publicHoldings;
@@ -557,7 +573,8 @@ app.put('/api/users/:username/profile', requireUser, async (req, res) => {
   if (showPortfolioValue !== undefined) update.show_portfolio_value = showPortfolioValue;
   if (avatarBase64 !== undefined) {
     if (avatarBase64 && avatarBase64.length > 1.5 * 1024 * 1024) return res.status(400).json({ error: 'Avatar too large. Maximum 1.5 MB.' });
-    if (avatarBase64 && !avatarBase64.startsWith('data:image/')) return res.status(400).json({ error: 'Invalid image format.' });
+    const ALLOWED_IMG = ['data:image/jpeg;', 'data:image/jpg;', 'data:image/png;', 'data:image/webp;', 'data:image/gif;'];
+    if (avatarBase64 && !ALLOWED_IMG.some(p => avatarBase64.startsWith(p))) return res.status(400).json({ error: 'Invalid image format. JPEG, PNG, WebP or GIF only.' });
     update.avatar_base64 = avatarBase64;
   }
   if (showcaseItems !== undefined) {
@@ -1541,7 +1558,7 @@ app.delete('/api/ticker-cache', requireUser, async (req, res) => {
   res.json({ success: true });
 });
 
-app.post('/api/transactions/upload', requireUser, async (req, res) => {
+app.post('/api/transactions/upload', requireUser, largeJson, async (req, res) => {
   const { files, broker: brokerKey, forceBroker, dividendsOnly } = req.body;
   console.log('[upload] received files:', files?.length, 'forceBroker:', forceBroker, 'brokerKey:', brokerKey, 'dividendsOnly:', dividendsOnly);
   if (files?.length) console.log('[upload] file[0] name:', files[0]?.name, 'content length:', files[0]?.content?.length, 'content start:', (files[0]?.content||'').substring(0,80));
@@ -2778,8 +2795,10 @@ app.get('/api/users/:username/activity', requireUser, async (req, res) => {
 app.post('/api/activity/screenshot', requireUser, async (req, res) => {
   const { skinName, caption, imageBase64 } = req.body;
   if (!skinName) return res.status(400).json({ error: 'Skin name required.' });
+  if (caption && caption.length > 500) return res.status(400).json({ error: 'Caption too long.' });
   if (imageBase64 && imageBase64.length > 1.5 * 1024 * 1024) return res.status(400).json({ error: 'Image too large. Maximum 1.5 MB.' });
-  if (imageBase64 && !imageBase64.startsWith('data:image/')) return res.status(400).json({ error: 'Invalid image format.' });
+  const ALLOWED_IMG_TYPES = ['data:image/jpeg;', 'data:image/jpg;', 'data:image/png;', 'data:image/webp;', 'data:image/gif;'];
+  if (imageBase64 && !ALLOWED_IMG_TYPES.some(p => imageBase64.startsWith(p))) return res.status(400).json({ error: 'Invalid image format. JPEG, PNG, WebP or GIF only.' });
   await appendActivity(req.user.id, 'skin_screenshot', { skinName: skinName||'Unknown skin', caption: caption||'', imageBase64: imageBase64||null });
   res.json({ success:true });
 });
@@ -3249,11 +3268,21 @@ async function toSEK(amount, currency) {
   } catch(e) { return parseFloat(amount); }
 }
 
+const STEAM_SCREENSHOT_RE = /^https:\/\/steamcommunity\.com\/sharedfiles\/filedetails\/\?id=\d+$/;
+function validateScreenshotUrl(url) {
+  if (!url) return null;
+  if (!STEAM_SCREENSHOT_RE.test(url)) return false;
+  return url;
+}
+
 app.post('/api/cs/inventory', requireUser, async (req, res) => {
   const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id } = req.body;
   if (!skin_name||!purchase_date) return res.status(400).json({ error:'skin_name and purchase_date required' });
+  if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
+  const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
+  if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
   const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
-  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value, pattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:screenshot_url||null, steam_asset_id:steam_asset_id||null }).select().single();
+  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value, pattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior });
   res.json({ id:data.id, success:true });
@@ -3262,15 +3291,18 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
 app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
   const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id } = req.body;
   if (!skin_name || !purchase_date) return res.status(400).json({ error: 'skin_name and purchase_date required' });
+  if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
+  const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
+  if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
   const { data: existing } = await supabase.from('cs_inventory').select('skin_name, screenshot_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
   const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
   const { error } = await supabase.from('cs_inventory')
-    .update({ skin_name, exterior, float_value, pattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: screenshot_url || null, steam_asset_id: steam_asset_id || null })
+    .update({ skin_name, exterior, float_value, pattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null })
     .eq('id', req.params.id)
     .eq('user_id', req.user.id);
   if (error) return res.status(500).json({ error: error.message });
-  if (screenshot_url && !existing?.screenshot_url) {
-    await appendActivity(req.user.id, 'cs_trade_screenshot', { skinName: skin_name, screenshotUrl: screenshot_url });
+  if (safeScreenshotUrl && !existing?.screenshot_url) {
+    await appendActivity(req.user.id, 'cs_trade_screenshot', { skinName: skin_name, screenshotUrl: safeScreenshotUrl });
   }
   res.json({ success: true });
 });
@@ -3283,11 +3315,14 @@ app.delete('/api/cs/inventory/:id', requireUser, async (req, res) => {
 app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
   const { sale_price, sale_currency, sale_date, notes, screenshot_url } = req.body;
   if (!sale_price||!sale_date) return res.status(400).json({ error:'sale_price and sale_date required' });
+  if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
+  const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
+  if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
   const { data: item } = await supabase.from('cs_inventory').select('skin_name, purchase_price, sold').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (!item) return res.status(404).json({ error: 'Item not found.' });
   if (item.sold) return res.status(409).json({ error: 'Item already marked as sold.' });
   await supabase.from('cs_inventory').update({ sold:true }).eq('id', req.params.id).eq('user_id', req.user.id);
-  const { data } = await supabase.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price, sale_currency:sale_currency||'SEK', sale_date, notes, screenshot_url:screenshot_url||null }).select().single();
+  const { data } = await supabase.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price, sale_currency:sale_currency||'SEK', sale_date, notes, screenshot_url:safeScreenshotUrl }).select().single();
   await appendActivity(req.user.id, 'cs_trade', { action:'sell', skinName:item.skin_name, buyPrice:item.purchase_price, sellPrice:sale_price, currency:sale_currency });
   res.json({ id:data?.id, success:true });
 });
@@ -3361,8 +3396,8 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
 
 // Email preview — open in browser; accepts token as query param for convenience
 app.get('/api/admin/preview-email', async (req, res) => {
-  const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
-  if (!token) return res.status(401).send('Not authenticated');
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return res.status(401).send('Not authenticated — pass Authorization: Bearer <token>');
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) return res.status(401).send('Invalid or expired session');
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();

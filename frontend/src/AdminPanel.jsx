@@ -1007,9 +1007,16 @@ export default function AdminPanel({ authUsername }) {
                     {['welcome', 'verify', 'reset', 'admin-reset'].map(type => {
                       const labels = { welcome: 'Welcome (registration)', verify: 'Verify Email (admin)', reset: 'Password Reset (self)', 'admin-reset': 'Password Reset (admin)' };
                       return (
-                        <a key={type} href={`/api/admin/preview-email?type=${type}&token=${token}`} target="_blank" rel="noreferrer" className={btnGhost}>
+                        <button key={type} className={btnGhost} onClick={async () => {
+                          const res = await fetch(`/api/admin/preview-email?type=${type}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                          const html = await res.text();
+                          const blob = new Blob([html], { type: 'text/html' });
+                          const url = URL.createObjectURL(blob);
+                          window.open(url, '_blank');
+                          setTimeout(() => URL.revokeObjectURL(url), 60000);
+                        }}>
                           {labels[type]}
-                        </a>
+                        </button>
                       );
                     })}
                   </div>
