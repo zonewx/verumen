@@ -2419,10 +2419,10 @@ const handleUpload = async (files) => {
                   </div>
                 )}
                 {authStatus==='logged-out' && allowRegistration === true && !isSignup && (
-                  <button onClick={()=>{setAuthMode('signup');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm text-center text-zinc-500 hover:text-zinc-300 transition">Create an account</button>
+                  <button onClick={()=>{setAuthMode('signup');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm font-semibold text-center text-zinc-200 hover:text-white transition">Create an account</button>
                 )}
                 {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className="text-xs text-center text-zinc-600">Registration is currently closed.</p>}
-                {!isSignup && <button onClick={()=>{setAuthMode('forgot-password');setAuthError('');setAuthForm(f=>({...f,email:''}));}} className="text-xs text-center text-zinc-600 hover:text-zinc-400 transition">Forgot password?</button>}
+                {!isSignup && <button onClick={()=>{setAuthMode('forgot-password');setAuthError('');setAuthForm(f=>({...f,email:''}));}} className="text-xs font-semibold text-center text-zinc-200 hover:text-white transition">Forgot password?</button>}
               </div>
             </div>
           </div>
