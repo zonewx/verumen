@@ -108,6 +108,7 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
   const [announcements, setAnnouncements] = useState([]);
@@ -311,7 +312,7 @@ export default function App() {
       if (authMode === 'signup') {
         if (authForm.password !== authForm.confirmPassword) { setAuthError('Passwords do not match.'); setAuthLoading(false); return; }
         if (!authForm.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authForm.email.trim())) { setAuthError('A valid email address is required.'); setAuthLoading(false); return; }
-        const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: authForm.username, password: authForm.password, country: authForm.country || 'se', email: authForm.email.trim() }) });
+        const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: authForm.username, password: authForm.password, email: authForm.email.trim() }) });
         const data = await res.json();
         if (!res.ok) { setAuthError(data.error); setAuthLoading(false); return; }
         setAuthMode('verify-pending');
@@ -2396,30 +2397,13 @@ const handleUpload = async (files) => {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
                       <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
                     </span>
-                    <input type="password" value={authForm.confirmPassword} onChange={e=>setAuthForm(f=>({...f,confirmPassword:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()}
-                      className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
-                  </div>
-                </div>
-              )}
-              {/* Country (signup) */}
-              {isSignup && (
-                <div>
-                  <div className="flex items-center gap-2">
-                    <img src={`https://flagcdn.com/${authForm.country||'se'}.svg`} alt="" className="w-8 h-6 rounded-sm shrink-0"/>
-                    <select value={authForm.country||'se'} onChange={e=>setAuthForm(f=>({...f,country:e.target.value}))}
-                      className="flex-1 px-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white">
-                      {[
-                        {code:'se',name:'🇸🇪 Sweden'},{code:'no',name:'🇳🇴 Norway'},{code:'dk',name:'🇩🇰 Denmark'},
-                        {code:'fi',name:'🇫🇮 Finland'},{code:'de',name:'🇩🇪 Germany'},{code:'gb',name:'🇬🇧 United Kingdom'},
-                        {code:'fr',name:'🇫🇷 France'},{code:'es',name:'🇪🇸 Spain'},{code:'it',name:'🇮🇹 Italy'},
-                        {code:'nl',name:'🇳🇱 Netherlands'},{code:'pl',name:'🇵🇱 Poland'},{code:'ch',name:'🇨🇭 Switzerland'},
-                        {code:'at',name:'🇦🇹 Austria'},{code:'be',name:'🇧🇪 Belgium'},{code:'pt',name:'🇵🇹 Portugal'},
-                        {code:'us',name:'🇺🇸 United States'},{code:'ca',name:'🇨🇦 Canada'},{code:'au',name:'🇦🇺 Australia'},
-                        {code:'nz',name:'🇳🇿 New Zealand'},{code:'jp',name:'🇯🇵 Japan'},{code:'cn',name:'🇨🇳 China'},
-                        {code:'sg',name:'🇸🇬 Singapore'},{code:'in',name:'🇮🇳 India'},{code:'br',name:'🇧🇷 Brazil'},
-                        {code:'za',name:'🇿🇦 South Africa'},{code:'ae',name:'🇦🇪 UAE'},{code:'ru',name:'🇷🇺 Russia'},
-                      ].map(c=><option key={c.code} value={c.code}>{c.name}</option>)}
-                    </select>
+                    <input type={showConfirmPassword?'text':'password'} value={authForm.confirmPassword} onChange={e=>setAuthForm(f=>({...f,confirmPassword:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} placeholder="Confirm password"
+                      className="w-full pl-9 pr-10 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+                    <button type="button" onClick={()=>setShowConfirmPassword(s=>!s)} className={`absolute right-3 top-1/2 -translate-y-1/2 transition ${showConfirmPassword?'text-sky-400':'text-zinc-500 hover:text-zinc-300'}`}>
+                      {showConfirmPassword
+                        ? <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        : <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                    </button>
                   </div>
                 </div>
               )}
