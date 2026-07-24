@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getToken } from './tokenStore';
 
 const ROLE_BADGE = {
   admin: { label: 'Admin', cls: 'bg-red-900/40 text-red-400 border border-red-800' },
@@ -24,7 +25,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
   const [inventoryError, setInventoryError] = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
 
-  const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
+  const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
   const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition focus:ring-2 focus:ring-zinc-500/30 focus:border-zinc-500 bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
   const labelCls = `text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-400`;
@@ -79,7 +80,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
   async function handleSteamLogin() {
     setSteamLookupLoading(true); setSteamLookupError('');
     try {
-      const token = sessionStorage.getItem('auth_token');
+      const token = getToken();
       const res = await fetch('/api/steam/auth', { headers: { 'Authorization': `Bearer ${token}` } });
       const data = await res.json();
       if (data.url) window.location.href = data.url;

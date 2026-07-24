@@ -11,6 +11,7 @@ import FriendsPage from './FriendsPage';
 import Sidebar from './Sidebar';
 import SettingsPage from './SettingsPage';
 import apiCache from './apiCache';
+import { getToken, setToken, clearToken } from './tokenStore';
 import { EmptyState, ShortcutsModal, PieChart, LineChart, TodayCards } from './PortfolioComponents';
 import TransactionHistoryTab from './TransactionHistoryTab';
 
@@ -89,12 +90,11 @@ export default function App() {
   const auroraRaf    = useRef(null);
 
   // ── Auth ───────────────────────────────────────────────────────────────────
-  // Initialise synchronously from sessionStorage — no loading spinner on page load
-  const [authStatus, setAuthStatus] = useState(() => {
-    const u = sessionStorage.getItem('auth_user');
-    const t = sessionStorage.getItem('auth_token');
-    return (u && t) ? 'logged-in' : 'logged-out';
-  });
+  // Start in 'loading' when a stored username exists so we can verify the
+  // session via the HttpOnly refresh cookie before showing the app.
+  const [authStatus, setAuthStatus] = useState(() =>
+    sessionStorage.getItem('auth_user') ? 'loading' : 'logged-out'
+  );
   const [authUsername, setAuthUsername] = useState(() => sessionStorage.getItem('auth_user') || '');
   const [authMode, setAuthMode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -115,9 +115,9 @@ export default function App() {
   const [userRole, setUserRole] = useState(() => sessionStorage.getItem('auth_role') || 'user');
   const [allowRegistration, setAllowRegistration] = useState(null);
   // True from login (or page-load while already logged in) until first fetchAllData completes
-  const [isInitializing, setIsInitializing] = useState(() => {
-    return !!(sessionStorage.getItem('auth_user') && sessionStorage.getItem('auth_token'));
-  });
+  const [isInitializing, setIsInitializing] = useState(() =>
+    !!sessionStorage.getItem('auth_user')
+  );
 
   // ── Core state ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => JSON.parse(localStorage.getItem('portfolio')) || []);
@@ -196,9 +196,10 @@ export default function App() {
 
   // ── API helper ─────────────────────────────────────────────────────────────
   const apiFetch = useCallback(async (url, opts = {}) => {
-    const token = sessionStorage.getItem('auth_token');
+    const token = getToken();
     const res = await fetch(url, {
       ...opts,
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...(opts.headers || {}) }
     });
     if (res.status === 401) {
@@ -262,22 +263,14 @@ export default function App() {
 
   useEffect(() => {
     if (authStatus !== 'logged-in') return;
-    // Refresh token every 45 minutes (tokens expire after 60 min)
+    // Refresh access token every 45 minutes (tokens expire after 60 min)
     const interval = setInterval(async () => {
-      const refreshToken = sessionStorage.getItem('auth_refresh');
-      if (!refreshToken) return;
       try {
-        const res = await fetch('/api/auth/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-        });
+        const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          sessionStorage.setItem('auth_token', data.token);
-          if (data.refreshToken) sessionStorage.setItem('auth_refresh', data.refreshToken);
+          setToken(data.token);
         } else {
-          // Refresh failed — log out
           handleLogout();
         }
       } catch(e) {}
@@ -293,15 +286,30 @@ export default function App() {
 
   // ── Auth Logic ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/auth/status').then(r => r.json()).then(d => {
+    const saved = sessionStorage.getItem('auth_user');
+    fetch('/api/auth/status').then(r => r.json()).then(async d => {
       const val = d.allowRegistration !== false && !d.reachedLimit;
       setAllowRegistration(val);
-      if (!d.hasUsers) { setAuthStatus('no-user'); setAuthMode('signup'); }
-      else {
-        const saved = sessionStorage.getItem('auth_user');
-        const savedToken = sessionStorage.getItem('auth_token');
-        if (saved && savedToken) { setAuthStatus('logged-in'); setAuthUsername(saved); setUserRole(sessionStorage.getItem('auth_role') || 'user'); }
-        else setAuthStatus('logged-out');
+      if (!d.hasUsers) { setAuthStatus('no-user'); setAuthMode('signup'); return; }
+      if (!saved) { setAuthStatus('logged-out'); return; }
+      // Restore session by exchanging the HttpOnly refresh cookie for a new access token
+      try {
+        const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setToken(data.token);
+          setAuthUsername(saved);
+          setUserRole(sessionStorage.getItem('auth_role') || 'user');
+          setAuthStatus('logged-in');
+        } else {
+          sessionStorage.removeItem('auth_user');
+          sessionStorage.removeItem('auth_role');
+          setAuthStatus('logged-out');
+        }
+      } catch {
+        sessionStorage.removeItem('auth_user');
+        sessionStorage.removeItem('auth_role');
+        setAuthStatus('logged-out');
       }
     }).catch(() => setAuthStatus('logged-out'));
   }, []);
@@ -310,7 +318,7 @@ export default function App() {
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible') return;
-      if (sessionStorage.getItem('auth_token')) return;
+      if (getToken()) return;
       fetch('/api/auth/status').then(r => r.json()).then(d => {
         const val = d.allowRegistration !== false && !d.reachedLimit;
         setAllowRegistration(val);
@@ -337,8 +345,7 @@ export default function App() {
         if (!res.ok) { setAuthError(data.error); setAuthLoading(false); return; }
         sessionStorage.setItem('auth_user', data.username);
         sessionStorage.setItem('auth_role', data.role || 'user');
-        sessionStorage.setItem('auth_token', data.token);
-        if (data.refreshToken) sessionStorage.setItem('auth_refresh', data.refreshToken);
+        setToken(data.token);
         setAuthUsername(data.username); setUserRole(data.role || 'user'); setIsInitializing(true); setAuthStatus('logged-in');
         setUserRole(data.role || 'user');
       }
@@ -372,14 +379,16 @@ export default function App() {
   };
 
   const handleLogout = (msg = '') => {
+    clearToken();
     sessionStorage.removeItem('auth_user');
+    sessionStorage.removeItem('auth_role');
     setAuthStatus('logged-out'); setAuthUsername('');
     setAuthMode('login');
     setAuthForm({ username: '', password: '', confirmPassword: '', newPassword: '' });
     navigate('/');
     setPortfolio([]); setDashboardData(null); setUserRole('user');
     apiCache.bust('/api/portfolio'); apiCache.bust('/api/cs/'); apiCache.bust('/api/users/'); apiCache.del('/api/dividends'); apiCache.del('/api/txCount'); apiCache.del('/api/overrides'); apiCache.del('/api/transactions'); apiCache.del('/api/announcements'); apiCache.del('/api/feed'); apiCache.del('/api/friends');
-    sessionStorage.removeItem('auth_role'); sessionStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_refresh');
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     if (msg) setSessionExpiredMsg(msg);
     fetch('/api/auth/status').then(r => r.json()).then(d => {
       const val = d.allowRegistration !== false && !d.reachedLimit;

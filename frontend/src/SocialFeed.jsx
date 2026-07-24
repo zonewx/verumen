@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiCache from './apiCache';
+import { getToken } from './tokenStore';
 
 function SteamScreenshotPreview({ url }) {
   const [preview, setPreview] = useState(null);
@@ -184,7 +185,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   const [uploadForm, setUploadForm] = useState({ skinName: '', caption: '', imageBase64: null });
   const [uploading, setUploading] = useState(false);
 
-  const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
+  const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
   const btnPrimary = 'px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50';
@@ -195,7 +196,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   const fetchFeed = useCallback(async () => {
     if (!apiCache.has('/api/feed')) setFeedLoading(true);
     try {
-      const token = sessionStorage.getItem('auth_token');
+      const token = getToken();
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const res = await fetch('/api/feed', { headers });
       if (res.status === 401) { window.dispatchEvent(new Event('session-expired')); setFeedLoading(false); return; }
@@ -263,7 +264,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
     // Optimistic update — remove immediately
     setFeed(f => f.filter(item => String(item.id) !== String(id)));
     try {
-      const authHeader = sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {};
+      const authHeader = getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {};
       await fetch(`/api/activity/${id}`, { method: 'DELETE', headers: authHeader });
     } catch(e) {
       console.error('Delete error:', e);

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getToken } from './tokenStore';
 import { useLocation } from 'react-router-dom';
 import apiCache from './apiCache';
 
@@ -71,7 +72,7 @@ export default function AdminPanel({ authUsername }) {
   const [tablePage, setTablePage] = useState(0);
   const tableScrollRef = useRef(null);
 
-  const token = sessionStorage.getItem('auth_token');
+  const token = getToken();
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none transition bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
@@ -84,7 +85,7 @@ export default function AdminPanel({ authUsername }) {
   const fetchStats = useCallback(async () => {
     if (!apiCache.has('/api/admin/stats')) setLoading(true);
     try {
-      const token = sessionStorage.getItem('auth_token');
+      const token = getToken();
       const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
       const [statsRes, annRes, settingsRes, syncRes] = await Promise.all([
         fetch('/api/admin/stats', { headers }).then(r => r.json()),
@@ -1008,7 +1009,7 @@ export default function AdminPanel({ authUsername }) {
                       const labels = { welcome: 'Welcome (registration)', verify: 'Verify Email (admin)', reset: 'Password Reset (self)', 'admin-reset': 'Password Reset (admin)' };
                       return (
                         <button key={type} className={btnGhost} onClick={async () => {
-                          const tok = sessionStorage.getItem('auth_token');
+                          const tok = getToken();
                           const res = await fetch(`/api/admin/preview-email?type=${type}`, { headers: { 'Authorization': `Bearer ${tok}` } });
                           if (!res.ok) { flash(`Email preview failed (${res.status})`); return; }
                           const html = await res.text();

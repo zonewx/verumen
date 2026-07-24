@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
@@ -281,7 +282,8 @@ app.use(helmet({
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [process.env.APP_URL || 'https://verumen.com']
   : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4173'];
-app.use(cors({ origin: allowedOrigins, credentials: false }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(cookieParser());
 
 app.use(express.json({ limit: '100kb' }));
 const largeJson = express.json({ limit: '20mb' });
@@ -458,6 +460,14 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   res.json({ success: true, needsVerification: true, username: username.trim() });
 });
 
+const REFRESH_COOKIE_OPTS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+  path: '/',
+};
+
 app.post('/api/auth/login', authRateLimit, async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required.' });
@@ -465,19 +475,25 @@ app.post('/api/auth/login', authRateLimit, async (req, res) => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return res.status(401).json({ error: 'Invalid username or password.' });
   const { data: profile } = await supabase.from('profiles').select('username, role, email, email_verified').eq('id', data.user.id).single();
-  // Block login for accounts with an unverified email
   if (profile.email && !profile.email_verified) {
     return res.status(403).json({ error: 'Please verify your email address before signing in. Check your inbox for the verification link.' });
   }
-  res.json({ success: true, username: profile.username, role: profile.role, token: data.session.access_token, refreshToken: data.session.refresh_token });
+  res.cookie('refresh_token', data.session.refresh_token, REFRESH_COOKIE_OPTS);
+  res.json({ success: true, username: profile.username, role: profile.role, token: data.session.access_token });
 });
 
 app.post('/api/auth/refresh', async (req, res) => {
-  const { refreshToken } = req.body;
-  if (!refreshToken) return res.status(400).json({ error: 'refreshToken required' });
+  const refreshToken = req.cookies.refresh_token;
+  if (!refreshToken) return res.status(401).json({ error: 'No refresh token' });
   const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
   if (error) return res.status(401).json({ error: 'Session expired. Please log in again.' });
-  res.json({ token: data.session.access_token, refreshToken: data.session.refresh_token });
+  res.cookie('refresh_token', data.session.refresh_token, REFRESH_COOKIE_OPTS);
+  res.json({ token: data.session.access_token });
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  res.clearCookie('refresh_token', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/' });
+  res.json({ success: true });
 });
 
 app.post('/api/auth/change-password', requireUser, authRateLimit, async (req, res) => {

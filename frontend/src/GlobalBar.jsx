@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { getToken } from './tokenStore';
 
 const TICKER_SPEED = 60; // px/s
 
@@ -17,7 +18,7 @@ const STORAGE_KEY = 'marketIndexes';
 const REFRESH_MS  = 60_000;
 
 function authHeader() {
-  const t = sessionStorage.getItem('auth_token');
+  const t = getToken();
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
@@ -185,19 +186,19 @@ export default function GlobalBar({ authUsername, onNavigate, onLogout, userRole
   const inputRef = searchInputRef || useRef(null);
 
   useEffect(() => {
-    fetch(`/api/users/${authUsername}/profile`, { headers: { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) } })
+    fetch(`/api/users/${authUsername}/profile`, { headers: { ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) } })
       .then(r => r.json()).then(setProfile).catch(() => {});
-    fetch('/api/friends/pending-count', { headers: { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) } })
+    fetch('/api/friends/pending-count', { headers: { ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) } })
       .then(r => r.json()).then(d => setPendingCount(d.count || 0)).catch(() => {});
   }, [authUsername]);
 
   useEffect(() => {
     const handler = () => {
-      fetch(`/api/users/${authUsername}/profile`, { headers: { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) } })
+      fetch(`/api/users/${authUsername}/profile`, { headers: { ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) } })
         .then(r => r.json()).then(setProfile).catch(() => {});
     };
     const friendHandler = () => {
-      fetch('/api/friends/pending-count', { headers: { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) } })
+      fetch('/api/friends/pending-count', { headers: { ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) } })
         .then(r => r.json()).then(d => setPendingCount(d.count || 0)).catch(() => {});
     };
     window.addEventListener('profile-updated', handler);
@@ -213,7 +214,7 @@ export default function GlobalBar({ authUsername, onNavigate, onLogout, userRole
     setSearching(true);
     timerRef.current = setTimeout(async () => {
       try {
-        const users = await fetch('/api/users', { headers: { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) } }).then(r => r.json());
+        const users = await fetch('/api/users', { headers: { ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) } }).then(r => r.json());
         setResults(users.filter(u => u.username.toLowerCase().includes(q.toLowerCase()) || (u.bio || '').toLowerCase().includes(q.toLowerCase())));
       } catch(e) {}
       setSearching(false);

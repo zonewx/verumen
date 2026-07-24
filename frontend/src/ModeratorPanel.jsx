@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiCache from './apiCache';
+import { getToken } from './tokenStore';
 
 export default function ModeratorPanel({ authUsername, userRole }) {
   const [tab, setTab] = useState('users');
@@ -15,7 +16,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
   const [syncStatus, setSyncStatus] = useState('');
   const [lastPriceSync, setLastPriceSync] = useState(null);
 
-  const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
+  const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
   const btnBlue = 'px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition';

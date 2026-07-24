@@ -8,8 +8,8 @@ Personal finance and gaming asset tracker. Track your stock portfolio, CS2 skin 
 - **CS2 Skins** — Links to your Steam account to fetch your live inventory. Prices sourced from Skinport and Steam Market, auto-refreshed every 24 hours.
 - **Social Feed** — Activity feed, announcements, and a friends system with follow requests.
 - **Profiles** — Public profile pages with avatars, bios, country flags, and an item showcase.
-- **Admin & Moderator Panels** — User management, role assignment, announcements, and moderation tools.
-- **Dark / Light mode** — Persisted per session.
+- **Admin & Moderator Panels** — User management, role assignment, announcements, registration control, and email previews.
+- **Security** — Helmet HTTP headers, CORS origin restriction, rate limiting on auth endpoints, input validation, atomic token invalidation. Access tokens are held in JS module memory (not sessionStorage); refresh tokens are HttpOnly cookies, inaccessible to JavaScript.
 
 ## Stack
 
@@ -17,7 +17,7 @@ Personal finance and gaming asset tracker. Track your stock portfolio, CS2 skin 
 |---|---|
 | Backend | Node.js + Express, deployed on Railway |
 | Frontend | React 19 + Vite + Tailwind CSS v4, deployed on Vercel |
-| Database & Auth | Supabase (PostgreSQL) |
+| Database & Auth | Supabase (PostgreSQL + Auth) |
 | Stock data | [Finnhub](https://finnhub.io) (free tier) + [Frankfurter](https://frankfurter.app) (FX) |
 | CS skin prices | Skinport API + Steam Community Market |
 | Steam inventory | Steam Web API |
@@ -30,7 +30,6 @@ Create a `.env` file in the project root:
 # Supabase
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
-SUPABASE_ANON_KEY=your-anon-key
 
 # Finnhub (stock prices — free tier, sign up at finnhub.io)
 FINNHUB_API_KEY=your-finnhub-api-key
@@ -38,16 +37,10 @@ FINNHUB_API_KEY=your-finnhub-api-key
 # Steam Web API (optional — enables Steam level lookup)
 STEAM_API_KEY=your-steam-api-key
 
-# Server (optional)
+# Server
 PORT=3000
-BASE_URL=https://verumen.com
-```
-
-The frontend needs its own `.env` file at `frontend/.env`:
-
-```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+APP_URL=https://verumen.com   # used for CORS and email links
+BASE_URL=https://verumen.com  # used for Steam OAuth callbacks
 ```
 
 ## Local development
@@ -57,7 +50,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 npm install
 cd frontend && npm install && cd ..
 
-# 2. Create .env files (see above)
+# 2. Create .env (see above)
 
 # 3. Run setup to create the admin account
 npm run setup
@@ -74,11 +67,11 @@ The backend runs on `http://localhost:3000` and the Vite dev server on `http://l
 
 The `railway.json` is already configured. Push to your Railway service — it builds with Nixpacks and starts with `node server.js`.
 
-Required env vars on Railway: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `FINNHUB_API_KEY`, and optionally `STEAM_API_KEY`.
+Required env vars on Railway: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `FINNHUB_API_KEY`, `APP_URL`, `BASE_URL`, and optionally `STEAM_API_KEY`. Set `NODE_ENV=production` so the refresh token cookie is issued with the `Secure` flag.
 
 **Frontend → Vercel**
 
-Set the root directory to `frontend/`. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as environment variables. The `vite.config.js` rewrites `/api/*` to your Railway backend URL.
+Set the root directory to `frontend/`. No extra environment variables are needed — the `vercel.json` rewrites `/api/*` to your Railway backend URL.
 
 ## Routes
 
@@ -98,33 +91,34 @@ Set the root directory to `frontend/`. Add `VITE_SUPABASE_URL` and `VITE_SUPABAS
 | `/friends` | Friends list |
 | `/profile/edit` | Edit your profile |
 | `/profile/@username` | Public profile page |
-| `/admin` | Admin panel |
-| `/moderator` | Moderator panel |
+| `/adminpanel` | Admin panel |
+| `/moderatorpanel` | Moderator panel |
 
 ## Project structure
 
 ```
 verumen/
   server.js              # Express API — all backend routes
-  supabase.js            # Supabase client (service role + anon)
+  supabase.js            # Supabase client (service role only)
   setup.js               # First-time admin account creation
   railway.json           # Railway deployment config
   package.json
   frontend/
     src/
-      App.jsx            # Root component, routing, portfolio state
+      App.jsx            # Root component, routing, auth, portfolio state
       Sidebar.jsx        # Navigation sidebar
       GlobalBar.jsx      # Top bar — search, avatar, notifications
+      AdminPanel.jsx
+      ModeratorPanel.jsx
       SocialFeed.jsx     # Social feed + announcements
       CSSkins.jsx        # CS2 skin inventory + trade tracker
       SettingsPage.jsx   # Global settings
       FriendsPage.jsx    # Friends list + requests
       ProfileEditPage.jsx
       ProfilePageView.jsx
-      AdminPanel.jsx
-      ModeratorPanel.jsx
       apiCache.js        # Shared in-memory stale-while-revalidate cache
-    vite.config.js
+    vercel.json          # Vercel rewrite rules (proxies /api/* to Railway)
+    vite.config.js       # Dev proxy config
 ```
 
 ## Scripts

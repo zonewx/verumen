@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
+import { getToken } from './tokenStore';
 
 export default function FriendsPage({ authUsername }) {
   const [friends, setFriends] = useState(() => apiCache.get('/api/friends')?.friends || []);
@@ -10,7 +11,7 @@ export default function FriendsPage({ authUsername }) {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
-  const h = { ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
+  const h = { ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
 
   useEffect(() => { loadFriends(); }, []);
 

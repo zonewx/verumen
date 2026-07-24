@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
+import { getToken } from './tokenStore';
 
 const EXTERIORS = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
 const CURRENCIES = ['SEK', 'USD', 'EUR'];
@@ -73,7 +74,7 @@ function SteamScreenshotEmbed({ url }) {
   useEffect(() => {
     if (!cacheKey || _screenshotCache[cacheKey]) return;
     setLoading(true);
-    const token = sessionStorage.getItem('auth_token');
+    const token = getToken();
     fetch(`/api/cs/steam/screenshot/${cacheKey}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(r => r.json())
       .then(d => { if (d.previewUrl) { _screenshotCache[cacheKey] = d.previewUrl; setPreview(d.previewUrl); } })
@@ -113,7 +114,7 @@ function SteamScreenshotEmbed({ url }) {
 }
 
 function authHeaders(extra = {}) {
-  const token = sessionStorage.getItem('auth_token');
+  const token = getToken();
   return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extra };
 }
 

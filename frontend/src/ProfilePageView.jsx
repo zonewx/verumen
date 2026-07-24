@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
+import { getToken } from './tokenStore';
 
 const ROLE_BADGE = {
   admin: { label: 'Admin', cls: 'bg-red-900/40 text-red-400 border border-red-800' },
@@ -96,7 +97,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   const [activeTab, setActiveTab] = useState('activity');
   const [expandedTradeId, setExpandedTradeId] = useState(null);
 
-  const h = { 'Content-Type': 'application/json', ...(sessionStorage.getItem('auth_token') ? { 'Authorization': `Bearer ${sessionStorage.getItem('auth_token')}` } : {}) };
+  const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
 
   useEffect(() => {
     fetchProfile();
@@ -669,7 +670,7 @@ function TradeScreenshot({ url }) {
   useEffect(() => {
     if (!cacheKey || _screenshotCache[cacheKey]) return;
     setLoading(true);
-    const token = sessionStorage.getItem('auth_token');
+    const token = getToken();
     fetch(`/api/cs/steam/screenshot/${cacheKey}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(r => r.json())
       .then(d => { if (d.previewUrl) { _screenshotCache[cacheKey] = d.previewUrl; setPreview(d.previewUrl); } })

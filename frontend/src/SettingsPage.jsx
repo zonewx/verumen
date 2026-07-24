@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { getToken } from './tokenStore';
 import { useNavigate } from 'react-router-dom';
 import { MARKET_INDEXES } from './GlobalBar';
 
 function authHeaders(extra = {}) {
-  const token = sessionStorage.getItem('auth_token');
+  const token = getToken();
   return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extra };
 }
 

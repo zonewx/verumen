@@ -1,4 +1,5 @@
 ﻿﻿import { useState, useEffect } from 'react';
+import { getToken } from './tokenStore';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // Inline accordion content for portfolio actions
@@ -187,7 +188,7 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
   useEffect(() => {
     if (!currentUser?.username) return;
     const fetchAvatar = () => {
-      const token = sessionStorage.getItem('auth_token');
+      const token = getToken();
       fetch(`/api/users/${currentUser.username}/profile`, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} })
         .then(r => r.json())
         .then(d => { if (d?.avatarBase64) setAvatarBase64(d.avatarBase64); })
