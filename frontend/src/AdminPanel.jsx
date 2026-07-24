@@ -320,7 +320,7 @@ export default function AdminPanel({ authUsername }) {
     const newVal = !settings.allowRegistration;
     setSettings(s => ({ ...s, allowRegistration: newVal }));
     await fetch('/api/admin/settings', { method: 'POST', headers: h, body: JSON.stringify({ key: 'allowRegistration', value: String(newVal) }) });
-    flash(`✓ Registration ${newVal ? 'enabled' : 'disabled'}`);
+    flash(`Registration ${newVal ? 'enabled' : 'disabled'}`);
   };
 
   const saveUserLimit = async () => {
