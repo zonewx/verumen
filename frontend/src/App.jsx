@@ -2415,7 +2415,7 @@ const handleUpload = async (files) => {
                 {authStatus==='logged-out' && allowRegistration === true && isSignup && (
                   <div className="flex flex-col items-center gap-1">
                     <span className="text-sm text-zinc-500">Already have an account?</span>
-                    <button onClick={()=>{setAuthMode('login');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm font-semibold text-sky-400 hover:text-sky-300 transition">Sign in</button>
+                    <button onClick={()=>{setAuthMode('login');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm font-semibold text-zinc-200 hover:text-white transition">Sign in</button>
                   </div>
                 )}
                 {authStatus==='logged-out' && allowRegistration === true && !isSignup && (
