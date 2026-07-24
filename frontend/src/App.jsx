@@ -2431,15 +2431,15 @@ const handleUpload = async (files) => {
               <div className="flex flex-col items-center gap-1">
                 {authStatus==='logged-out' && allowRegistration === true && isSignup && (
                   <div className="flex flex-col items-center gap-1">
-                    <span className="text-sm text-zinc-500">Already have an account?</span>
-                    <button onClick={()=>{setAuthMode('login');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm font-semibold text-zinc-200 hover:text-white transition">Sign in</button>
+                    <span className="text-sm text-zinc-400">Already have an account?</span>
+                    <button onClick={()=>{setAuthMode('login');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm font-semibold text-zinc-400 hover:text-zinc-200 transition">Sign in</button>
                   </div>
                 )}
                 {authStatus==='logged-out' && allowRegistration === true && !isSignup && (
-                  <button onClick={()=>{setAuthMode('signup');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm font-semibold text-center text-zinc-200 hover:text-white transition">Create an account</button>
+                  <button onClick={()=>{setAuthMode('signup');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm font-semibold text-center text-zinc-400 hover:text-zinc-200 transition">Create an account</button>
                 )}
                 {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className="text-xs text-center text-zinc-400">Registration is currently closed.</p>}
-                {!isSignup && <button onClick={()=>{setAuthMode('forgot-password');setAuthError('');setAuthForm(f=>({...f,email:''}));}} className="text-xs font-semibold text-center text-zinc-200 hover:text-white transition">Forgot password?</button>}
+                {!isSignup && <button onClick={()=>{setAuthMode('forgot-password');setAuthError('');setAuthForm(f=>({...f,email:''}));}} className="text-xs font-semibold text-center text-zinc-400 hover:text-zinc-200 transition">Forgot password?</button>}
               </div>
             </div>
           </div>
