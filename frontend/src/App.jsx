@@ -306,6 +306,21 @@ export default function App() {
     }).catch(() => setAuthStatus('logged-out'));
   }, []);
 
+  // Re-fetch registration status when returning to this tab while logged out
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (sessionStorage.getItem('auth_token')) return;
+      fetch('/api/auth/status').then(r => r.json()).then(d => {
+        const val = d.allowRegistration !== false && !d.reachedLimit;
+        setAllowRegistration(val);
+        if (!val) setAuthMode(m => m === 'signup' ? 'login' : m);
+      }).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
   const handleAuth = async () => {
     setAuthError(''); setAuthLoading(true);
     try {
