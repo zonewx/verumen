@@ -2411,8 +2411,16 @@ const handleUpload = async (files) => {
                 className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1">
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
-              <div className="flex flex-col items-center gap-2">
-                {authStatus==='logged-out' && allowRegistration === true && <button onClick={()=>{setAuthMode(isSignup?'login':'signup');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm text-center text-zinc-500 hover:text-zinc-300 transition">{isSignup?'Already have an account? Sign in':'Create an account'}</button>}
+              <div className="flex flex-col items-center gap-1">
+                {authStatus==='logged-out' && allowRegistration === true && isSignup && (
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-sm text-zinc-500">Already have an account?</span>
+                    <button onClick={()=>{setAuthMode('login');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm font-semibold text-sky-400 hover:text-sky-300 transition">Sign in</button>
+                  </div>
+                )}
+                {authStatus==='logged-out' && allowRegistration === true && !isSignup && (
+                  <button onClick={()=>{setAuthMode('signup');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm text-center text-zinc-500 hover:text-zinc-300 transition">Create an account</button>
+                )}
                 {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className="text-xs text-center text-zinc-600">Registration is currently closed.</p>}
                 {!isSignup && <button onClick={()=>{setAuthMode('forgot-password');setAuthError('');setAuthForm(f=>({...f,email:''}));}} className="text-xs text-center text-zinc-600 hover:text-zinc-400 transition">Forgot password?</button>}
               </div>
