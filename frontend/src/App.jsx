@@ -2248,7 +2248,7 @@ const handleUpload = async (files) => {
               <button onClick={handleForgotPassword} disabled={authLoading} className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
                 {authLoading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Sending...</span> : 'Send Reset Link'}
               </button>
-              <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-center text-zinc-500 hover:text-zinc-300 transition">Back to sign in</button>
+              <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-center text-zinc-400 hover:text-zinc-200 transition">Back to sign in</button>
             </div>
           </div>
           <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>
@@ -2268,7 +2268,7 @@ const handleUpload = async (files) => {
             <p className="font-bold text-white mb-2">Verify your email</p>
             <p className="text-sm text-zinc-400 mb-2">Account created! A verification link has been sent to <span className="text-zinc-300">{authForm.email}</span>.</p>
             <p className="text-sm text-zinc-500 mb-6">Click the link in that email to activate your account. It expires in 24 hours.</p>
-            <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-zinc-500 hover:text-zinc-300 transition">Back to sign in</button>
+            <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-zinc-400 hover:text-zinc-200 transition">Back to sign in</button>
           </div>
           <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>
         </div>
@@ -2286,7 +2286,7 @@ const handleUpload = async (files) => {
             </div>
             <p className="font-bold text-white mb-2">Check your email</p>
             <p className="text-sm text-zinc-400 mb-6">If an account exists for <span className="text-zinc-300">{authForm.email}</span>, a reset link has been sent. It expires in 10 minutes.</p>
-            <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-zinc-500 hover:text-zinc-300 transition">Back to sign in</button>
+            <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-zinc-400 hover:text-zinc-200 transition">Back to sign in</button>
           </div>
           <p className="mt-6 text-xs text-zinc-700">© {new Date().getFullYear()}</p>
         </div>
