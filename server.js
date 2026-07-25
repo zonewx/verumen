@@ -2574,10 +2574,13 @@ function buildTradePageHtml(opts) {
   ].filter(Boolean);
   const fullTitle = `${hasStar?'★ ':''}${displayName}${exterior?' | '+exterior:''}`;
   const infoHtml = `
-    <a href="${e(BASE)}/profile/@${e(username)}" style="display:flex;align-items:center;gap:10px;text-decoration:none;margin-bottom:22px;">
-      ${avatarEl}
-      <span style="color:#a1a1aa;font-size:13px;">shared by <strong style="color:#38bdf8;">${e(username||'unknown')}</strong></span>
-    </a>
+    <div style="margin-bottom:22px;">
+      <p style="color:#71717a;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px;">Owned by</p>
+      <a href="${e(BASE)}/profile/@${e(username)}" style="display:inline-flex;align-items:center;gap:10px;text-decoration:none;">
+        ${avatarEl}
+        <strong style="color:#38bdf8;font-size:14px;">${e(username||'unknown')}</strong>
+      </a>
+    </div>
     <p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Trade</p>
     <h1 style="color:${nameColor};font-size:20px;font-weight:700;line-height:1.25;margin-bottom:${exterior?'4px':'18px'};">${hasStar?'<span style="margin-right:3px;">★</span>':''}${e(displayName)}</h1>
     ${exterior?`<p style="color:#a1a1aa;font-size:13px;margin-bottom:18px;">${e(exterior)}</p>`:''}
