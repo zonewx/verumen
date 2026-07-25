@@ -321,9 +321,16 @@ export default function AdminPanel({ authUsername }) {
   const toggleRegistration = async () => {
     const newVal = !settings.allowRegistration;
     setSettings(s => ({ ...s, allowRegistration: newVal }));
-    await fetch('/api/admin/settings', { method: 'POST', headers: h, body: JSON.stringify({ key: 'allowRegistration', value: String(newVal) }) });
-    setRegMsg(`Registration ${newVal ? 'enabled' : 'disabled'}`);
-    setTimeout(() => setRegMsg(''), 3000);
+    const res = await fetch('/api/admin/settings', { method: 'POST', headers: h, body: JSON.stringify({ key: 'allowRegistration', value: String(newVal) }) });
+    const data = await res.json();
+    if (!res.ok) {
+      setSettings(s => ({ ...s, allowRegistration: !newVal })); // revert
+      setRegMsg(`Error: ${data.error}`);
+    } else {
+      window.dispatchEvent(new CustomEvent('settings-changed', { detail: { allowRegistration: newVal } }));
+      setRegMsg(`Registration ${newVal ? 'enabled' : 'disabled'}`);
+    }
+    setTimeout(() => setRegMsg(''), 4000);
   };
 
   const saveUserLimit = async () => {

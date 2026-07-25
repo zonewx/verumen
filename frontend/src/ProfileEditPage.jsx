@@ -36,7 +36,7 @@ const Toggle = ({ value, onChange }) => (
 export default function ProfileEditPage({ authUsername }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const [editForm, setEditForm] = useState({ bio: '', steamId: '', isPublic: true, publicInventory: false, publicHoldings: false, publicDividends: false, publicCsTrades: false, showPortfolioValue: false, avatarBase64: null, showcaseItems: [], country: 'se' });
+  const [editForm, setEditForm] = useState({ bio: '', steamId: '', isPublic: true, publicInventory: false, publicHoldings: false, publicDividends: false, publicCsTrades: false, showPortfolioValue: false, avatarBase64: null, country: 'se' });
   const [steamVerified, setSteamVerified] = useState(false);
   const [steamLevel, setSteamLevel] = useState(0);
   const [steamLookupError, setSteamLookupError] = useState('');
@@ -48,11 +48,6 @@ export default function ProfileEditPage({ authUsername }) {
   const [usernameLoading, setUsernameLoading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   
-  // Showcase items state
-  const [inventory, setInventory] = useState([]);
-  const [loadingInventory, setLoadingInventory] = useState(false);
-  const [selectedShowcaseItems, setSelectedShowcaseItems] = useState([]);
-
   const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
   const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition focus:ring-2 focus:ring-zinc-500/30 focus:border-zinc-500 bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
@@ -89,39 +84,11 @@ export default function ProfileEditPage({ authUsername }) {
         publicCsTrades: data.publicCsTrades || false,
         showPortfolioValue: data.showPortfolioValue || false,
         avatarBase64: data.avatarBase64 || null,
-        showcaseItems: data.showcaseItems || [],
         country: data.country || 'se'
       });
-      setSelectedShowcaseItems(data.showcaseItems || []);
       setSteamVerified(data.steamVerified || false);
       setSteamLevel(data.steamLevel || 0);
-      if (data.steamId) loadInventory(data.steamId);
     } catch(e) {}
-  }
-
-  async function loadInventory(steamId) {
-    setLoadingInventory(true);
-    try {
-      const res = await fetch(`/api/cs/steam/inventory/${steamId}`, { headers: h });
-      const data = await res.json();
-      setInventory(data.items || []);
-    } catch(e) {
-      console.error('Failed to load inventory:', e);
-    }
-    setLoadingInventory(false);
-  }
-
-  function toggleShowcaseItem(assetId) {
-    setSelectedShowcaseItems(prev => {
-      if (prev.includes(assetId)) {
-        // Remove from selection
-        return prev.filter(id => id !== assetId);
-      } else if (prev.length < 10) {
-        // Add to selection (max 10)
-        return [...prev, assetId];
-      }
-      return prev; // Already at max
-    });
   }
 
   async function handleSteamLogin() {
@@ -148,7 +115,7 @@ export default function ProfileEditPage({ authUsername }) {
   async function saveProfile() {
     setSaving(true); setSaveMsg('');
     try {
-      const payload = { ...editForm, showcaseItems: selectedShowcaseItems };
+      const payload = { ...editForm };
       const res = await fetch(`/api/users/${authUsername}/profile`, { method: 'PUT', headers: h, body: JSON.stringify(payload) });
       const data = await res.json();
       if (data.success) {
@@ -362,73 +329,6 @@ export default function ProfileEditPage({ authUsername }) {
               )}
             </div>
 
-            {/* Item Showcase Selector */}
-            {steamVerified && editForm.steamId && (
-              <div className={`${card} p-6`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <label className={labelCls}>Item Showcase</label>
-                    <p className={`text-xs mt-1 text-zinc-400`}>
-                      Select up to 10 items from your CS inventory to display on your profile
-                    </p>
-                  </div>
-                  <span className={`text-sm font-semibold ${selectedShowcaseItems.length >= 10 ? 'text-red-400' : 'text-zinc-400'}`}>
-                    {selectedShowcaseItems.length}/10
-                  </span>
-                </div>
-
-                {loadingInventory ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                  </div>
-                ) : inventory.length > 0 ? (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-96 overflow-y-auto p-2 rounded-lg" style={{ scrollbarWidth: 'thin' }}>
-                    {inventory.map(item => {
-                      const isSelected = selectedShowcaseItems.includes(item.assetId);
-                      return (
-                        <button
-                          key={item.assetId}
-                          onClick={() => toggleShowcaseItem(item.assetId)}
-                          className={`relative p-2 rounded-lg transition border-2 ${
-                            isSelected 
-                              ? 'border-zinc-400 bg-zinc-400/20' 
-                              : 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-700 hover:border-zinc-500'
-                          }`}
-                          disabled={!isSelected && selectedShowcaseItems.length >= 10}
-                        >
-                          <img 
-                            src={item.iconUrl} 
-                            alt={item.name}
-                            className="w-full aspect-square object-contain mb-1"
-                          />
-                          <p className={`text-xs text-center truncate ${isSelected ? 'font-semibold text-zinc-400' : 'text-zinc-400'}`}>
-                            {item.name}
-                          </p>
-                          {isSelected && (
-                            <div className="absolute top-1 right-1 w-5 h-5 bg-zinc-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                              ✓
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className={`text-center py-8 text-sm text-zinc-400`}>
-                    No CS items found in your inventory
-                  </p>
-                )}
-
-                {selectedShowcaseItems.length > 0 && (
-                  <button
-                    onClick={() => setSelectedShowcaseItems([])}
-                    className={`mt-3 text-xs px-3 py-1.5 rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300`}
-                  >
-                    Clear Selection
-                  </button>
-                )}
-              </div>
-            )}
 
           </div>
         </div>

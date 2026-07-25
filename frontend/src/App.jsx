@@ -330,6 +330,19 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
+  // Keep allowRegistration in sync when admin changes it (same session)
+  useEffect(() => {
+    const handler = (e) => {
+      const val = e.detail?.allowRegistration;
+      if (typeof val === 'boolean') {
+        setAllowRegistration(val);
+        if (!val) setAuthMode(m => m === 'signup' ? 'login' : m);
+      }
+    };
+    window.addEventListener('settings-changed', handler);
+    return () => window.removeEventListener('settings-changed', handler);
+  }, []);
+
   const handleAuth = async () => {
     setAuthError(''); setAuthLoading(true);
     try {

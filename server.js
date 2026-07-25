@@ -3965,11 +3965,17 @@ app.get('/api/admin/settings', requireAdmin, async (req, res) => {
 app.post('/api/admin/settings', requireAdmin, async (req, res) => {
   const { key, value } = req.body;
   if (!key) return res.status(400).json({ error: 'key required' });
-  const { data: existing } = await supabase.from('app_settings').select('key').eq('key', key).single();
+  const { data: existing, error: selError } = await supabase.from('app_settings').select('key').eq('key', key).single();
+  if (selError && selError.code !== 'PGRST116') {
+    // PGRST116 = row not found (expected); anything else is a real error (e.g. table missing)
+    return res.status(500).json({ error: 'Settings table not found. Run the database migration: CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);' });
+  }
   if (existing) {
-    await supabase.from('app_settings').update({ value: String(value) }).eq('key', key);
+    const { error } = await supabase.from('app_settings').update({ value: String(value) }).eq('key', key);
+    if (error) return res.status(500).json({ error: error.message });
   } else {
-    await supabase.from('app_settings').insert({ key, value: String(value) });
+    const { error } = await supabase.from('app_settings').insert({ key, value: String(value) });
+    if (error) return res.status(500).json({ error: error.message });
   }
   res.json({ success: true });
 });

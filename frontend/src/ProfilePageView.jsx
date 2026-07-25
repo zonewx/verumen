@@ -81,8 +81,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
 
   const [profile, setProfile] = useState(() => apiCache.get(`/api/users/${targetUser}/profile`));
   const [loadingProfile, setLoadingProfile] = useState(!apiCache.has(`/api/users/${targetUser}/profile`));
-  const [showcaseItems, setShowcaseItems] = useState([]);
-  const [loadingShowcase, setLoadingShowcase] = useState(false);
   const [viewingHoldings, setViewingHoldings] = useState(null);
   const [loadingHoldings, setLoadingHoldings] = useState(false);
   const [showAllHoldings, setShowAllHoldings] = useState(false);
@@ -104,9 +102,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   }, [targetUser]);
 
   useEffect(() => {
-    if (profile?.publicInventory && profile?.showcaseItems?.length > 0) {
-      loadShowcaseItems();
-    }
     if (profile?.publicHoldings) {
       loadPublicHoldings();
     }
@@ -129,26 +124,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
       setProfile(data);
     } catch(e) {}
     setLoadingProfile(false);
-  }
-
-  async function loadShowcaseItems() {
-    if (!profile.steamId || !profile.showcaseItems || profile.showcaseItems.length === 0) return;
-
-    setLoadingShowcase(true);
-    try {
-      const res = await fetch(`/api/cs/steam/inventory/${profile.steamId}`, { headers: h });
-      const data = await res.json();
-
-      // Filter inventory to only include showcase items
-      const showcase = data.items
-        ?.filter(item => profile.showcaseItems.includes(item.assetId))
-        .slice(0, 10); // Safety limit
-
-      setShowcaseItems(showcase || []);
-    } catch(e) {
-      console.error('Failed to load showcase items:', e);
-    }
-    setLoadingShowcase(false);
   }
 
   async function loadPublicHoldings() {
@@ -557,43 +532,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
               </div>
             )}
 
-            {/* Item Showcase Tab */}
-            {activeTab === 'showcase' && (
-              <div className={`${card} p-4`}>
-                {loadingShowcase ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                  </div>
-                ) : showcaseItems.length > 0 ? (
-                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
-                    {showcaseItems.map(item => (
-                      <div key={item.assetId} className="bg-zinc-700/50 hover:bg-zinc-700 rounded p-1 transition cursor-pointer border border-zinc-600">
-                        <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-0.5" />
-                        {item.stickers?.length > 0 && (
-                          <div className="flex gap-0.5 mt-1 flex-wrap">
-                            {item.stickers.map((s, i) => (
-                              <div key={i} className="relative group">
-                                <img src={s.url} alt={s.name} className="w-6 h-6 object-contain opacity-85 hover:opacity-100 transition" />
-                                {s.name && (
-                                  <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
-                                    <p className="text-xs font-semibold text-white">{s.name}</p>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <p className="text-[9px] text-center truncate mt-0.5">{item.name}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : !profile.steamVerified ? (
-                  <p className="text-center py-10 text-sm text-zinc-400">No Steam account linked</p>
-                ) : (
-                  <p className="text-center py-10 text-sm text-zinc-400">No items in showcase</p>
-                )}
-              </div>
-            )}
 
           </div>{/* end left column */}
 
@@ -606,7 +544,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                 { id: 'activity', label: 'Recent Activity' },
                 { id: 'portfolio', label: 'Portfolio' },
                 { id: 'dividends', label: 'Dividends' },
-                { id: 'showcase', label: 'Item Showcase' },
                 { id: 'cs-trades', label: 'Trade Registry' },
               ].map(t => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)}
