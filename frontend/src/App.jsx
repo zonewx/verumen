@@ -2218,6 +2218,21 @@ const handleUpload = async (files) => {
     </div>
   );
 
+  if (authStatus !== 'logged-in' && location.pathname.match(/^\/profile\/@?[^/]+$/)) {
+    const viewUsername = location.pathname.split('/').pop().replace('@', '');
+    return (
+      <div className="fixed inset-0 bg-zinc-950 text-white overflow-y-auto">
+        <div className="fixed inset-x-0 top-0 h-10 bg-zinc-900 border-b border-zinc-800 flex items-center px-4 z-50 gap-2">
+          <img src="/logo.png" className="w-6 h-6 object-contain" alt="" />
+          <span className="text-sm font-semibold text-zinc-300">Verumen</span>
+        </div>
+        <div style={{ paddingTop: '40px' }}>
+          <ProfilePageView authUsername={authUsername} viewUsername={viewUsername} />
+        </div>
+      </div>
+    );
+  }
+
   if (authStatus !== 'logged-in') {
     const isSignup = authMode === 'signup';
     const isForgot = authMode === 'forgot-password';

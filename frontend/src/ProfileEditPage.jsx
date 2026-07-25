@@ -36,7 +36,7 @@ const Toggle = ({ value, onChange }) => (
 export default function ProfileEditPage({ authUsername }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const [editForm, setEditForm] = useState({ bio: '', steamId: '', publicInventory: false, publicHoldings: false, publicDividends: false, publicCsTrades: false, showPortfolioValue: false, avatarBase64: null, showcaseItems: [], country: 'se' });
+  const [editForm, setEditForm] = useState({ bio: '', steamId: '', isPublic: true, publicInventory: false, publicHoldings: false, publicDividends: false, publicCsTrades: false, showPortfolioValue: false, avatarBase64: null, showcaseItems: [], country: 'se' });
   const [steamVerified, setSteamVerified] = useState(false);
   const [steamLevel, setSteamLevel] = useState(0);
   const [steamLookupError, setSteamLookupError] = useState('');
@@ -82,6 +82,7 @@ export default function ProfileEditPage({ authUsername }) {
       setEditForm({
         bio: data.bio || '',
         steamId: data.steamId || '',
+        isPublic: data.isPublic !== false,
         publicInventory: data.publicInventory || false,
         publicHoldings: data.publicHoldings || false,
         publicDividends: data.publicDividends || false,
@@ -264,6 +265,7 @@ export default function ProfileEditPage({ authUsername }) {
               <label className={`${labelCls} mb-3`}>Privacy</label>
               <div className="flex flex-col gap-3">
                 {[
+                  { key: 'isPublic', title: 'Public profile', desc: 'Allow anyone to view your profile without logging in' },
                   { key: 'publicInventory', title: 'Public CS Inventory', desc: 'Show Steam CS inventory on profile' },
                   { key: 'publicCsTrades', title: 'Public CS Trade Registry', desc: 'Show CS trade history on profile' },
                   { key: 'publicHoldings', title: 'Public Portfolio', desc: 'Show stock holdings on profile' },

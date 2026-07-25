@@ -88,6 +88,9 @@ UPDATE cs_inventory SET share_token = gen_random_uuid() WHERE share_token IS NUL
 
 -- CS2 trade registry: Steam item thumbnail URL
 ALTER TABLE cs_inventory ADD COLUMN IF NOT EXISTS icon_url TEXT;
+
+-- Profile visibility toggle (public by default)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT TRUE;
 ```
 
 ## Routes

@@ -572,12 +572,18 @@ app.get('/api/users', requireUser, async (req, res) => {
 app.get('/api/users/:username/profile', async (req, res) => {
   const { data, error } = await supabase.from('profiles').select('*').eq('username', req.params.username).single();
   if (error || !data) return res.status(404).json({ error: 'User not found' });
-  res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, publicCsTrades: data.public_cs_trades || false, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_verified ? (data.steam_id || null) : null, steamVerified: data.steam_verified || false, steamLevel: data.steam_verified ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
+  if (data.is_public === false) {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    let authenticated = false;
+    if (token) { const { data: { user } } = await supabase.auth.getUser(token); if (user) authenticated = true; }
+    if (!authenticated) return res.status(403).json({ error: 'This profile is private.' });
+  }
+  res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', isPublic: data.is_public !== false, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, publicCsTrades: data.public_cs_trades || false, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_verified ? (data.steam_id || null) : null, steamVerified: data.steam_verified || false, steamLevel: data.steam_verified ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
 });
 
 app.put('/api/users/:username/profile', requireUser, largeJson, async (req, res) => {
   if (req.username !== req.params.username) return res.status(403).json({ error: "Cannot edit another user's profile." });
-  const { bio, steamId, publicInventory, publicHoldings, publicDividends, publicCsTrades, showPortfolioValue, avatarBase64, showcaseItems, country } = req.body;
+  const { bio, steamId, publicInventory, publicHoldings, publicDividends, publicCsTrades, showPortfolioValue, avatarBase64, showcaseItems, country, isPublic } = req.body;
   const update = {};
   if (bio !== undefined) { if (typeof bio === 'string' && bio.length > 500) return res.status(400).json({ error: 'Bio must be 500 characters or fewer.' }); update.bio = bio; }
   if (country !== undefined) { if (!/^[a-z]{2}$/.test(country)) return res.status(400).json({ error: 'Invalid country code.' }); update.country = country; }
@@ -586,6 +592,7 @@ app.put('/api/users/:username/profile', requireUser, largeJson, async (req, res)
   if (publicHoldings !== undefined) update.public_holdings = publicHoldings;
   if (publicDividends !== undefined) update.public_dividends = publicDividends;
   if (publicCsTrades !== undefined) update.public_cs_trades = publicCsTrades;
+  if (isPublic !== undefined) update.is_public = !!isPublic;
   if (showPortfolioValue !== undefined) update.show_portfolio_value = showPortfolioValue;
   if (avatarBase64 !== undefined) {
     if (avatarBase64 && avatarBase64.length > 1.5 * 1024 * 1024) return res.status(400).json({ error: 'Avatar too large. Maximum 1.5 MB.' });
@@ -2535,6 +2542,109 @@ app.get('/api/cs/trades/:id/public', async (req, res) => {
     screenshotUrl: item.screenshot_url || sale?.screenshot_url || null,
     username: profile?.username ?? null,
   });
+});
+
+// Server-rendered trade share page — handles og: meta tags for link previews (Discord, etc.)
+function buildTradePageHtml(opts) {
+  if (opts.error) {
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Trade not found — Verumen</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#09090b;color:#f4f4f5;font-family:-apple-system,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}</style>
+</head><body>
+<a href="${process.env.APP_URL||'https://verumen.com'}" style="display:flex;align-items:center;gap:8px;text-decoration:none;opacity:.7;margin-bottom:8px;">
+  <img src="${process.env.APP_URL||'https://verumen.com'}/logo.png" style="width:28px;height:28px;object-fit:contain;" alt=""><span style="color:#d4d4d8;font-size:14px;font-weight:600;">Verumen</span></a>
+<div style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:32px;text-align:center;"><p style="color:#a1a1aa;font-size:14px;">${opts.error}</p></div>
+</body></html>`;
+  }
+  const { displayName, hasStar, isST, exterior, floatValue, pattern, purchaseDate, purchasePrice, purchaseCurrency, sold, salePrice, saleCurrency, saleDate, notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl, username, avatarBase64 } = opts;
+  const BASE = process.env.APP_URL || 'https://verumen.com';
+  const e = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const fmt = (n, cur) => n != null ? `${Number(n).toLocaleString('sv-SE', {minimumFractionDigits:2,maximumFractionDigits:2})} ${cur||''}` : '—';
+  const nameColor = hasStar ? '#c4b5fd' : isST ? '#fb923c' : '#f4f4f5';
+  const avatarEl = avatarBase64
+    ? `<img src="${e(avatarBase64)}" alt="${e(username)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #3f3f46;flex-shrink:0;">`
+    : `<div style="width:36px;height:36px;border-radius:50%;background:#3f3f46;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff;border:2px solid #52525b;flex-shrink:0;">${e((username?.[0]||'?').toUpperCase())}</div>`;
+  const stats = [
+    floatValue ? ['Float', parseFloat(floatValue).toFixed(4)] : null,
+    pattern ? ['Pattern', String(pattern)] : null,
+    ['Buy date', purchaseDate || '—'],
+    ['Buy price', fmt(purchasePrice, purchaseCurrency)],
+    sold && saleDate ? ['Sale date', saleDate] : null,
+    sold ? ['Sale price', fmt(salePrice, saleCurrency)] : ['Status', 'Holding'],
+  ].filter(Boolean);
+  const fullTitle = `${hasStar?'★ ':''}${displayName}${exterior?' | '+exterior:''}`;
+  const infoHtml = `
+    <a href="${e(BASE)}/profile/@${e(username)}" style="display:flex;align-items:center;gap:10px;text-decoration:none;margin-bottom:22px;">
+      ${avatarEl}
+      <span style="color:#a1a1aa;font-size:13px;">shared by <strong style="color:#38bdf8;">${e(username||'unknown')}</strong></span>
+    </a>
+    <p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Trade</p>
+    <h1 style="color:${nameColor};font-size:20px;font-weight:700;line-height:1.25;margin-bottom:${exterior?'4px':'18px'};">${hasStar?'<span style="margin-right:3px;">★</span>':''}${e(displayName)}</h1>
+    ${exterior?`<p style="color:#a1a1aa;font-size:13px;margin-bottom:18px;">${e(exterior)}</p>`:''}
+    ${iconUrl?`<img src="${e(iconUrl)}" alt="" style="width:72px;height:72px;object-fit:contain;margin-bottom:16px;display:block;">`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#27272a;border-radius:10px;overflow:hidden;margin-bottom:18px;">
+      ${stats.map(([lbl,val])=>`<div style="background:#111113;padding:12px 14px;"><p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 3px;">${e(lbl)}</p><p style="color:#f4f4f5;font-size:13px;font-family:ui-monospace,monospace;margin:0;">${e(val)}</p></div>`).join('')}
+    </div>
+    <span style="background:${sold?'rgba(39,39,42,.8)':'rgba(20,83,45,.4)'};color:${sold?'#a1a1aa':'#4ade80'};font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;">${sold?`Sold ${e(saleDate||'')}` :'Holding'}</span>
+    ${notes?`<p style="color:#71717a;font-size:13px;margin-top:14px;font-style:italic;">${e(notes)}</p>`:''}`;
+  const bodyHtml = screenshotImgUrl
+    ? `<div style="max-width:1200px;margin:0 auto;padding:24px;display:flex;gap:20px;align-items:flex-start;"><div style="width:320px;flex-shrink:0;background:#18181b;border:1px solid #27272a;border-radius:16px;padding:24px;">${infoHtml}</div><div style="flex:1;min-width:0;"><a href="${e(screenshotPageUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;"><img src="${e(screenshotImgUrl)}" alt="Steam screenshot" style="width:100%;border-radius:12px;display:block;border:1px solid #27272a;"></a></div></div>`
+    : `<div style="max-width:480px;margin:0 auto;padding:24px;"><div style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:24px;">${infoHtml}</div></div>`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${e(fullTitle)} — Verumen</title>
+  <meta property="og:title" content="${e(fullTitle)} — Verumen">
+  <meta property="og:description" content="${sold?'Sold':'Holding'} · Shared by ${e(username||'Verumen')} on Verumen">
+  <meta property="og:site_name" content="Verumen">
+  ${ogImageUrl?`<meta property="og:image" content="${e(ogImageUrl)}">`:''}
+  <meta name="twitter:card" content="${screenshotImgUrl||ogImageUrl?'summary_large_image':'summary'}">
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}</style>
+</head>
+<body>
+  <header style="height:48px;background:#18181b;border-bottom:1px solid #27272a;display:flex;align-items:center;padding:0 24px;">
+    <a href="${e(BASE)}" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+      <img src="${e(BASE)}/logo.png" style="width:24px;height:24px;object-fit:contain;" alt=""><span style="color:#d4d4d8;font-size:14px;font-weight:600;letter-spacing:.02em;">Verumen</span>
+    </a>
+  </header>
+  <main style="padding-top:24px;">${bodyHtml}</main>
+</body>
+</html>`;
+}
+
+app.get('/trade/:token', async (req, res) => {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.token))
+    return res.status(404).send(buildTradePageHtml({ error: 'Trade not found' }));
+  const { data: item, error } = await supabase.from('cs_inventory')
+    .select('skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, sold, notes, screenshot_url, user_id, icon_url, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
+    .eq('share_token', req.params.token).single();
+  if (error || !item) return res.status(404).send(buildTradePageHtml({ error: 'Trade not found' }));
+  const { data: profile } = await supabase.from('profiles').select('username, avatar_base64').eq('id', item.user_id).single();
+  const screenshotPageUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url || null;
+  let screenshotImgUrl = null;
+  if (screenshotPageUrl) {
+    const idMatch = screenshotPageUrl.match(/id=(\d+)/);
+    if (idMatch) {
+      try {
+        const r = await fetch(`https://steamcommunity.com/sharedfiles/filedetails/?id=${idMatch[1]}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36' },
+          signal: AbortSignal.timeout(5000),
+        });
+        const html = await r.text();
+        const m = html.match(/property="og:image"[^>]*content="([^"]+)"/i)
+               || html.match(/content="([^"]+)"[^>]*property="og:image"/i);
+        screenshotImgUrl = m?.[1] || null;
+      } catch {}
+    }
+  }
+  const sale = item.cs_sales?.[0] ?? null;
+  const cleaned = (item.skin_name || '').replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '');
+  const hasStar = cleaned.startsWith('★');
+  const isST = cleaned.startsWith('StatTrak');
+  const displayName = hasStar ? cleaned.slice(1).trim() : cleaned;
+  const ogImageUrl = item.icon_url || screenshotImgUrl || null;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(buildTradePageHtml({ displayName, hasStar, isST, exterior: item.exterior, floatValue: item.float_value, pattern: item.pattern, purchaseDate: item.purchase_date, purchasePrice: item.purchase_price, purchaseCurrency: item.purchase_currency, sold: item.sold, salePrice: sale?.sale_price, saleCurrency: sale?.sale_currency, saleDate: sale?.sale_date, notes: item.notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl: item.icon_url, username: profile?.username, avatarBase64: profile?.avatar_base64 }));
 });
 
 // Public CS trades endpoint — requires public_cs_trades column: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_cs_trades BOOLEAN DEFAULT FALSE;
