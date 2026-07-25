@@ -252,7 +252,6 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [fetchingFloat, setFetchingFloat] = useState(false);
   const [filterSold, setFilterSold] = useState('all');
   const [expandedRow, setExpandedRow] = useState(null);
-  const [copiedTradeId, setCopiedTradeId] = useState(null);
   const [trackerSearch, setTrackerSearch] = useState('');
   const [sortCol, setSortCol] = useState('purchase_date');
   const [sortDir, setSortDir] = useState('desc');
@@ -1250,16 +1249,15 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     {!item.sold && <button onClick={() => setShowSellForm(item)} className={`text-xs px-2 py-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition`}>Sell</button>}
                                     <button onClick={() => openEditModal(item)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition`}>Edit</button>
                                     {item.share_token && (
-                                      <button
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(`${window.location.origin}/trade/${item.share_token}`);
-                                          setCopiedTradeId(item.id);
-                                          setTimeout(() => setCopiedTradeId(null), 1500);
-                                        }}
-                                        className={`text-xs px-2 py-1 rounded transition ${copiedTradeId === item.id ? 'bg-green-900/40 text-green-400' : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'}`}
+                                      <a
+                                        href={`/trade/${item.share_token}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={e => e.stopPropagation()}
+                                        className="text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition"
                                       >
-                                        {copiedTradeId === item.id ? 'Copied!' : 'Share'}
-                                      </button>
+                                        Share
+                                      </a>
                                     )}
                                     <button onClick={() => deleteItem(item.id)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition`}>✕</button>
                                   </div>
