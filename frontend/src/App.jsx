@@ -330,7 +330,7 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
-  // Keep allowRegistration in sync when admin changes it (same session)
+  // Keep allowRegistration in sync when admin changes it (same session or other tabs)
   useEffect(() => {
     const handler = (e) => {
       const val = e.detail?.allowRegistration;
@@ -339,8 +339,18 @@ export default function App() {
         if (!val) setAuthMode(m => m === 'signup' ? 'login' : m);
       }
     };
+    const storageHandler = (e) => {
+      if (e.key !== 'verumen_allowRegistration') return;
+      const val = e.newValue === 'true';
+      setAllowRegistration(val);
+      if (!val) setAuthMode(m => m === 'signup' ? 'login' : m);
+    };
     window.addEventListener('settings-changed', handler);
-    return () => window.removeEventListener('settings-changed', handler);
+    window.addEventListener('storage', storageHandler);
+    return () => {
+      window.removeEventListener('settings-changed', handler);
+      window.removeEventListener('storage', storageHandler);
+    };
   }, []);
 
   const handleAuth = async () => {
@@ -2261,6 +2271,7 @@ const handleUpload = async (files) => {
           <rect width="100%" height="100%" filter="url(#grain)"/>
         </svg>
         <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.75) 100%)'}} />
+        <p className="absolute bottom-4 right-5 text-xs text-zinc-500 pointer-events-none select-none">Issues? contact: <a href="mailto:w@verumen.com" className="text-zinc-400 hover:text-zinc-300 transition pointer-events-auto">w@verumen.com</a></p>
       </div>
     );
 

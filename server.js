@@ -2568,8 +2568,9 @@ function buildTradePageHtml(opts) {
     pattern ? ['Pattern', String(pattern)] : null,
     ['Buy date', purchaseDate || '—'],
     ['Buy price', fmt(purchasePrice, purchaseCurrency)],
+    ['Status', sold ? 'Sold' : 'Holding'],
+    ['Sale price', sold ? fmt(salePrice, saleCurrency) : '—'],
     sold && saleDate ? ['Sale date', saleDate] : null,
-    sold ? ['Sale price', fmt(salePrice, saleCurrency)] : ['Status', 'Holding'],
   ].filter(Boolean);
   const fullTitle = `${hasStar?'★ ':''}${displayName}${exterior?' | '+exterior:''}`;
   const infoHtml = `
@@ -2582,10 +2583,9 @@ function buildTradePageHtml(opts) {
     ${exterior?`<p style="color:#a1a1aa;font-size:13px;margin-bottom:18px;">${e(exterior)}</p>`:''}
     ${iconUrl?`<img src="${e(iconUrl)}" alt="" style="width:72px;height:72px;object-fit:contain;margin-bottom:16px;display:block;">`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#27272a;border-radius:10px;overflow:hidden;margin-bottom:18px;">
-      ${stats.map(([lbl,val])=>`<div style="background:#111113;padding:12px 14px;"><p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 3px;">${e(lbl)}</p><p style="color:#f4f4f5;font-size:13px;font-family:ui-monospace,monospace;margin:0;">${e(val)}</p></div>`).join('')}
+      ${stats.map(([lbl,val])=>`<div style="background:#111113;padding:12px 14px;"><p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 3px;">${e(lbl)}</p><p style="color:${lbl==='Status'?(val==='Holding'?'#4ade80':'#f87171'):'#f4f4f5'};font-size:13px;font-family:ui-monospace,monospace;margin:0;">${e(val)}</p></div>`).join('')}
     </div>
-    <span style="background:${sold?'rgba(39,39,42,.8)':'rgba(20,83,45,.4)'};color:${sold?'#a1a1aa':'#4ade80'};font-size:12px;font-weight:600;padding:4px 12px;border-radius:999px;">${sold?`Sold ${e(saleDate||'')}` :'Holding'}</span>
-    ${notes?`<p style="color:#71717a;font-size:13px;margin-top:14px;font-style:italic;">${e(notes)}</p>`:''}`;
+    ${notes?`<p style="color:#71717a;font-size:13px;margin-top:4px;font-style:italic;">${e(notes)}</p>`:''}`;
   const bodyHtml = screenshotImgUrl
     ? `<div style="max-width:1200px;margin:0 auto;padding:24px;display:flex;gap:20px;align-items:flex-start;"><div style="width:320px;flex-shrink:0;background:#18181b;border:1px solid #27272a;border-radius:16px;padding:24px;">${infoHtml}</div><div style="flex:1;min-width:0;"><a href="${e(screenshotPageUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;"><img src="${e(screenshotImgUrl)}" alt="Steam screenshot" style="width:100%;border-radius:12px;display:block;border:1px solid #27272a;"></a></div></div>`
     : `<div style="max-width:480px;margin:0 auto;padding:24px;"><div style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:24px;">${infoHtml}</div></div>`;

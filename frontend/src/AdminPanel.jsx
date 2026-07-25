@@ -328,6 +328,7 @@ export default function AdminPanel({ authUsername }) {
       setRegMsg(`Error: ${data.error}`);
     } else {
       window.dispatchEvent(new CustomEvent('settings-changed', { detail: { allowRegistration: newVal } }));
+      localStorage.setItem('verumen_allowRegistration', String(newVal));
       setRegMsg(`Registration ${newVal ? 'enabled' : 'disabled'}`);
     }
     setTimeout(() => setRegMsg(''), 4000);
