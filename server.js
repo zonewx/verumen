@@ -3851,7 +3851,12 @@ app.get('/api/admin/settings', requireAdmin, async (req, res) => {
 app.post('/api/admin/settings', requireAdmin, async (req, res) => {
   const { key, value } = req.body;
   if (!key) return res.status(400).json({ error: 'key required' });
-  await supabase.from('app_settings').upsert({ key, value: String(value) }, { onConflict: 'key' });
+  const { data: existing } = await supabase.from('app_settings').select('key').eq('key', key).single();
+  if (existing) {
+    await supabase.from('app_settings').update({ value: String(value) }).eq('key', key);
+  } else {
+    await supabase.from('app_settings').insert({ key, value: String(value) });
+  }
   res.json({ success: true });
 });
 
