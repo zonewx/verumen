@@ -14,6 +14,7 @@ import apiCache from './apiCache';
 import { getToken, setToken, clearToken } from './tokenStore';
 import { EmptyState, ShortcutsModal, PieChart, LineChart, TodayCards } from './PortfolioComponents';
 import TransactionHistoryTab from './TransactionHistoryTab';
+import TradeSharePage from './TradeSharePage';
 
 function RetryCountdown({ onRetry }) {
   const [secs, setSecs] = useState(25);
@@ -2200,6 +2201,13 @@ const handleUpload = async (files) => {
       </>
     );
   };
+
+  // ── Public routes (accessible without login) ───────────────────────────────
+  if (location.pathname.startsWith('/trade/')) return (
+    <Routes>
+      <Route path="/trade/:id" element={<TradeSharePage />} />
+    </Routes>
+  );
 
   // ── Auth screens ────────────────────────────────────────────────────────────
   if (authStatus === 'loading') return (

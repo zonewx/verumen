@@ -2509,6 +2509,34 @@ app.get('/api/users/:username/dividends', async (req, res) => {
   res.json({ totalAllTime, totalThisYear, byYear:byYearArr, byStock:Object.entries(byStock).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total) });
 });
 
+// Public single-trade endpoint — UUID acts as the access token (not guessable)
+app.get('/api/cs/trades/:id/public', async (req, res) => {
+  const { data: item, error } = await supabase
+    .from('cs_inventory')
+    .select('id, skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, sold, sale_date, notes, screenshot_url, user_id, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
+    .eq('id', req.params.id)
+    .single();
+  if (error || !item) return res.status(404).json({ error: 'Trade not found' });
+  const { data: profile } = await supabase.from('profiles').select('username').eq('id', item.user_id).single();
+  const sale = item.cs_sales?.[0] ?? null;
+  res.json({
+    id: item.id,
+    skinName: item.skin_name,
+    exterior: item.exterior,
+    floatValue: item.float_value,
+    pattern: item.pattern,
+    purchasePrice: item.purchase_price,
+    purchaseCurrency: item.purchase_currency,
+    purchaseDate: item.purchase_date,
+    sold: item.sold,
+    salePrice: sale?.sale_price ?? null,
+    saleCurrency: sale?.sale_currency ?? null,
+    saleDate: sale?.sale_date ?? null,
+    screenshotUrl: item.screenshot_url || sale?.screenshot_url || null,
+    username: profile?.username ?? null,
+  });
+});
+
 // Public CS trades endpoint — requires public_cs_trades column: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_cs_trades BOOLEAN DEFAULT FALSE;
 app.get('/api/users/:username/cs-trades', async (req, res) => {
   const { data: profile } = await supabase.from('profiles').select('id, public_cs_trades').eq('username', req.params.username).single();
