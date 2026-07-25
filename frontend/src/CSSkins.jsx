@@ -299,6 +299,17 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  // Auto-fetch missing Steam market icons for items without one
+  useEffect(() => {
+    if (!inventory.length) return;
+    if (!inventory.some(i => !i.icon_url)) return;
+    const h = authHeaders();
+    fetch('/api/cs/sync-icons', { method: 'POST', headers: h })
+      .then(r => r.json())
+      .then(d => { if (d.updated > 0) fetchAll(); })
+      .catch(() => {});
+  }, [inventory.length]);
+
   // Fetch Steam inventory whenever the user lands on the inventory tab.
   // fetchSteamInventory has a 10-min sessionStorage cache so rapid revisits are free.
   useEffect(() => {

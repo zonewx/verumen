@@ -2598,7 +2598,7 @@ function buildTradePageHtml(opts) {
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${e(fullTitle)} — Verumen</title>
   <meta property="og:title" content="${e(fullTitle)} — Verumen">
-  <meta property="og:description" content="${sold?'Sold':'Holding'} · Shared by ${e(username||'Verumen')} on Verumen">
+  <meta property="og:description" content="${sold?'Sold':'Holding'} · Owned by ${e(username||'Verumen')}, shared on Verumen">
   <meta property="og:site_name" content="Verumen">
   ${ogImageUrl?`<meta property="og:image" content="${e(ogImageUrl)}">`:''}
   <meta name="twitter:card" content="${screenshotImgUrl||ogImageUrl?'summary_large_image':'summary'}">
@@ -2650,13 +2650,42 @@ app.get('/trade/:token', async (req, res) => {
   res.send(buildTradePageHtml({ displayName, hasStar, isST, exterior: item.exterior, floatValue: item.float_value, pattern: item.pattern, purchaseDate: item.purchase_date, purchasePrice: item.purchase_price, purchaseCurrency: item.purchase_currency, sold: item.sold, salePrice: sale?.sale_price, saleCurrency: sale?.sale_currency, saleDate: sale?.sale_date, notes: item.notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl: item.icon_url, username: profile?.username, avatarBase64: profile?.avatar_base64 }));
 });
 
+// Auto-fetch missing Steam market icons for user's CS inventory
+app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
+  const { data: items } = await supabase
+    .from('cs_inventory')
+    .select('id, skin_name, exterior, icon_url')
+    .eq('user_id', req.user.id);
+  const needsIcon = (items || []).filter(i => !i.icon_url);
+  if (!needsIcon.length) return res.json({ updated: 0 });
+  let updated = 0;
+  for (const item of needsIcon) {
+    try {
+      const name = item.skin_name.replace(/\s*\|\s*Vanilla\s*$/i, '');
+      const query = item.exterior && item.exterior !== 'Vanilla' ? `${name} (${item.exterior})` : name;
+      const r = await fetch(
+        `https://steamcommunity.com/market/search/render/?query=${encodeURIComponent(query)}&appid=730&norender=1&count=1`,
+        { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Mozilla/5.0' } }
+      );
+      if (!r.ok) continue;
+      const data = await r.json();
+      const iconPath = data?.results?.[0]?.asset_description?.icon_url;
+      if (!iconPath) continue;
+      const iconUrl = `https://community.cloudflare.steamstatic.com/economy/image/${iconPath}`;
+      await supabase.from('cs_inventory').update({ icon_url: iconUrl }).eq('id', item.id).eq('user_id', req.user.id);
+      updated++;
+    } catch(e) {}
+  }
+  res.json({ updated });
+});
+
 // Public CS trades endpoint — requires public_cs_trades column: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_cs_trades BOOLEAN DEFAULT FALSE;
 app.get('/api/users/:username/cs-trades', async (req, res) => {
   const { data: profile } = await supabase.from('profiles').select('id, public_cs_trades').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
   if (!profile.public_cs_trades) return res.status(403).json({ error: "This user's CS trades are private." });
   const { data, error } = await supabase.from('cs_inventory')
-    .select('id, skin_name, exterior, float_value, purchase_price, purchase_currency, purchase_date, sold, screenshot_url, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
+    .select('id, skin_name, exterior, float_value, pattern, has_star, notes, icon_url, share_token, purchase_price, purchase_currency, purchase_date, sold, screenshot_url, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
     .eq('user_id', profile.id)
     .order('purchase_date', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
@@ -2665,6 +2694,11 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
     skinName: item.skin_name,
     exterior: item.exterior,
     floatValue: item.float_value,
+    pattern: item.pattern,
+    hasStar: item.has_star,
+    notes: item.notes,
+    iconUrl: item.icon_url,
+    shareToken: item.share_token,
     purchasePrice: item.purchase_price,
     purchaseCurrency: item.purchase_currency,
     purchaseDate: item.purchase_date,

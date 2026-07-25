@@ -341,9 +341,11 @@ export default function App() {
     };
     const storageHandler = (e) => {
       if (e.key !== 'verumen_allowRegistration') return;
-      const val = e.newValue === 'true';
-      setAllowRegistration(val);
-      if (!val) setAuthMode(m => m === 'signup' ? 'login' : m);
+      fetch('/api/auth/status').then(r => r.json()).then(d => {
+        const val = d.allowRegistration !== false && !d.reachedLimit;
+        setAllowRegistration(val);
+        if (!val) setAuthMode(m => m === 'signup' ? 'login' : m);
+      }).catch(() => {});
     };
     window.addEventListener('settings-changed', handler);
     window.addEventListener('storage', storageHandler);
@@ -2271,7 +2273,7 @@ const handleUpload = async (files) => {
           <rect width="100%" height="100%" filter="url(#grain)"/>
         </svg>
         <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.75) 100%)'}} />
-        <p className="absolute bottom-4 right-5 text-xs text-zinc-500 pointer-events-none select-none">Issues? contact: <a href="mailto:w@verumen.com" className="text-zinc-400 hover:text-zinc-300 transition pointer-events-auto">w@verumen.com</a></p>
+        <p className="fixed bottom-4 right-5 text-xs text-zinc-500 pointer-events-none select-none z-50">Issues? contact: <a href="mailto:w@verumen.com" className="text-zinc-400 hover:text-zinc-300 transition pointer-events-auto">w@verumen.com</a></p>
       </div>
     );
 
