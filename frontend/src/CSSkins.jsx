@@ -1249,21 +1249,18 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                   <div className="flex gap-1 items-center">
                                     {!item.sold && <button onClick={() => setShowSellForm(item)} className={`text-xs px-2 py-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition`}>Sell</button>}
                                     <button onClick={() => openEditModal(item)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition`}>Edit</button>
-                                    <button
-                                      title="Copy share link"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(`${window.location.origin}/trade/${item.id}`);
-                                        setCopiedTradeId(item.id);
-                                        setTimeout(() => setCopiedTradeId(null), 1500);
-                                      }}
-                                      className={`p-1 rounded transition ${copiedTradeId === item.id ? 'text-green-400' : 'text-zinc-500 hover:text-zinc-200'}`}
-                                    >
-                                      {copiedTradeId === item.id ? (
-                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>
-                                      ) : (
-                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 0 0 1.06-1.06l-1.25-1.25a2 2 0 0 0-2.83 0L1.5 4.25a2 2 0 0 0 0 2.83l1.25 1.25a.75.75 0 0 0 1.06-1.06l-1.25-1.25a.5.5 0 0 1 0-.708l3.25-3.25a.5.5 0 0 1 .708 0l1.25 1.25Zm-3.5 3.5a.75.75 0 0 0-1.06 1.06l1.25 1.25a2 2 0 0 0 2.83 0l3.25-3.25a2 2 0 0 0 0-2.83L9.28 1.78a.75.75 0 0 0-1.06 1.06l1.25 1.25a.5.5 0 0 1 0 .708l-3.25 3.25a.5.5 0 0 1-.708 0L4.275 6.775Z"/></svg>
-                                      )}
-                                    </button>
+                                    {item.share_token && (
+                                      <button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(`${window.location.origin}/trade/${item.share_token}`);
+                                          setCopiedTradeId(item.id);
+                                          setTimeout(() => setCopiedTradeId(null), 1500);
+                                        }}
+                                        className={`text-xs px-2 py-1 rounded transition ${copiedTradeId === item.id ? 'bg-green-900/40 text-green-400' : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'}`}
+                                      >
+                                        {copiedTradeId === item.id ? 'Copied!' : 'Share'}
+                                      </button>
+                                    )}
                                     <button onClick={() => deleteItem(item.id)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition`}>✕</button>
                                   </div>
                                 </td>
