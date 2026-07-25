@@ -2513,7 +2513,7 @@ app.get('/api/users/:username/dividends', async (req, res) => {
 app.get('/api/cs/trades/:id/public', async (req, res) => {
   const { data: item, error } = await supabase
     .from('cs_inventory')
-    .select('id, skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, sold, sale_date, notes, screenshot_url, user_id, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
+    .select('id, skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, sold, notes, screenshot_url, user_id, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
     .eq('share_token', req.params.id)
     .single();
   if (error || !item) return res.status(404).json({ error: 'Trade not found' });

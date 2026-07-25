@@ -1,7 +1,5 @@
 # Verumen
 
-Personal finance and gaming asset tracker. Track your stock portfolio, CS2 skin inventory, and connect with friends — all in one place.
-
 ## Features
 
 - **Stock Portfolio** — Import CSVs from Avanza, Nordnet, or Montrose. Tracks holdings, P&L, dividends, and performance history via Yahoo Finance.
@@ -72,6 +70,25 @@ Required env vars on Railway: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `FINNHUB_A
 **Frontend → Vercel**
 
 Set the root directory to `frontend/`. No extra environment variables are needed — the `vercel.json` rewrites `/api/*` to your Railway backend URL.
+
+## Database migrations
+
+Run these in the Supabase SQL editor when setting up or after upgrading:
+
+```sql
+-- Admin panel settings persistence
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+-- CS2 trade registry: unguessable public share links
+ALTER TABLE cs_inventory ADD COLUMN IF NOT EXISTS share_token UUID DEFAULT gen_random_uuid();
+UPDATE cs_inventory SET share_token = gen_random_uuid() WHERE share_token IS NULL;
+
+-- CS2 trade registry: Steam item thumbnail URL
+ALTER TABLE cs_inventory ADD COLUMN IF NOT EXISTS icon_url TEXT;
+```
 
 ## Routes
 
