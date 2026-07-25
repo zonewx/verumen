@@ -3320,28 +3320,30 @@ function validateScreenshotUrl(url) {
 }
 
 app.post('/api/cs/inventory', requireUser, async (req, res) => {
-  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id } = req.body;
+  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id, icon_url } = req.body;
   if (!skin_name||!purchase_date) return res.status(400).json({ error:'skin_name and purchase_date required' });
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
   const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
-  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value, pattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null }).select().single();
+  const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
+  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value, pattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior });
   res.json({ id:data.id, success:true });
 });
 
 app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
-  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id } = req.body;
+  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id, icon_url } = req.body;
   if (!skin_name || !purchase_date) return res.status(400).json({ error: 'skin_name and purchase_date required' });
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
   const { data: existing } = await supabase.from('cs_inventory').select('skin_name, screenshot_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
   const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
+  const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const { error } = await supabase.from('cs_inventory')
-    .update({ skin_name, exterior, float_value, pattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null })
+    .update({ skin_name, exterior, float_value, pattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null, icon_url: safeIconUrl || null })
     .eq('id', req.params.id)
     .eq('user_id', req.user.id);
   if (error) return res.status(500).json({ error: error.message });
@@ -3380,9 +3382,11 @@ app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
     });
     const html = await r.text();
-    const match = html.match(/<meta property="og:image"\s+content="([^"]+)"/);
+    // Steam sometimes puts content before property — handle both orders
+    const match = html.match(/property="og:image"[^>]*content="([^"]+)"/i)
+                || html.match(/content="([^"]+)"[^>]*property="og:image"/i);
     const previewUrl = match?.[1] || null;
-    if (!previewUrl) return res.status(404).json({ error: 'Screenshot not found' });
+    if (!previewUrl) return res.status(404).json({ error: 'Screenshot not found', hint: html.slice(0, 500) });
     res.json({ previewUrl });
   } catch(e) {
     res.status(500).json({ error: e.message });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
@@ -260,7 +260,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
     skin_name: '', statTrak: false, hasExterior: true, exterior: 'Factory New', float_value: '', pattern: '',
     purchase_price: '', purchase_currency: 'SEK',
     purchase_date: new Date().toISOString().split('T')[0],
-    notes: '', screenshot_url: ''
+    notes: '', screenshot_url: '', icon_url: ''
   });
   const [sellForm, setSellForm] = useState({
     sale_price: '', sale_currency: 'SEK',
@@ -420,7 +420,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const selectModalSkin = async (item) => {
     setSelectedModalItem(item);
     const exterior = parseExteriorFromName(item.name);
-    setAddForm(f => ({ ...f, skin_name: withVanilla(item.name), purchase_price: item.price > 0 ? String(item.price.toFixed(2)) : f.purchase_price, ...(exterior ? { exterior } : {}) }));
+    setAddForm(f => ({ ...f, skin_name: withVanilla(item.name), purchase_price: item.price > 0 ? String(item.price.toFixed(2)) : f.purchase_price, icon_url: item.iconUrl || '', ...(exterior ? { exterior } : {}) }));
     if (item.inspectLink) {
       setFetchingFloat(true);
       try {
@@ -465,7 +465,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
       skin_name: '', statTrak: false, hasExterior: true, exterior: 'Factory New', float_value: '', pattern: '',
       purchase_price: '', purchase_currency: 'SEK',
       purchase_date: new Date().toISOString().split('T')[0],
-      notes: '', screenshot_url: ''
+      notes: '', screenshot_url: '', icon_url: ''
     });
     await fetchAll();
   };
@@ -508,6 +508,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
       notes: item.notes || '',
       screenshot_url: item.screenshot_url || '',
       steam_asset_id: item.steam_asset_id || null,
+      icon_url: item.icon_url || '',
     });
     loadModalInventory();
   };
@@ -520,7 +521,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
 
   const selectEditSkin = (item) => {
     setSelectedEditItem(item);
-    setEditForm(f => ({ ...f, skin_name: item.name, steam_asset_id: item.assetId }));
+    setEditForm(f => ({ ...f, skin_name: item.name, steam_asset_id: item.assetId, icon_url: item.iconUrl || '' }));
   };
 
   const saveEdit = async () => {
@@ -1189,8 +1190,6 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             { key: 'float_value', label: 'Float' },
                             { key: 'purchase_date', label: 'Buy Date' },
                             { key: 'purchase_price', label: 'Buy Price' },
-                            { key: 'current_price', label: 'Current' },
-                            { key: 'pnl', label: 'P&L' },
                             { key: 'sold', label: 'Status' },
                           ].map(({ key, label: colLabel }) => (
                             <th
@@ -1211,106 +1210,104 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           const pnlVal = item.sold ? ((item.sale_price_display || 0) - buyPrice) : (currentPrice - buyPrice);
                           const pnlPos = pnlVal >= 0;
                           const isExpanded = expandedRow === item.id;
-                          const hasScreenshot = item.screenshot_url || (item.sold && item.cs_sales?.[0]?.screenshot_url);
+                          const screenshotUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url;
                           return (
-                            <tr
-                              key={item.id}
-                              onClick={() => setExpandedRow(isExpanded ? null : item.id)}
-                              className={`border-t ${isExpanded ? 'bg-zinc-700/40' : ''} border-zinc-700 hover:bg-zinc-600/30 transition cursor-pointer`}
-                            >
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-1.5">
-                                  {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return (<span className={`font-semibold flex items-baseline min-w-0 ${nameColor}`}><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
-                                </div>
-                              </td>
-                              <td className={`px-4 py-3 text-xs text-zinc-400 whitespace-nowrap`}>{item.exterior || '—'}</td>
-                              <td className={`px-4 py-3 text-xs font-mono text-zinc-400`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
-                              <td className={`px-4 py-3 text-xs text-zinc-400`}>{item.purchase_date}</td>
-                              <td className="px-4 py-3 whitespace-nowrap font-mono text-xs">
-                                {fmtBC(item.purchase_price_display)}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap font-mono text-xs">
-                                {item.sold
-                                  ? <span className="text-zinc-400">{fmtBC(item.sale_price_display)}</span>
-                                  : (currentPrice > 0 ? fmtBC(currentPrice) : '—')
-                                }
-                              </td>
-                              <td className={`px-4 py-3 font-bold whitespace-nowrap text-xs ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>
-                                {pnlPos ? '+' : ''}{fmtBC(pnlVal)}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${item.sold ? `bg-zinc-700 text-zinc-400` : 'bg-green-900/40 text-green-400'}`}>
-                                  {item.sold ? `Sold ${item.sale_date || ''}` : 'Holding'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                                <div className="flex gap-1 items-center">
-                                  {!item.sold && <button onClick={() => setShowSellForm(item)} className={`text-xs px-2 py-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition`}>Sell</button>}
-                                  <button onClick={() => openEditModal(item)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition`}>Edit</button>
-                                  <button
-                                    title="Copy share link"
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(`${window.location.origin}/trade/${item.id}`);
-                                      setCopiedTradeId(item.id);
-                                      setTimeout(() => setCopiedTradeId(null), 1500);
-                                    }}
-                                    className={`p-1 rounded transition ${copiedTradeId === item.id ? 'text-green-400' : 'text-zinc-500 hover:text-zinc-200'}`}
-                                  >
-                                    {copiedTradeId === item.id ? (
-                                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>
-                                    ) : (
-                                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 0 0 1.06-1.06l-1.25-1.25a2 2 0 0 0-2.83 0L1.5 4.25a2 2 0 0 0 0 2.83l1.25 1.25a.75.75 0 0 0 1.06-1.06l-1.25-1.25a.5.5 0 0 1 0-.708l3.25-3.25a.5.5 0 0 1 .708 0l1.25 1.25Zm-3.5 3.5a.75.75 0 0 0-1.06 1.06l1.25 1.25a2 2 0 0 0 2.83 0l3.25-3.25a2 2 0 0 0 0-2.83L9.28 1.78a.75.75 0 0 0-1.06 1.06l1.25 1.25a.5.5 0 0 1 0 .708l-3.25 3.25a.5.5 0 0 1-.708 0L4.275 6.775Z"/></svg>
+                            <Fragment key={item.id}>
+                              <tr
+                                onClick={() => setExpandedRow(isExpanded ? null : item.id)}
+                                className={`border-t ${isExpanded ? 'bg-zinc-700/40' : ''} border-zinc-700 hover:bg-zinc-600/30 transition cursor-pointer`}
+                              >
+                                <td className="px-4 py-2.5">
+                                  <div className="flex items-center gap-2.5">
+                                    {item.icon_url && (
+                                      <img src={item.icon_url} alt="" className="w-10 h-10 object-contain shrink-0 rounded" />
                                     )}
-                                  </button>
-                                  <button onClick={() => deleteItem(item.id)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition`}>✕</button>
-                                </div>
-                              </td>
-                            </tr>
+                                    {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return (<span className={`font-semibold flex items-baseline min-w-0 ${nameColor}`}><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
+                                  </div>
+                                </td>
+                                <td className={`px-4 py-2.5 text-xs text-zinc-400 whitespace-nowrap`}>{item.exterior || '—'}</td>
+                                <td className={`px-4 py-2.5 text-xs font-mono text-zinc-400`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
+                                <td className={`px-4 py-2.5 text-xs text-zinc-400`}>{item.purchase_date}</td>
+                                <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs">
+                                  {fmtBC(item.purchase_price_display)}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${item.sold ? `bg-zinc-700 text-zinc-400` : 'bg-green-900/40 text-green-400'}`}>
+                                    {item.sold ? `Sold ${item.sale_date || ''}` : 'Holding'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
+                                  <div className="flex gap-1 items-center">
+                                    {!item.sold && <button onClick={() => setShowSellForm(item)} className={`text-xs px-2 py-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition`}>Sell</button>}
+                                    <button onClick={() => openEditModal(item)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition`}>Edit</button>
+                                    <button
+                                      title="Copy share link"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(`${window.location.origin}/trade/${item.id}`);
+                                        setCopiedTradeId(item.id);
+                                        setTimeout(() => setCopiedTradeId(null), 1500);
+                                      }}
+                                      className={`p-1 rounded transition ${copiedTradeId === item.id ? 'text-green-400' : 'text-zinc-500 hover:text-zinc-200'}`}
+                                    >
+                                      {copiedTradeId === item.id ? (
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>
+                                      ) : (
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M7.775 3.275a.75.75 0 0 0 1.06-1.06l-1.25-1.25a2 2 0 0 0-2.83 0L1.5 4.25a2 2 0 0 0 0 2.83l1.25 1.25a.75.75 0 0 0 1.06-1.06l-1.25-1.25a.5.5 0 0 1 0-.708l3.25-3.25a.5.5 0 0 1 .708 0l1.25 1.25Zm-3.5 3.5a.75.75 0 0 0-1.06 1.06l1.25 1.25a2 2 0 0 0 2.83 0l3.25-3.25a2 2 0 0 0 0-2.83L9.28 1.78a.75.75 0 0 0-1.06 1.06l1.25 1.25a.5.5 0 0 1 0 .708l-3.25 3.25a.5.5 0 0 1-.708 0L4.275 6.775Z"/></svg>
+                                      )}
+                                    </button>
+                                    <button onClick={() => deleteItem(item.id)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition`}>✕</button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr className="border-t border-zinc-700">
+                                  <td colSpan={7} className="p-0">
+                                    <div className="bg-zinc-800/60 px-6 py-5">
+                                      <div className="flex gap-6">
+                                        {/* Left: item image + details */}
+                                        <div className="flex gap-4 shrink-0">
+                                          {item.icon_url && (
+                                            <img src={item.icon_url} alt={item.skin_name} className="w-24 h-24 object-contain shrink-0 self-start" />
+                                          )}
+                                          <div className="flex flex-col gap-3">
+                                            {[
+                                              ['Skin',       withVanilla(item.skin_name?.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, ''))],
+                                              ['Exterior',   item.exterior],
+                                              ['Float',      item.float_value ? parseFloat(item.float_value).toFixed(4) : null],
+                                              ['Pattern',    item.pattern],
+                                              ['Buy date',   item.purchase_date],
+                                              ['Buy price',  fmtBC(item.purchase_price_display)],
+                                              ['Current',    item.sold ? null : (currentPrice > 0 ? fmtBC(currentPrice) : null)],
+                                              ['P&L',        (() => { const label = pnlPos ? `+${fmtBC(pnlVal)}` : fmtBC(pnlVal); return item.sold || currentPrice > 0 ? label : null; })()],
+                                              ['Sold on',    item.sold ? item.sale_date : null],
+                                              ['Sale price', item.sold ? fmtBC(item.sale_price_display) : null],
+                                              ['Notes',      item.notes],
+                                            ].filter(([, v]) => v).map(([lbl, val]) => (
+                                              <div key={lbl}>
+                                                <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 text-zinc-400`}>{lbl}</p>
+                                                <p className={`text-sm ${lbl === 'P&L' ? (pnlPos ? 'text-green-400 font-bold' : 'text-red-400 font-bold') : ''}`}>{val}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        {/* Right: screenshot */}
+                                        <div className="flex-1 min-w-0">
+                                          {screenshotUrl
+                                            ? <SteamScreenshotEmbed url={screenshotUrl} />
+                                            : <div className={`h-full flex items-center justify-center rounded-xl border border-zinc-700 text-zinc-400`}><p className="text-xs">No screenshot linked.</p></div>
+                                          }
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
                           );
                         })}
                       </tbody>
                     </table>
                   </div>
-
-                  {/* Expanded detail panel — outside the scroll container so it uses full width */}
-                  {expandedRow && (() => {
-                    const item = filteredInv.find(i => i.id === expandedRow);
-                    if (!item) return null;
-                    const screenshotUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url;
-                    return (
-                      <div className={`border-t border-zinc-700 bg-zinc-800/60 px-6 py-5`}>
-                        <div className="flex gap-6">
-                          {/* Left: item details */}
-                          <div className="w-48 shrink-0 flex flex-col gap-3">
-                            {[
-                              ['Skin',     withVanilla(item.skin_name?.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, ''))],
-                              ['Exterior', item.exterior],
-                              ['Float',    item.float_value ? parseFloat(item.float_value).toFixed(4) : null],
-                              ['Pattern',  item.pattern],
-                              ['Buy date', item.purchase_date],
-                              ['Buy price',fmtBC(item.purchase_price_display)],
-                              ['Current',  item.sold ? null : (item.current_price > 0 ? fmtBC(item.current_price) : null)],
-                              ['Sold on',  item.sold ? item.sale_date : null],
-                              ['Sale price', item.sold ? fmtBC(item.sale_price_display) : null],
-                              ['Notes',    item.notes],
-                            ].filter(([, v]) => v).map(([label, value]) => (
-                              <div key={label}>
-                                <p className={`text-[10px] font-semibold uppercase tracking-wider mb-0.5 text-zinc-400`}>{label}</p>
-                                <p className="text-sm">{value}</p>
-                              </div>
-                            ))}
-                          </div>
-                          {/* Right: screenshot — grows to fill remaining space */}
-                          <div className="flex-1 min-w-0">
-                            {screenshotUrl
-                              ? <SteamScreenshotEmbed url={screenshotUrl} />
-                              : <div className={`h-full flex items-center justify-center rounded-xl border border-zinc-700 text-zinc-400`}><p className="text-xs">No screenshot linked.</p></div>
-                            }
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
                 </div>
               )}
             </div>
