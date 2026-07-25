@@ -1184,6 +1184,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                     <table className="w-full text-sm">
                       <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
                         <tr>
+                          <th className="pl-3 pr-1 py-3 w-6" />
                           {[
                             { key: 'skin_name', label: 'Skin' },
                             { key: 'exterior', label: 'Exterior' },
@@ -1217,6 +1218,14 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                 onClick={() => setExpandedRow(isExpanded ? null : item.id)}
                                 className={`border-t ${isExpanded ? 'bg-zinc-700/40' : ''} border-zinc-700 hover:bg-zinc-600/30 transition cursor-pointer`}
                               >
+                                <td className="pl-3 pr-1 py-2.5 w-6">
+                                  <svg
+                                    width="14" height="14" viewBox="0 0 16 16" fill="currentColor"
+                                    className={`text-zinc-500 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`}
+                                  >
+                                    <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/>
+                                  </svg>
+                                </td>
                                 <td className="px-4 py-2.5">
                                   <div className="flex items-center gap-2.5">
                                     {item.icon_url && (
@@ -1261,7 +1270,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               </tr>
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
-                                  <td colSpan={7} className="p-0">
+                                  <td colSpan={8} className="p-0">
                                     <div className="bg-zinc-800/60 px-6 py-5">
                                       {/* Top: info columns */}
                                       <div className="flex items-start gap-4 mb-5">
