@@ -2439,6 +2439,18 @@ function buildTradePageHtml(opts) {
     <p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Trade</p>
     <h1 style="color:${nameColor};font-size:20px;font-weight:700;line-height:1.25;margin-bottom:${exterior?'4px':'18px'};">${hasStar?'<span style="margin-right:3px;">★</span>':''}${e(displayName)}</h1>
     ${exterior?`<p style="color:#a1a1aa;font-size:13px;margin-bottom:18px;">${e(exterior)}</p>`:''}
+    ${floatValue && !/vanilla\s*$/i.test(opts.skinName||'') ? `
+    <div style="margin-bottom:18px;">
+      <p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Float</p>
+      <div style="position:relative;height:6px;border-radius:999px;overflow:hidden;background:linear-gradient(to right,#22c55e,#84cc16,#eab308,#f97316,#ef4444);">
+        <div style="position:absolute;top:0;bottom:0;width:1px;background:rgba(0,0,0,.3);left:7%"></div>
+        <div style="position:absolute;top:0;bottom:0;width:1px;background:rgba(0,0,0,.3);left:15%"></div>
+        <div style="position:absolute;top:0;bottom:0;width:1px;background:rgba(0,0,0,.3);left:38%"></div>
+        <div style="position:absolute;top:0;bottom:0;width:1px;background:rgba(0,0,0,.3);left:45%"></div>
+        <div style="position:absolute;top:50%;width:10px;height:10px;background:#fff;border-radius:50%;border:2px solid #18181b;box-shadow:0 1px 3px rgba(0,0,0,.5);transform:translate(-50%,-50%);left:${Math.min(parseFloat(floatValue)*100,99.5)}%;"></div>
+      </div>
+      <p style="color:#71717a;font-size:11px;font-family:ui-monospace,monospace;margin-top:6px;">${e(parseFloat(floatValue).toFixed(4))}</p>
+    </div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#27272a;border-radius:10px;overflow:hidden;margin-bottom:18px;">
       ${stats.map(([lbl,val])=>`<div style="background:#111113;padding:12px 14px;"><p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 3px;">${e(lbl)}</p><p style="color:${lbl==='Status'?(val==='Holding'?'#4ade80':'#f87171'):'#f4f4f5'};font-size:13px;font-family:ui-monospace,monospace;margin:0;">${e(val)}</p></div>`).join('')}
     </div>
@@ -2501,7 +2513,7 @@ app.get('/trade/:token', async (req, res) => {
   const displayName = hasStar ? cleaned.slice(1).trim() : cleaned;
   const ogImageUrl = item.icon_url || screenshotImgUrl || null;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(buildTradePageHtml({ displayName, hasStar, isST, exterior: item.exterior, floatValue: item.float_value, pattern: item.pattern, purchaseDate: item.purchase_date, purchasePrice: item.purchase_price, purchaseCurrency: item.purchase_currency, sold: item.sold, salePrice: sale?.sale_price, saleCurrency: sale?.sale_currency, saleDate: sale?.sale_date, notes: item.notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl: item.icon_url, username: profile?.username, avatarBase64: profile?.avatar_base64 }));
+  res.send(buildTradePageHtml({ skinName: item.skin_name, displayName, hasStar, isST, exterior: item.exterior, floatValue: item.float_value, pattern: item.pattern, purchaseDate: item.purchase_date, purchasePrice: item.purchase_price, purchaseCurrency: item.purchase_currency, sold: item.sold, salePrice: sale?.sale_price, saleCurrency: sale?.sale_currency, saleDate: sale?.sale_date, notes: item.notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl: item.icon_url, username: profile?.username, avatarBase64: profile?.avatar_base64 }));
 });
 
 async function fetchSteamIcon(skinName, exterior) {
