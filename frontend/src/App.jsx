@@ -116,7 +116,9 @@ export default function App() {
   const [userRole, setUserRole] = useState(() => sessionStorage.getItem('auth_role') || 'user');
   const [allowRegistration, setAllowRegistration] = useState(() => {
     const cfg = window.__VERUMEN_CONFIG;
-    return cfg ? cfg.allowRegistration : null;
+    if (cfg) return cfg.allowRegistration;
+    const ls = localStorage.getItem('verumen_allowRegistration');
+    return ls !== null ? ls !== 'false' : null;
   });
   // True from login (or page-load while already logged in) until first fetchAllData completes
   const [isInitializing, setIsInitializing] = useState(() =>
@@ -293,7 +295,7 @@ export default function App() {
     const saved = sessionStorage.getItem('auth_user');
     fetch('/api/auth/status').then(r => r.json()).then(async d => {
       const val = d.allowRegistration !== false && !d.reachedLimit;
-      setAllowRegistration(val);
+      setAllowRegistration(val); localStorage.setItem('verumen_allowRegistration', String(val));
       if (!d.hasUsers) { setAuthStatus('no-user'); setAuthMode('signup'); return; }
       if (!saved) { setAuthStatus('logged-out'); return; }
       // Restore session by exchanging the HttpOnly refresh cookie for a new access token
@@ -325,7 +327,7 @@ export default function App() {
       if (getToken()) return;
       fetch('/api/auth/status').then(r => r.json()).then(d => {
         const val = d.allowRegistration !== false && !d.reachedLimit;
-        setAllowRegistration(val);
+        setAllowRegistration(val); localStorage.setItem('verumen_allowRegistration', String(val));
         if (!val) setAuthMode(m => m === 'signup' ? 'login' : m);
       }).catch(() => {});
     };
@@ -338,7 +340,7 @@ export default function App() {
     const handler = (e) => {
       const val = e.detail?.allowRegistration;
       if (typeof val === 'boolean') {
-        setAllowRegistration(val);
+        setAllowRegistration(val); localStorage.setItem('verumen_allowRegistration', String(val));
         if (!val) setAuthMode(m => m === 'signup' ? 'login' : m);
       }
     };
@@ -346,7 +348,7 @@ export default function App() {
       if (e.key !== 'verumen_allowRegistration') return;
       fetch('/api/auth/status').then(r => r.json()).then(d => {
         const val = d.allowRegistration !== false && !d.reachedLimit;
-        setAllowRegistration(val);
+        setAllowRegistration(val); localStorage.setItem('verumen_allowRegistration', String(val));
         if (!val) setAuthMode(m => m === 'signup' ? 'login' : m);
       }).catch(() => {});
     };
@@ -421,7 +423,7 @@ export default function App() {
     if (msg) setSessionExpiredMsg(msg);
     fetch('/api/auth/status').then(r => r.json()).then(d => {
       const val = d.allowRegistration !== false && !d.reachedLimit;
-      setAllowRegistration(val);
+      setAllowRegistration(val); localStorage.setItem('verumen_allowRegistration', String(val));
       if (!val) setAuthMode('login');
     }).catch(() => {});
   };
