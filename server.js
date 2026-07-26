@@ -2576,7 +2576,7 @@ function buildTradePageHtml(opts) {
   const infoHtml = `
     <div style="margin-bottom:22px;">
       <p style="color:#71717a;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px;">Owned by</p>
-      <a href="${e(BASE)}/user/@${e(username)}" style="display:inline-flex;align-items:center;gap:10px;text-decoration:none;">
+      <a href="${e(BASE)}/user/${e(username)}" style="display:inline-flex;align-items:center;gap:10px;text-decoration:none;">
         ${avatarEl}
         <strong style="color:#38bdf8;font-size:14px;">${e(username||'unknown')}</strong>
       </a>

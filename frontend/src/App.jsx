@@ -34,7 +34,7 @@ function RetryCountdown({ onRetry }) {
 
 function ProfileRoute({ authUsername, shellProps }) {
   const { username } = useParams();
-  const viewUser = username ? username.replace('@', '') : null;
+  const viewUser = username || null;
   return <PageShell {...shellProps}><ProfilePageView authUsername={authUsername} viewUsername={viewUser}/></PageShell>;
 }
 
@@ -435,7 +435,7 @@ export default function App() {
 
   const handleNavigate = (dest, param = null) => {
     const map = { home:'/', portfolio:'/portfolio/overview', skins:'/skins/overview', social:'/home', friends:'/friends', profile:'/user', admin:'/adminpanel', moderator:'/moderatorpanel' };
-    if (dest === 'view-profile' && param) navigate(`/user/@${param}`);
+    if (dest === 'view-profile' && param) navigate(`/user/${param}`);
     else navigate(map[dest] || '/');
   };
 
@@ -2243,7 +2243,7 @@ const handleUpload = async (files) => {
     </div>
   );
 
-  if (authStatus !== 'logged-in' && location.pathname.match(/^\/user\/@?[^/]+$/)) {
+  if (authStatus !== 'logged-in' && location.pathname.match(/^\/user\/[^/]+$/)) {
     const viewUsername = location.pathname.split('/').pop().replace('@', '');
     return (
       <div className="fixed inset-0 bg-zinc-950 text-white overflow-y-auto">
@@ -2572,7 +2572,7 @@ const handleUpload = async (files) => {
       <div className="flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace/>}/>
-          <Route path="/home" element={<PageShell {...shellProps}><SocialFeed authUsername={authUsername} onViewProfile={u=>navigate(`/user/@${u}`)}/></PageShell>}/>
+          <Route path="/home" element={<PageShell {...shellProps}><SocialFeed authUsername={authUsername} onViewProfile={u=>navigate(`/user/${u}`)}/></PageShell>}/>
           <Route path="/friends" element={<PageShell {...shellProps}><FriendsPage authUsername={authUsername}/></PageShell>}/>
           
           {/* Portfolio routes — single wildcard so React reconciles in place (no remount = scroll preserved) */}
@@ -2591,7 +2591,7 @@ const handleUpload = async (files) => {
           <Route path="/adminpanel/*" element={<PageShell {...shellProps}><AdminPanel authUsername={authUsername}/></PageShell>}/>
 
           <Route path="/moderatorpanel" element={<PageShell {...shellProps}><ModeratorPanel authUsername={authUsername} userRole={userRole}/></PageShell>}/>
-          <Route path="*" element={<Navigate to="/home" replace/>}/>
+          <Route path="*" element={<Navigate to="/" replace/>}/>
         </Routes>
       </div>
 

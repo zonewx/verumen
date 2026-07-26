@@ -69,7 +69,7 @@ export default function TradeSharePage() {
             {trade.exterior && <p className="text-sm text-zinc-400 mt-0.5">{trade.exterior}</p>}
             {trade.username && (
               <p className="text-xs text-zinc-500 mt-2">
-                shared by <a href={`/user/@${trade.username}`} className="text-sky-400 hover:underline">{trade.username}</a>
+                shared by <a href={`/user/${trade.username}`} className="text-sky-400 hover:underline">{trade.username}</a>
               </p>
             )}
           </div>
