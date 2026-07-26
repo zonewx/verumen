@@ -2647,14 +2647,34 @@ const handleUpload = async (files) => {
         </div>
       )}
 
-      {/* Global centered flash notification */}
-      {globalFlash && (
-        <div className="fixed inset-0 flex items-center justify-center z-[9998] pointer-events-none">
-          <div className={`px-6 py-4 rounded-2xl text-sm font-semibold border shadow-2xl backdrop-blur-sm ${globalFlash.startsWith('✓') ? 'bg-green-950/95 text-green-300 border-green-800' : globalFlash.includes('Error') || globalFlash.includes('error') || globalFlash.includes('Failed') ? 'bg-red-950/95 text-red-300 border-red-800' : 'bg-zinc-800/95 text-zinc-200 border-zinc-600'}`}>
-            {globalFlash.startsWith('✓') ? globalFlash.slice(2) : globalFlash}
+      {/* Global flash notification — top-center toast */}
+      {globalFlash && (() => {
+        const isSuccess = globalFlash.startsWith('✓');
+        const isError = !isSuccess && (globalFlash.includes('Error') || globalFlash.includes('error') || globalFlash.includes('Failed') || globalFlash.includes('failed'));
+        const text = isSuccess ? globalFlash.slice(2) : globalFlash;
+        return (
+          <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[9998] pointer-events-none">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl">
+              {isSuccess && (
+                <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+                </div>
+              )}
+              {isError && (
+                <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </div>
+              )}
+              {!isSuccess && !isError && (
+                <div className="w-5 h-5 rounded-full bg-zinc-500 flex items-center justify-center shrink-0">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4m0 4h.01"/></svg>
+                </div>
+              )}
+              <span className="text-sm font-medium text-zinc-100 whitespace-nowrap">{text}</span>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
