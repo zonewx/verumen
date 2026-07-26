@@ -314,6 +314,13 @@ if (FRONTEND_DIST) {
   if (fs.existsSync(FRONTEND_DIST)) app.use(express.static(FRONTEND_DIST));
 }
 
+// Cached registration state — injected into index.html so the frontend knows
+// the value synchronously before any API call completes.
+let _allowRegistrationCached = true;
+supabase.from('app_settings').select('value').eq('key', 'allowRegistration').single()
+  .then(({ data }) => { if (data) _allowRegistrationCached = data.value !== 'false'; })
+  .catch(() => {});
+
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString() });
@@ -3867,6 +3874,7 @@ app.post('/api/admin/settings', requireAdmin, async (req, res) => {
     const { error } = await supabase.from('app_settings').insert({ key, value: String(value) });
     if (error) return res.status(500).json({ error: error.message });
   }
+  if (key === 'allowRegistration') _allowRegistrationCached = String(value) !== 'false';
   res.json({ success: true });
 });
 
@@ -3875,7 +3883,11 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api')) return next();
   const fs = require('fs');
   const indexPath = FRONTEND_DIST ? require('path').join(FRONTEND_DIST,'index.html') : require('path').join(__dirname,'frontend','dist','index.html');
-  if (fs.existsSync(indexPath)) res.sendFile(indexPath); else next();
+  if (!fs.existsSync(indexPath)) return next();
+  const html = fs.readFileSync(indexPath, 'utf8');
+  const injected = html.replace('<head>', `<head><script>window.__VERUMEN_CONFIG=${JSON.stringify({ allowRegistration: _allowRegistrationCached })}</script>`);
+  res.setHeader('Content-Type', 'text/html');
+  res.send(injected);
 });
 
 const PORT = process.env.PORT || 3000;

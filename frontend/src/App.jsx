@@ -114,7 +114,10 @@ export default function App() {
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
   const [announcements, setAnnouncements] = useState([]);
   const [userRole, setUserRole] = useState(() => sessionStorage.getItem('auth_role') || 'user');
-  const [allowRegistration, setAllowRegistration] = useState(null);
+  const [allowRegistration, setAllowRegistration] = useState(() => {
+    const cfg = window.__VERUMEN_CONFIG;
+    return cfg ? cfg.allowRegistration : null;
+  });
   // True from login (or page-load while already logged in) until first fetchAllData completes
   const [isInitializing, setIsInitializing] = useState(() =>
     !!sessionStorage.getItem('auth_user')
