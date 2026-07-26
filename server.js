@@ -3863,10 +3863,16 @@ app.get('/api/admin/settings', requireAdmin, async (req, res) => {
 app.post('/api/admin/settings', requireAdmin, async (req, res) => {
   const { key, value } = req.body;
   if (!key) return res.status(400).json({ error: 'key required' });
-  const { error } = await supabase.from('app_settings').upsert({ key, value: String(value) }, { onConflict: 'key' });
-  if (error) {
-    if (error.code === '42P01') return res.status(500).json({ error: 'Settings table not found. Run: CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);' });
-    return res.status(500).json({ error: error.message });
+  const { data: existing, error: selError } = await supabase.from('app_settings').select('key').eq('key', key).single();
+  if (selError && selError.code !== 'PGRST116') {
+    return res.status(500).json({ error: 'Settings table not found. Run: CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);' });
+  }
+  if (existing) {
+    const { error } = await supabase.from('app_settings').update({ value: String(value) }).eq('key', key);
+    if (error) return res.status(500).json({ error: error.message });
+  } else {
+    const { error } = await supabase.from('app_settings').insert({ key, value: String(value) });
+    if (error) return res.status(500).json({ error: error.message });
   }
   if (key === 'allowRegistration') _allowRegistrationCached = String(value) !== 'false';
   res.json({ success: true });
