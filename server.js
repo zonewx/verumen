@@ -575,7 +575,7 @@ app.get('/api/users', requireUser, async (req, res) => {
 });
 
 app.get('/api/users/:username/profile', async (req, res) => {
-  const { data, error } = await supabase.from('profiles').select('*').eq('username', req.params.username).single();
+  const { data, error } = await supabase.from('profiles').select('*').ilike('username', req.params.username).single();
   if (error || !data) return res.status(404).json({ error: 'User not found' });
   if (data.is_public === false) {
     const token = req.headers.authorization?.replace('Bearer ', '');
