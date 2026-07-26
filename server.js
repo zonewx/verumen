@@ -2677,7 +2677,11 @@ app.get('/api/admin/db/table/:name', requireAdmin, async (req, res) => {
   if (!DB_TABLES.includes(name)) return res.status(400).json({ error: 'Unknown table' });
   const page = Math.max(0, parseInt(req.query.page || '0', 10));
   const limit = 50;
-  const { data, error, count } = await supabase.from(name).select('*', { count: 'exact' }).range(page * limit, page * limit + limit - 1);
+  const filterCol = req.query.filter_col;
+  const filterVal = req.query.filter_val;
+  let query = supabase.from(name).select('*', { count: 'exact' });
+  if (filterCol && filterVal && /^[a-z_]+$/.test(filterCol)) query = query.eq(filterCol, filterVal);
+  const { data, error, count } = await query.range(page * limit, page * limit + limit - 1);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ rows: data, total: count, page, limit });
 });

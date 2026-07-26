@@ -71,6 +71,8 @@ export default function AdminPanel({ authUsername }) {
   const [tableData, setTableData] = useState(null);
   const [tableLoading, setTableLoading] = useState(false);
   const [tablePage, setTablePage] = useState(0);
+  const [tableUserFilter, setTableUserFilter] = useState('');
+  const [tableProfiles, setTableProfiles] = useState(null);
   const tableScrollRef = useRef(null);
 
   const token = getToken();
@@ -382,12 +384,30 @@ export default function AdminPanel({ authUsername }) {
     if (Array.isArray(data)) setDbTables(data);
   }, []);
 
-  const fetchTableData = useCallback(async (name, page = 0) => {
+  const fetchTableData = useCallback(async (name, page = 0, userId = '') => {
     setTableLoading(true);
-    const res = await fetch(`/api/admin/db/table/${name}?page=${page}`, { headers: h });
+    const tok = getToken();
+    const headers = { 'Content-Type': 'application/json', ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}) };
+    const params = new URLSearchParams({ page: String(page) });
+    if (userId) { params.set('filter_col', 'user_id'); params.set('filter_val', userId); }
+    const res = await fetch(`/api/admin/db/table/${name}?${params}`, { headers });
     const data = await res.json();
     setTableLoading(false);
-    if (!data.error) setTableData(data);
+    if (!data.error) {
+      setTableData(data);
+      // Auto-load profiles for user filter dropdown when table has user_id column
+      if (data.rows?.length && Object.keys(data.rows[0]).includes('user_id')) {
+        setTableProfiles(p => {
+          if (p) return p;
+          const tok2 = getToken();
+          const h2 = { 'Content-Type': 'application/json', ...(tok2 ? { 'Authorization': `Bearer ${tok2}` } : {}) };
+          fetch('/api/admin/db/table/profiles?page=0', { headers: h2 }).then(r => r.json()).then(d => {
+            if (d.rows) setTableProfiles(d.rows.map(r => ({ id: r.id, username: r.username })).filter(r => r.username));
+          }).catch(() => {});
+          return p; // keep null until fetch resolves
+        });
+      }
+    }
   }, []);
 
   const typeColors = {
@@ -971,7 +991,7 @@ export default function AdminPanel({ authUsername }) {
                           {dbTables.map(t => (
                             <button
                               key={t.table}
-                              onClick={() => { setSelectedTable(t.table); setTablePage(0); setTableData(null); fetchTableData(t.table, 0); }}
+                              onClick={() => { setSelectedTable(t.table); setTablePage(0); setTableData(null); setTableUserFilter(''); fetchTableData(t.table, 0, ''); }}
                               className={`w-full flex items-center justify-between px-4 py-2 text-left transition ${selectedTable === t.table ? 'bg-zinc-700/70 text-white' : 'text-zinc-300 hover:bg-zinc-700/30 hover:text-white'}`}
                             >
                               <span className="font-mono text-xs truncate">{t.table}</span>
@@ -1049,14 +1069,27 @@ export default function AdminPanel({ authUsername }) {
                   ) : (
                     <div className={`${card} overflow-hidden`}>
                       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700">
-                        <span className="font-mono text-sm font-bold">{selectedTable}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-zinc-500 font-semibold uppercase tracking-wider">Table:</span>
+                          <span className="font-mono text-sm font-bold">{selectedTable}</span>
+                        </div>
                         <div className="flex items-center gap-3">
+                          {tableProfiles && tableData?.rows?.length > 0 && Object.keys(tableData.rows[0]).includes('user_id') && (
+                            <select
+                              value={tableUserFilter}
+                              onChange={e => { const v = e.target.value; setTableUserFilter(v); setTablePage(0); setTableData(null); fetchTableData(selectedTable, 0, v); }}
+                              className="text-xs bg-zinc-700 border border-zinc-600 text-zinc-200 rounded-lg px-2 py-1 outline-none"
+                            >
+                              <option value="">All users</option>
+                              {tableProfiles.map(p => <option key={p.id} value={p.id}>{p.username}</option>)}
+                            </select>
+                          )}
                           {tableData && (
                             <span className="text-xs text-zinc-400">
                               {tableData.page * tableData.limit + 1}–{Math.min((tableData.page + 1) * tableData.limit, tableData.total)} of {tableData.total.toLocaleString()} rows
                             </span>
                           )}
-                          <button onClick={() => fetchTableData(selectedTable, tablePage)} className={btnGhost}>↺</button>
+                          <button onClick={() => fetchTableData(selectedTable, tablePage, tableUserFilter)} className={btnGhost}>↺</button>
                         </div>
                       </div>
                       {tableLoading ? (
@@ -1093,9 +1126,9 @@ export default function AdminPanel({ authUsername }) {
                           </div>
                           {tableData.total > tableData.limit && (
                             <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-700">
-                              <button disabled={tablePage === 0} onClick={() => { const p = tablePage - 1; setTablePage(p); fetchTableData(selectedTable, p); }} className={`${btnGhost} disabled:opacity-40`}>← Prev</button>
+                              <button disabled={tablePage === 0} onClick={() => { const p = tablePage - 1; setTablePage(p); fetchTableData(selectedTable, p, tableUserFilter); }} className={`${btnGhost} disabled:opacity-40`}>← Prev</button>
                               <span className="text-xs text-zinc-400">Page {tablePage + 1} of {Math.ceil(tableData.total / tableData.limit)}</span>
-                              <button disabled={(tablePage + 1) * tableData.limit >= tableData.total} onClick={() => { const p = tablePage + 1; setTablePage(p); fetchTableData(selectedTable, p); }} className={`${btnGhost} disabled:opacity-40`}>Next →</button>
+                              <button disabled={(tablePage + 1) * tableData.limit >= tableData.total} onClick={() => { const p = tablePage + 1; setTablePage(p); fetchTableData(selectedTable, p, tableUserFilter); }} className={`${btnGhost} disabled:opacity-40`}>Next →</button>
                             </div>
                           )}
                         </>
