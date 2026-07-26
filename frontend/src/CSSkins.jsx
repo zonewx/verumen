@@ -1343,7 +1343,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                   )}
                                 </td>
                                 <td className={`px-4 py-2.5 text-xs text-zinc-400 whitespace-nowrap`}>{isVanilla ? '—' : (item.exterior || '—')}</td>
-                                <td className={`px-4 py-2.5 text-xs font-mono text-zinc-400`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
+                                <td className={`px-4 py-2.5 text-xs text-zinc-400 ${item.float_value ? 'font-mono' : ''}`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
                                 <td className={`px-4 py-2.5 text-xs text-zinc-400`}>{item.purchase_date}</td>
                                 <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs">
                                   {fmtBC(item.purchase_price_display)}
