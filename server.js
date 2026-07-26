@@ -2958,19 +2958,24 @@ function parseSteamTags(tags) {
 }
 
 function parseSteamStickers(descriptions) {
-  const entry = (descriptions || []).find(d => d.value?.includes('sticker_info'));
-  if (!entry) return [];
-  // Match both double and single-quoted src attributes
-  const icons = [...entry.value.matchAll(/src=["']([^"']+)["']/g)].map(m => m[1]);
-  // Try "Sticker: A, B" / "Patch: A, B" / "Autograph: A" label format
-  const labelMatch = entry.value.match(/(?:Stickers?|Patches?|Autograph):\s*([^<]+)/i);
-  if (labelMatch) {
-    const names = labelMatch[1].trim().split(/,\s*/);
-    return icons.map((url, i) => ({ url, name: (names[i] || '').trim() }));
+  // Capture stickers/patches/autographs (sticker_info) and CS2 charms/keychains (charm_info)
+  const entries = (descriptions || []).filter(d =>
+    d.value?.includes('sticker_info') || d.value?.includes('charm_info')
+  );
+  if (!entries.length) return [];
+  const result = [];
+  for (const entry of entries) {
+    const icons = [...entry.value.matchAll(/src=["']([^"']+)["']/g)].map(m => m[1]);
+    const labelMatch = entry.value.match(/(?:Stickers?|Patches?|Autograph|Charm|Keychain):\s*([^<]+)/i);
+    if (labelMatch) {
+      const names = labelMatch[1].trim().split(/,\s*/);
+      icons.forEach((url, i) => result.push({ url, name: (names[i] || '').trim() }));
+    } else {
+      const textFragments = entry.value.replace(/<[^>]+>/g, '\n').split('\n').map(s => s.trim()).filter(Boolean);
+      icons.forEach((url, i) => result.push({ url, name: (textFragments[i] || '').trim() }));
+    }
   }
-  // Fallback: strip all HTML tags and extract non-empty text fragments
-  const textFragments = entry.value.replace(/<[^>]+>/g, '\n').split('\n').map(s => s.trim()).filter(Boolean);
-  return icons.map((url, i) => ({ url, name: (textFragments[i] || '').trim() }));
+  return result;
 }
 
 function fetchJSON(url) {
@@ -3412,7 +3417,7 @@ function safeStickerList(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.filter(s => s && typeof s.url === 'string' && STICKER_URL_RE.test(s.url))
             .map(s => ({ url: s.url, name: typeof s.name === 'string' ? s.name.slice(0, 100) : '' }))
-            .slice(0, 6);
+            .slice(0, 8);
 }
 
 app.post('/api/cs/inventory', requireUser, async (req, res) => {
