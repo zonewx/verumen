@@ -513,7 +513,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
       exterior: item.exterior || 'Factory New',
       float_value: item.float_value || '',
       pattern: item.pattern || '',
-      purchase_price: item.purchase_price || '',
+      purchase_price: item.purchase_price ?? '',
       purchase_currency: item.purchase_currency || 'SEK',
       purchase_date: item.purchase_date || new Date().toISOString().split('T')[0],
       notes: item.notes || '',
@@ -554,12 +554,17 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   };
 
   const saveEdit = async () => {
-    if (!editForm.skin_name || !editForm.purchase_price || !editForm.purchase_date) return;
-    await fetch(`/api/cs/inventory/${showEditForm.id}`, {
+    if (!editForm.skin_name || editForm.purchase_price === '' || !editForm.purchase_date) return;
+    const payload = {
+      ...editForm,
+      ...(selectedEditItem ? { steam_asset_id: selectedEditItem.assetId, icon_url: selectedEditItem.iconUrl || '' } : {}),
+    };
+    const res = await fetch(`/api/cs/inventory/${showEditForm.id}`, {
       method: 'PUT',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(editForm),
+      body: JSON.stringify(payload),
     });
+    if (!res.ok) return;
     closeEditModal();
     await fetchAll();
   };
@@ -1158,7 +1163,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                     <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
                       <button
                         onClick={saveEdit}
-                        disabled={!editForm.skin_name || !editForm.purchase_price || !editForm.purchase_date}
+                        disabled={!editForm.skin_name || editForm.purchase_price === '' || !editForm.purchase_date}
                         className={`${btnOrange} disabled:opacity-40 disabled:cursor-not-allowed`}
                       >
                         Save Changes
