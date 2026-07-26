@@ -2455,7 +2455,7 @@ function buildTradePageHtml(opts) {
     <div style="margin-bottom:18px;">
       <p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Stickers</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-        ${stickers.map(s => `<img src="${e(s.url)}" alt="${e(s.name||'')}" title="${e(s.name||'')}" style="width:40px;height:40px;object-fit:contain;">`).join('')}
+        ${stickers.map(s => `<div class="stk"><img src="${e(s.url)}" alt="${e(s.name||'')}" style="width:40px;height:40px;object-fit:contain;">${s.name?`<span class="stk-tip">${e(s.name)}</span>`:''}</div>`).join('')}
       </div>
     </div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#27272a;border-radius:10px;overflow:hidden;margin-bottom:18px;">
@@ -2475,7 +2475,7 @@ function buildTradePageHtml(opts) {
   <meta property="og:site_name" content="Verumen">
   ${ogImageUrl?`<meta property="og:image" content="${e(ogImageUrl)}">`:''}
   <meta name="twitter:card" content="${screenshotImgUrl||ogImageUrl?'summary_large_image':'summary'}">
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}</style>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#09090b;color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}.stk{position:relative;display:inline-flex}.stk-tip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#18181b;border:1px solid #3f3f46;color:#f4f4f5;font-size:11px;white-space:nowrap;padding:4px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.5)}.stk:hover .stk-tip{opacity:1}</style>
 </head>
 <body>
   <header style="height:48px;background:#18181b;border-bottom:1px solid #27272a;display:flex;align-items:center;padding:0 24px;">
