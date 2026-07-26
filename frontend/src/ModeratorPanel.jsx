@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
+import { flash } from './flash';
 
 export default function ModeratorPanel({ authUsername, userRole }) {
   const [tab, setTab] = useState('users');
@@ -8,7 +9,6 @@ export default function ModeratorPanel({ authUsername, userRole }) {
   const [modLog, setModLog] = useState(() => apiCache.get('/api/mod/log') || []);
   const [announcements, setAnnouncements] = useState(() => apiCache.get('/api/announcements') || []);
   const [loading, setLoading] = useState(!apiCache.has('/api/users'));
-  const [actionMsg, setActionMsg] = useState('');
   const [resetModal, setResetModal] = useState(null);
   const [resetPw, setResetPw] = useState('');
   const [annForm, setAnnForm] = useState({ title: '', message: '', type: 'info' });
@@ -22,7 +22,6 @@ export default function ModeratorPanel({ authUsername, userRole }) {
   const btnBlue = 'px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white text-xs font-semibold rounded-lg transition';
   const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
-  const flash = (msg, ms = 3000) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), ms); };
   const base = userRole === 'admin' ? '/api/admin' : '/api/mod';
 
   const fetchAll = useCallback(async () => {
@@ -135,7 +134,6 @@ export default function ModeratorPanel({ authUsername, userRole }) {
       <div className="max-w-4xl mx-auto w-full flex flex-col gap-6 px-6 py-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Moderator Panel</h1>
-          {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-red-900/40 text-red-400 border-red-800'}`}>{actionMsg.startsWith('✓') ? actionMsg.slice(2) : actionMsg}</div>}
         </div>
 
         {/* CS Prices */}

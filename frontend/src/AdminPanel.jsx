@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getToken } from './tokenStore';
 import { useLocation } from 'react-router-dom';
 import apiCache from './apiCache';
+import { flash } from './flash';
 
 const TAB_MAP = {
   '': 'overview', 'overview': 'overview', 'database': 'database',
@@ -18,7 +19,6 @@ export default function AdminPanel({ authUsername }) {
   const [failures, setFailures] = useState([]);
   const [announcements, setAnnouncements] = useState(() => apiCache.get('/api/announcements') || []);
   const [loading, setLoading] = useState(!apiCache.has('/api/admin/stats'));
-  const [actionMsg, setActionMsg] = useState('');
   const [regMsg, setRegMsg] = useState('');
   const [syncingPrices, setSyncingPrices] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
@@ -82,8 +82,6 @@ export default function AdminPanel({ authUsername }) {
   const btnRed = 'px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition';
   const btnBlue = 'px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white text-xs font-semibold rounded-lg transition';
   const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
-
-  const flash = (msg, ms = 3000) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), ms); };
 
   const fetchStats = useCallback(async () => {
     if (!apiCache.has('/api/admin/stats')) setLoading(true);
@@ -442,12 +440,6 @@ export default function AdminPanel({ authUsername }) {
 
 
       <div className={`max-w-7xl mx-auto px-6 py-8`}>
-        {/* Header */}
-        {actionMsg && (
-          <div className="flex justify-end mb-6">
-            <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : actionMsg.includes('Error') ? 'bg-red-900/40 text-red-400 border-red-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg.startsWith('✓') ? actionMsg.slice(2) : actionMsg}</div>
-          </div>
-        )}
 
 
         {loading && tab === 'overview' ? (

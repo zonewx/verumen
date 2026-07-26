@@ -127,6 +127,18 @@ export default function App() {
     !!sessionStorage.getItem('auth_user')
   );
 
+  // ── Global flash notification ───────────────────────────────────────────────
+  const [globalFlash, setGlobalFlash] = useState('');
+  useEffect(() => {
+    const handler = e => {
+      const { msg, ms = 3000 } = e.detail;
+      setGlobalFlash(msg);
+      setTimeout(() => setGlobalFlash(g => g === msg ? '' : g), ms);
+    };
+    window.addEventListener('app:flash', handler);
+    return () => window.removeEventListener('app:flash', handler);
+  }, []);
+
   // ── Core state ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => JSON.parse(localStorage.getItem('portfolio')) || []);
   const [baseCurrency, setBaseCurrency] = useState(() => localStorage.getItem('baseCurrency') || 'SEK');
@@ -2631,6 +2643,15 @@ const handleUpload = async (files) => {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global centered flash notification */}
+      {globalFlash && (
+        <div className="fixed inset-0 flex items-center justify-center z-[9998] pointer-events-none">
+          <div className={`px-6 py-4 rounded-2xl text-sm font-semibold border shadow-2xl backdrop-blur-sm ${globalFlash.startsWith('✓') ? 'bg-green-950/95 text-green-300 border-green-800' : globalFlash.includes('Error') || globalFlash.includes('error') || globalFlash.includes('Failed') ? 'bg-red-950/95 text-red-300 border-red-800' : 'bg-zinc-800/95 text-zinc-200 border-zinc-600'}`}>
+            {globalFlash.startsWith('✓') ? globalFlash.slice(2) : globalFlash}
           </div>
         </div>
       )}

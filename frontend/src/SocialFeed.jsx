@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
+import { flash } from './flash';
 
 function SteamScreenshotPreview({ url }) {
   const [preview, setPreview] = useState(null);
@@ -178,7 +179,6 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [actionMsg, setActionMsg] = useState('');
   const [announcements, setAnnouncements] = useState(() => apiCache.get('/api/announcements') || []);
   // Screenshot upload
   const [showUpload, setShowUpload] = useState(false);
@@ -190,8 +190,6 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
   const btnPrimary = 'px-4 py-2 bg-zinc-600 hover:bg-zinc-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50';
   const btnGhost = `px-3 py-1.5 text-sm font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
-
-  const flash = (msg, ms = 3000) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), ms); };
 
   const fetchFeed = useCallback(async () => {
     if (!apiCache.has('/api/feed')) setFeedLoading(true);
@@ -329,7 +327,6 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Social</h1>
-          {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg.startsWith('✓') ? actionMsg.slice(2) : actionMsg}</div>}
         </div>
 
         <div className="flex gap-6">
