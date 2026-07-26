@@ -434,8 +434,8 @@ export default function App() {
   };
 
   const handleNavigate = (dest, param = null) => {
-    const map = { home:'/', portfolio:'/portfolio/overview', skins:'/skins/overview', social:'/home', friends:'/friends', profile:'/profile', admin:'/adminpanel', moderator:'/moderatorpanel' };
-    if (dest === 'view-profile' && param) navigate(`/profile/@${param}`);
+    const map = { home:'/', portfolio:'/portfolio/overview', skins:'/skins/overview', social:'/home', friends:'/friends', profile:'/user', admin:'/adminpanel', moderator:'/moderatorpanel' };
+    if (dest === 'view-profile' && param) navigate(`/user/@${param}`);
     else navigate(map[dest] || '/');
   };
 
@@ -2243,7 +2243,7 @@ const handleUpload = async (files) => {
     </div>
   );
 
-  if (authStatus !== 'logged-in' && location.pathname.match(/^\/profile\/@?[^/]+$/)) {
+  if (authStatus !== 'logged-in' && location.pathname.match(/^\/user\/@?[^/]+$/)) {
     const viewUsername = location.pathname.split('/').pop().replace('@', '');
     return (
       <div className="fixed inset-0 bg-zinc-950 text-white overflow-y-auto">
@@ -2572,7 +2572,7 @@ const handleUpload = async (files) => {
       <div className="flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace/>}/>
-          <Route path="/home" element={<PageShell {...shellProps}><SocialFeed authUsername={authUsername} onViewProfile={u=>navigate(`/profile/@${u}`)}/></PageShell>}/>
+          <Route path="/home" element={<PageShell {...shellProps}><SocialFeed authUsername={authUsername} onViewProfile={u=>navigate(`/user/@${u}`)}/></PageShell>}/>
           <Route path="/friends" element={<PageShell {...shellProps}><FriendsPage authUsername={authUsername}/></PageShell>}/>
           
           {/* Portfolio routes — single wildcard so React reconciles in place (no remount = scroll preserved) */}
@@ -2583,9 +2583,9 @@ const handleUpload = async (files) => {
           <Route path="/skins/inventory" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/skins/traderegistry" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/settings" element={<PageShell {...shellProps}><SettingsPage baseCurrency={baseCurrency} onSetBaseCurrency={setBaseCurrency}/></PageShell>}/>
-          <Route path="/profile/:username/edit" element={<PageShell {...shellProps}><ProfileEditPage authUsername={authUsername}/></PageShell>}/>
-          <Route path="/profile" element={<ProfileRoute authUsername={authUsername} shellProps={shellProps}/>}/>
-          <Route path="/profile/:username" element={<ProfileRoute authUsername={authUsername} shellProps={shellProps}/>}/>
+          <Route path="/user/:username/edit" element={<PageShell {...shellProps}><ProfileEditPage authUsername={authUsername}/></PageShell>}/>
+          <Route path="/user" element={<ProfileRoute authUsername={authUsername} shellProps={shellProps}/>}/>
+          <Route path="/user/:username" element={<ProfileRoute authUsername={authUsername} shellProps={shellProps}/>}/>
 
           {/* Admin routes — single wildcard prevents remount on sub-nav */}
           <Route path="/adminpanel/*" element={<PageShell {...shellProps}><AdminPanel authUsername={authUsername}/></PageShell>}/>

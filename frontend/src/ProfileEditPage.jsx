@@ -116,16 +116,17 @@ export default function ProfileEditPage({ authUsername }) {
     setSaving(true); setSaveMsg('');
     try {
       const payload = { ...editForm };
+      // Only include avatarBase64 when the user explicitly uploaded a new one
+      if (payload.avatarBase64 === null) delete payload.avatarBase64;
       const res = await fetch(`/api/users/${authUsername}/profile`, { method: 'PUT', headers: h, body: JSON.stringify(payload) });
       const data = await res.json();
       if (data.success) {
         setProfile(data.profile);
         setSaveMsg('✓ Saved');
         window.dispatchEvent(new Event('profile-updated'));
-        // Navigate back to profile after save
-        setTimeout(() => navigate('/profile'), 1500);
+        setTimeout(() => navigate('/user'), 1500);
       } else {
-        setSaveMsg('Failed to save');
+        setSaveMsg(`Failed to save: ${data.error || 'unknown error'}`);
       }
     } catch(e) { setSaveMsg('Error'); }
     setSaving(false);

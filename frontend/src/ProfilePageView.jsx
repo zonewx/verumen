@@ -577,7 +577,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                   {friends.map(friend => (
                     <div
                       key={friend.username}
-                      onClick={() => navigate(`/profile/@${friend.username}`)}
+                      onClick={() => navigate(`/user/@${friend.username}`)}
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-700/50 cursor-pointer transition"
                     >
                       <AvatarDisplay src={friend.avatarBase64} username={friend.username} size="w-8 h-8" textSize="text-sm" />
