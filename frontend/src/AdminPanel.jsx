@@ -660,16 +660,18 @@ export default function AdminPanel({ authUsername }) {
                             <div className="flex items-center gap-2">
                               <div className="flex-1 flex flex-col gap-2">
                                 {/* Current verified email */}
-                                <div className={`${fieldBox} flex items-center gap-2 text-zinc-300`}>
-                                  {u.email ? (
-                                    <>
-                                      <span className="flex-1 truncate">{u.email}</span>
-                                      <span className="text-emerald-400 text-xs font-semibold shrink-0">Verified</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-zinc-500 italic">No email set</span>
-                                  )}
-                                </div>
+                                {(!u.pendingEmail || u.email) && (
+                                  <div className={`${fieldBox} flex items-center gap-2 text-zinc-300`}>
+                                    {u.email ? (
+                                      <>
+                                        <span className="flex-1 truncate">{u.email}</span>
+                                        <span className="text-emerald-400 text-xs font-semibold shrink-0">Verified</span>
+                                      </>
+                                    ) : (
+                                      <span className="text-zinc-500 italic">No email set</span>
+                                    )}
+                                  </div>
+                                )}
                                 {/* Pending new email (only shown while verification is in-flight) */}
                                 {u.pendingEmail && (
                                   <div className={`${fieldBox} flex items-center gap-2 border-amber-700/50`}>

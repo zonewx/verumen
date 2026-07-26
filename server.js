@@ -3690,8 +3690,12 @@ app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) 
   let emailSent = false;
   if (resend) {
     const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
-    await supabase.from('email_verification_tokens').insert({ username, email, token, expires_at: expiresAt });
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
+    const { error: insertErr } = await supabase.from('email_verification_tokens').insert({ username, email, token, expires_at: expiresAt });
+    if (insertErr) {
+      log.error('Failed to insert verification token', { error: insertErr.message, username, email });
+      return res.status(500).json({ error: 'Failed to create verification token: ' + insertErr.message });
+    }
     const verifyUrl = `${APP_URL}/?email_token=${token}`;
     await resend.emails.send({
       from: 'Verumen <noreply@verumen.com>',
