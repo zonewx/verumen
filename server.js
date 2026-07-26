@@ -2504,6 +2504,20 @@ app.get('/trade/:token', async (req, res) => {
   res.send(buildTradePageHtml({ displayName, hasStar, isST, exterior: item.exterior, floatValue: item.float_value, pattern: item.pattern, purchaseDate: item.purchase_date, purchasePrice: item.purchase_price, purchaseCurrency: item.purchase_currency, sold: item.sold, salePrice: sale?.sale_price, saleCurrency: sale?.sale_currency, saleDate: sale?.sale_date, notes: item.notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl: item.icon_url, username: profile?.username, avatarBase64: profile?.avatar_base64 }));
 });
 
+async function fetchSteamIcon(skinName, exterior) {
+  const name = skinName.replace(/\s*\|\s*Vanilla\s*$/i, '');
+  const marketHashName = exterior && exterior !== 'Vanilla' ? `${name} (${exterior})` : name;
+  // Use market_hash_name for exact matching instead of fuzzy query=
+  const r = await fetch(
+    `https://steamcommunity.com/market/search/render/?appid=730&norender=1&count=1&market_hash_name=${encodeURIComponent(marketHashName)}`,
+    { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Mozilla/5.0' } }
+  );
+  if (!r.ok) return null;
+  const data = await r.json();
+  const iconPath = data?.results?.[0]?.asset_description?.icon_url;
+  return iconPath ? `https://community.cloudflare.steamstatic.com/economy/image/${iconPath}` : null;
+}
+
 // Auto-fetch missing Steam market icons for user's CS inventory
 app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
   const { data: items } = await supabase
@@ -2515,22 +2529,32 @@ app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
   let updated = 0;
   for (const item of needsIcon) {
     try {
-      const name = item.skin_name.replace(/\s*\|\s*Vanilla\s*$/i, '');
-      const query = item.exterior && item.exterior !== 'Vanilla' ? `${name} (${item.exterior})` : name;
-      const r = await fetch(
-        `https://steamcommunity.com/market/search/render/?query=${encodeURIComponent(query)}&appid=730&norender=1&count=1`,
-        { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Mozilla/5.0' } }
-      );
-      if (!r.ok) continue;
-      const data = await r.json();
-      const iconPath = data?.results?.[0]?.asset_description?.icon_url;
-      if (!iconPath) continue;
-      const iconUrl = `https://community.cloudflare.steamstatic.com/economy/image/${iconPath}`;
+      const iconUrl = await fetchSteamIcon(item.skin_name, item.exterior);
+      if (!iconUrl) continue;
       await supabase.from('cs_inventory').update({ icon_url: iconUrl }).eq('id', item.id).eq('user_id', req.user.id);
       updated++;
     } catch(e) {}
   }
   res.json({ updated });
+});
+
+// Reset and re-fetch icon for a single inventory item
+app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
+  const { data: item } = await supabase.from('cs_inventory')
+    .select('id, skin_name, exterior')
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id)
+    .single();
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+  await supabase.from('cs_inventory').update({ icon_url: null }).eq('id', item.id).eq('user_id', req.user.id);
+  try {
+    const iconUrl = await fetchSteamIcon(item.skin_name, item.exterior);
+    if (iconUrl) {
+      await supabase.from('cs_inventory').update({ icon_url: iconUrl }).eq('id', item.id).eq('user_id', req.user.id);
+      return res.json({ iconUrl });
+    }
+  } catch(e) {}
+  res.json({ iconUrl: null });
 });
 
 // Public CS trades endpoint — requires public_cs_trades column: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_cs_trades BOOLEAN DEFAULT FALSE;

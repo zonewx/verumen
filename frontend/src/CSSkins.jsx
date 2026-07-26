@@ -247,6 +247,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [selectedEditItem, setSelectedEditItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [showSellForm, setShowSellForm] = useState(null);
+  const [iconResetting, setIconResetting] = useState(false);
   const [skinSearch, setSkinSearch] = useState('');
   const [skinSearchResults, setSkinSearchResults] = useState([]);
   const [fetchingFloat, setFetchingFloat] = useState(false);
@@ -532,6 +533,24 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const selectEditSkin = (item) => {
     setSelectedEditItem(item);
     setEditForm(f => ({ ...f, skin_name: item.name, steam_asset_id: item.assetId, icon_url: item.iconUrl || '' }));
+  };
+
+  const resetIcon = async () => {
+    if (!showEditForm) return;
+    setIconResetting(true);
+    try {
+      const res = await fetch(`/api/cs/inventory/${showEditForm.id}/reset-icon`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const { iconUrl } = await res.json();
+        setEditForm(f => ({ ...f, icon_url: iconUrl || '' }));
+        setShowEditForm(f => ({ ...f, icon_url: iconUrl || '' }));
+      }
+    } finally {
+      setIconResetting(false);
+    }
   };
 
   const saveEdit = async () => {
@@ -1110,6 +1129,26 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             <label className={label}>Steam screenshot URL</label>
                             <input value={editForm.screenshot_url} onChange={e => setEditForm(f => ({ ...f, screenshot_url: e.target.value }))} placeholder="https://steamcommunity.com/sharedfiles/filedetails/?id=..." className={input} />
                             <p className={`text-xs mt-1.5 text-zinc-400`}>Upload to Steam (Public), paste the share link here.</p>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className={label}>Skin Image</label>
+                            <div className="flex items-center gap-3">
+                              {editForm.icon_url
+                                ? <img src={editForm.icon_url} alt="" className="w-12 h-12 object-contain rounded bg-zinc-700/50 p-1 shrink-0" />
+                                : <div className="w-12 h-12 rounded bg-zinc-700 flex items-center justify-center text-xl shrink-0">🔫</div>
+                              }
+                              <div>
+                                <button
+                                  type="button"
+                                  onClick={resetIcon}
+                                  disabled={iconResetting}
+                                  className={`${btnGhost} text-xs py-1.5 disabled:opacity-40 disabled:cursor-not-allowed`}
+                                >
+                                  {iconResetting ? 'Fetching...' : 'Refresh Icon'}
+                                </button>
+                                <p className={`text-xs mt-1 text-zinc-500`}>Fetches from Steam Market. Use if the wrong image shows.</p>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
