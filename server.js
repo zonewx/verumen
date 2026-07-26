@@ -2432,7 +2432,6 @@ function buildTradePageHtml(opts) {
     <p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Trade</p>
     <h1 style="color:${nameColor};font-size:20px;font-weight:700;line-height:1.25;margin-bottom:${exterior?'4px':'18px'};">${hasStar?'<span style="margin-right:3px;">★</span>':''}${e(displayName)}</h1>
     ${exterior?`<p style="color:#a1a1aa;font-size:13px;margin-bottom:18px;">${e(exterior)}</p>`:''}
-    ${iconUrl?`<img src="${e(iconUrl)}" alt="" style="width:72px;height:72px;object-fit:contain;margin-bottom:16px;display:block;">`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#27272a;border-radius:10px;overflow:hidden;margin-bottom:18px;">
       ${stats.map(([lbl,val])=>`<div style="background:#111113;padding:12px 14px;"><p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 3px;">${e(lbl)}</p><p style="color:${lbl==='Status'?(val==='Holding'?'#4ade80':'#f87171'):'#f4f4f5'};font-size:13px;font-family:ui-monospace,monospace;margin:0;">${e(val)}</p></div>`).join('')}
     </div>
