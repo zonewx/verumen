@@ -1047,7 +1047,7 @@ export default function AdminPanel({ authUsername }) {
                   )}
                 </div>
               </div>
-              </div>{/* end database flex-col */}
+              </div>
             )}
 
             {/* DIAGNOSTICS */}
