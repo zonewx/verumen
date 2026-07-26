@@ -2541,20 +2541,44 @@ app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
 // Reset and re-fetch icon for a single inventory item
 app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
   const { data: item } = await supabase.from('cs_inventory')
-    .select('id, skin_name, exterior')
+    .select('id, skin_name, exterior, steam_asset_id')
     .eq('id', req.params.id)
     .eq('user_id', req.user.id)
     .single();
   if (!item) return res.status(404).json({ error: 'Item not found' });
-  await supabase.from('cs_inventory').update({ icon_url: null }).eq('id', item.id).eq('user_id', req.user.id);
-  try {
-    const iconUrl = await fetchSteamIcon(item.skin_name, item.exterior);
-    if (iconUrl) {
-      await supabase.from('cs_inventory').update({ icon_url: iconUrl }).eq('id', item.id).eq('user_id', req.user.id);
-      return res.json({ iconUrl });
-    }
-  } catch(e) {}
-  res.json({ iconUrl: null });
+
+  let iconUrl = null;
+
+  // Prefer: pull icon directly from Steam inventory (same source as the grid images)
+  if (item.steam_asset_id) {
+    try {
+      const { data: profile } = await supabase.from('profiles').select('steam_id').eq('id', req.user.id).single();
+      if (profile?.steam_id) {
+        const invData = await fetchJSON(`https://steamcommunity.com/inventory/${profile.steam_id}/730/2?l=english&count=500`);
+        if (invData?.assets && invData?.descriptions) {
+          const descMap = {};
+          (invData.descriptions || []).forEach(d => { descMap[`${d.classid}_${d.instanceid}`] = d; });
+          const asset = (invData.assets || []).find(a => a.assetid === item.steam_asset_id);
+          if (asset) {
+            const desc = descMap[`${asset.classid}_${asset.instanceid}`];
+            if (desc?.icon_url) {
+              iconUrl = `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/360x360`;
+            }
+          }
+        }
+      }
+    } catch(e) {}
+  }
+
+  // Fallback: Steam Market exact-name search
+  if (!iconUrl) {
+    try { iconUrl = await fetchSteamIcon(item.skin_name, item.exterior); } catch(e) {}
+  }
+
+  if (iconUrl) {
+    await supabase.from('cs_inventory').update({ icon_url: iconUrl }).eq('id', item.id).eq('user_id', req.user.id);
+  }
+  res.json({ iconUrl: iconUrl || null });
 });
 
 // Public CS trades endpoint — requires public_cs_trades column: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_cs_trades BOOLEAN DEFAULT FALSE;
