@@ -63,6 +63,10 @@ export default function AdminPanel({ authUsername }) {
   const [diagData, setDiagData] = useState(null);
   const [diagLoading, setDiagLoading] = useState(false);
 
+  // Database storage
+  const [dbSize, setDbSize] = useState(null);
+  const [dbSizeLoading, setDbSizeLoading] = useState(false);
+
   // Database browser
   const [dbTables, setDbTables] = useState([]);
   const [dbTablesLoading, setDbTablesLoading] = useState(false);
@@ -170,7 +174,8 @@ export default function AdminPanel({ authUsername }) {
 
   useEffect(() => { fetchStats(); }, []);
   useEffect(() => { if (tab === 'ticker-mgmt') { fetchFailures(); fetchGlobalOverrides(); } }, [tab]);
-  useEffect(() => { if (tab === 'database') fetchDbTables(); }, [tab]);
+  useEffect(() => { if (tab === 'database') { fetchDbTables(); fetchDbSize(); } }, [tab]);
+  useEffect(() => { if (tab === 'overview') { fetchDbSize(); } }, [tab]);
   useEffect(() => { if (tab === 'diagnostics') fetchDiag(); }, [tab]);
 
   useEffect(() => {
@@ -372,6 +377,16 @@ export default function AdminPanel({ authUsername }) {
     setDiagLoading(false);
   }, []);
 
+  const fetchDbSize = useCallback(async () => {
+    setDbSizeLoading(true);
+    try {
+      const res = await fetch('/api/admin/db/size', { headers: h });
+      const data = await res.json();
+      if (!data.error) setDbSize(data);
+    } catch(e) {}
+    setDbSizeLoading(false);
+  }, []);
+
   const fetchDbTables = useCallback(async () => {
     setDbTablesLoading(true);
     const res = await fetch('/api/admin/db/tables', { headers: h });
@@ -442,7 +457,7 @@ export default function AdminPanel({ authUsername }) {
                 {/* System stats */}
                 <div className={`${card} p-5`}>
                   <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>System</h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                     {[
                       { label: 'Uptime', value: formatUptime(stats.system.uptime) },
                       { label: 'Memory', value: `${stats.system.memoryMB} MB` },
@@ -455,6 +470,22 @@ export default function AdminPanel({ authUsername }) {
                       </div>
                     ))}
                   </div>
+                  {dbSize && (() => {
+                    const FREE_TIER_BYTES = 500 * 1024 * 1024;
+                    const usedPct = Math.min(100, (dbSize.dbSizeBytes / FREE_TIER_BYTES) * 100);
+                    const barColor = usedPct > 80 ? 'bg-red-500' : usedPct > 60 ? 'bg-amber-500' : 'bg-emerald-500';
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p className="text-xs text-zinc-400">Database Storage</p>
+                          <span className="text-xs text-zinc-400"><span className="text-white font-semibold">{dbSize.dbSizePretty}</span> of 500 MB</span>
+                        </div>
+                        <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+                          <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${usedPct}%` }}/>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Registration toggle */}
@@ -907,6 +938,48 @@ export default function AdminPanel({ authUsername }) {
 
             {/* DATABASE */}
             {tab === 'database' && (
+              <div className="flex flex-col gap-4">
+
+                {/* Storage usage card */}
+                <div className={card}>
+                  <div className="px-5 py-4 border-b border-zinc-700 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Database Storage</p>
+                    <button onClick={fetchDbSize} className="text-xs text-zinc-500 hover:text-zinc-300 transition">Refresh</button>
+                  </div>
+                  {dbSizeLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                    </div>
+                  ) : dbSize ? (() => {
+                    const FREE_TIER_BYTES = 500 * 1024 * 1024; // 500 MB
+                    const usedPct = Math.min(100, (dbSize.dbSizeBytes / FREE_TIER_BYTES) * 100);
+                    const barColor = usedPct > 80 ? 'bg-red-500' : usedPct > 60 ? 'bg-amber-500' : 'bg-emerald-500';
+                    return (
+                      <div className="px-5 py-4">
+                        <div className="flex items-end justify-between mb-2">
+                          <span className="text-2xl font-bold text-white">{dbSize.dbSizePretty}</span>
+                          <span className="text-xs text-zinc-500">of 500 MB free tier</span>
+                        </div>
+                        <div className="h-2 bg-zinc-700 rounded-full overflow-hidden mb-4">
+                          <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${usedPct}%` }}/>
+                        </div>
+                        {dbSize.tables?.length > 0 && (
+                          <div className="divide-y divide-zinc-700/40">
+                            {dbSize.tables.map(t => (
+                              <div key={t.name} className="flex items-center justify-between py-1.5">
+                                <span className="text-xs text-zinc-400 font-mono">{t.name}</span>
+                                <span className="text-xs text-zinc-300">{t.size}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })() : (
+                    <p className="px-5 py-4 text-xs text-zinc-500">Run the migration to enable storage stats — see README.</p>
+                  )}
+                </div>
+
               <div className="flex gap-4 items-start">
                 {/* Sidebar — table list */}
                 <div className="w-52 shrink-0">
@@ -1003,6 +1076,7 @@ export default function AdminPanel({ authUsername }) {
                   )}
                 </div>
               </div>
+              </div>{/* end database flex-col */}
             )}
 
             {/* DIAGNOSTICS */}
