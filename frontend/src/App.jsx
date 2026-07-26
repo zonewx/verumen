@@ -2648,33 +2648,13 @@ const handleUpload = async (files) => {
       )}
 
       {/* Global flash notification — top-center toast */}
-      {globalFlash && (() => {
-        const isSuccess = globalFlash.startsWith('✓');
-        const isError = !isSuccess && (globalFlash.includes('Error') || globalFlash.includes('error') || globalFlash.includes('Failed') || globalFlash.includes('failed'));
-        const text = isSuccess ? globalFlash.slice(2) : globalFlash;
-        return (
-          <div className="fixed z-[9998] pointer-events-none -translate-x-1/2" style={{ top: '52px', left: 'calc(50% + var(--sidebar-w) / 2)' }}>
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl">
-              {isSuccess && (
-                <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7"/></svg>
-                </div>
-              )}
-              {isError && (
-                <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shrink-0">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                </div>
-              )}
-              {!isSuccess && !isError && (
-                <div className="w-5 h-5 rounded-full bg-zinc-500 flex items-center justify-center shrink-0">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4m0 4h.01"/></svg>
-                </div>
-              )}
-              <span className="text-sm font-medium text-zinc-100 whitespace-nowrap">{text}</span>
-            </div>
+      {globalFlash && (
+        <div className="fixed z-[9998] pointer-events-none -translate-x-1/2" style={{ top: '52px', left: 'calc(50% + var(--sidebar-w) / 2)' }}>
+          <div className="px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl">
+            <span className="text-sm font-medium text-zinc-100 whitespace-nowrap">{globalFlash.startsWith('✓') ? globalFlash.slice(2) : globalFlash}</span>
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 }
