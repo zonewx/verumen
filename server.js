@@ -2973,14 +2973,20 @@ function parseSteamStickers(descriptions) {
   const result = [];
   for (const entry of entries) {
     const icons = [...entry.value.matchAll(/src=["']([^"']+)["']/g)].map(m => m[1]);
-    const labelMatch = entry.value.match(/(?:Stickers?|Patches?|Autograph|Charm|Keychain):\s*([^<]+)/i);
+    if (!icons.length) continue;
+    // Normalize: convert <br> to comma separators, strip remaining tags, decode entities
+    const plain = entry.value
+      .replace(/<br\s*\/?>/gi, ', ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+      .replace(/\s+/g, ' ').trim();
+    const labelMatch = plain.match(/(?:Stickers?|Patches?|Autograph|Charm|Keychain):\s*(.+)/i);
+    let names = [];
     if (labelMatch) {
-      const names = labelMatch[1].trim().split(/,\s*/);
-      icons.forEach((url, i) => result.push({ url, name: (names[i] || '').trim() }));
-    } else {
-      const textFragments = entry.value.replace(/<[^>]+>/g, '\n').split('\n').map(s => s.trim()).filter(Boolean);
-      icons.forEach((url, i) => result.push({ url, name: (textFragments[i] || '').trim() }));
+      // Strip stray HTML artifacts like *> and trim each name
+      names = labelMatch[1].split(/,\s*/).map(n => n.replace(/\s*\*>.*$/, '').trim()).filter(Boolean);
     }
+    icons.forEach((url, i) => result.push({ url, name: names[i] || '' }));
   }
   return result;
 }
