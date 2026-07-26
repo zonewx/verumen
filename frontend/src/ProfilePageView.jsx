@@ -117,7 +117,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
     if (profile?.publicDividends) {
       loadPublicDividends();
     }
-    if (profile?.publicCsTrades) {
+    if (profile?.publicCsTrades || isOwnProfile) {
       loadPublicCsTrades();
     }
     loadUserActivity();

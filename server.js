@@ -2606,7 +2606,14 @@ app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
 app.get('/api/users/:username/cs-trades', async (req, res) => {
   const { data: profile } = await supabase.from('profiles').select('id, public_cs_trades').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
-  if (!profile.public_cs_trades) return res.status(403).json({ error: "This user's CS trades are private." });
+  // Allow owner to always see their own trades regardless of public setting
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  let isOwner = false;
+  if (token) {
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (user?.id === profile.id) isOwner = true;
+  }
+  if (!isOwner && !profile.public_cs_trades) return res.status(403).json({ error: "This user's CS trades are private." });
   const { data, error } = await supabase.from('cs_inventory')
     .select('id, skin_name, exterior, float_value, pattern, has_star, notes, icon_url, share_token, purchase_price, purchase_currency, purchase_date, sold, screenshot_url, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
     .eq('user_id', profile.id)
