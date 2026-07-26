@@ -1303,7 +1303,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           const pnlPos = pnlVal >= 0;
                           const isExpanded = expandedRow === item.id;
                           const screenshotUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url;
-                          const isVanilla = /vanilla\s*$/i.test(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, ''));
+                          const isVanilla = !item.float_value;
                           return (
                             <Fragment key={item.id}>
                               <tr
