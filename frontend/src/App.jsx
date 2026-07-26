@@ -115,6 +115,8 @@ export default function App() {
   const [announcements, setAnnouncements] = useState([]);
   const [userRole, setUserRole] = useState(() => sessionStorage.getItem('auth_role') || 'user');
   const [allowRegistration, setAllowRegistration] = useState(() => {
+    const early = window.__AUTH_STATUS_DATA;
+    if (early) return early.allowRegistration !== false && !early.reachedLimit;
     const cfg = window.__VERUMEN_CONFIG;
     if (cfg) return cfg.allowRegistration;
     const ls = localStorage.getItem('verumen_allowRegistration');
@@ -293,9 +295,7 @@ export default function App() {
   // ── Auth Logic ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const saved = sessionStorage.getItem('auth_user');
-    const statusPromise = window.__AUTH_STATUS_PROMISE || fetch('/api/auth/status').then(r => r.json());
-    statusPromise.then(async d => {
-      if (!d) { setAuthStatus('logged-out'); return; }
+    fetch('/api/auth/status').then(r => r.json()).then(async d => {
       const val = d.allowRegistration !== false && !d.reachedLimit;
       setAllowRegistration(val); localStorage.setItem('verumen_allowRegistration', String(val));
       if (!d.hasUsers) { setAuthStatus('no-user'); setAuthMode('signup'); return; }
