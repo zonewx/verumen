@@ -3395,7 +3395,9 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
   const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
-  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value, pattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null }).select().single();
+  const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
+  const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
+  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value:safeFloat, pattern:safePattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior });
   res.json({ id:data.id, success:true });
@@ -3410,8 +3412,10 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
   const { data: existing } = await supabase.from('cs_inventory').select('skin_name, screenshot_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
   const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
+  const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
+  const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
   const { error } = await supabase.from('cs_inventory')
-    .update({ skin_name, exterior, float_value, pattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null, icon_url: safeIconUrl || null })
+    .update({ skin_name, exterior, float_value: safeFloat, pattern: safePattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null, icon_url: safeIconUrl || null })
     .eq('id', req.params.id)
     .eq('user_id', req.user.id);
   if (error) return res.status(500).json({ error: error.message });
