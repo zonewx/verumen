@@ -653,7 +653,7 @@ export default function AdminPanel({ authUsername }) {
                           {isEditingEmail ? (
                             <div className="flex gap-2">
                               <input type="email" value={inlineEmailVal} onChange={e => { setInlineEmailVal(e.target.value); setInlineEmailStatus(''); }} onKeyDown={e => { if (e.key === 'Enter') saveInlineEmail(u.username); if (e.key === 'Escape') setEditingEmailFor(null); }} placeholder="email@example.com" autoFocus className={`${fieldBox} flex-1 focus:border-zinc-500/60 focus:outline-none`}/>
-                              <button onClick={() => saveInlineEmail(u.username)} disabled={inlineEmailStatus === 'Saving...'} className={`${btnBlue} disabled:opacity-50`}>Save</button>
+                              <button onClick={() => saveInlineEmail(u.username)} disabled={inlineEmailStatus === 'Saving...'} className={`${btnBlue} disabled:opacity-50`}>Send</button>
                               <button onClick={() => setEditingEmailFor(null)} className={btnGhost}>Cancel</button>
                             </div>
                           ) : (
