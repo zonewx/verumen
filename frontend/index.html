@@ -12,6 +12,7 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>window.__AUTH_STATUS_PROMISE=fetch('/api/auth/status').then(function(r){return r.json();}).catch(function(){return null;});</script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
