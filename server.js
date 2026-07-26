@@ -2960,7 +2960,10 @@ function parseSteamTags(tags) {
 function parseSteamStickers(descriptions) {
   const entry = (descriptions || []).find(d => d.value?.includes('sticker_info'));
   if (!entry) return [];
-  const icons = [...entry.value.matchAll(/src="([^"]+)"/g)].map(m => m[1]);
+  // Match both double and single-quoted src attributes
+  const icons = [...entry.value.matchAll(/src=["']([^"']+)["']/g)].map(m => m[1]);
+  console.log('[stickers] raw html snippet:', entry.value.slice(0, 300));
+  console.log('[stickers] extracted icon urls:', icons);
   // Try "Sticker: A, B" / "Patch: A, B" / "Autograph: A" label format
   const labelMatch = entry.value.match(/(?:Stickers?|Patches?|Autograph):\s*([^<]+)/i);
   if (labelMatch) {
@@ -3406,7 +3409,7 @@ function validateScreenshotUrl(url) {
   return url;
 }
 
-const STICKER_URL_RE = /^https:\/\/(community\.(cloudflare|fastly)\.steamstatic\.com|steamcommunity-a\.akamaihd\.net)\/economy\/image\//;
+const STICKER_URL_RE = /^https:\/\/[^/]*\.(steamstatic\.com|akamaihd\.net|steamcommunity\.com)\/economy\/image\//;
 function safeStickerList(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.filter(s => s && typeof s.url === 'string' && STICKER_URL_RE.test(s.url))
