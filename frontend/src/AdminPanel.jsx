@@ -309,7 +309,9 @@ export default function AdminPanel({ authUsername }) {
   const toggleRegistration = async () => {
     const newVal = !settings.allowRegistration;
     setSettings(s => ({ ...s, allowRegistration: newVal }));
-    const res = await fetch('/api/admin/settings', { method: 'POST', headers: h, body: JSON.stringify({ key: 'allowRegistration', value: String(newVal) }) });
+    const tok = getToken();
+    const authH = { 'Content-Type': 'application/json', ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}) };
+    const res = await fetch('/api/admin/settings', { method: 'POST', headers: authH, body: JSON.stringify({ key: 'allowRegistration', value: String(newVal) }) });
     const data = await res.json();
     if (!res.ok) {
       setSettings(s => ({ ...s, allowRegistration: !newVal })); // revert
