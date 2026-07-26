@@ -3444,8 +3444,13 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
   const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
+  console.log('[PUT inventory] stickers received:', JSON.stringify(stickers));
   const updateFields = { skin_name, exterior, float_value: safeFloat, pattern: safePattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null, icon_url: safeIconUrl || null };
-  if (stickers !== undefined) updateFields.stickers = safeStickerList(stickers);
+  if (stickers !== undefined) {
+    const safe = safeStickerList(stickers);
+    console.log('[PUT inventory] stickers after validation:', JSON.stringify(safe));
+    updateFields.stickers = safe;
+  }
   const { error } = await supabase.from('cs_inventory')
     .update(updateFields)
     .eq('id', req.params.id)
