@@ -253,6 +253,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [fetchingFloat, setFetchingFloat] = useState(false);
   const [filterSold, setFilterSold] = useState('all');
   const [expandedRow, setExpandedRow] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [trackerSearch, setTrackerSearch] = useState('');
   const [sortCol, setSortCol] = useState('purchase_date');
   const [sortDir, setSortDir] = useState('desc');
@@ -1188,6 +1189,21 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
               )}
 
               {/* Sell modal */}
+              {showDeleteConfirm && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+                  <div className="bg-zinc-800 border border-zinc-700 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+                    <h3 className="font-bold text-base mb-1">Delete trade?</h3>
+                    <p className="text-sm text-zinc-400 mb-6">
+                      This will permanently remove <span className="text-white font-semibold">{withVanilla(showDeleteConfirm.skin_name)}</span> from your registry. This cannot be undone.
+                    </p>
+                    <div className="flex gap-3 justify-end">
+                      <button onClick={() => setShowDeleteConfirm(null)} className="text-sm px-4 py-2 rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Cancel</button>
+                      <button onClick={() => { deleteItem(showDeleteConfirm.id); setShowDeleteConfirm(null); }} className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 transition font-semibold">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {showSellForm && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
                   <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-lg`}>
@@ -1268,7 +1284,6 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               {colLabel}<SortIcon col={key} />
                             </th>
                           ))}
-                          <th className="px-4 py-3" />
                         </tr>
                       </thead>
                       <tbody>
@@ -1312,42 +1327,24 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     {item.sold ? `Sold ${item.sale_date || ''}` : 'Holding'}
                                   </span>
                                 </td>
-                                <td className="px-4 py-2.5" onClick={e => e.stopPropagation()}>
-                                  <div className="flex gap-1 items-center">
-                                    {!item.sold && <button onClick={() => setShowSellForm(item)} className={`text-xs px-2 py-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition`}>Sell</button>}
-                                    <button onClick={() => openEditModal(item)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition`}>Edit</button>
-                                    {item.share_token && (
-                                      <a
-                                        href={`/trade/${item.share_token}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={e => e.stopPropagation()}
-                                        className="text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition"
-                                      >
-                                        Share
-                                      </a>
-                                    )}
-                                    <button onClick={() => deleteItem(item.id)} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition`}>✕</button>
-                                  </div>
-                                </td>
                               </tr>
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
-                                  <td colSpan={8} className="p-0">
-                                    <div className="bg-zinc-800/60 px-6 py-4 flex gap-6 items-start">
+                                  <td colSpan={7} className="p-0">
+                                    <div className="bg-zinc-800/60 px-6 py-4 flex items-start justify-between gap-6" onClick={e => e.stopPropagation()}>
                                       {/* Left: action buttons */}
                                       <div className="flex flex-col gap-2 shrink-0 pt-1">
                                         {!item.sold && (
-                                          <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition text-left">Sell</button>
+                                          <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition text-left">Sell</button>
                                         )}
                                         <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition text-left">Edit</button>
-                                        <button onClick={() => deleteItem(item.id)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition text-left">Remove</button>
+                                        <button onClick={() => setShowDeleteConfirm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition text-left">Delete</button>
                                       </div>
                                       {/* Right: screenshot */}
-                                      <div className="flex-1 min-w-0">
+                                      <div className="min-w-0">
                                         {screenshotUrl
                                           ? <div className="max-w-2xl"><SteamScreenshotEmbed url={screenshotUrl} /></div>
-                                          : <p className="text-xs text-zinc-600 pt-1">No screenshot attached</p>
+                                          : null
                                         }
                                       </div>
                                     </div>
