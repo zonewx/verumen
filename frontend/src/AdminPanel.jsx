@@ -917,11 +917,18 @@ export default function AdminPanel({ authUsername }) {
                 {/* Sidebar — table list + storage summary */}
                 <div className="w-64 shrink-0 flex flex-col gap-4">
 
-                  {/* Compact storage summary */}
-                  <div className={card}>
+                  {/* Compact storage summary — clickable */}
+                  <button
+                    onClick={() => { setSelectedTable('__storage__'); setTableData(null); }}
+                    className={`${card} w-full text-left transition ${selectedTable === '__storage__' ? 'ring-1 ring-sky-500/50' : 'hover:border-zinc-600'}`}
+                  >
                     <div className="px-4 py-2.5 border-b border-zinc-700 flex items-center justify-between">
-                      <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Storage</p>
-                      <button onClick={fetchDbSize} className="text-xs text-zinc-500 hover:text-zinc-300 transition">Refresh</button>
+                      <p className={`text-xs font-bold uppercase tracking-wider ${selectedTable === '__storage__' ? 'text-sky-400' : 'text-zinc-400'}`}>Storage</p>
+                      <span
+                        role="button"
+                        onClick={e => { e.stopPropagation(); fetchDbSize(); }}
+                        className="text-xs text-zinc-500 hover:text-zinc-300 transition"
+                      >Refresh</span>
                     </div>
                     {dbSizeLoading ? (
                       <div className="flex items-center justify-center py-4">
@@ -945,7 +952,7 @@ export default function AdminPanel({ authUsername }) {
                     })() : (
                       <p className="px-4 py-3 text-xs text-zinc-500">Storage stats unavailable.</p>
                     )}
-                  </div>
+                  </button>
 
                   {/* Table list */}
                   <div className={`${card} overflow-hidden`}>
@@ -989,6 +996,55 @@ export default function AdminPanel({ authUsername }) {
                   {!selectedTable ? (
                     <div className={`${card} flex items-center justify-center py-24`}>
                       <p className="text-sm text-zinc-600">Select a table</p>
+                    </div>
+                  ) : selectedTable === '__storage__' ? (
+                    <div className={`${card} overflow-hidden`}>
+                      <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between">
+                        <span className="text-sm font-bold text-white">Storage breakdown</span>
+                        {dbSize && (() => {
+                          const FREE_TIER_BYTES = 500 * 1024 * 1024;
+                          const usedPct = Math.min(100, (dbSize.dbSizeBytes / FREE_TIER_BYTES) * 100);
+                          const barColor = usedPct > 80 ? 'bg-red-500' : usedPct > 60 ? 'bg-amber-500' : 'bg-emerald-500';
+                          return (
+                            <div className="flex items-center gap-3">
+                              <div className="w-32 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+                                <div className={`h-full ${barColor} rounded-full`} style={{ width: `${usedPct}%` }}/>
+                              </div>
+                              <span className="text-xs text-zinc-400"><span className="text-white font-semibold">{dbSize.dbSizePretty}</span> / 500 MB</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      {dbSize?.tables?.length > 0 ? (() => {
+                        const parseBytes = s => {
+                          if (!s) return 0;
+                          const [n, u] = s.trim().split(' ');
+                          const v = parseFloat(n);
+                          if (u === 'kB') return v * 1024;
+                          if (u === 'MB') return v * 1024 * 1024;
+                          if (u === 'GB') return v * 1024 * 1024 * 1024;
+                          return v;
+                        };
+                        const maxBytes = Math.max(...dbSize.tables.map(t => parseBytes(t.size)), 1);
+                        return (
+                          <div className="divide-y divide-zinc-700/40">
+                            {dbSize.tables.map(t => {
+                              const pct = Math.min(100, (parseBytes(t.size) / maxBytes) * 100);
+                              return (
+                                <div key={t.name} className="flex items-center gap-4 px-4 py-2.5 hover:bg-zinc-700/20 transition">
+                                  <span className="font-mono text-xs text-zinc-400 w-48 shrink-0 truncate">{t.name}</span>
+                                  <div className="flex-1 h-1 bg-zinc-700 rounded-full overflow-hidden">
+                                    <div className="h-full bg-sky-500/60 rounded-full" style={{ width: `${pct}%` }}/>
+                                  </div>
+                                  <span className="text-xs text-zinc-300 tabular-nums w-16 text-right shrink-0">{t.size}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })() : (
+                        <p className="px-4 py-8 text-sm text-zinc-500 text-center">No table data available.</p>
+                      )}
                     </div>
                   ) : (
                     <div className={`${card} overflow-hidden`}>
