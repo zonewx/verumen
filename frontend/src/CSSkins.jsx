@@ -756,14 +756,19 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                   <h2 className="text-lg font-bold">Trade Registry</h2>
                   <p className={`text-xs mt-0.5 text-zinc-400`}>Track every skin you've bought and sold</p>
                 </div>
-                <button onClick={openAddModal} className={btnOrange}>+ Register Trade</button>
+                <button onClick={openAddModal} className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition">
+                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M7 1v12M1 7h12"/></svg>
+                  Register Trade
+                </button>
               </div>
 
               {/* Filters & search */}
               <div className="flex flex-wrap gap-2 items-center">
-                {[['all','All'],['active','Holding'],['sold','Sold']].map(([v, l]) => (
-                  <button key={v} onClick={() => setFilterSold(v)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${filterSold === v ? 'bg-sky-600 text-white' : `bg-zinc-700 text-zinc-400 hover:bg-zinc-600`}`}>{l}</button>
-                ))}
+                <div className="flex rounded-lg border border-zinc-700 bg-zinc-900 p-0.5 gap-0.5">
+                  {[['all','All'],['active','Holding'],['sold','Sold']].map(([v, l]) => (
+                    <button key={v} onClick={() => setFilterSold(v)} className={`px-3 py-1 text-xs font-semibold rounded-md transition ${filterSold === v ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'}`}>{l}</button>
+                  ))}
+                </div>
                 <input
                   value={trackerSearch}
                   onChange={e => setTrackerSearch(e.target.value)}
