@@ -1034,7 +1034,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           ) : (
                             <>
                               {/* Currently attached or newly selected skin */}
-                              {(selectedEditItem || showEditForm.steam_asset_id) && (
+                              {(selectedEditItem || editForm.steam_asset_id) && (
                                 <div className={`flex items-center gap-3 p-3 rounded-xl border-2 border-sky-500 bg-sky-900/20`}>
                                   {selectedEditItem ? (
                                     <>
@@ -1082,7 +1082,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                   {modalInventory
                                     .filter(i => !editInvSearch || i.name.toLowerCase().includes(editInvSearch.toLowerCase()))
                                     .map(item => {
-                                      const isAttached = selectedEditItem?.assetId === item.assetId || (!selectedEditItem && showEditForm.steam_asset_id === item.assetId);
+                                      const isAttached = selectedEditItem?.assetId === item.assetId || (!selectedEditItem && editForm.steam_asset_id === item.assetId);
                                       return (
                                         <button
                                           key={item.assetId}
