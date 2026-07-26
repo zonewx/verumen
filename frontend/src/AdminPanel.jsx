@@ -1206,9 +1206,9 @@ export default function AdminPanel({ authUsername }) {
                       <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Connectivity</h2>
                       <div className="flex flex-col gap-3">
                         {[
-                          { label: 'US Market', subtitle: 'Finnhub', results: diagData.us },
-                          { label: 'Nordic Market', subtitle: 'Yahoo Finance', results: diagData.nordic },
-                        ].map(({ label, subtitle, results }) => {
+                          { label: 'US Market', subtitle: 'Finnhub', results: diagData.us, fmtPrice: p => `$${p.toFixed(2)}` },
+                          { label: 'Nordic Market', subtitle: 'Yahoo Finance', results: diagData.nordic, fmtPrice: p => `${p.toFixed(2)} kr` },
+                        ].map(({ label, subtitle, results, fmtPrice }) => {
                           const okCount = results.filter(r => r.ok).length;
                           const allOk = okCount === results.length;
                           const anyOk = okCount > 0;
@@ -1228,7 +1228,7 @@ export default function AdminPanel({ authUsername }) {
                                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${r.ok ? 'bg-green-400' : 'bg-red-400'}`}/>
                                     <span className="font-mono text-xs text-zinc-300">{r.symbol}</span>
                                     {r.ok
-                                      ? <span className="text-xs text-green-400 ml-auto">${r.price?.toFixed(2)}</span>
+                                      ? <span className="text-xs text-green-400 ml-auto">{fmtPrice(r.price)}</span>
                                       : <span className="text-xs text-red-400 ml-auto">{r.error || 'Failed'}</span>}
                                   </div>
                                 ))}
