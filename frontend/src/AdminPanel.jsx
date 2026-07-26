@@ -23,9 +23,6 @@ export default function AdminPanel({ authUsername }) {
   const [syncingPrices, setSyncingPrices] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
   const [lastPriceSync, setLastPriceSync] = useState(null);
-  const [syncingIndexes, setSyncingIndexes] = useState(false);
-  const [indexSyncStatus, setIndexSyncStatus] = useState('');
-  const [lastIndexSync, setLastIndexSync] = useState(null);
 
   // User accordion + inline editing
   const [expandedUser, setExpandedUser] = useState(null);
@@ -285,19 +282,6 @@ export default function AdminPanel({ authUsername }) {
     flash('✓ Announcement removed');
   };
 
-  const syncIndexes = async () => {
-    setSyncingIndexes(true);
-    setIndexSyncStatus('Refreshing...');
-    try {
-      const res = await fetch('/api/admin/indexes/refresh', { method: 'POST', headers: h });
-      const data = await res.json();
-      if (!data.ok) { setIndexSyncStatus('Failed'); setSyncingIndexes(false); return; }
-      setIndexSyncStatus(`✓ Updated ${data.count} index${data.count !== 1 ? 'es' : ''}`);
-      setLastIndexSync(Date.now());
-    } catch(e) { setIndexSyncStatus('Error: ' + e.message); }
-    setSyncingIndexes(false);
-  };
-
   const syncPrices = async () => {
     setSyncingPrices(true);
     setSyncStatus('Starting sync...');
@@ -540,20 +524,6 @@ export default function AdminPanel({ authUsername }) {
                       </div>
                       <button onClick={syncPrices} disabled={syncingPrices} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
                         {syncingPrices ? 'Syncing...' : '↺ Sync Now'}
-                      </button>
-                    </div>
-                    <div className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-zinc-700/50`}>
-                      <div>
-                        <p className="text-sm font-semibold">Market Indexes</p>
-                        <p className={`text-xs mt-0.5 text-zinc-400`}>
-                          Last sync: {fmtAgo(lastIndexSync)} — force-fetches all index symbols, bypassing market-hours gate.
-                        </p>
-                        {indexSyncStatus && (
-                          <p className={`text-xs mt-1 ${indexSyncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{indexSyncStatus}</p>
-                        )}
-                      </div>
-                      <button onClick={syncIndexes} disabled={syncingIndexes} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
-                        {syncingIndexes ? 'Refreshing...' : '↺ Sync Now'}
                       </button>
                     </div>
                   </div>

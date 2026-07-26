@@ -316,9 +316,7 @@ if (FRONTEND_DIST) {
 
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  const cacheSnapshot = {};
-  _marketIndexCache.forEach((v, k) => { cacheSnapshot[k] = { price: v.price, ageMs: Date.now() - v.ts }; });
-  res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString(), indexCache: cacheSnapshot });
+  res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString() });
 });
 
 // Connectivity diagnostic — tests US (Finnhub) + Nordic (Tiingo fallback)
@@ -1810,144 +1808,7 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
 });
 
 // ── Market index quotes ──────────────────────────────────────────────────────
-const _marketIndexCache = new Map(); // symbol → { symbol, price, changePct, change, ts }
-const MARKET_INDEX_CACHE_TTL = 10 * 60 * 1000;
-const ALL_INDEX_SYMBOLS = ['^GDAXI','^NDX','^OMXC25','^GSPC','^OMX','^OMXH25','^OSEAX','^GSPTSE'];
 
-// Regular session hours + 3 intraday fetch windows per index (weekdays only).
-// fetchHours: local hours at which a fresh fetch is triggered (open, midday, pre-close).
-const INDEX_MARKET_HOURS = {
-  '^GSPC':   { tz: 'America/New_York',   open: { h:  9, m: 30 }, close: { h: 16, m:  0 }, fetchHours: [10, 13, 15] },
-  '^NDX':    { tz: 'America/New_York',   open: { h:  9, m: 30 }, close: { h: 16, m:  0 }, fetchHours: [10, 13, 15] },
-  '^GSPTSE': { tz: 'America/Toronto',    open: { h:  9, m: 30 }, close: { h: 16, m:  0 }, fetchHours: [10, 13, 15] },
-  '^GDAXI':  { tz: 'Europe/Berlin',      open: { h:  9, m:  0 }, close: { h: 17, m: 30 }, fetchHours: [ 9, 13, 16] },
-  '^OMX':    { tz: 'Europe/Stockholm',   open: { h:  9, m:  0 }, close: { h: 17, m: 30 }, fetchHours: [ 9, 13, 16] },
-  '^OMXC25': { tz: 'Europe/Copenhagen',  open: { h:  9, m:  0 }, close: { h: 17, m:  0 }, fetchHours: [ 9, 13, 16] },
-  '^OMXH25': { tz: 'Europe/Helsinki',    open: { h:  9, m:  0 }, close: { h: 18, m: 30 }, fetchHours: [ 9, 13, 17] },
-  '^OSEAX':  { tz: 'Europe/Oslo',        open: { h:  9, m:  0 }, close: { h: 16, m: 25 }, fetchHours: [ 9, 12, 15] },
-};
-
-function isIndexMarketOpen(symbol) {
-  const m = INDEX_MARKET_HOURS[symbol];
-  if (!m) return false;
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: m.tz, weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: false,
-  });
-  const parts = fmt.formatToParts(new Date());
-  const p = {};
-  parts.forEach(({ type, value }) => { p[type] = value; });
-  if (p.weekday === 'Sat' || p.weekday === 'Sun') return false;
-  const nowMins = parseInt(p.hour, 10) * 60 + parseInt(p.minute, 10);
-  return nowMins >= m.open.h * 60 + m.open.m && nowMins < m.close.h * 60 + m.close.m;
-}
-
-// Returns true when the market is open AND the cache predates the current fetch window.
-function shouldRefetchIndex(symbol) {
-  if (!isIndexMarketOpen(symbol)) return false;
-  const m = INDEX_MARKET_HOURS[symbol];
-  if (!m) return false;
-  const cached = _marketIndexCache.get(symbol);
-  if (!cached) return true;
-  const windowAt = lastWindowOpenedAt(m.tz, m.fetchHours);
-  if (!windowAt) return true;
-  return cached.ts < windowAt;
-}
-
-// Stooq provides free global index data without an API key.
-// Finnhub free tier only covers US equities; European/Nordic indices return {c:0}.
-const YF_TO_STOOQ = {
-  '^GSPC':   '^spx',    // S&P 500
-  '^NDX':    '^ndx',    // NASDAQ 100
-  '^DJI':    '^dji',    // Dow Jones
-  '^FTSE':   '^ukx',    // FTSE 100
-  '^GDAXI':  '^dax',    // DAX
-  '^OMX':    '^omx',    // OMXS30
-  '^OMXC25': '^omxc25', // OMX Copenhagen 25
-  '^OMXH25': '^omxh25', // OMX Helsinki 25
-  '^OSEAX':  '^oseax',  // Oslo All-Share
-  '^GSPTSE': '^tsx',    // S&P/TSX Composite
-};
-
-async function stooqIndexQuote(yfSymbol) {
-  const stooqSym = YF_TO_STOOQ[yfSymbol];
-  if (!stooqSym) return null;
-  const d2 = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const d1 = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
-  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(stooqSym)}&i=d&d1=${d1}&d2=${d2}`;
-  const r = await fetch(url, {
-    signal: AbortSignal.timeout(8000),
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; verumen-market/1.0)' },
-  });
-  if (!r.ok) return null;
-  const text = await r.text();
-  const lines = text.trim().split('\n');
-  // Parse all data rows (skip header), sort newest-first by date string
-  const rows = lines.slice(1)
-    .filter(l => l && l.includes(','))
-    .map(l => { const p = l.split(','); return { date: p[0], close: parseFloat(p[4]) }; })
-    .filter(r => r.close && !isNaN(r.close))
-    .sort((a, b) => b.date.localeCompare(a.date));
-  if (!rows.length) return null;
-  const close = rows[0].close;
-  const prevClose = rows[1]?.close ?? null;
-  const change = prevClose != null ? close - prevClose : 0;
-  const changePct = prevClose ? (change / prevClose) * 100 : 0;
-  return {
-    symbol: yfSymbol,
-    regularMarketPrice: close,
-    regularMarketPreviousClose: prevClose ?? close,
-    regularMarketChange: change,
-    regularMarketChangePercent: changePct,
-    regularMarketTime: Math.floor(Date.now() / 1000),
-    currency: currencyFromTicker(yfSymbol),
-    longName: null, shortName: null, sector: null, quoteType: 'INDEX',
-  };
-}
-
-function cacheEntry(q, fallbackSymbol) {
-  if (!q?.regularMarketPrice) return;
-  const price  = Number(q.regularMarketPrice);
-  const rawChg = q.regularMarketChange;
-  const change = Number(typeof rawChg === 'object' ? rawChg?.raw : rawChg) || 0;
-  const prevClose = price - change;
-  const rawPct = q.regularMarketChangePercent;
-  const directPct = rawPct != null ? Number(typeof rawPct === 'object' ? rawPct?.raw : rawPct) : null;
-  // Use regularMarketChangePercent directly when change is 0 (Yahoo Finance sometimes omits regularMarketChange).
-  const changePct = change !== 0 && prevClose !== 0
-    ? (change / prevClose) * 100
-    : (directPct ?? 0);
-  _marketIndexCache.set(q.symbol || fallbackSymbol, {
-    symbol: q.symbol || fallbackSymbol,
-    price, change, changePct,
-    ts: Date.now(),
-  });
-}
-
-// Background refresh — runs on startup and every 60s so the HTTP endpoint
-// always serves instantly from cache with no per-request Finnhub latency.
-async function refreshMarketIndexes(force = false) {
-  let count = 0;
-  for (const s of ALL_INDEX_SYMBOLS) {
-    try {
-      // Only fetch when the market is open AND the cache predates the current scheduled window.
-      if (!force && !shouldRefetchIndex(s)) continue;
-
-      // Yahoo Finance is primary for ^ index symbols — gives live intraday price + correct
-      // daily change%. Stooq is EOD-only so during market hours it shows yesterday's close.
-      // Finnhub free tier covers US indices but returns {c:0} for Nordic/European ones.
-      let q = s.startsWith('^') ? await yahooQuote(s) : null;
-      if (!q && s.startsWith('^')) q = await stooqIndexQuote(s);
-      if (!q) q = await finnhubQuote(s);
-      if (q) { cacheEntry(q, s); count++; }
-    } catch {}
-    await new Promise(r => setTimeout(r, 250));
-  }
-  if (count > 0) log.info('market-index cache refreshed', { count });
-  return count;
-}
-
-refreshMarketIndexes();
-setInterval(refreshMarketIndexes, 60 * 1000).unref();
 
 // Probe for global_isin_cache table on startup — log a clear message if it hasn't been created yet
 supabase.from('global_isin_cache').select('isin').limit(1).then(({ error }) => {
@@ -1955,19 +1816,6 @@ supabase.from('global_isin_cache').select('isin').limit(1).then(({ error }) => {
   else log.info('global_isin_cache ready');
 }).catch(() => {});
 
-app.post('/api/admin/indexes/refresh', requireAdmin, async (req, res) => {
-  const count = await refreshMarketIndexes(true);
-  res.json({ ok: true, count });
-});
-
-app.get('/api/market-indexes', requireUser, (req, res) => {
-  const symbols = (req.query.symbols || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 15);
-  if (!symbols.length) return res.json([]);
-  // Serve instantly from the background-populated cache
-  const results = symbols.map(s => _marketIndexCache.get(s)).filter(Boolean)
-    .map(c => ({ symbol: c.symbol, price: c.price, changePct: c.changePct, change: c.change }));
-  res.json(results);
-});
 
 // ── Portfolio valuation ─────────────────────────────────────────────────────
 app.post('/api/portfolio', requireUser, heavyRateLimit(30000, 'portfolio'), async (req, res) => {
