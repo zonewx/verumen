@@ -972,15 +972,15 @@ export default function AdminPanel({ authUsername }) {
                             <button
                               key={t.table}
                               onClick={() => { setSelectedTable(t.table); setTablePage(0); setTableData(null); fetchTableData(t.table, 0); }}
-                              className={`w-full flex items-center justify-between px-4 py-2 text-left transition ${selectedTable === t.table ? 'bg-zinc-700/70 text-white' : 'text-zinc-400 hover:bg-zinc-700/30 hover:text-zinc-200'}`}
+                              className={`w-full flex items-center justify-between px-4 py-2 text-left transition ${selectedTable === t.table ? 'bg-zinc-700/70 text-white' : 'text-zinc-300 hover:bg-zinc-700/30 hover:text-white'}`}
                             >
                               <span className="font-mono text-xs truncate">{t.table}</span>
                               <div className="flex flex-col items-end ml-2 shrink-0">
-                                <span className={`text-xs tabular-nums ${selectedTable === t.table ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                                <span className={`text-xs tabular-nums ${selectedTable === t.table ? 'text-zinc-200' : 'text-zinc-400'}`}>
                                   {t.rows === null ? '—' : t.rows.toLocaleString()} rows
                                 </span>
                                 {sizeMap[t.table] && (
-                                  <span className="text-xs text-zinc-600 tabular-nums">{sizeMap[t.table]}</span>
+                                  <span className="text-xs text-zinc-400 tabular-nums">{sizeMap[t.table]}</span>
                                 )}
                               </div>
                             </button>
@@ -995,7 +995,7 @@ export default function AdminPanel({ authUsername }) {
                 <div className="flex-1 min-w-0">
                   {!selectedTable ? (
                     <div className={`${card} flex items-center justify-center py-24`}>
-                      <p className="text-sm text-zinc-600">Select a table</p>
+                      <p className="text-sm text-zinc-500">Select a table</p>
                     </div>
                   ) : selectedTable === '__storage__' ? (
                     <div className={`${card} overflow-hidden`}>
@@ -1010,7 +1010,7 @@ export default function AdminPanel({ authUsername }) {
                               <div className="w-32 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
                                 <div className={`h-full ${barColor} rounded-full`} style={{ width: `${usedPct}%` }}/>
                               </div>
-                              <span className="text-xs text-zinc-400"><span className="text-white font-semibold">{dbSize.dbSizePretty}</span> / 500 MB</span>
+                              <span className="text-xs text-zinc-300"><span className="text-white font-semibold">{dbSize.dbSizePretty}</span> / 500 MB</span>
                             </div>
                           );
                         })()}
@@ -1032,7 +1032,7 @@ export default function AdminPanel({ authUsername }) {
                               const pct = Math.min(100, (parseBytes(t.size) / maxBytes) * 100);
                               return (
                                 <div key={t.name} className="flex items-center gap-4 px-4 py-2.5 hover:bg-zinc-700/20 transition">
-                                  <span className="font-mono text-xs text-zinc-400 w-48 shrink-0 truncate">{t.name}</span>
+                                  <span className="font-mono text-xs text-zinc-200 w-48 shrink-0 truncate">{t.name}</span>
                                   <div className="flex-1 h-1 bg-zinc-700 rounded-full overflow-hidden">
                                     <div className="h-full bg-sky-500/60 rounded-full" style={{ width: `${pct}%` }}/>
                                   </div>
