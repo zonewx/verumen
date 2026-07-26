@@ -772,7 +772,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
               {/* Add trade modal */}
               {showAddForm && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col`} style={{ maxHeight: '92vh' }}>
+                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col`} style={{ maxHeight: '92vh' }}>
 
                     {/* Header */}
                     <div className={`flex items-center justify-between px-6 py-4 border-b border-zinc-700 shrink-0`}>
@@ -839,7 +839,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                   ) : modalInventory.length === 0 ? (
                                     <p className={`text-center py-8 text-sm text-zinc-400`}>No CS items found in your inventory.</p>
                                   ) : (
-                                    <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 overflow-y-auto" style={{ maxHeight: '52vh' }}>
+                                    <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 gap-2 max-h-96 overflow-y-auto">
                                       {modalInventory
                                         .filter(i => !modalInvSearch || i.name.toLowerCase().includes(modalInvSearch.toLowerCase()))
                                         .map(item => (
