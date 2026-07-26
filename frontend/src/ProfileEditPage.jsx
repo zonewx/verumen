@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
+import { flash } from './flash';
 
 const COUNTRIES = [
   { code: 'se', name: '🇸🇪 Sweden' }, { code: 'no', name: '🇳🇴 Norway' }, { code: 'dk', name: '🇩🇰 Denmark' },
@@ -42,7 +43,6 @@ export default function ProfileEditPage({ authUsername }) {
   const [steamLookupError, setSteamLookupError] = useState('');
   const [steamLookupLoading, setSteamLookupLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [usernameMsg, setUsernameMsg] = useState('');
   const [usernameLoading, setUsernameLoading] = useState(false);
@@ -60,7 +60,7 @@ export default function ProfileEditPage({ authUsername }) {
     if (params.get('steam_success')) {
       setSteamVerified(true);
       const steamName = params.get('steam_name');
-      if (steamName) setSaveMsg(`✓ Steam verified as ${steamName}!`);
+      if (steamName) flash(`✓ Steam verified as ${steamName}!`);
       window.history.replaceState({}, '', window.location.pathname);
       fetchProfile();
     } else if (params.get('steam_error')) {
@@ -113,7 +113,7 @@ export default function ProfileEditPage({ authUsername }) {
   }
 
   async function saveProfile() {
-    setSaving(true); setSaveMsg('');
+    setSaving(true);
     try {
       const payload = { ...editForm };
       // Only include avatarBase64 when the user explicitly uploaded a new one
@@ -122,13 +122,13 @@ export default function ProfileEditPage({ authUsername }) {
       const data = await res.json();
       if (data.success) {
         setProfile(data.profile);
-        setSaveMsg('✓ Saved');
+        flash('✓ Saved');
         window.dispatchEvent(new Event('profile-updated'));
         setTimeout(() => navigate('/user'), 1500);
       } else {
-        setSaveMsg(`Failed to save: ${data.error || 'unknown error'}`);
+        flash(`Failed to save: ${data.error || 'unknown error'}`);
       }
-    } catch(e) { setSaveMsg('Error'); }
+    } catch(e) { flash('Error saving profile'); }
     setSaving(false);
   }
 
@@ -341,7 +341,6 @@ export default function ProfileEditPage({ authUsername }) {
               <button onClick={saveProfile} disabled={saving} className="px-6 py-2.5 bg-zinc-600 hover:bg-zinc-500 text-white font-semibold rounded-lg transition disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save Profile'}
               </button>
-              {saveMsg && <span className={`text-sm ${saveMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>{saveMsg.startsWith('✓') ? saveMsg.slice(2) : saveMsg}</span>}
             </div>
             <button onClick={() => navigate('/profile')} className={`text-sm text-zinc-400 hover:text-white transition`}>
               Discard changes

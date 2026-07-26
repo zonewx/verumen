@@ -19,7 +19,6 @@ export default function AdminPanel({ authUsername }) {
   const [failures, setFailures] = useState([]);
   const [announcements, setAnnouncements] = useState(() => apiCache.get('/api/announcements') || []);
   const [loading, setLoading] = useState(!apiCache.has('/api/admin/stats'));
-  const [regMsg, setRegMsg] = useState('');
   const [syncingPrices, setSyncingPrices] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
   const [lastPriceSync, setLastPriceSync] = useState(null);
@@ -319,13 +318,12 @@ export default function AdminPanel({ authUsername }) {
     const data = await res.json();
     if (!res.ok) {
       setSettings(s => ({ ...s, allowRegistration: !newVal })); // revert
-      setRegMsg(`Error: ${data.error}`);
+      flash(`Error: ${data.error}`);
     } else {
       window.dispatchEvent(new CustomEvent('settings-changed', { detail: { allowRegistration: newVal } }));
       localStorage.setItem('verumen_allowRegistration', String(newVal));
-      setRegMsg(`Registration ${newVal ? 'enabled' : 'disabled'}`);
+      flash(`✓ Registration ${newVal ? 'enabled' : 'disabled'}`);
     }
-    setTimeout(() => setRegMsg(''), 4000);
   };
 
   const saveUserLimit = async () => {
@@ -495,7 +493,6 @@ export default function AdminPanel({ authUsername }) {
                 <div className={`${card} p-5`}>
                   <div className="flex items-center justify-between mb-4">
                     <h2 className={`text-xs font-bold uppercase tracking-wider text-zinc-400`}>Registration</h2>
-                    {regMsg && <span className="text-xs font-semibold text-green-400">{regMsg}</span>}
                   </div>
                   <div className="flex flex-col gap-3">
                     <div className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-zinc-700/50`}>
