@@ -23,8 +23,8 @@ function SteamScreenshotPreview({ url }) {
     <a href={url} target="_blank" rel="noreferrer" className="block mt-2 rounded-xl overflow-hidden group">
       {loading && (
         <div className={`flex items-center gap-2 p-3 rounded-xl border bg-zinc-700/50 border-zinc-600`}>
-          <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs text-sky-400">Loading preview...</span>
+          <div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs text-zinc-400">Loading preview...</span>
         </div>
       )}
       {!loading && preview && (
@@ -40,9 +40,9 @@ function SteamScreenshotPreview({ url }) {
           <span className="text-xl">📷</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Steam Screenshot</p>
-            <p className="text-xs text-sky-400 truncate">{url}</p>
+            <p className="text-xs text-zinc-400 truncate">{url}</p>
           </div>
-          <span className="text-xs text-sky-400 shrink-0">View ↗</span>
+          <span className="text-xs text-zinc-400 shrink-0">View ↗</span>
         </div>
       )}
     </a>
@@ -188,7 +188,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
-  const btnPrimary = 'px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50';
+  const btnPrimary = 'px-4 py-2 bg-zinc-600 hover:bg-zinc-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50';
   const btnGhost = `px-3 py-1.5 text-sm font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const flash = (msg, ms = 3000) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), ms); };
@@ -363,7 +363,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
             <div className="flex items-center justify-between mb-4">
               <div className={`flex gap-0 border-b border-zinc-700`}>
                 {[['feed','Feed'],['mine','My Posts']].map(([id, label]) => (
-                  <button key={id} onClick={() => setTab(id)} className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${tab === id ? 'border-sky-500 text-sky-400' : `border-transparent text-zinc-400 hover:text-white`}`}>{label}</button>
+                  <button key={id} onClick={() => setTab(id)} className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${tab === id ? 'border-zinc-300 text-zinc-100' : `border-transparent text-zinc-400 hover:text-white`}`}>{label}</button>
                 ))}
               </div>
               <div className="flex gap-2">

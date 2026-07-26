@@ -29,7 +29,7 @@ export default function SettingsPage({ baseCurrency, onSetBaseCurrency }) {
   const card = `rounded-2xl border p-6 bg-zinc-800 border-zinc-700`;
   const label = `text-xs font-semibold uppercase tracking-wider mb-2 block text-zinc-400`;
   const select = `w-full px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`;
-  const btnOrange = `px-4 py-2 text-sm font-semibold rounded-lg transition bg-sky-600 hover:bg-sky-500 text-white disabled:opacity-50 disabled:cursor-not-allowed`;
+  const btnOrange = `px-4 py-2 text-sm font-semibold rounded-lg transition bg-zinc-600 hover:bg-zinc-500 text-white disabled:opacity-50 disabled:cursor-not-allowed`;
 
   useEffect(() => {
     fetch('/api/cs/prices/last-sync', { headers: authHeaders() })

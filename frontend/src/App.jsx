@@ -63,7 +63,7 @@ function EmailVerifyView({ token, onDone }) {
       </div>
       <p className="text-base font-semibold text-white mb-1">Email verified!</p>
       <p className="text-sm text-zinc-400 mb-6">Your email address has been confirmed.</p>
-      <button onClick={onDone} className="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-3 rounded-xl transition text-sm">Sign In</button>
+      <button onClick={onDone} className="w-full bg-zinc-600 hover:bg-zinc-500 text-white font-semibold py-3 rounded-xl transition text-sm">Sign In</button>
     </>
   );
   return (
@@ -1185,7 +1185,7 @@ const handleUpload = async (files) => {
                           <option value="nordnet">Nordnet</option>
                         </select>
                       </div>
-                      <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}>
+                      <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-zinc-600 hover:bg-zinc-500 text-white'}`}>
                         {uploadLoading
                           ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />Processing…</>
                           : uploadStatus
@@ -1340,7 +1340,7 @@ const handleUpload = async (files) => {
                         <p className="text-xs text-zinc-400 mt-0.5">Masks all currency amounts across the portfolio. Percentages remain visible.</p>
                       </div>
                       <button onClick={toggleHideValues}
-                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${hideValues ? 'bg-sky-600' : 'bg-zinc-600'}`}>
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${hideValues ? 'bg-zinc-400' : 'bg-zinc-700'}`}>
                         <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${hideValues ? 'translate-x-5' : 'translate-x-0'}`}/>
                       </button>
                     </div>
@@ -1351,7 +1351,7 @@ const handleUpload = async (files) => {
                       <div className="flex gap-3 mb-6">
                         <input ref={overrideIsinRef} placeholder="ISIN" className={`w-32 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
                         <input ref={overrideTickerRef} placeholder="Yahoo Finance ticker" className={`w-44 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
-                        <button onClick={handleAddOverride} className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-semibold transition whitespace-nowrap">Save Override</button>
+                        <button onClick={handleAddOverride} className="px-4 py-2.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-xl text-sm font-semibold transition whitespace-nowrap">Save Override</button>
                       </div>
                       {overrideMsg && <p className={`text-xs mb-4 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
                       {(() => {
@@ -1399,7 +1399,7 @@ const handleUpload = async (files) => {
                         <p className={`text-sm mb-4 text-zinc-300`}>
                           Re-runs ticker resolution for all holdings using cached results where available. Use this if holdings are showing incorrect or missing data after an upload.
                         </p>
-                        <button onClick={handleForceResolve} disabled={resolveLoading} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
+                        <button onClick={handleForceResolve} disabled={resolveLoading} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-xl text-sm font-semibold transition disabled:opacity-50">
                           {resolveLoading && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>}
                           {resolveLoading ? 'Re-resolving…' : 'Force Re-Resolve All Tickers'}
                         </button>
@@ -1414,7 +1414,7 @@ const handleUpload = async (files) => {
                           onClick={handleRefreshPrices}
                           disabled={isRefreshingPrices}
                           title="Refresh prices from Yahoo Finance"
-                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isRefreshingPrices ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}
+                          className={`w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${isRefreshingPrices ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-zinc-600 hover:bg-zinc-500 text-white'}`}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isRefreshingPrices ? 'animate-spin' : ''}><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>
                           {isRefreshingPrices ? 'Refreshing…' : 'Refresh Prices'}
@@ -1441,7 +1441,7 @@ const handleUpload = async (files) => {
                         <button
                           onClick={handleClearPortfolioCache}
                           disabled={isClearingSnapshot}
-                          className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isClearingSnapshot ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}
+                          className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition ${isClearingSnapshot ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-zinc-600 hover:bg-zinc-500 text-white'}`}
                         >
                           {isClearingSnapshot && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>}
                           {isClearingSnapshot ? 'Clearing…' : 'Clear Snapshot'}
@@ -1482,7 +1482,7 @@ const handleUpload = async (files) => {
                           <p className={`text-sm flex-1 text-zinc-300`}>
                             Removes saved ticker-to-symbol mappings. Holdings and transaction history are untouched — tickers will be re-resolved on the next CSV upload.
                           </p>
-                          <button onClick={handleClearTickerCache} className="mt-4 w-full px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-semibold transition">
+                          <button onClick={handleClearTickerCache} className="mt-4 w-full px-4 py-2.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-xl text-sm font-semibold transition">
                             Clear Ticker Cache
                           </button>
                         </div>
@@ -1574,7 +1574,7 @@ const handleUpload = async (files) => {
                             const active = cur >= start && cur <= end;
                             return (
                               <div key={step.label} className="flex items-center gap-2">
-                                {i > 0 && <div className={`w-10 h-px transition-colors ${done ? 'bg-sky-500' : 'bg-zinc-700'}`}/>}
+                                {i > 0 && <div className={`w-10 h-px transition-colors ${done ? 'bg-zinc-400' : 'bg-zinc-700'}`}/>}
                                 <div className="flex flex-col items-center gap-1.5">
                                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                                     done   ? 'bg-zinc-600 text-white' :
@@ -1622,7 +1622,7 @@ const handleUpload = async (files) => {
                               <option value="nordnet">Nordnet</option>
                             </select>
                           </div>
-                          <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}>
+                          <button disabled={uploadLoading} onClick={() => globalFileInputRef.current?.click()} className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm transition ${uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-zinc-600 hover:bg-zinc-500 text-white'}`}>
                             {uploadLoading
                               ? <><span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />Processing…</>
                               : uploadStatus
@@ -2308,9 +2308,9 @@ const handleUpload = async (files) => {
                   <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M0 4a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H2a2 2 0 01-2-2V4zm2-1a1 1 0 00-1 1v.217l7 4.2 7-4.2V4a1 1 0 00-1-1H2zm13 2.383l-4.758 2.855L15 11.114V5.383zm-.034 6.878L9.271 8.82 8 9.583 6.728 8.82l-5.694 3.44A1 1 0 002 13h12a1 1 0 00.966-.739zM1 11.114l4.758-2.876L1 5.383v5.731z"/></svg>
                 </span>
                 <input type="email" value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleForgotPassword()} autoFocus placeholder="Enter your email"
-                  className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+                  className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-zinc-500/60 focus:ring-2 focus:ring-zinc-500/15"/>
               </div>
-              <button onClick={handleForgotPassword} disabled={authLoading} className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
+              <button onClick={handleForgotPassword} disabled={authLoading} className="w-full bg-zinc-600 hover:bg-zinc-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
                 {authLoading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Sending...</span> : 'Send Reset Link'}
               </button>
               <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-center text-zinc-400 hover:text-zinc-200 transition">Back to sign in</button>
@@ -2346,8 +2346,8 @@ const handleUpload = async (files) => {
         <div className="relative w-full max-w-xs mx-4 flex flex-col items-center">
           <div className="relative w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl text-center">
             <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"/>
-            <div className="w-12 h-12 rounded-full bg-sky-500/10 border border-sky-500/20 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <div className="w-12 h-12 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             </div>
             <p className="font-bold text-white mb-2">Check your email</p>
             <p className="text-sm text-zinc-400 mb-6">If an account exists for <span className="text-zinc-300">{authForm.email}</span>, a reset link has been sent. It expires in 10 minutes.</p>
@@ -2373,16 +2373,16 @@ const handleUpload = async (files) => {
                   <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
                 </span>
                 <input type="password" value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleResetPassword()} autoFocus placeholder="New password (6+ chars)"
-                  className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+                  className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-zinc-500/60 focus:ring-2 focus:ring-zinc-500/15"/>
               </div>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none">
                   <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
                 </span>
                 <input type="password" value={authForm.confirmPassword} onChange={e=>setAuthForm(f=>({...f,confirmPassword:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleResetPassword()} placeholder="Confirm new password"
-                  className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+                  className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-zinc-500/60 focus:ring-2 focus:ring-zinc-500/15"/>
               </div>
-              <button onClick={handleResetPassword} disabled={authLoading} className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
+              <button onClick={handleResetPassword} disabled={authLoading} className="w-full bg-zinc-600 hover:bg-zinc-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
                 {authLoading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Updating...</span> : 'Set New Password'}
               </button>
             </div>
@@ -2442,7 +2442,7 @@ const handleUpload = async (files) => {
                     <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-4.5 5c0-2 2-3.5 4.5-3.5s4.5 1.5 4.5 3.5H3.5z"/></svg>
                   </span>
                   <input type="text" value={authForm.username} onChange={e=>setAuthForm(f=>({...f,username:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} autoFocus placeholder="Enter username"
-                    className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+                    className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-zinc-500/60 focus:ring-2 focus:ring-zinc-500/15"/>
                 </div>
               </div>
               {/* Email (signup only) */}
@@ -2453,7 +2453,7 @@ const handleUpload = async (files) => {
                       <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M0 4a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H2a2 2 0 01-2-2V4zm2-1a1 1 0 00-1 1v.217l7 4.2 7-4.2V4a1 1 0 00-1-1H2zm13 2.383l-4.758 2.855L15 11.114V5.383zm-.034 6.878L9.271 8.82 8 9.583 6.728 8.82l-5.694 3.44A1 1 0 002 13h12a1 1 0 00.966-.739zM1 11.114l4.758-2.876L1 5.383v5.731z"/></svg>
                     </span>
                     <input type="email" value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} placeholder="Enter email address"
-                      className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-zinc-500/60 focus:ring-2 focus:ring-zinc-500/15"/>
                   </div>
                 </div>
               )}
@@ -2464,8 +2464,8 @@ const handleUpload = async (files) => {
                     <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
                   </span>
                   <input type={showPassword?'text':'password'} value={authForm.password} onChange={e=>setAuthForm(f=>({...f,password:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} placeholder="Enter password"
-                    className="w-full pl-9 pr-10 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
-                  <button type="button" onClick={()=>setShowPassword(s=>!s)} className={`absolute right-3 top-1/2 -translate-y-1/2 transition ${showPassword?'text-sky-400':'text-zinc-500 hover:text-zinc-300'}`}>
+                    className="w-full pl-9 pr-10 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-zinc-500/60 focus:ring-2 focus:ring-zinc-500/15"/>
+                  <button type="button" onClick={()=>setShowPassword(s=>!s)} className={`absolute right-3 top-1/2 -translate-y-1/2 transition ${showPassword?'text-zinc-300':'text-zinc-500 hover:text-zinc-300'}`}>
                     {showPassword
                       ? <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                       : <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
@@ -2480,8 +2480,8 @@ const handleUpload = async (files) => {
                       <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M11 7V5a3 3 0 00-6 0v2H4a1 1 0 00-1 1v5a1 1 0 001 1h8a1 1 0 001-1V8a1 1 0 00-1-1h-1zM6 5a2 2 0 014 0v2H6V5zm2 6a1 1 0 110-2 1 1 0 010 2z"/></svg>
                     </span>
                     <input type={showConfirmPassword?'text':'password'} value={authForm.confirmPassword} onChange={e=>setAuthForm(f=>({...f,confirmPassword:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleAuth()} placeholder="Confirm password"
-                      className="w-full pl-9 pr-10 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/15"/>
-                    <button type="button" onClick={()=>setShowConfirmPassword(s=>!s)} className={`absolute right-3 top-1/2 -translate-y-1/2 transition ${showConfirmPassword?'text-sky-400':'text-zinc-500 hover:text-zinc-300'}`}>
+                      className="w-full pl-9 pr-10 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-zinc-500/60 focus:ring-2 focus:ring-zinc-500/15"/>
+                    <button type="button" onClick={()=>setShowConfirmPassword(s=>!s)} className={`absolute right-3 top-1/2 -translate-y-1/2 transition ${showConfirmPassword?'text-zinc-300':'text-zinc-500 hover:text-zinc-300'}`}>
                       {showConfirmPassword
                         ? <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         : <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
@@ -2490,7 +2490,7 @@ const handleUpload = async (files) => {
                 </div>
               )}
               <button onClick={handleAuth} disabled={authLoading}
-                className="w-full bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1">
+                className="w-full bg-zinc-600 hover:bg-zinc-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1">
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
               <div className="flex flex-col items-center gap-1">

@@ -80,7 +80,7 @@ export default function AdminPanel({ authUsername }) {
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
   const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none transition bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
   const btnRed = 'px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition';
-  const btnBlue = 'px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-lg transition';
+  const btnBlue = 'px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white text-xs font-semibold rounded-lg transition';
   const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const flash = (msg, ms = 3000) => { setActionMsg(msg); setTimeout(() => setActionMsg(''), ms); };
@@ -508,7 +508,7 @@ export default function AdminPanel({ authUsername }) {
                         <p className={`text-xs mt-0.5 text-zinc-400`}>When disabled, the sign up form is hidden and new accounts cannot be created.</p>
                       </div>
                       <button type="button" onClick={toggleRegistration}
-                        className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${settings.allowRegistration ? 'bg-sky-500' : 'bg-zinc-700'}`}
+                        className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${settings.allowRegistration ? 'bg-zinc-400' : 'bg-zinc-700'}`}
                         style={{ width: '44px' }}>
                         <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${settings.allowRegistration ? 'translate-x-5' : 'translate-x-0'}`}/>
                       </button>
@@ -655,7 +655,7 @@ export default function AdminPanel({ authUsername }) {
                           <label className={fieldLabel}>Email</label>
                           {isEditingEmail ? (
                             <div className="flex gap-2">
-                              <input type="email" value={inlineEmailVal} onChange={e => { setInlineEmailVal(e.target.value); setInlineEmailStatus(''); }} onKeyDown={e => { if (e.key === 'Enter') saveInlineEmail(u.username); if (e.key === 'Escape') setEditingEmailFor(null); }} placeholder="email@example.com" autoFocus className={`${fieldBox} flex-1 focus:border-sky-500/60 focus:outline-none`}/>
+                              <input type="email" value={inlineEmailVal} onChange={e => { setInlineEmailVal(e.target.value); setInlineEmailStatus(''); }} onKeyDown={e => { if (e.key === 'Enter') saveInlineEmail(u.username); if (e.key === 'Escape') setEditingEmailFor(null); }} placeholder="email@example.com" autoFocus className={`${fieldBox} flex-1 focus:border-zinc-500/60 focus:outline-none`}/>
                               <button onClick={() => saveInlineEmail(u.username)} disabled={inlineEmailStatus === 'Saving...'} className={`${btnBlue} disabled:opacity-50`}>Save</button>
                               <button onClick={() => setEditingEmailFor(null)} className={btnGhost}>Cancel</button>
                             </div>
@@ -696,7 +696,7 @@ export default function AdminPanel({ authUsername }) {
                             <div className="flex flex-col gap-2">
                               <div className="flex gap-2">
                                 <div className="relative flex-1">
-                                  <input type={showInlinePassword ? 'text' : 'password'} value={inlinePasswordVal} onChange={e => { setInlinePasswordVal(e.target.value); setInlinePasswordStatus(''); }} onKeyDown={e => { if (e.key === 'Enter') setPasswordInline(u.username); if (e.key === 'Escape') { setSettingPasswordFor(null); setInlinePasswordVal(''); setInlinePasswordStatus(''); }}} placeholder="New password (6+ chars)" autoFocus className={`${fieldBox} pr-10 focus:border-sky-500/60 focus:outline-none`}/>
+                                  <input type={showInlinePassword ? 'text' : 'password'} value={inlinePasswordVal} onChange={e => { setInlinePasswordVal(e.target.value); setInlinePasswordStatus(''); }} onKeyDown={e => { if (e.key === 'Enter') setPasswordInline(u.username); if (e.key === 'Escape') { setSettingPasswordFor(null); setInlinePasswordVal(''); setInlinePasswordStatus(''); }}} placeholder="New password (6+ chars)" autoFocus className={`${fieldBox} pr-10 focus:border-zinc-500/60 focus:outline-none`}/>
                                   <button type="button" onClick={() => setShowInlinePassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200 transition">
                                     {showInlinePassword
                                       ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -940,10 +940,10 @@ export default function AdminPanel({ authUsername }) {
                   {/* Compact storage summary — clickable */}
                   <button
                     onClick={() => { setSelectedTable('__storage__'); setTableData(null); }}
-                    className={`${card} w-full text-left transition ${selectedTable === '__storage__' ? 'ring-1 ring-sky-500/50' : 'hover:border-zinc-600'}`}
+                    className={`${card} w-full text-left transition ${selectedTable === '__storage__' ? 'ring-1 ring-zinc-500/50' : 'hover:border-zinc-600'}`}
                   >
                     <div className="px-4 py-2.5 border-b border-zinc-700 flex items-center justify-between">
-                      <p className={`text-xs font-bold uppercase tracking-wider ${selectedTable === '__storage__' ? 'text-sky-400' : 'text-zinc-400'}`}>Storage</p>
+                      <p className={`text-xs font-bold uppercase tracking-wider ${selectedTable === '__storage__' ? 'text-zinc-200' : 'text-zinc-400'}`}>Storage</p>
                       <span
                         role="button"
                         onClick={e => { e.stopPropagation(); fetchDbSize(); }}
@@ -1054,7 +1054,7 @@ export default function AdminPanel({ authUsername }) {
                                 <div key={t.name} className="flex items-center gap-4 px-4 py-2.5 hover:bg-zinc-700/20 transition">
                                   <span className="font-mono text-xs text-zinc-200 w-48 shrink-0 truncate">{t.name}</span>
                                   <div className="flex-1 h-1 bg-zinc-700 rounded-full overflow-hidden">
-                                    <div className="h-full bg-sky-500/60 rounded-full" style={{ width: `${pct}%` }}/>
+                                    <div className="h-full bg-zinc-400/60 rounded-full" style={{ width: `${pct}%` }}/>
                                   </div>
                                   <span className="text-xs text-zinc-300 tabular-nums w-16 text-right shrink-0">{t.size}</span>
                                 </div>

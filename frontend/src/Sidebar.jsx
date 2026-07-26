@@ -29,7 +29,7 @@ function ActionContent({ id, pa, selectedBroker, onBrokerChange }) {
         </select>
       </div>
 
-      <label className={`${btn} cursor-pointer ${pa.uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-sky-600 hover:bg-sky-500 text-white'}`}>
+      <label className={`${btn} cursor-pointer ${pa.uploadLoading ? 'opacity-50 cursor-not-allowed bg-zinc-700 text-zinc-400' : 'bg-zinc-600 hover:bg-zinc-500 text-white'}`}>
         {pa.uploadLoading
           ? <>{spinner}Processing...</>
           : pa.uploadStatus
@@ -98,11 +98,11 @@ function ActionContent({ id, pa, selectedBroker, onBrokerChange }) {
             ))}
           </div>
           {pa.selectedForRemoval?.length > 0 && (
-            <button onClick={pa.onRemoveSelected} className={`${btn} bg-sky-600 hover:bg-sky-500 text-white`}>
+            <button onClick={pa.onRemoveSelected} className={`${btn} bg-zinc-600 hover:bg-zinc-500 text-white`}>
               Remove {pa.selectedForRemoval.length} selected
             </button>
           )}
-          <button onClick={pa.onForceResolve} disabled={pa.resolveLoading} className={`${btn} bg-sky-600 hover:bg-sky-500 text-white disabled:opacity-50`}>
+          <button onClick={pa.onForceResolve} disabled={pa.resolveLoading} className={`${btn} bg-zinc-600 hover:bg-zinc-500 text-white disabled:opacity-50`}>
             {pa.resolveLoading ? <>{spinner}Re-resolvingâ€¦</> : 'Force Re-Resolve'}
           </button>
         </>
