@@ -403,7 +403,7 @@ async function requireAdmin(req, res, next) {
 
 // ── Auth routes ─────────────────────────────────────────────────────────────
 app.get('/api/auth/status', async (req, res) => {
-  const [{ count }, { data: settings }] = await Promise.all([
+  const [{ count, error: countErr }, { data: settings }] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('app_settings').select('key, value'),
   ]);
@@ -411,8 +411,11 @@ app.get('/api/auth/status', async (req, res) => {
   (settings || []).forEach(r => { s[r.key] = r.value; });
   const allowRegistration = s.allowRegistration !== 'false';
   const userLimit = parseInt(s.userLimit || '0', 10);
-  const reachedLimit = userLimit > 0 && (count || 0) >= userLimit;
-  res.json({ hasUsers: (count || 0) > 0, allowRegistration, userLimit, reachedLimit });
+  const userCount = count || 0;
+  const reachedLimit = userLimit > 0 && userCount >= userLimit;
+  // If the count query failed, assume users exist so the frontend stays on login
+  const hasUsers = countErr ? true : userCount > 0;
+  res.json({ hasUsers, allowRegistration, userLimit, reachedLimit });
 });
 
 app.post('/api/auth/register', authRateLimit, async (req, res) => {
