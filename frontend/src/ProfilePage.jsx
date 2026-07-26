@@ -196,7 +196,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
                     {profile.steamId && (
                       <a href={`https://steamcommunity.com/profiles/${profile.steamId}`} target="_blank" rel="noopener noreferrer"
                         className={`text-xs px-2 py-0.5 rounded-full hover:opacity-80 transition ${profile.steamVerified ? 'text-green-400 bg-green-900/30' : 'text-orange-400 bg-orange-900/30'}`}>
-                        {profile.steamVerified ? '✓ Steam verified ↗' : 'Steam linked ↗'}
+                        {profile.steamVerified ? 'Steam verified ↗' : 'Steam linked ↗'}
                       </a>
                     )}
                     {profile.publicInventory && <span className="text-xs text-green-400 bg-green-900/30 px-2 py-0.5 rounded-full">Public CS inv.</span>}
@@ -329,7 +329,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
                     <div className={`flex items-center gap-3 p-3 rounded-xl bg-green-900/20 border border-green-800/40`}>
                       <img src="https://store.steampowered.com/favicon.ico" alt="Steam" className="w-5 h-5 shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-green-400">✓ Steam linked & verified</p>
+                        <p className="text-sm font-semibold text-green-400">Steam linked & verified</p>
                         <a href={`https://steamcommunity.com/profiles/${editForm.steamId}`} target="_blank" rel="noopener noreferrer" className={`text-xs hover:underline text-zinc-400`}>{editForm.steamId} ↗</a>
                       </div>
                       <button onClick={unlinkSteam} className={`text-xs px-2 py-1 rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300`}>Unlink</button>
@@ -373,7 +373,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
                     <p className={`text-sm italic mb-3 text-zinc-400`}>No bio yet</p>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    {editForm.steamId && <span className={`text-xs px-2 py-0.5 rounded-full ${steamVerified ? 'text-green-400 bg-green-900/30' : 'text-orange-400 bg-orange-900/30'}`}>{steamVerified ? '✓ Steam verified' : 'Steam (unverified)'}</span>}
+                    {editForm.steamId && <span className={`text-xs px-2 py-0.5 rounded-full ${steamVerified ? 'text-green-400 bg-green-900/30' : 'text-orange-400 bg-orange-900/30'}`}>{steamVerified ? 'Steam verified' : 'Steam (unverified)'}</span>}
                     {editForm.publicInventory && <span className="text-xs text-green-400 bg-green-900/30 px-2 py-0.5 rounded-full">Public CS inv.</span>}
                     {editForm.publicHoldings && <span className="text-xs text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-full">Public portfolio</span>}
                     {!editForm.steamId && !editForm.publicInventory && !editForm.publicHoldings && (

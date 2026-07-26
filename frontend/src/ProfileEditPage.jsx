@@ -314,7 +314,7 @@ export default function ProfileEditPage({ authUsername }) {
                 <div className={`flex items-center gap-3 p-4 rounded-xl bg-green-900/20 border border-green-800/40`}>
                   <img src="https://store.steampowered.com/favicon.ico" alt="Steam" className="w-6 h-6 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-green-400">✓ Steam linked & verified{steamLevel > 0 && <span className="ml-2 text-xs font-normal text-zinc-400">Level {steamLevel}</span>}</p>
+                    <p className="text-sm font-semibold text-green-400">Steam linked & verified{steamLevel > 0 && <span className="ml-2 text-xs font-normal text-zinc-400">Level {steamLevel}</span>}</p>
                     <a href={`https://steamcommunity.com/profiles/${editForm.steamId}`} target="_blank" rel="noopener noreferrer" className={`text-xs hover:underline text-zinc-400`}>{editForm.steamId} ↗</a>
                   </div>
                   <button onClick={unlinkSteam} className={`text-xs px-3 py-1.5 rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300`}>Unlink</button>
