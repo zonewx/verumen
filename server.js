@@ -2962,8 +2962,6 @@ function parseSteamStickers(descriptions) {
   if (!entry) return [];
   // Match both double and single-quoted src attributes
   const icons = [...entry.value.matchAll(/src=["']([^"']+)["']/g)].map(m => m[1]);
-  console.log('[stickers] raw html snippet:', entry.value.slice(0, 300));
-  console.log('[stickers] extracted icon urls:', icons);
   // Try "Sticker: A, B" / "Patch: A, B" / "Autograph: A" label format
   const labelMatch = entry.value.match(/(?:Stickers?|Patches?|Autograph):\s*([^<]+)/i);
   if (labelMatch) {
@@ -3409,7 +3407,7 @@ function validateScreenshotUrl(url) {
   return url;
 }
 
-const STICKER_URL_RE = /^https:\/\/[^/]*\.(steamstatic\.com|akamaihd\.net|steamcommunity\.com)\/economy\/image\//;
+const STICKER_URL_RE = /^https:\/\/[^/]*\.(steamstatic\.com|akamaihd\.net|steamcommunity\.com)\//;
 function safeStickerList(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.filter(s => s && typeof s.url === 'string' && STICKER_URL_RE.test(s.url))
@@ -3444,13 +3442,8 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
   const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
-  console.log('[PUT inventory] stickers received:', JSON.stringify(stickers));
   const updateFields = { skin_name, exterior, float_value: safeFloat, pattern: safePattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null, icon_url: safeIconUrl || null };
-  if (stickers !== undefined) {
-    const safe = safeStickerList(stickers);
-    console.log('[PUT inventory] stickers after validation:', JSON.stringify(safe));
-    updateFields.stickers = safe;
-  }
+  if (stickers !== undefined) updateFields.stickers = safeStickerList(stickers);
   const { error } = await supabase.from('cs_inventory')
     .update(updateFields)
     .eq('id', req.params.id)
