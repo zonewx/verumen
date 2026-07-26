@@ -2517,12 +2517,8 @@ const handleUpload = async (files) => {
   // ── Initializing screen (shown once after login until first data fetch completes) ──
   if (isInitializing) return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#18181b', zIndex: 9999 }}>
-      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-          <img src="/logo.png" alt="Verumen" style={{ width: '28px', height: '28px', objectFit: 'contain' }}/>
-          <span style={{ fontSize: '20px', fontWeight: 700, color: 'white', fontFamily: "'Geist', sans-serif", letterSpacing: '-0.02em' }}>Verumen</span>
-        </div>
-        <div className="animate-spin" style={{ width: '32px', height: '32px', border: '4px solid #a1a1aa', borderTopColor: 'transparent', borderRadius: '50%' }}/>
+      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+        <div className="animate-spin" style={{ width: '32px', height: '32px', border: '3px solid #52525b', borderTopColor: '#a1a1aa', borderRadius: '50%' }}/>
       </div>
     </div>
   );
