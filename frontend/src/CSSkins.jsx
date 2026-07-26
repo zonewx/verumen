@@ -1341,7 +1341,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     </a>
                                   )}
                                 </td>
-                                <td className={`px-4 py-2.5 text-xs text-zinc-400 whitespace-nowrap`}>{item.exterior || '—'}</td>
+                                <td className={`px-4 py-2.5 text-xs text-zinc-400 whitespace-nowrap`}>{/\|\s*vanilla\s*$/i.test(item.skin_name) ? '—' : (item.exterior || '—')}</td>
                                 <td className={`px-4 py-2.5 text-xs font-mono text-zinc-400`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
                                 <td className={`px-4 py-2.5 text-xs text-zinc-400`}>{item.purchase_date}</td>
                                 <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs">
@@ -1356,19 +1356,19 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
                                   <td colSpan={8} className="p-0">
-                                    <div className="bg-zinc-800/60 px-6 py-4 flex items-start justify-between gap-6" onClick={e => e.stopPropagation()}>
+                                    <div className="bg-zinc-800/60 px-6 py-4 flex items-start gap-6" onClick={e => e.stopPropagation()}>
                                       {/* Left: action buttons */}
                                       <div className="flex flex-col gap-2 shrink-0 pt-1">
                                         {!item.sold && (
-                                          <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition ">Sell</button>
+                                          <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Sell</button>
                                         )}
                                         <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Edit</button>
                                         <button onClick={() => setShowDeleteConfirm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition">Delete</button>
                                       </div>
-                                      {/* Right: screenshot */}
-                                      <div className="min-w-0">
+                                      {/* Screenshot */}
+                                      <div className="flex-1 min-w-0">
                                         {screenshotUrl
-                                          ? <div className="max-w-2xl"><SteamScreenshotEmbed url={screenshotUrl} /></div>
+                                          ? <SteamScreenshotEmbed url={screenshotUrl} />
                                           : null
                                         }
                                       </div>
