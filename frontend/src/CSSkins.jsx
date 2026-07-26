@@ -1268,6 +1268,17 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           <th className="pl-3 pr-1 py-3 w-6" />
                           {[
                             { key: 'skin_name', label: 'Skin' },
+                          ].map(({ key, label: colLabel }) => (
+                            <th
+                              key={key}
+                              onClick={() => toggleSort(key)}
+                              className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap text-zinc-400 hover:text-zinc-200 transition`}
+                            >
+                              {colLabel}<SortIcon col={key} />
+                            </th>
+                          ))}
+                          <th className="px-2 py-3 w-8" />
+                          {[
                             { key: 'exterior', label: 'Exterior' },
                             { key: 'float_value', label: 'Float' },
                             { key: 'purchase_date', label: 'Buy Date' },
@@ -1314,6 +1325,22 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return (<span className={`font-semibold flex items-baseline min-w-0 ${nameColor}`}><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
                                   </div>
                                 </td>
+                                <td className="px-2 py-2.5 w-8" onClick={e => e.stopPropagation()}>
+                                  {item.share_token && (
+                                    <a
+                                      href={`/trade/${item.share_token}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title="Share"
+                                      className="inline-flex items-center justify-center w-7 h-7 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition"
+                                    >
+                                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 3v13M7 8l5-5 5 5"/>
+                                        <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>
+                                      </svg>
+                                    </a>
+                                  )}
+                                </td>
                                 <td className={`px-4 py-2.5 text-xs text-zinc-400 whitespace-nowrap`}>{item.exterior || '—'}</td>
                                 <td className={`px-4 py-2.5 text-xs font-mono text-zinc-400`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
                                 <td className={`px-4 py-2.5 text-xs text-zinc-400`}>{item.purchase_date}</td>
@@ -1328,7 +1355,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               </tr>
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
-                                  <td colSpan={7} className="p-0">
+                                  <td colSpan={8} className="p-0">
                                     <div className="bg-zinc-800/60 px-6 py-4 flex items-start justify-between gap-6" onClick={e => e.stopPropagation()}>
                                       {/* Left: action buttons */}
                                       <div className="flex flex-col gap-2 shrink-0 pt-1">
