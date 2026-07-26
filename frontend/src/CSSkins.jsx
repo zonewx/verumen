@@ -1356,7 +1356,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
                                   <td colSpan={8} className="p-0">
-                                    <div className="bg-zinc-800/60 px-6 py-4 flex items-start gap-6" onClick={e => e.stopPropagation()}>
+                                    <div className="bg-zinc-800/60 px-6 py-4 flex items-start gap-5" onClick={e => e.stopPropagation()}>
                                       {/* Left: action buttons */}
                                       <div className="flex flex-col gap-2 shrink-0 pt-1">
                                         {!item.sold && (
@@ -1365,13 +1365,57 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                         <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Edit</button>
                                         <button onClick={() => setShowDeleteConfirm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition">Delete</button>
                                       </div>
-                                      {/* Screenshot */}
-                                      <div className="flex-1 min-w-0">
-                                        {screenshotUrl
-                                          ? <SteamScreenshotEmbed url={screenshotUrl} />
-                                          : null
-                                        }
+                                      {/* Divider */}
+                                      <div className="w-px self-stretch bg-zinc-700 shrink-0" />
+                                      {/* Middle: supplementary info */}
+                                      <div className="flex-1 min-w-0 flex flex-col gap-3 pt-1">
+                                        {/* Float bar */}
+                                        {item.float_value && !(/\|\s*vanilla\s*$/i.test(item.skin_name)) && (
+                                          <div>
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Float</p>
+                                            <div className="relative h-1.5 rounded-full overflow-hidden max-w-[240px]" style={{background:'linear-gradient(to right,#22c55e,#84cc16,#eab308,#f97316,#ef4444)'}}>
+                                              {[0.07,0.15,0.38,0.45].map(v => (
+                                                <div key={v} className="absolute top-0 bottom-0 w-px bg-black/30" style={{left:`${v*100}%`}} />
+                                              ))}
+                                              <div className="absolute top-1/2 w-2.5 h-2.5 bg-white rounded-full shadow border-2 border-zinc-800" style={{left:`${Math.min(parseFloat(item.float_value)*100,99.5)}%`,transform:'translate(-50%,-50%)'}} />
+                                            </div>
+                                            <p className="text-[11px] font-mono text-zinc-400 mt-1">{parseFloat(item.float_value).toFixed(4)}</p>
+                                          </div>
+                                        )}
+                                        {/* Stats */}
+                                        <div className="flex flex-wrap gap-x-6 gap-y-2">
+                                          {item.pattern != null && item.pattern !== '' && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Pattern</p>
+                                              <p className="text-sm font-mono">{item.pattern}</p>
+                                            </div>
+                                          )}
+                                          {!item.sold && currentPrice > 0 && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Current</p>
+                                              <p className="text-sm font-mono">{fmtBC(currentPrice)}</p>
+                                            </div>
+                                          )}
+                                          {(item.sold || currentPrice > 0) && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">P&L</p>
+                                              <p className={`text-sm font-bold ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>{pnlPos ? '+' : ''}{fmtBC(pnlVal)}</p>
+                                            </div>
+                                          )}
+                                          {item.notes && (
+                                            <div className="min-w-0">
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Notes</p>
+                                              <p className="text-sm text-zinc-300 max-w-xs truncate">{item.notes}</p>
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
+                                      {/* Right: screenshot */}
+                                      {screenshotUrl && (
+                                        <div className="shrink-0 w-72">
+                                          <SteamScreenshotEmbed url={screenshotUrl} />
+                                        </div>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>
