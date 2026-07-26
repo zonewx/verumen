@@ -66,13 +66,30 @@ export default function TradeSharePage() {
             <h1 className={`text-xl font-bold ${nameColor}`}>
               {hasStar ? <><span className="mr-1">★</span>{name.slice(1).trim()}</> : name}
             </h1>
-            {trade.exterior && <p className="text-sm text-zinc-400 mt-0.5">{trade.exterior}</p>}
+            {trade.exterior && !(/vanilla\s*$/i.test(trade.skinName)) && <p className="text-sm text-zinc-400 mt-0.5">{trade.exterior}</p>}
             {trade.username && (
               <p className="text-xs text-zinc-500 mt-2">
                 shared by <a href={`/user/${trade.username}`} className="text-sky-400 hover:underline">{trade.username}</a>
               </p>
             )}
           </div>
+
+          {/* Float bar */}
+          {trade.floatValue && !(/vanilla\s*$/i.test(trade.skinName)) && (
+            <div className="px-6 py-4 border-b border-zinc-800">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold mb-2">Float</p>
+              <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: 'linear-gradient(to right,#22c55e,#84cc16,#eab308,#f97316,#ef4444)' }}>
+                {[0.07, 0.15, 0.38, 0.45].map(v => (
+                  <div key={v} className="absolute top-0 bottom-0 w-px bg-black/30" style={{ left: `${v * 100}%` }} />
+                ))}
+                <div
+                  className="absolute top-1/2 w-2.5 h-2.5 bg-white rounded-full shadow border-2 border-zinc-900"
+                  style={{ left: `${Math.min(parseFloat(trade.floatValue) * 100, 99.5)}%`, transform: 'translate(-50%, -50%)' }}
+                />
+              </div>
+              <p className="text-xs font-mono text-zinc-400 mt-1.5">{parseFloat(trade.floatValue).toFixed(4)}</p>
+            </div>
+          )}
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-px bg-zinc-800 border-b border-zinc-800">

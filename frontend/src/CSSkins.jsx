@@ -1341,7 +1341,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     </a>
                                   )}
                                 </td>
-                                <td className={`px-4 py-2.5 text-xs text-zinc-400 whitespace-nowrap`}>{/\|\s*vanilla\s*$/i.test(item.skin_name) ? '—' : (item.exterior || '—')}</td>
+                                <td className={`px-4 py-2.5 text-xs text-zinc-400 whitespace-nowrap`}>{/vanilla\s*$/i.test(item.skin_name) ? '—' : (item.exterior || '—')}</td>
                                 <td className={`px-4 py-2.5 text-xs font-mono text-zinc-400`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
                                 <td className={`px-4 py-2.5 text-xs text-zinc-400`}>{item.purchase_date}</td>
                                 <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs">
@@ -1370,7 +1370,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                       {/* Middle: supplementary info */}
                                       <div className="flex-1 min-w-0 flex flex-col gap-3 pt-1">
                                         {/* Float bar */}
-                                        {item.float_value && !(/\|\s*vanilla\s*$/i.test(item.skin_name)) && (
+                                        {item.float_value && !(/vanilla\s*$/i.test(item.skin_name)) && (
                                           <div>
                                             <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Float</p>
                                             <div className="relative h-1.5 rounded-full overflow-hidden max-w-[240px]" style={{background:'linear-gradient(to right,#22c55e,#84cc16,#eab308,#f97316,#ef4444)'}}>
