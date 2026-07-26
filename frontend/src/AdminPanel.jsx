@@ -441,7 +441,7 @@ export default function AdminPanel({ authUsername }) {
         {/* Header */}
         {actionMsg && (
           <div className="flex justify-end mb-6">
-            <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : actionMsg.includes('Error') ? 'bg-red-900/40 text-red-400 border-red-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg}</div>
+            <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : actionMsg.includes('Error') ? 'bg-red-900/40 text-red-400 border-red-800' : 'bg-blue-900/40 text-blue-400 border-blue-800'}`}>{actionMsg.startsWith('✓') ? actionMsg.slice(2) : actionMsg}</div>
           </div>
         )}
 
@@ -542,7 +542,7 @@ export default function AdminPanel({ authUsername }) {
                           Last sync: {fmtAgo(lastPriceSync)} — auto-syncs every 24h. Admin sync bypasses the 1-hour cooldown.
                         </p>
                         {syncStatus && (
-                          <p className={`text-xs mt-1 ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{syncStatus}</p>
+                          <p className={`text-xs mt-1 ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{syncStatus.startsWith('✓') ? syncStatus.slice(2) : syncStatus}</p>
                         )}
                       </div>
                       <button onClick={syncPrices} disabled={syncingPrices} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
@@ -787,7 +787,6 @@ export default function AdminPanel({ authUsername }) {
                   </div>
                   {failures.length === 0 ? (
                     <div className="p-10 text-center">
-                      <p className="text-3xl mb-3">✅</p>
                       <p className="font-semibold">No ticker failures</p>
                       <p className={`text-sm mt-1 text-zinc-400`}>All tickers resolved successfully.</p>
                     </div>

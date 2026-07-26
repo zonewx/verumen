@@ -109,7 +109,7 @@ export default function SettingsPage({ baseCurrency, onSetBaseCurrency }) {
           </div>
           {syncStatus && (
             <p className={`text-xs mt-3 ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>
-              {syncStatus}
+              {syncStatus.startsWith('✓') ? syncStatus.slice(2) : syncStatus}
             </p>
           )}
         </div>

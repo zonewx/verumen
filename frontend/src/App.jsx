@@ -1403,7 +1403,7 @@ const handleUpload = async (files) => {
                           {resolveLoading && <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v5h-5"/></svg>}
                           {resolveLoading ? 'Re-resolving…' : 'Force Re-Resolve All Tickers'}
                         </button>
-                        {resolveStatus && <p className={`text-xs mt-3 ${resolveStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{resolveStatus}</p>}
+                        {resolveStatus && <p className={`text-xs mt-3 ${resolveStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{resolveStatus.startsWith('✓') ? resolveStatus.slice(2) : resolveStatus}</p>}
                       </div>
                       <div className={`${cardCls} p-6 flex flex-col`}>
                         <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Refresh Prices</h3>
@@ -1658,11 +1658,11 @@ const handleUpload = async (files) => {
                               <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
                                 {syncLoading ? '⏳ Syncing…' : '⟳ Sync Portfolio'}
                               </button>
-                              {syncStatus && <p className={`text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{syncStatus}</p>}
+                              {syncStatus && <p className={`text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{syncStatus.startsWith('✓') ? syncStatus.slice(2) : syncStatus}</p>}
                               <button onClick={handleResolveTickers} disabled={resolveLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200 disabled:opacity-50`}>
                                 {resolveLoading ? '⏳ Resolving...' : '🔍 Resolve Tickers'}
                               </button>
-                              {resolveStatus && <p className={`text-xs ${resolveStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{resolveStatus}</p>}
+                              {resolveStatus && <p className={`text-xs ${resolveStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{resolveStatus.startsWith('✓') ? resolveStatus.slice(2) : resolveStatus}</p>}
                             </>
                           )}
                         </div>

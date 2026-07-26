@@ -350,7 +350,7 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
                 <button onClick={saveProfile} disabled={saving} className="px-5 py-2 bg-zinc-600 hover:bg-zinc-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50">
                   {saving ? 'Saving...' : 'Save Profile'}
                 </button>
-                {saveMsg && <span className={`text-sm ${saveMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>{saveMsg}</span>}
+                {saveMsg && <span className={`text-sm ${saveMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>{saveMsg.startsWith('✓') ? saveMsg.slice(2) : saveMsg}</span>}
               </div>
             </div>
 

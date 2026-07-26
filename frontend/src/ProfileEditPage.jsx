@@ -280,7 +280,7 @@ export default function ProfileEditPage({ authUsername }) {
               <p className={`text-xs mt-1 text-zinc-400`}>3–20 characters, letters, numbers and underscores only.</p>
               {usernameMsg && (
                 <p className={`text-xs mt-2 font-medium ${usernameMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>
-                  {usernameMsg}
+                  {usernameMsg.startsWith('✓') ? usernameMsg.slice(2) : usernameMsg}
                 </p>
               )}
             </div>
@@ -341,7 +341,7 @@ export default function ProfileEditPage({ authUsername }) {
               <button onClick={saveProfile} disabled={saving} className="px-6 py-2.5 bg-zinc-600 hover:bg-zinc-500 text-white font-semibold rounded-lg transition disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save Profile'}
               </button>
-              {saveMsg && <span className={`text-sm ${saveMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>{saveMsg}</span>}
+              {saveMsg && <span className={`text-sm ${saveMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>{saveMsg.startsWith('✓') ? saveMsg.slice(2) : saveMsg}</span>}
             </div>
             <button onClick={() => navigate('/profile')} className={`text-sm text-zinc-400 hover:text-white transition`}>
               Discard changes

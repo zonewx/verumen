@@ -135,7 +135,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
       <div className="max-w-4xl mx-auto w-full flex flex-col gap-6 px-6 py-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Moderator Panel</h1>
-          {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-red-900/40 text-red-400 border-red-800'}`}>{actionMsg}</div>}
+          {actionMsg && <div className={`px-4 py-2 rounded-lg text-sm font-semibold border ${actionMsg.startsWith('✓') ? 'bg-green-900/40 text-green-400 border-green-800' : 'bg-red-900/40 text-red-400 border-red-800'}`}>{actionMsg.startsWith('✓') ? actionMsg.slice(2) : actionMsg}</div>}
         </div>
 
         {/* CS Prices */}
@@ -148,7 +148,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
                 Last sync: {fmtAgo(lastPriceSync)} — auto-syncs every 24h. Moderator sync bypasses the 1-hour cooldown.
               </p>
               {syncStatus && (
-                <p className={`text-xs mt-1 ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{syncStatus}</p>
+                <p className={`text-xs mt-1 ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-orange-400'}`}>{syncStatus.startsWith('✓') ? syncStatus.slice(2) : syncStatus}</p>
               )}
             </div>
             <button onClick={syncPrices} disabled={syncingPrices} className={`${btnBlue} shrink-0 disabled:opacity-50`}>
