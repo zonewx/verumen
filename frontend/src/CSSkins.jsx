@@ -101,12 +101,10 @@ function SteamScreenshotEmbed({ url }) {
       )}
       {!loading && !preview && (
         <div className={`flex items-center gap-3 p-3 rounded-xl border bg-zinc-700/50 border-zinc-600 hover:bg-zinc-600`}>
-          <span className="text-xl">📷</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Steam Screenshot</p>
             <p className="text-xs text-sky-400 truncate">{url}</p>
           </div>
-          <span className="text-xs text-sky-400 shrink-0">View ↗</span>
         </div>
       )}
     </a>
@@ -1335,10 +1333,10 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                       {/* Left: action buttons */}
                                       <div className="flex flex-col gap-2 shrink-0 pt-1">
                                         {!item.sold && (
-                                          <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition text-left">Sell</button>
+                                          <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition ">Sell</button>
                                         )}
-                                        <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition text-left">Edit</button>
-                                        <button onClick={() => setShowDeleteConfirm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition text-left">Delete</button>
+                                        <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Edit</button>
+                                        <button onClick={() => setShowDeleteConfirm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition">Delete</button>
                                       </div>
                                       {/* Right: screenshot */}
                                       <div className="min-w-0">
