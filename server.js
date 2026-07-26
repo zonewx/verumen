@@ -2596,9 +2596,9 @@ function buildTradePageHtml(opts) {
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${e(fullTitle)} — Verumen</title>
-  <meta property="og:title" content="${e(fullTitle)} — Verumen">
-  <meta property="og:description" content="${sold?'Sold':'Holding'} · Owned by ${e(username||'Verumen')}, shared on Verumen">
+  <title>${e(fullTitle)}</title>
+  <meta property="og:title" content="${e(fullTitle)}">
+  <meta property="og:description" content="${sold?'Sold':'Holding'} · Owned by ${e(username||'Verumen')}, shared via Verumen">
   <meta property="og:site_name" content="Verumen">
   ${ogImageUrl?`<meta property="og:image" content="${e(ogImageUrl)}">`:''}
   <meta name="twitter:card" content="${screenshotImgUrl||ogImageUrl?'summary_large_image':'summary'}">
