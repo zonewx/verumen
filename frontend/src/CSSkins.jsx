@@ -333,7 +333,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   }, [steamInventory]);
 
   const INVENTORY_CACHE_TTL = 10 * 60 * 1000;
-  const INVENTORY_CACHE_VERSION = 2; // bump when item shape changes
+  const INVENTORY_CACHE_VERSION = 3; // bump when item shape changes
 
   const fetchSteamInventory = async (force = false) => {
     const id = settings.steam_id;
@@ -368,8 +368,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
     try {
       const cached = sessionStorage.getItem('steam_inv_cache');
       if (cached) {
-        const { data, ts } = JSON.parse(cached);
-        if (Date.now() - ts < 10 * 60 * 1000) { setModalInventory(data.items || []); return; }
+        const { data, ts, v } = JSON.parse(cached);
+        if (v === INVENTORY_CACHE_VERSION && Date.now() - ts < INVENTORY_CACHE_TTL) { setModalInventory(data.items || []); return; }
       }
     } catch(e) {}
     setModalInvLoading(true);
