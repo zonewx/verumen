@@ -2505,8 +2505,10 @@ app.get('/trade/:token', async (req, res) => {
 });
 
 async function fetchSteamIcon(skinName, exterior) {
+  // Vanilla items (e.g. "★ Butterfly Knife | Vanilla") have no exterior in their market hash name
+  const isVanilla = /\|\s*Vanilla\s*$/i.test(skinName);
   const name = skinName.replace(/\s*\|\s*Vanilla\s*$/i, '');
-  const marketHashName = exterior && exterior !== 'Vanilla' ? `${name} (${exterior})` : name;
+  const marketHashName = (!isVanilla && exterior && exterior !== 'Vanilla') ? `${name} (${exterior})` : name;
   // Use market_hash_name for exact matching instead of fuzzy query=
   const r = await fetch(
     `https://steamcommunity.com/market/search/render/?appid=730&norender=1&count=1&market_hash_name=${encodeURIComponent(marketHashName)}`,
@@ -2531,8 +2533,15 @@ app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
     try {
       const iconUrl = await fetchSteamIcon(item.skin_name, item.exterior);
       if (!iconUrl) continue;
-      await supabase.from('cs_inventory').update({ icon_url: iconUrl }).eq('id', item.id).eq('user_id', req.user.id);
-      updated++;
+      // .is('icon_url', null) prevents overwriting an icon the user manually set
+      // while this background loop was still running (race condition guard)
+      const { data: upd } = await supabase.from('cs_inventory')
+        .update({ icon_url: iconUrl })
+        .eq('id', item.id)
+        .eq('user_id', req.user.id)
+        .is('icon_url', null)
+        .select('id');
+      if (upd?.length) updated++;
     } catch(e) {}
   }
   res.json({ updated });
