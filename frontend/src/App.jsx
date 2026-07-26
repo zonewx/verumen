@@ -2653,7 +2653,7 @@ const handleUpload = async (files) => {
         const isError = !isSuccess && (globalFlash.includes('Error') || globalFlash.includes('error') || globalFlash.includes('Failed') || globalFlash.includes('failed'));
         const text = isSuccess ? globalFlash.slice(2) : globalFlash;
         return (
-          <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[9998] pointer-events-none">
+          <div className="fixed z-[9998] pointer-events-none -translate-x-1/2" style={{ top: '52px', left: 'calc(50% + var(--sidebar-w) / 2)' }}>
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl">
               {isSuccess && (
                 <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
