@@ -1261,12 +1261,16 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
               {/* Table */}
               {filteredInv.length === 0 ? (
                 <div className={`${card} p-10 text-center`}>
-                  <p className="text-3xl mb-3">📋</p>
-                  <p className="font-semibold mb-1">{trackerSearch ? 'No matching trades' : 'No trades registered yet'}</p>
-                  <p className={`text-sm mb-4 text-zinc-300`}>
-                    {trackerSearch ? 'Try a different search term.' : 'Register skins you\'ve bought to track their value and P&L over time.'}
+                  <svg className="mx-auto mb-4 text-zinc-600" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+                  </svg>
+                  <p className="font-semibold mb-1">
+                    {trackerSearch ? 'No matching trades' : filterSold === 'sold' ? 'No sold trades yet' : filterSold === 'active' ? 'No trades currently held' : 'No trades registered yet'}
                   </p>
-                  {!trackerSearch && <button onClick={() => setShowAddForm(true)} className={btnOrange}>+ Register First Trade</button>}
+                  <p className={`text-sm mb-4 text-zinc-400`}>
+                    {trackerSearch ? 'Try a different search term.' : filterSold === 'sold' ? 'Trades you mark as sold will appear here.' : filterSold === 'active' ? 'All your trades have been marked as sold.' : 'Register skins you\'ve bought to track their value and P&L over time.'}
+                  </p>
+                  {!trackerSearch && filterSold !== 'sold' && <button onClick={() => setShowAddForm(true)} className={btnOrange}>+ Register First Trade</button>}
                 </div>
               ) : (
                 <div className={`${card} overflow-hidden`}>
