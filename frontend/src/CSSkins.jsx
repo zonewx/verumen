@@ -528,6 +528,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
     setShowEditForm(null);
     setSelectedEditItem(null);
     setEditInvSearch('');
+    setEditSaveError('');
   };
 
   const selectEditSkin = (item) => {
@@ -553,8 +554,11 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
     }
   };
 
+  const [editSaveError, setEditSaveError] = useState('');
+
   const saveEdit = async () => {
     if (!editForm.skin_name || editForm.purchase_price === '' || !editForm.purchase_date) return;
+    setEditSaveError('');
     const payload = {
       ...editForm,
       ...(selectedEditItem ? { steam_asset_id: selectedEditItem.assetId, icon_url: selectedEditItem.iconUrl || '' } : {}),
@@ -564,7 +568,11 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload),
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setEditSaveError(d.error || `Server error ${res.status}`);
+      return;
+    }
     closeEditModal();
     await fetchAll();
   };
@@ -1160,15 +1168,20 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                     </div>
 
                     {/* Footer */}
-                    <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
-                      <button
-                        onClick={saveEdit}
-                        disabled={!editForm.skin_name || editForm.purchase_price === '' || !editForm.purchase_date}
-                        className={`${btnOrange} disabled:opacity-40 disabled:cursor-not-allowed`}
-                      >
-                        Save Changes
-                      </button>
-                      <button onClick={closeEditModal} className={btnGhost}>Cancel</button>
+                    <div className={`flex flex-col gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
+                      {editSaveError && (
+                        <p className="text-xs text-red-400">{editSaveError}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveEdit}
+                          disabled={!editForm.skin_name || editForm.purchase_price === '' || !editForm.purchase_date}
+                          className={`${btnOrange} disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                          Save Changes
+                        </button>
+                        <button onClick={closeEditModal} className={btnGhost}>Cancel</button>
+                      </div>
                     </div>
                   </div>
                 </div>
