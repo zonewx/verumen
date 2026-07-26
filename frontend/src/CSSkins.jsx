@@ -1339,7 +1339,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     <div className="flex flex-col min-w-0 flex-1">
                                       {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return (<span className={`font-semibold flex items-baseline min-w-0 ${nameColor}`}><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
                                       {item.stickers?.length > 0 && (
-                                        <div className="flex items-center justify-center gap-0.5 mt-0.5" onClick={e => e.stopPropagation()}>
+                                        <div className="flex w-full items-center justify-center gap-0.5 mt-0.5" onClick={e => e.stopPropagation()}>
                                           {item.stickers.map((s, i) => (
                                             <img key={i} src={s.url} alt={s.name || ''} title={s.name || ''} className="w-5 h-5 object-contain opacity-70 hover:opacity-100 transition" />
                                           ))}
