@@ -169,10 +169,9 @@ export default function AdminPanel({ authUsername }) {
     fetchGlobalOverrides(true);
   };
 
-  useEffect(() => { fetchStats(); }, []);
+  useEffect(() => { fetchStats(); fetchDbSize(); }, []);
   useEffect(() => { if (tab === 'ticker-mgmt') { fetchFailures(); fetchGlobalOverrides(); } }, [tab]);
   useEffect(() => { if (tab === 'database') { fetchDbTables(); fetchDbSize(); } }, [tab]);
-  useEffect(() => { if (tab === 'overview') { fetchDbSize(); } }, [tab]);
   useEffect(() => { if (tab === 'diagnostics') fetchDiag(); }, [tab]);
 
   useEffect(() => {
@@ -364,7 +363,9 @@ export default function AdminPanel({ authUsername }) {
   const fetchDbSize = useCallback(async () => {
     setDbSizeLoading(true);
     try {
-      const res = await fetch('/api/admin/db/size', { headers: h });
+      const tok = getToken();
+      const headers = { 'Content-Type': 'application/json', ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}) };
+      const res = await fetch('/api/admin/db/size', { headers });
       const data = await res.json();
       if (!data.error) setDbSize(data);
     } catch(e) {}
