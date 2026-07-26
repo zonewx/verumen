@@ -576,7 +576,7 @@ app.get('/api/users/:username/profile', async (req, res) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
     let authenticated = false;
     if (token) { const { data: { user } } = await supabase.auth.getUser(token); if (user) authenticated = true; }
-    if (!authenticated) return res.status(403).json({ error: 'This profile is private.' });
+    if (!authenticated) return res.json({ username: data.username, avatarBase64: data.avatar_base64, isPrivate: true });
   }
   res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', isPublic: data.is_public !== false, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, publicCsTrades: data.public_cs_trades || false, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_verified ? (data.steam_id || null) : null, steamVerified: data.steam_verified || false, steamLevel: data.steam_verified ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
 });
@@ -2803,6 +2803,12 @@ const DB_TABLES = [
   'price_cache', 'portfolio_cache', 'ticker_cache', 'ticker_overrides',
   'global_isin_cache', 'global_ticker_overrides', 'app_settings', 'announcements',
 ];
+
+app.get('/api/admin/db/size', requireAdmin, async (req, res) => {
+  const { data, error } = await supabase.rpc('get_db_size_stats');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
 
 app.get('/api/admin/db/tables', requireAdmin, async (req, res) => {
   const counts = await Promise.all(DB_TABLES.map(async t => {

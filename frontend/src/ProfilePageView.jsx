@@ -257,6 +257,25 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
     );
   }
 
+  if (profile.isPrivate) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[60vh]">
+        <div className="bg-zinc-800 border border-zinc-700 rounded-2xl p-8 flex items-center gap-6 max-w-lg w-full mx-6 shadow-2xl">
+          <div className="shrink-0">
+            {profile.avatarBase64
+              ? <img src={profile.avatarBase64} alt={profile.username} className="w-24 h-24 rounded-full object-cover border-4 border-zinc-600" />
+              : <div className="w-24 h-24 rounded-full bg-zinc-700 border-4 border-zinc-600 flex items-center justify-center text-4xl font-bold text-zinc-400">{profile.username?.[0]?.toUpperCase() || '?'}</div>
+            }
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-1">{profile.username}</h2>
+            <p className="text-sky-400 text-sm">This profile is private.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
 
   return (
