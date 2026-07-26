@@ -2410,7 +2410,7 @@ function buildTradePageHtml(opts) {
 <div style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:32px;text-align:center;"><p style="color:#a1a1aa;font-size:14px;">${opts.error}</p></div>
 </body></html>`;
   }
-  const { displayName, hasStar, isST, exterior, floatValue, pattern, purchaseDate, purchasePrice, purchaseCurrency, sold, salePrice, saleCurrency, saleDate, notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl, username, avatarBase64 } = opts;
+  const { displayName, hasStar, isST, exterior, floatValue, pattern, purchaseDate, purchasePrice, purchaseCurrency, sold, salePrice, saleCurrency, saleDate, notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl, stickers, username, avatarBase64 } = opts;
   const BASE = process.env.APP_URL || 'https://verumen.com';
   const e = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const fmt = (n, cur) => n != null ? `${Number(n).toLocaleString('sv-SE', {minimumFractionDigits:2,maximumFractionDigits:2})} ${cur||''}` : '—';
@@ -2451,6 +2451,13 @@ function buildTradePageHtml(opts) {
       </div>
       <p style="color:#71717a;font-size:11px;font-family:ui-monospace,monospace;margin-top:6px;">${e(parseFloat(floatValue).toFixed(4))}</p>
     </div>` : ''}
+    ${stickers && stickers.length > 0 ? `
+    <div style="margin-bottom:18px;">
+      <p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Stickers</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        ${stickers.map(s => `<img src="${e(s.url)}" alt="${e(s.name||'')}" title="${e(s.name||'')}" style="width:40px;height:40px;object-fit:contain;">`).join('')}
+      </div>
+    </div>` : ''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#27272a;border-radius:10px;overflow:hidden;margin-bottom:18px;">
       ${stats.map(([lbl,val])=>`<div style="background:#111113;padding:12px 14px;"><p style="color:#71717a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 3px;">${e(lbl)}</p><p style="color:${lbl==='Status'?(val==='Holding'?'#4ade80':'#f87171'):'#f4f4f5'};font-size:13px;font-family:ui-monospace,monospace;margin:0;">${e(val)}</p></div>`).join('')}
     </div>
@@ -2485,7 +2492,7 @@ app.get('/trade/:token', async (req, res) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.token))
     return res.status(404).send(buildTradePageHtml({ error: 'Trade not found' }));
   const { data: item, error } = await supabase.from('cs_inventory')
-    .select('skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, sold, notes, screenshot_url, user_id, icon_url, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
+    .select('skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, sold, notes, screenshot_url, user_id, icon_url, stickers, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
     .eq('share_token', req.params.token).single();
   if (error || !item) return res.status(404).send(buildTradePageHtml({ error: 'Trade not found' }));
   const { data: profile } = await supabase.from('profiles').select('username, avatar_base64').eq('id', item.user_id).single();
@@ -2513,7 +2520,7 @@ app.get('/trade/:token', async (req, res) => {
   const displayName = hasStar ? cleaned.slice(1).trim() : cleaned;
   const ogImageUrl = item.icon_url || screenshotImgUrl || null;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(buildTradePageHtml({ skinName: item.skin_name, displayName, hasStar, isST, exterior: item.exterior, floatValue: item.float_value, pattern: item.pattern, purchaseDate: item.purchase_date, purchasePrice: item.purchase_price, purchaseCurrency: item.purchase_currency, sold: item.sold, salePrice: sale?.sale_price, saleCurrency: sale?.sale_currency, saleDate: sale?.sale_date, notes: item.notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl: item.icon_url, username: profile?.username, avatarBase64: profile?.avatar_base64 }));
+  res.send(buildTradePageHtml({ skinName: item.skin_name, displayName, hasStar, isST, exterior: item.exterior, floatValue: item.float_value, pattern: item.pattern, purchaseDate: item.purchase_date, purchasePrice: item.purchase_price, purchaseCurrency: item.purchase_currency, sold: item.sold, salePrice: sale?.sale_price, saleCurrency: sale?.sale_currency, saleDate: sale?.sale_date, notes: item.notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl: item.icon_url, stickers: item.stickers || [], username: profile?.username, avatarBase64: profile?.avatar_base64 }));
 });
 
 async function fetchSteamIcon(skinName, exterior) {
