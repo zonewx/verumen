@@ -1334,37 +1334,22 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
                                   <td colSpan={8} className="p-0">
-                                    <div className="bg-zinc-800/60 px-6 py-5">
-                                      {/* Top: info columns */}
-                                      <div className="flex items-start gap-4 mb-5">
-                                        {item.icon_url && (
-                                          <img src={item.icon_url} alt={item.skin_name} className="w-14 h-14 object-contain shrink-0" />
+                                    <div className="bg-zinc-800/60 px-6 py-4 flex gap-6 items-start">
+                                      {/* Left: action buttons */}
+                                      <div className="flex flex-col gap-2 shrink-0 pt-1">
+                                        {!item.sold && (
+                                          <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition text-left">Sell</button>
                                         )}
-                                        <div className="flex flex-wrap gap-x-8 gap-y-3">
-                                          {[
-                                            ['Exterior',   item.exterior],
-                                            ['Float',      item.float_value ? parseFloat(item.float_value).toFixed(4) : null],
-                                            ['Pattern',    item.pattern],
-                                            ['Buy date',   item.purchase_date],
-                                            ['Buy price',  fmtBC(item.purchase_price_display)],
-                                            ['Current',    item.sold ? null : (currentPrice > 0 ? fmtBC(currentPrice) : null)],
-                                            ['P&L',        (() => { const label = pnlPos ? `+${fmtBC(pnlVal)}` : fmtBC(pnlVal); return item.sold || currentPrice > 0 ? label : null; })()],
-                                            ['Sold on',    item.sold ? item.sale_date : null],
-                                            ['Sale price', item.sold ? fmtBC(item.sale_price_display) : null],
-                                            ['Notes',      item.notes],
-                                          ].filter(([, v]) => v).map(([lbl, val]) => (
-                                            <div key={lbl}>
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 text-zinc-400">{lbl}</p>
-                                              <p className={`text-sm ${lbl === 'P&L' ? (pnlPos ? 'text-green-400 font-bold' : 'text-red-400 font-bold') : ''}`}>{val}</p>
-                                            </div>
-                                          ))}
-                                        </div>
+                                        <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition text-left">Edit</button>
+                                        <button onClick={() => deleteItem(item.id)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition text-left">Remove</button>
                                       </div>
-                                      {/* Bottom: screenshot */}
-                                      {screenshotUrl
-                                        ? <div className="max-w-2xl"><SteamScreenshotEmbed url={screenshotUrl} /></div>
-                                        : null
-                                      }
+                                      {/* Right: screenshot */}
+                                      <div className="flex-1 min-w-0">
+                                        {screenshotUrl
+                                          ? <div className="max-w-2xl"><SteamScreenshotEmbed url={screenshotUrl} /></div>
+                                          : <p className="text-xs text-zinc-600 pt-1">No screenshot attached</p>
+                                        }
+                                      </div>
                                     </div>
                                   </td>
                                 </tr>
