@@ -226,7 +226,11 @@ export default function AdminPanel({ authUsername }) {
     const res = await fetch(`/api/admin/users/${username}/set-email`, { method: 'POST', headers: h, body: JSON.stringify({ email: trimmed }) });
     const data = await res.json();
     if (data.success) {
-      if (stats) setStats(s => ({ ...s, users: s.users.map(u => u.username === username ? { ...u, email: trimmed || null, emailVerified: false } : u) }));
+      if (stats) setStats(s => ({ ...s, users: s.users.map(u => u.username === username
+        ? trimmed
+          ? { ...u, pendingEmail: { email: trimmed } }
+          : { ...u, email: null, emailVerified: false, pendingEmail: null }
+        : u) }));
       setEditingEmailFor(null);
       setInlineEmailStatus('');
       flash(data.emailSent ? `✓ Email set — verification link sent to ${trimmed}` : `✓ Email updated for ${username}`);
