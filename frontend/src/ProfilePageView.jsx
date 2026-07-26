@@ -101,6 +101,12 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
     const cached = apiCache.get(`/api/users/${targetUser}/profile`);
     setProfile(cached || null);
     setLoadingProfile(!cached);
+    setUserActivity(apiCache.get(`/api/users/${targetUser}/activity`) || []);
+    setViewingHoldings(null);
+    setDividends(null);
+    setCsTrades(null);
+    setFriends([]);
+    setActiveTab('activity');
     fetchProfile();
   }, [targetUser]);
 
