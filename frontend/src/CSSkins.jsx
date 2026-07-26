@@ -464,7 +464,10 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
     }
     const payload = { ...addForm, skin_name: finalSkinName };
     delete payload.statTrak; delete payload.hasExterior;
-    if (selectedModalItem) payload.steam_asset_id = selectedModalItem.assetId;
+    if (selectedModalItem) {
+      payload.steam_asset_id = selectedModalItem.assetId;
+      payload.stickers = selectedModalItem.stickers || [];
+    }
     await fetch('/api/cs/inventory', {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -519,6 +522,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
       screenshot_url: item.screenshot_url || '',
       steam_asset_id: item.steam_asset_id || null,
       icon_url: item.icon_url || '',
+      stickers: item.stickers || [],
     });
     loadModalInventory();
   };
@@ -532,7 +536,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
 
   const selectEditSkin = (item) => {
     setSelectedEditItem(item);
-    setEditForm(f => ({ ...f, skin_name: item.name, steam_asset_id: item.assetId, icon_url: item.iconUrl || '' }));
+    setEditForm(f => ({ ...f, skin_name: item.name, steam_asset_id: item.assetId, icon_url: item.iconUrl || '', stickers: item.stickers || [] }));
   };
 
   const resetIcon = async () => {
@@ -1323,7 +1327,16 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     {item.icon_url && (
                                       <img src={item.icon_url} alt="" className="w-10 h-10 object-contain shrink-0 rounded" />
                                     )}
-                                    {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return (<span className={`font-semibold flex items-baseline min-w-0 ${nameColor}`}><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
+                                    <div className="min-w-0">
+                                      {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return (<span className={`font-semibold flex items-baseline min-w-0 ${nameColor}`}><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
+                                      {item.stickers?.length > 0 && (
+                                        <div className="flex gap-0.5 mt-1 flex-wrap">
+                                          {item.stickers.map((s, i) => (
+                                            <img key={i} src={s.url} alt={s.name || ''} title={s.name || ''} className="w-5 h-5 object-contain opacity-70 hover:opacity-100 transition" />
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 </td>
                                 <td className="px-2 py-2.5 w-8" onClick={e => e.stopPropagation()}>
@@ -1381,6 +1394,24 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                               <div className="absolute top-1/2 w-2.5 h-2.5 bg-white rounded-full shadow border-2 border-zinc-800" style={{left:`${Math.min(parseFloat(item.float_value)*100,99.5)}%`,transform:'translate(-50%,-50%)'}} />
                                             </div>
                                             <p className="text-[11px] font-mono text-zinc-400 mt-1">{parseFloat(item.float_value).toFixed(4)}</p>
+                                          </div>
+                                        )}
+                                        {/* Stickers */}
+                                        {item.stickers?.length > 0 && (
+                                          <div>
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Stickers</p>
+                                            <div className="flex gap-1.5 flex-wrap">
+                                              {item.stickers.map((s, i) => (
+                                                <div key={i} className="relative group/sticker">
+                                                  <img src={s.url} alt={s.name || ''} className="w-9 h-9 object-contain opacity-80 hover:opacity-100 transition" />
+                                                  {s.name && (
+                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg text-[11px] text-white whitespace-nowrap opacity-0 group-hover/sticker:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                                                      {s.name}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              ))}
+                                            </div>
                                           </div>
                                         )}
                                         {/* Stats */}

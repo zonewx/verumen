@@ -3406,8 +3406,16 @@ function validateScreenshotUrl(url) {
   return url;
 }
 
+const STICKER_URL_RE = /^https:\/\/(community\.(cloudflare|fastly)\.steamstatic\.com|steamcommunity-a\.akamaihd\.net)\/economy\/image\//;
+function safeStickerList(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(s => s && typeof s.url === 'string' && STICKER_URL_RE.test(s.url))
+            .map(s => ({ url: s.url, name: typeof s.name === 'string' ? s.name.slice(0, 100) : '' }))
+            .slice(0, 6);
+}
+
 app.post('/api/cs/inventory', requireUser, async (req, res) => {
-  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id, icon_url } = req.body;
+  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id, icon_url, stickers } = req.body;
   if (!skin_name||!purchase_date) return res.status(400).json({ error:'skin_name and purchase_date required' });
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
@@ -3416,14 +3424,14 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
   const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
-  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value:safeFloat, pattern:safePattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null, share_token:crypto.randomUUID() }).select().single();
+  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value:safeFloat, pattern:safePattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null, share_token:crypto.randomUUID(), stickers:safeStickerList(stickers) }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior });
   res.json({ id:data.id, success:true });
 });
 
 app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
-  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id, icon_url } = req.body;
+  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id, icon_url, stickers } = req.body;
   if (!skin_name || !purchase_date) return res.status(400).json({ error: 'skin_name and purchase_date required' });
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
@@ -3433,8 +3441,10 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
   const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
+  const updateFields = { skin_name, exterior, float_value: safeFloat, pattern: safePattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null, icon_url: safeIconUrl || null };
+  if (stickers !== undefined) updateFields.stickers = safeStickerList(stickers);
   const { error } = await supabase.from('cs_inventory')
-    .update({ skin_name, exterior, float_value: safeFloat, pattern: safePattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'SEK', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null, icon_url: safeIconUrl || null })
+    .update(updateFields)
     .eq('id', req.params.id)
     .eq('user_id', req.user.id);
   if (error) return res.status(500).json({ error: error.message });
