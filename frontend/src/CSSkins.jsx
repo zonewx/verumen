@@ -1327,16 +1327,14 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     {item.icon_url && (
                                       <img src={item.icon_url} alt="" className="w-10 h-10 object-contain shrink-0 rounded" />
                                     )}
-                                    <div className="min-w-0">
-                                      {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return (<span className={`font-semibold flex items-baseline min-w-0 ${nameColor}`}><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
-                                      {item.stickers?.length > 0 && (
-                                        <div className="flex gap-0.5 mt-1 flex-wrap">
-                                          {item.stickers.map((s, i) => (
-                                            <img key={i} src={s.url} alt={s.name || ''} title={s.name || ''} className="w-5 h-5 object-contain opacity-70 hover:opacity-100 transition" />
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
+                                    {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return (<span className={`font-semibold flex items-baseline flex-1 min-w-0 ${nameColor}`}><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
+                                    {item.stickers?.length > 0 && (
+                                      <div className="flex gap-0.5 items-center shrink-0">
+                                        {item.stickers.map((s, i) => (
+                                          <img key={i} src={s.url} alt={s.name || ''} title={s.name || ''} className="w-6 h-6 object-contain opacity-70 hover:opacity-100 transition" />
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="px-2 py-2.5 w-8" onClick={e => e.stopPropagation()}>
