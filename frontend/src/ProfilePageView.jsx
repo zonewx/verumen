@@ -98,6 +98,9 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
 
   useEffect(() => {
+    const cached = apiCache.get(`/api/users/${targetUser}/profile`);
+    setProfile(cached || null);
+    setLoadingProfile(!cached);
     fetchProfile();
   }, [targetUser]);
 
