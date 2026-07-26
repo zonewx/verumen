@@ -257,6 +257,17 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
     );
   }
 
+  if (profile.error) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <p className="text-5xl font-bold text-zinc-600 mb-3">404</p>
+          <p className="text-zinc-400 text-sm">This user doesn't exist.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (profile.isPrivate) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[60vh]">
