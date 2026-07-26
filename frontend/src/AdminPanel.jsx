@@ -631,7 +631,7 @@ export default function AdminPanel({ authUsername }) {
                   return (
                   <div key={u.username} className={`${card} overflow-hidden`}>
                     {/* Collapsed header row — click to toggle */}
-                    <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-700/20 transition" onClick={() => { setExpandedUser(isExpanded ? null : u.username); setEditingEmailFor(null); setSettingPasswordFor(null); setInlinePasswordStatus(''); setInlineEmailStatus(''); }}>
+                    <div className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-700/20 transition cursor-pointer" onClick={() => { setExpandedUser(isExpanded ? null : u.username); setEditingEmailFor(null); setSettingPasswordFor(null); setInlinePasswordStatus(''); setInlineEmailStatus(''); }}>
                       <div className="w-8 h-8 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">
                         {u.avatarBase64 ? <img src={u.avatarBase64} className="w-full h-full object-cover" alt={u.username}/> : u.username[0].toUpperCase()}
                       </div>
@@ -643,8 +643,9 @@ export default function AdminPanel({ authUsername }) {
                         </div>
                         <p className="text-xs text-zinc-500 mt-0.5">{u.transactionCount.toLocaleString()} tx · Joined {new Date(u.createdAt).toLocaleDateString()}</p>
                       </div>
+                      <a href={`/user/${u.username}`} onClick={e => e.stopPropagation()} className="text-xs text-zinc-400 hover:text-zinc-200 bg-zinc-700 hover:bg-zinc-600 px-2.5 py-1 rounded-lg transition shrink-0">View profile</a>
                       <svg className={`w-4 h-4 text-zinc-500 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                    </button>
+                    </div>
 
                     {/* Expanded details */}
                     {isExpanded && (
