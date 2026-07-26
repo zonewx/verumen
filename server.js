@@ -3722,7 +3722,11 @@ app.post('/api/auth/verify-email', async (req, res) => {
   if (record.used) return res.status(400).json({ error: 'This link has already been used.' });
   if (new Date(record.expires_at) < new Date()) return res.status(400).json({ error: 'Verification link has expired.' });
   // Commit the email to profiles now that the user confirmed ownership
-  await supabase.from('profiles').update({ email: record.email, email_verified: true }).eq('username', record.username);
+  const { error: updateErr } = await supabase.from('profiles').update({ email: record.email, email_verified: true }).eq('username', record.username);
+  if (updateErr) {
+    log.error('Failed to commit verified email to profile', { error: updateErr.message, username: record.username, email: record.email });
+    return res.status(500).json({ error: 'Failed to save email: ' + updateErr.message });
+  }
   await supabase.from('email_verification_tokens').update({ used: true }).eq('token', token);
   res.json({ success: true, username: record.username });
 });
