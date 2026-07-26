@@ -118,7 +118,7 @@ export default function App() {
     const cfg = window.__VERUMEN_CONFIG;
     if (cfg) return cfg.allowRegistration;
     const ls = localStorage.getItem('verumen_allowRegistration');
-    return ls !== null ? ls !== 'false' : null;
+    return ls !== null ? ls !== 'false' : true;
   });
   // True from login (or page-load while already logged in) until first fetchAllData completes
   const [isInitializing, setIsInitializing] = useState(() =>
