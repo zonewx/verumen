@@ -3640,8 +3640,24 @@ async function fetchSteamScreenshotPreview(id) {
     signal: AbortSignal.timeout(8000),
   });
   const json = await r.json();
-  const url = json?.response?.publishedfiledetails?.[0]?.preview_url;
-  return url ? url.split('?')[0] : null;
+  const fileInfo = json?.response?.publishedfiledetails?.[0];
+  if (!fileInfo) return null;
+
+  // Use GetUGCFileDetails to get the full-res screenshot file URL
+  const STEAM_KEY = process.env.STEAM_API_KEY;
+  if (STEAM_KEY && fileInfo.hcontent_file && fileInfo.hcontent_file !== '0') {
+    try {
+      const ugcRes = await fetch(
+        `https://api.steampowered.com/ISteamRemoteStorage/GetUGCFileDetails/v1/?key=${STEAM_KEY}&appid=760&ugcid=${fileInfo.hcontent_file}`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+      const ugc = await ugcRes.json();
+      if (ugc?.data?.url) return ugc.data.url;
+    } catch {}
+  }
+
+  // Fallback to preview_url without size-limiting query params
+  return fileInfo.preview_url?.split('?')[0] || null;
 }
 
 app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
