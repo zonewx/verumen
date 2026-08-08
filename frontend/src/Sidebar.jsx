@@ -1,6 +1,6 @@
 ﻿﻿import { useState, useEffect } from 'react';
 import { getToken } from './tokenStore';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 // Inline accordion content for portfolio actions
 function ActionContent({ id, pa, selectedBroker, onBrokerChange }) {
@@ -322,48 +322,49 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
             const hasActiveChild = item.subItems?.some(s => s.path && isActive(s.path));
             const active = item.path ? isActive(item.path) : hasActiveChild;
 
-            return (
-              <div key={item.id}>
-                <button
-                  onClick={() => {
-                    if (item.subItems) {
-                      if (!isExpanded) setIsExpanded(true);
-                      toggleMenu(item.id);
-                    } else {
-                      navigate(item.path);
-                    }
+            const navItemCls = `w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${active ? activeBg : hoverBg} ${textPrimary}`;
+            const navItemChildren = (
+              <>
+                <Icon size={20} className={`shrink-0 ${active ? 'text-zinc-200' : textSecondary}`} />
+                <span
+                  className={`text-sm text-left whitespace-nowrap min-w-0 overflow-hidden ${isExpanded ? 'flex-1' : 'w-0'}`}
+                  style={{
+                    opacity: isExpanded ? 1 : 0,
+                    transform: isExpanded ? 'none' : 'translateX(-12px)',
+                    transition: isExpanded
+                      ? 'opacity 200ms ease 150ms, transform 200ms ease 150ms'
+                      : 'opacity 150ms ease, transform 150ms ease',
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${active ? activeBg : hoverBg} ${textPrimary}`}
-                  title={!isExpanded ? item.label : ''}
-                >
-                  <Icon size={20} className={`shrink-0 ${active ? 'text-zinc-200' : textSecondary}`} />
-                  <span
-                    className={`text-sm text-left whitespace-nowrap min-w-0 overflow-hidden ${isExpanded ? 'flex-1' : 'w-0'}`}
+                >{item.label}</span>
+                {item.subItems && (
+                  <ChevronLeft
+                    size={15}
+                    className={`${textSecondary} ${isOpen ? '-rotate-90' : 'rotate-180'}`}
                     style={{
                       opacity: isExpanded ? 1 : 0,
-                      transform: isExpanded ? 'none' : 'translateX(-12px)',
-                      transition: isExpanded
-                        ? 'opacity 200ms ease 150ms, transform 200ms ease 150ms'
-                        : 'opacity 150ms ease, transform 150ms ease',
+                      transition: isExpanded ? 'opacity 200ms ease 150ms' : 'opacity 150ms ease',
+                      width: isExpanded ? 'auto' : 0,
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      minWidth: isExpanded ? 'auto' : 0,
                     }}
-                  >{item.label}</span>
-                  {item.subItems && (
-                    <ChevronLeft
-                      size={15}
-                      className={`${textSecondary} ${isOpen ? '-rotate-90' : 'rotate-180'}`}
-                      style={{
-                        opacity: isExpanded ? 1 : 0,
-                        transition: isExpanded
-                          ? 'opacity 200ms ease 150ms'
-                          : 'opacity 150ms ease',
-                        width: isExpanded ? 'auto' : 0,
-                        overflow: 'hidden',
-                        flexShrink: 0,
-                        minWidth: isExpanded ? 'auto' : 0,
-                      }}
-                    />
-                  )}
-                </button>
+                  />
+                )}
+              </>
+            );
+            return (
+              <div key={item.id}>
+                {item.subItems ? (
+                  <button
+                    onClick={() => { if (!isExpanded) setIsExpanded(true); toggleMenu(item.id); }}
+                    className={navItemCls}
+                    title={!isExpanded ? item.label : ''}
+                  >{navItemChildren}</button>
+                ) : (
+                  <Link to={item.path} className={navItemCls} title={!isExpanded ? item.label : ''}>
+                    {navItemChildren}
+                  </Link>
+                )}
 
                 {item.subItems && isOpen && isExpanded && (
                   <div className={`ml-4 mt-0.5 mb-1 pl-3 border-l border-zinc-700 space-y-0.5`}>
@@ -407,16 +408,16 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
                       }
 
                       return (
-                        <button
+                        <Link
                           key={subItem.id}
-                          onClick={() => navigate(subItem.path)}
+                          to={subItem.path}
                           className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-left ${
                             isActive(subItem.path) ? activeBg : hoverBg
                           } ${textPrimary}`}
                         >
                           {subItem.icon && <span className={`shrink-0 ${isActive(subItem.path) ? 'text-zinc-200' : textSecondary}`}>{subItem.icon}</span>}
                           <span className="text-sm">{subItem.label}</span>
-                        </button>
+                        </Link>
                       );
                     })}
                   </div>
@@ -437,8 +438,8 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
       />
       <div className="p-2">
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => navigate(`/user/${currentUser?.username}`)}
+          <Link
+            to={`/user/${currentUser?.username}`}
             className={`flex-1 min-w-0 overflow-hidden flex items-center gap-3 py-2 rounded-lg ${hoverBg} ${textPrimary}`}
             style={{ paddingLeft: isExpanded ? '12px' : '8px', paddingRight: isExpanded ? '12px' : '8px', transition: 'background-color 150ms ease, padding-left 300ms cubic-bezier(0.4, 0, 0.2, 1), padding-right 300ms cubic-bezier(0.4, 0, 0.2, 1)' }}
             title={!isExpanded ? currentUser?.username : ''}
@@ -464,9 +465,9 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
               <p className="text-sm font-medium truncate">{currentUser?.username}</p>
               <p className="text-xs text-zinc-400">{currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : ''}</p>
             </div>
-          </button>
-          <button
-            onClick={() => navigate(`/user/${currentUser?.username}/edit`)}
+          </Link>
+          <Link
+            to={`/user/${currentUser?.username}/edit`}
             className={`rounded-lg ${hoverBg} shrink-0 text-xs font-semibold ${textSecondary} overflow-hidden`}
             style={{
               opacity: isExpanded ? 1 : 0,
@@ -480,7 +481,7 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
             }}
           >
             Edit
-          </button>
+          </Link>
         </div>
       </div>
     </div>

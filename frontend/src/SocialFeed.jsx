@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
 import { flash } from './flash';
@@ -108,10 +109,12 @@ function PostHeader({ item, onDelete, isOwn }) {
   const [confirming, setConfirming] = useState(false);
   return (
     <div className="flex items-center gap-2.5 mb-3">
-      <Avatar src={item.avatarBase64} username={item.username} />
+      <Link to={`/user/${item.username}`}>
+        <Avatar src={item.avatarBase64} username={item.username} />
+      </Link>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="font-semibold text-sm text-zinc-100">{item.username}</span>
+          <Link to={`/user/${item.username}`} className="font-semibold text-sm text-zinc-100 hover:underline">{item.username}</Link>
           {item.isUpdate && <span className="text-xs text-zinc-100">updated a holding</span>}
         </div>
         <p className="text-xs text-zinc-500 mt-0.5">{timeAgo(item.createdAt)}</p>

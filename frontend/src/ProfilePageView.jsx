@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
 
@@ -614,10 +614,10 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
               ) : friends.length > 0 ? (
                 <div className="flex flex-col gap-1">
                   {friends.map(friend => (
-                    <div
+                    <Link
                       key={friend.username}
-                      onClick={() => navigate(`/user/${friend.username}`)}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-700/50 cursor-pointer transition"
+                      to={`/user/${friend.username}`}
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-700/50 transition"
                     >
                       <AvatarDisplay src={friend.avatarBase64} username={friend.username} size="w-8 h-8" textSize="text-sm" />
                       <div className="flex-1 min-w-0">
@@ -628,7 +628,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                           </span>
                         )}
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : (
