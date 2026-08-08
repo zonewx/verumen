@@ -4,7 +4,7 @@ import apiCache from './apiCache';
 import { getToken } from './tokenStore';
 
 const EXTERIORS = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
-const CURRENCIES = ['SEK', 'USD', 'EUR'];
+const CURRENCIES = ['USD', 'EUR', 'SEK'];
 
 // Vanilla = special item (★) with no skin pattern (no |)
 const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | Vanilla` : (n || '');
@@ -257,12 +257,12 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [sortDir, setSortDir] = useState('desc');
   const [addForm, setAddForm] = useState({
     skin_name: '', statTrak: false, hasExterior: true, exterior: 'Factory New', float_value: '', pattern: '',
-    purchase_price: '', purchase_currency: 'SEK',
+    purchase_price: '', purchase_currency: 'USD',
     purchase_date: new Date().toISOString().split('T')[0],
     notes: '', screenshot_url: '', icon_url: ''
   });
   const [sellForm, setSellForm] = useState({
-    sale_price: '', sale_currency: 'SEK',
+    sale_price: '', sale_currency: 'USD',
     sale_date: new Date().toISOString().split('T')[0],
     notes: '', screenshot_url: ''
   });
@@ -476,7 +476,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
     closeAddModal();
     setAddForm({
       skin_name: '', statTrak: false, hasExterior: true, exterior: 'Factory New', float_value: '', pattern: '',
-      purchase_price: '', purchase_currency: 'SEK',
+      purchase_price: '', purchase_currency: 'USD',
       purchase_date: new Date().toISOString().split('T')[0],
       notes: '', screenshot_url: '', icon_url: ''
     });
@@ -492,7 +492,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
     });
     setShowSellForm(null);
     setSellForm({
-      sale_price: '', sale_currency: 'SEK',
+      sale_price: '', sale_currency: 'USD',
       sale_date: new Date().toISOString().split('T')[0],
       notes: '', screenshot_url: ''
     });
@@ -516,7 +516,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
       float_value: item.float_value || '',
       pattern: item.pattern || '',
       purchase_price: item.purchase_price ?? '',
-      purchase_currency: item.purchase_currency || 'SEK',
+      purchase_currency: item.purchase_currency || 'USD',
       purchase_date: item.purchase_date || new Date().toISOString().split('T')[0],
       notes: item.notes || '',
       screenshot_url: item.screenshot_url || '',
