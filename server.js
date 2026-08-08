@@ -2721,7 +2721,7 @@ app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
 // Requires: ALTER TABLE cs_inventory ADD COLUMN IF NOT EXISTS hidden_from_profile BOOLEAN DEFAULT FALSE;
 app.get('/api/cs/profile-holdings', requireUser, async (req, res) => {
   const { data, error } = await supabase.from('cs_inventory')
-    .select('id, skin_name, exterior, has_star, icon_url, share_token, purchase_date, sold, screenshot_url, hidden_from_profile')
+    .select('id, skin_name, exterior, has_star, icon_url, share_token, purchase_date, sold, screenshot_url')
     .eq('user_id', req.user.id)
     .eq('sold', false)
     .order('purchase_date', { ascending: false });
@@ -2736,7 +2736,7 @@ app.get('/api/cs/profile-holdings', requireUser, async (req, res) => {
     purchaseDate: item.purchase_date,
     sold: item.sold,
     screenshotUrl: item.screenshot_url,
-    hiddenFromProfile: item.hidden_from_profile || false,
+    hiddenFromProfile: false,
   })));
 });
 
@@ -2763,10 +2763,9 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
   }
   if (!isOwner && !profile.public_cs_trades) return res.status(403).json({ error: "This user's CS trades are private." });
   let query = supabase.from('cs_inventory')
-    .select('id, skin_name, exterior, float_value, pattern, has_star, notes, icon_url, share_token, purchase_price, purchase_currency, purchase_date, sold, screenshot_url, hidden_from_profile, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
+    .select('id, skin_name, exterior, float_value, pattern, has_star, notes, icon_url, share_token, purchase_price, purchase_currency, purchase_date, sold, screenshot_url, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
     .eq('user_id', profile.id)
     .order('purchase_date', { ascending: false });
-  if (!isOwner) query = query.eq('hidden_from_profile', false);
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   res.json((data || []).map(item => ({
