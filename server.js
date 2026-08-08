@@ -3643,20 +3643,33 @@ async function fetchSteamScreenshotPreview(id) {
   const fileInfo = json?.response?.publishedfiledetails?.[0];
   if (!fileInfo) return null;
 
-  console.log('[screenshot] hcontent_file:', fileInfo.hcontent_file, 'hcontent_preview:', fileInfo.hcontent_preview, 'preview_url:', fileInfo.preview_url);
-
-  // Use GetUGCFileDetails to get the full-res screenshot file URL
   const STEAM_KEY = process.env.STEAM_API_KEY;
   if (STEAM_KEY && fileInfo.hcontent_file && fileInfo.hcontent_file !== '0') {
+    // Try GetUGCFileDetails with both CS2 (730) and Steam (760) appids
+    for (const appid of [730, 760]) {
+      try {
+        const ugcRes = await fetch(
+          `https://api.steampowered.com/ISteamRemoteStorage/GetUGCFileDetails/v1/?key=${STEAM_KEY}&appid=${appid}&ugcid=${fileInfo.hcontent_file}`,
+          { signal: AbortSignal.timeout(5000) }
+        );
+        const ugc = await ugcRes.json();
+        console.log(`[screenshot] GetUGCFileDetails appid=${appid}:`, JSON.stringify(ugc));
+        if (ugc?.data?.url) return ugc.data.url;
+      } catch(e) { console.log(`[screenshot] GetUGCFileDetails appid=${appid} error:`, e.message); }
+    }
+
+    // Try IPublishedFileService/GetDetails which returns more fields
     try {
-      const ugcRes = await fetch(
-        `https://api.steampowered.com/ISteamRemoteStorage/GetUGCFileDetails/v1/?key=${STEAM_KEY}&appid=760&ugcid=${fileInfo.hcontent_file}`,
+      const svcRes = await fetch(
+        `https://api.steampowered.com/IPublishedFileService/GetDetails/v1/?key=${STEAM_KEY}&publishedfileids[0]=${id}`,
         { signal: AbortSignal.timeout(5000) }
       );
-      const ugc = await ugcRes.json();
-      console.log('[screenshot] GetUGCFileDetails response:', JSON.stringify(ugc));
-      if (ugc?.data?.url) return ugc.data.url;
-    } catch(e) { console.log('[screenshot] GetUGCFileDetails error:', e.message); }
+      const svc = await svcRes.json();
+      const detail = svc?.response?.publishedfiledetails?.[0];
+      console.log('[screenshot] IPublishedFileService detail keys:', Object.keys(detail || {}));
+      console.log('[screenshot] IPublishedFileService detail:', JSON.stringify(detail));
+      if (detail?.file_url) return detail.file_url;
+    } catch(e) { console.log('[screenshot] IPublishedFileService error:', e.message); }
   }
 
   // Fallback to preview_url without size-limiting query params
