@@ -250,7 +250,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [skinSearchResults, setSkinSearchResults] = useState([]);
   const [fetchingFloat, setFetchingFloat] = useState(false);
   const [filterSold, setFilterSold] = useState('all');
-  const [expandedRow, setExpandedRow] = useState(null);
+  const [expandedRows, setExpandedRows] = useState(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [trackerSearch, setTrackerSearch] = useState('');
   const [sortCol, setSortCol] = useState('purchase_date');
@@ -1314,13 +1314,13 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                           const buyPrice = item.purchase_price_display || 0;
                           const pnlVal = item.sold ? ((item.sale_price_display || 0) - buyPrice) : (currentPrice - buyPrice);
                           const pnlPos = pnlVal >= 0;
-                          const isExpanded = expandedRow === item.id;
+                          const isExpanded = expandedRows.has(item.id);
                           const screenshotUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url;
                           const isVanilla = !item.float_value;
                           return (
                             <Fragment key={item.id}>
                               <tr
-                                onClick={() => setExpandedRow(isExpanded ? null : item.id)}
+                                onClick={() => setExpandedRows(prev => { const next = new Set(prev); isExpanded ? next.delete(item.id) : next.add(item.id); return next; })}
                                 className={`border-t ${isExpanded ? 'bg-zinc-700/40' : ''} border-zinc-700 hover:bg-zinc-600/30 transition cursor-pointer`}
                               >
                                 <td className="pl-3 pr-1 py-2.5 w-6">

@@ -158,7 +158,7 @@ export default function App() {
   const [overrideMsg, setOverrideMsg] = useState('');
   const [sortCol, setSortCol] = useState('value');
   const [sortDir, setSortDir] = useState('desc');
-  const [expandedYear, setExpandedYear] = useState(null);
+  const [expandedYears, setExpandedYears] = useState(new Set());
   const [appLoadingLabel, setAppLoadingLabel] = useState('Loading your data...');
   const [isAppLoading, setIsAppLoading] = useState(() => {
     const saved = JSON.parse(localStorage.getItem('portfolio')) || [];
@@ -2162,15 +2162,15 @@ const handleUpload = async (files) => {
                               <div className="flex flex-col gap-1">
                                 {displayByYear.map(({ year, total, stocks }) => (
                                   <div key={year}>
-                                    <div onClick={() => setExpandedYear(expandedYear === year ? null : year)} className={`flex items-center gap-3 py-1.5 px-2 cursor-pointer rounded-lg hover:bg-zinc-700/50 transition`}>
+                                    <div onClick={() => setExpandedYears(prev => { const next = new Set(prev); next.has(year) ? next.delete(year) : next.add(year); return next; })} className={`flex items-center gap-3 py-1.5 px-2 cursor-pointer rounded-lg hover:bg-zinc-700/50 transition`}>
                                       <span className={`text-sm font-bold w-12 shrink-0 text-zinc-200`}>{year}</span>
                                       <div className={`flex-1 h-5 bg-zinc-700 rounded-full overflow-hidden`}>
                                         <div className="h-full rounded-full bg-linear-to-r from-red-500 to-pink-500" style={{ width: `${maxDiv > 0 ? (total / maxDiv) * 100 : 0}%`, transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)' }} />
                                       </div>
                                       <span className={`text-sm font-bold w-24 text-right shrink-0 text-zinc-200`}>{fmtH(total)}</span>
-                                      <span className={`text-xs w-4 shrink-0 text-center text-zinc-400`}>{expandedYear === year ? '▲' : '▼'}</span>
+                                      <span className={`text-xs w-4 shrink-0 text-center text-zinc-400`}>{expandedYears.has(year) ? '▲' : '▼'}</span>
                                     </div>
-                                    <div style={{ maxHeight: expandedYear === year ? `${(stocks?.length || 0) * 28 + 16}px` : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
+                                    <div style={{ maxHeight: expandedYears.has(year) ? `${(stocks?.length || 0) * 28 + 16}px` : '0px', overflow: 'hidden', transition: 'max-height 0.3s ease' }}>
                                       <div className={`ml-14 mt-1 mb-2 flex flex-col gap-1 border-l-2 border-zinc-700 pl-3`}>
                                         {stocks?.map(({ name, total: sTotal }) => (
                                           <div key={name} className="flex items-center gap-3">

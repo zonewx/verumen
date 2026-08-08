@@ -93,7 +93,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [activeTab, setActiveTab] = useState('activity');
-  const [expandedTradeId, setExpandedTradeId] = useState(null);
+  const [expandedTradeIds, setExpandedTradeIds] = useState(new Set());
 
   const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
 
@@ -503,7 +503,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                   <div className="divide-y divide-zinc-700/40">
                     {csTrades.map(t => {
                       const hasScreenshot = !!t.screenshotUrl;
-                      const isExpanded = expandedTradeId === t.id;
+                      const isExpanded = expandedTradeIds.has(t.id);
                       const fmtPrice = (price, currency) => price != null
                         ? `${price.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${currency || ''}`
                         : '—';
@@ -512,7 +512,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                       return (
                         <Fragment key={t.id}>
                           <div
-                            onClick={() => hasScreenshot && setExpandedTradeId(isExpanded ? null : t.id)}
+                            onClick={() => hasScreenshot && setExpandedTradeIds(prev => { const next = new Set(prev); isExpanded ? next.delete(t.id) : next.add(t.id); return next; })}
                             className={`flex items-center gap-3 px-4 py-3 transition ${hasScreenshot ? 'cursor-pointer hover:bg-zinc-700/20' : ''}`}
                           >
                             {/* Chevron */}

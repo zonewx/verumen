@@ -24,7 +24,7 @@ export default function AdminPanel({ authUsername }) {
   const [lastPriceSync, setLastPriceSync] = useState(null);
 
   // User accordion + inline editing
-  const [expandedUser, setExpandedUser] = useState(null);
+  const [expandedUsers, setExpandedUsers] = useState(new Set());
   const [editingEmailFor, setEditingEmailFor] = useState(null);
   const [inlineEmailVal, setInlineEmailVal] = useState('');
   const [inlineEmailStatus, setInlineEmailStatus] = useState('');
@@ -615,7 +615,7 @@ export default function AdminPanel({ authUsername }) {
                   .sort((a, b) => a.username.localeCompare(b.username))
                   .map(u => {
                   const roleBadgeCls = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800' };
-                  const isExpanded = expandedUser === u.username;
+                  const isExpanded = expandedUsers.has(u.username);
                   const isEditingEmail = editingEmailFor === u.username;
                   const isSettingPassword = settingPasswordFor === u.username;
                   const resetStatus = sendingResetFor[u.username];
@@ -624,7 +624,7 @@ export default function AdminPanel({ authUsername }) {
                   return (
                   <div key={u.username} className={`${card} overflow-hidden`}>
                     {/* Collapsed header row — click to toggle */}
-                    <div className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-700/20 transition cursor-pointer" onClick={() => { setExpandedUser(isExpanded ? null : u.username); setEditingEmailFor(null); setSettingPasswordFor(null); setInlinePasswordStatus(''); setInlineEmailStatus(''); }}>
+                    <div className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-700/20 transition cursor-pointer" onClick={() => { setExpandedUsers(prev => { const next = new Set(prev); isExpanded ? next.delete(u.username) : next.add(u.username); return next; }); setEditingEmailFor(null); setSettingPasswordFor(null); setInlinePasswordStatus(''); setInlineEmailStatus(''); }}>
                       <div className="w-8 h-8 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold text-xs shrink-0 overflow-hidden">
                         {u.avatarBase64 ? <img src={u.avatarBase64} className="w-full h-full object-cover" alt={u.username}/> : u.username[0].toUpperCase()}
                       </div>
