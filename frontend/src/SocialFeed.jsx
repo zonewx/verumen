@@ -172,6 +172,7 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
   return (
     <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
       <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
+      <p className="text-xs text-zinc-500 -mt-1 mb-3">{item.username} updated an existing trade</p>
       <div className={`flex items-center gap-3 pl-3 border-l-2 ${borderCls} mb-3`}>
         {skinIcon && (
           <div className="w-14 h-14 shrink-0 flex items-center justify-center">
@@ -185,8 +186,8 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
             {item.exterior && <span className="ml-1.5 text-zinc-600">· {item.exterior}</span>}
           </p>
         </div>
-        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${isBuy ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
-          {isBuy ? 'Bought' : 'Sold'}
+        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 bg-zinc-700/60 text-zinc-400">
+          Screenshot
         </span>
       </div>
       <SteamScreenshotPreview url={item.screenshotUrl} imgUrl={item.screenshotImgUrl} />
