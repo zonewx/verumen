@@ -3633,14 +3633,14 @@ app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
 });
 
 async function fetchSteamScreenshotPreview(id) {
-  const r = await fetch(`https://steamcommunity.com/sharedfiles/filedetails/?id=${id}`, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+  const r = await fetch('https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `itemcount=1&publishedfileids[0]=${id}`,
     signal: AbortSignal.timeout(8000),
   });
-  const html = await r.text();
-  const match = html.match(/property="og:image"[^>]*content="([^"]+)"/i)
-              || html.match(/content="([^"]+)"[^>]*property="og:image"/i);
-  return match?.[1] || null;
+  const json = await r.json();
+  return json?.response?.publishedfiledetails?.[0]?.preview_url || null;
 }
 
 app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
