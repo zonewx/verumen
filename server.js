@@ -3014,7 +3014,14 @@ app.get('/api/feed', requireUser, async (req, res) => {
     res.json((activity||[]).map(a => {
       const profile = profileMap[a.user_id] || {};
       const payload = a.payload || {};
-      return { ...payload, id: a.id, type: a.type, createdAt: a.created_at, username: profile.username, avatarBase64: profile.avatar_base64, role: profile.role };
+      // Strip prices stored in non-USD currency to avoid displaying misleading values
+      const normalized = { ...payload };
+      if (normalized.currency && normalized.currency !== 'USD') {
+        delete normalized.price;
+        delete normalized.sellPrice;
+        delete normalized.buyPrice;
+      }
+      return { ...normalized, id: a.id, type: a.type, createdAt: a.created_at, username: profile.username, avatarBase64: profile.avatar_base64, role: profile.role };
     }));
   } catch(e) {
     log.error('feed failed', { error: e.message });
