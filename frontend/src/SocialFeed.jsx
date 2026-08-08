@@ -401,7 +401,6 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <button onClick={() => onViewProfile(user.username)} className="font-medium text-sm text-zinc-200 hover:text-white transition truncate">{user.username}</button>
-          {user.role && ROLE_BADGE_SIDEBAR[user.role] && <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold shrink-0 ${ROLE_BADGE_SIDEBAR[user.role].cls}`}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span>}
         </div>
         {user.bio && <p className="text-xs text-zinc-500 truncate">{user.bio}</p>}
       </div>

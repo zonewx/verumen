@@ -187,9 +187,6 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
                 <div className={`${card} p-6 flex flex-col items-center text-center`}>
                   <AvatarDisplay src={profile.avatarBase64} username={profile.username} size="w-28 h-28" textSize="text-5xl" />
                   <h2 className="text-xl font-bold mt-4 mb-1">{profile.username}</h2>
-                  {profile.role && ROLE_BADGE[profile.role] && (
-                    <span className={`text-xs px-2.5 py-1 rounded-full mb-2 ${ROLE_BADGE[profile.role].cls}`}>{ROLE_BADGE[profile.role].label}</span>
-                  )}
                   <p className={`text-sm text-zinc-400`}>Member since {formatDate(profile.createdAt)}</p>
                   {profile.bio && <p className={`text-sm mt-3 leading-relaxed text-zinc-300`}>{profile.bio}</p>}
                   <div className="flex flex-wrap gap-2 mt-3 justify-center">
@@ -282,9 +279,6 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
                 {avatarUploading && <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center"><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"/></div>}
               </div>
               <h2 className="text-xl font-bold">{authUsername}</h2>
-              {profile?.role && ROLE_BADGE[profile.role] && (
-                <span className={`text-xs px-2.5 py-1 rounded-full mt-1 mb-1 ${ROLE_BADGE[profile.role].cls}`}>{ROLE_BADGE[profile.role].label}</span>
-              )}
               <p className={`text-sm mt-1 text-zinc-400`}>Member since {formatDate(profile?.createdAt)}</p>
               {editForm.avatarBase64 && (
                 <button onClick={() => setEditForm(f => ({ ...f, avatarBase64: null }))} className={`text-xs mt-2 text-zinc-400 hover:text-red-400 transition`}>Remove photo</button>
@@ -362,9 +356,6 @@ export default function ProfilePage({ authUsername, viewUsername = null }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center flex-wrap gap-2 mb-1">
                     <span className="font-bold text-lg">{authUsername}</span>
-                    {profile?.role && ROLE_BADGE[profile.role] && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${ROLE_BADGE[profile.role].cls}`}>{ROLE_BADGE[profile.role].label}</span>
-                    )}
                   </div>
                   <p className={`text-xs mb-2 text-zinc-400`}>Joined {formatDate(profile?.createdAt)}</p>
                   {editForm.bio ? (

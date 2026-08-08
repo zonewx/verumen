@@ -315,11 +315,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
               <div className="flex items-center gap-3 mb-2">
                 <img src={`https://flagcdn.com/${profile.country || 'se'}.svg`} alt={profile.country || 'se'} className="w-8 h-6" />
                 <h2 className="text-4xl font-bold">{targetUser}</h2>
-                {profile.role && ROLE_BADGE[profile.role] && (
-                  <span className={`text-xs px-2.5 py-1 rounded-full ${ROLE_BADGE[profile.role].cls}`}>
-                    {ROLE_BADGE[profile.role].label}
-                  </span>
-                )}
               </div>
               
               <p className={`text-sm mb-4 text-zinc-400`}>
@@ -621,11 +616,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                       <AvatarDisplay src={friend.avatarBase64} username={friend.username} size="w-8 h-8" textSize="text-sm" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{friend.username}</p>
-                        {friend.role && ROLE_BADGE[friend.role] && (
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${ROLE_BADGE[friend.role].cls}`}>
-                            {ROLE_BADGE[friend.role].label}
-                          </span>
-                        )}
                       </div>
                     </a>
                   ))}
