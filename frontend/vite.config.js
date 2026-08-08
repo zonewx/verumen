@@ -33,5 +33,16 @@ export default defineConfig(({ mode }) => {
     preview: {
       historyApiFallback: true,
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) {
+              return 'vendor-react';
+            }
+          },
+        },
+      },
+    },
   };
 });

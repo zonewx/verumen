@@ -1,20 +1,21 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
-import CSSkins from './CSSkins';
-import ProfilePageView from './ProfilePageView';
-import ProfileEditPage from './ProfileEditPage';
 import GlobalBar from './GlobalBar';
-import AdminPanel from './AdminPanel';
-import ModeratorPanel from './ModeratorPanel';
-import SocialFeed from './SocialFeed';
-import FriendsPage from './FriendsPage';
 import Sidebar from './Sidebar';
-import SettingsPage from './SettingsPage';
 import apiCache from './apiCache';
 import { getToken, setToken, clearToken } from './tokenStore';
 import { EmptyState, ShortcutsModal, PieChart, LineChart, TodayCards } from './PortfolioComponents';
 import TransactionHistoryTab from './TransactionHistoryTab';
-import TradeSharePage from './TradeSharePage';
+
+const CSSkins = lazy(() => import('./CSSkins'));
+const ProfilePageView = lazy(() => import('./ProfilePageView'));
+const ProfileEditPage = lazy(() => import('./ProfileEditPage'));
+const AdminPanel = lazy(() => import('./AdminPanel'));
+const ModeratorPanel = lazy(() => import('./ModeratorPanel'));
+const SocialFeed = lazy(() => import('./SocialFeed'));
+const FriendsPage = lazy(() => import('./FriendsPage'));
+const SettingsPage = lazy(() => import('./SettingsPage'));
+const TradeSharePage = lazy(() => import('./TradeSharePage'));
 
 function RetryCountdown({ onRetry }) {
   const [secs, setSecs] = useState(25);
@@ -2585,6 +2586,7 @@ const handleUpload = async (files) => {
 
       {/* Main content area */}
       <div className="flex-1 overflow-hidden">
+        <Suspense fallback={null}>
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace/>}/>
           <Route path="/home" element={<PageShell {...shellProps}><SocialFeed authUsername={authUsername} onViewProfile={u=>navigate(`/user/${u}`)}/></PageShell>}/>
@@ -2608,6 +2610,7 @@ const handleUpload = async (files) => {
           <Route path="/moderatorpanel" element={<PageShell {...shellProps}><ModeratorPanel authUsername={authUsername} userRole={userRole}/></PageShell>}/>
           <Route path="*" element={<Navigate to="/" replace/>}/>
         </Routes>
+        </Suspense>
       </div>
 
       {/* Clear All Data password modal */}
