@@ -94,9 +94,9 @@ export default function App() {
   // Start in 'loading' when a stored username exists so we can verify the
   // session via the HttpOnly refresh cookie before showing the app.
   const [authStatus, setAuthStatus] = useState(() =>
-    sessionStorage.getItem('auth_user') ? 'loading' : 'logged-out'
+    localStorage.getItem('auth_user') ? 'loading' : 'logged-out'
   );
-  const [authUsername, setAuthUsername] = useState(() => sessionStorage.getItem('auth_user') || '');
+  const [authUsername, setAuthUsername] = useState(() => localStorage.getItem('auth_user') || '');
   const [authMode, setAuthMode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('reset_token')) return 'reset-password';
@@ -113,7 +113,7 @@ export default function App() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState('');
   const [announcements, setAnnouncements] = useState([]);
-  const [userRole, setUserRole] = useState(() => sessionStorage.getItem('auth_role') || 'user');
+  const [userRole, setUserRole] = useState(() => localStorage.getItem('auth_role') || 'user');
   const [allowRegistration, setAllowRegistration] = useState(() => {
     const early = window.__AUTH_STATUS_DATA;
     if (early) return early.allowRegistration !== false && !early.reachedLimit;
@@ -124,7 +124,7 @@ export default function App() {
   });
   // True from login (or page-load while already logged in) until first fetchAllData completes
   const [isInitializing, setIsInitializing] = useState(() =>
-    !!sessionStorage.getItem('auth_user')
+    !!localStorage.getItem('auth_user')
   );
 
   // ── Global flash notification ───────────────────────────────────────────────
@@ -306,7 +306,7 @@ export default function App() {
 
   // ── Auth Logic ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const saved = sessionStorage.getItem('auth_user');
+    const saved = localStorage.getItem('auth_user');
     fetch('/api/auth/status').then(r => r.json()).then(async d => {
       const val = d.allowRegistration !== false && !d.reachedLimit;
       setAllowRegistration(val); localStorage.setItem('verumen_allowRegistration', String(val));
@@ -319,16 +319,16 @@ export default function App() {
           const data = await res.json();
           setToken(data.token);
           setAuthUsername(saved);
-          setUserRole(sessionStorage.getItem('auth_role') || 'user');
+          setUserRole(localStorage.getItem('auth_role') || 'user');
           setAuthStatus('logged-in');
         } else {
-          sessionStorage.removeItem('auth_user');
-          sessionStorage.removeItem('auth_role');
+          localStorage.removeItem('auth_user');
+          localStorage.removeItem('auth_role');
           setAuthStatus('logged-out');
         }
       } catch {
-        sessionStorage.removeItem('auth_user');
-        sessionStorage.removeItem('auth_role');
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_role');
         setAuthStatus('logged-out');
       }
     }).catch(() => setAuthStatus('logged-out'));
@@ -388,8 +388,8 @@ export default function App() {
         const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: authForm.username, password: authForm.password }) });
         const data = await res.json();
         if (!res.ok) { setAuthError(data.error); setAuthLoading(false); return; }
-        sessionStorage.setItem('auth_user', data.username);
-        sessionStorage.setItem('auth_role', data.role || 'user');
+        localStorage.setItem('auth_user', data.username);
+        localStorage.setItem('auth_role', data.role || 'user');
         setToken(data.token);
         setAuthUsername(data.username); setUserRole(data.role || 'user'); setIsInitializing(true); setAuthStatus('logged-in');
         setUserRole(data.role || 'user');
@@ -425,8 +425,8 @@ export default function App() {
 
   const handleLogout = (msg = '') => {
     clearToken();
-    sessionStorage.removeItem('auth_user');
-    sessionStorage.removeItem('auth_role');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_role');
     setAuthStatus('logged-out'); setAuthUsername('');
     setAuthMode('login');
     setAuthForm({ username: '', password: '', confirmPassword: '', newPassword: '' });
