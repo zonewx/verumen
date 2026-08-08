@@ -3480,7 +3480,7 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
-  const { data: existing } = await supabase.from('cs_inventory').select('skin_name, screenshot_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  const { data: existing } = await supabase.from('cs_inventory').select('skin_name, screenshot_url, sold, purchase_price, purchase_currency').eq('id', req.params.id).eq('user_id', req.user.id).single();
   const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
@@ -3498,7 +3498,14 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
     if (idMatch) {
       try { screenshotImgUrl = await fetchSteamScreenshotPreview(idMatch[1]); } catch(e) {}
     }
-    await appendActivity(req.user.id, 'cs_trade_screenshot', { skinName: skin_name, screenshotUrl: safeScreenshotUrl, screenshotImgUrl, iconUrl: safeIconUrl || null });
+    const isSold = existing?.sold ?? false;
+    await appendActivity(req.user.id, 'cs_trade_screenshot', {
+      skinName: skin_name, exterior,
+      screenshotUrl: safeScreenshotUrl, screenshotImgUrl,
+      iconUrl: safeIconUrl || null,
+      action: isSold ? 'sell' : 'buy',
+      price: existing?.purchase_price, currency: existing?.purchase_currency || purchase_currency,
+    });
   }
   res.json({ success: true });
 });
