@@ -3520,6 +3520,7 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
       action: isSold ? 'sell' : 'buy',
       price: purchase_price ?? existing?.purchase_price,
       currency: purchase_currency || existing?.purchase_currency,
+      isUpdate: true,
     });
   }
   res.json({ success: true });

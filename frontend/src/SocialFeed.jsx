@@ -172,7 +172,7 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
   return (
     <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
       <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
-      <p className="text-xs text-zinc-500 -mt-1 mb-3">{item.username} updated an existing trade</p>
+      {item.isUpdate && <p className="text-xs text-zinc-500 -mt-1 mb-3">{item.username} updated an existing trade</p>}
       <div className={`flex items-center gap-3 pl-3 border-l-2 ${borderCls} mb-3`}>
         {skinIcon && (
           <div className="w-14 h-14 shrink-0 flex items-center justify-center">
