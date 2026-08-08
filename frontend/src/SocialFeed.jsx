@@ -6,6 +6,13 @@ import { flash } from './flash';
 
 const skinIconCache = {};
 
+function skinNameColor(name) {
+  if (!name) return 'text-zinc-100';
+  if (name.includes('★')) return 'text-violet-300';
+  if (name.includes('StatTrak')) return 'text-orange-400';
+  return 'text-zinc-100';
+}
+
 function useSkinIcon(iconUrl, skinName, exterior) {
   const [resolved, setResolved] = useState(iconUrl || null);
   const fetched = useRef(false);
@@ -154,7 +161,7 @@ function TradeCard({ item, onDelete, isOwn }) {
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm text-zinc-100 truncate">{item.skinName}</p>
+            <p className={`font-semibold text-sm truncate ${skinNameColor(item.skinName)}`}>{item.skinName}</p>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <p className="text-xs text-zinc-500">
                 {isBuy
@@ -196,7 +203,7 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm text-zinc-100 truncate">{item.skinName}</p>
+            <p className={`font-semibold text-sm truncate ${skinNameColor(item.skinName)}`}>{item.skinName}</p>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <p className="text-xs text-zinc-500">
                 {item.price != null ? `${item.price} ${item.currency}` : ''}
@@ -234,7 +241,7 @@ function ActivityCard({ item, onDelete, isOwn }) {
     return (
       <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
         <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
-        <p className="text-sm font-semibold text-zinc-100">{item.skinName}</p>
+        <p className={`text-sm font-semibold ${skinNameColor(item.skinName)}`}>{item.skinName}</p>
         {item.caption && <p className="text-sm text-zinc-400 mt-1">{item.caption}</p>}
         {item.imageBase64 && (
           <div className="rounded-xl overflow-hidden mt-3">
