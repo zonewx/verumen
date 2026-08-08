@@ -238,7 +238,9 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
   async function loadPublicCsTrades() {
     setLoadingCsTrades(true);
     try {
-      const res = await fetch(`/api/users/${targetUser}/cs-trades`, { headers: h });
+      const token = getToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`/api/users/${targetUser}/cs-trades`, { headers });
       if (res.ok) setCsTrades(await res.json());
     } catch(e) {}
     setLoadingCsTrades(false);
@@ -488,8 +490,8 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
             {/* Current Holdings Tab */}
             {activeTab === 'cs-trades' && (
               <div className={`${card} overflow-hidden`}>
-                {!profile.publicCsTrades ? (
-                  <p className="text-center py-10 text-sm text-zinc-400">CS trade registry is private</p>
+                {!profile.publicCsTrades && !isOwnProfile ? (
+                  <p className="text-center py-10 text-sm text-zinc-400">CS holdings are private</p>
                 ) : loadingCsTrades ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
