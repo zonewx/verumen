@@ -2542,6 +2542,28 @@ async function fetchSteamIcon(skinName, exterior) {
   return iconPath ? `https://community.cloudflare.steamstatic.com/economy/image/${iconPath}` : null;
 }
 
+// Look up a single skin icon by name — checks user's inventory first, falls back to Steam Market
+app.get('/api/cs/skin-icon', requireUser, async (req, res) => {
+  const { name, exterior } = req.query;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  // Check if user already has this skin in their inventory with an icon
+  const { data: existing } = await supabase
+    .from('cs_inventory')
+    .select('icon_url')
+    .eq('user_id', req.user.id)
+    .ilike('skin_name', name)
+    .not('icon_url', 'is', null)
+    .limit(1)
+    .single();
+  if (existing?.icon_url) return res.json({ iconUrl: existing.icon_url });
+  try {
+    const iconUrl = await fetchSteamIcon(name, exterior);
+    res.json({ iconUrl: iconUrl || null });
+  } catch(e) {
+    res.json({ iconUrl: null });
+  }
+});
+
 // Auto-fetch missing Steam market icons for user's CS inventory
 app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
   const { data: items } = await supabase
@@ -3448,7 +3470,7 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
   const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
   const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value:safeFloat, pattern:safePattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null, share_token:crypto.randomUUID(), stickers:safeStickerList(stickers) }).select().single();
   if (error) return res.status(500).json({ error:error.message });
-  await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior });
+  await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior, iconUrl: safeIconUrl || null });
   res.json({ id:data.id, success:true });
 });
 
@@ -3487,12 +3509,12 @@ app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
-  const { data: item } = await supabase.from('cs_inventory').select('skin_name, purchase_price, sold').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  const { data: item } = await supabase.from('cs_inventory').select('skin_name, purchase_price, sold, icon_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (!item) return res.status(404).json({ error: 'Item not found.' });
   if (item.sold) return res.status(409).json({ error: 'Item already marked as sold.' });
   await supabase.from('cs_inventory').update({ sold:true }).eq('id', req.params.id).eq('user_id', req.user.id);
   const { data } = await supabase.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price, sale_currency:sale_currency||'SEK', sale_date, notes, screenshot_url:safeScreenshotUrl }).select().single();
-  await appendActivity(req.user.id, 'cs_trade', { action:'sell', skinName:item.skin_name, buyPrice:item.purchase_price, sellPrice:sale_price, currency:sale_currency });
+  await appendActivity(req.user.id, 'cs_trade', { action:'sell', skinName:item.skin_name, buyPrice:item.purchase_price, sellPrice:sale_price, currency:sale_currency, iconUrl: item.icon_url || null });
   res.json({ id:data?.id, success:true });
 });
 
