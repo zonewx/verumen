@@ -151,28 +151,26 @@ function TradeCard({ item, onDelete, isOwn }) {
           )}
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm text-zinc-100 truncate">{item.skinName}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              {isBuy
-                ? `${item.price} ${item.currency}`
-                : `Sold for ${item.sellPrice} ${item.currency} · bought ${item.buyPrice} ${item.currency}`}
-              {item.floatValue != null && <span className="ml-1.5 text-zinc-600">· {parseFloat(item.floatValue).toFixed(4)}</span>}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <p className="text-xs text-zinc-500">
+                {isBuy
+                  ? `${item.price} ${item.currency}`
+                  : `Sold for ${item.sellPrice} ${item.currency} · bought ${item.buyPrice} ${item.currency}`}
+                {item.floatValue != null && <span className="ml-1.5 text-zinc-600">· {parseFloat(item.floatValue).toFixed(4)}</span>}
+              </p>
+              {item.stickers?.map((s, i) => (
+                <div key={i} className="relative group">
+                  <img src={s.url} alt={s.name} className="w-5 h-5 object-contain opacity-80 hover:opacity-100 transition" />
+                  {s.name && (
+                    <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
+                      <p className="text-xs text-white">{s.name}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        {item.stickers?.length > 0 && (
-          <div className="flex gap-1 mt-2 flex-wrap">
-            {item.stickers.map((s, i) => (
-              <div key={i} className="relative group">
-                <img src={s.url} alt={s.name} className="w-8 h-8 object-contain opacity-80 hover:opacity-100 transition" />
-                {s.name && (
-                  <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
-                    <p className="text-xs text-white">{s.name}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -195,26 +193,24 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
           )}
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm text-zinc-100 truncate">{item.skinName}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              {item.price != null ? `${item.price} ${item.currency}` : ''}
-              {item.floatValue != null && <span className="ml-1.5 text-zinc-600">· {parseFloat(item.floatValue).toFixed(4)}</span>}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <p className="text-xs text-zinc-500">
+                {item.price != null ? `${item.price} ${item.currency}` : ''}
+                {item.floatValue != null && <span className="ml-1.5 text-zinc-600">· {parseFloat(item.floatValue).toFixed(4)}</span>}
+              </p>
+              {item.stickers?.map((s, i) => (
+                <div key={i} className="relative group">
+                  <img src={s.url} alt={s.name} className="w-5 h-5 object-contain opacity-80 hover:opacity-100 transition" />
+                  {s.name && (
+                    <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
+                      <p className="text-xs text-white">{s.name}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        {item.stickers?.length > 0 && (
-          <div className="flex gap-1 mt-2 flex-wrap">
-            {item.stickers.map((s, i) => (
-              <div key={i} className="relative group">
-                <img src={s.url} alt={s.name} className="w-8 h-8 object-contain opacity-80 hover:opacity-100 transition" />
-                {s.name && (
-                  <div className="absolute bottom-full left-0 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
-                    <p className="text-xs text-white">{s.name}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
       <SteamScreenshotPreview url={item.screenshotUrl} imgUrl={item.screenshotImgUrl} />
     </div>
