@@ -57,7 +57,7 @@ function SteamScreenshotPreview({ url, imgUrl }) {
       )}
       {!loading && preview && (
         <div className="relative">
-          <img src={preview} alt="Steam screenshot" className="w-full rounded-xl object-cover max-h-72" />
+          <img src={preview} alt="Steam screenshot" className="w-full rounded-xl object-contain" />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition rounded-xl flex items-center justify-center">
             <span className="opacity-0 group-hover:opacity-100 transition text-white text-xs font-semibold bg-black/70 px-3 py-1.5 rounded-full">View on Steam ↗</span>
           </div>
