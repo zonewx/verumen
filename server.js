@@ -499,6 +499,89 @@ app.post('/api/auth/refresh', async (req, res) => {
   res.json({ token: data.session.access_token });
 });
 
+// Single round-trip bootstrap: refresh session + fetch critical data in parallel
+app.get('/api/init', async (req, res) => {
+  // Run app-status queries + session refresh in parallel
+  const [statusResult, refreshResult] = await Promise.allSettled([
+    Promise.all([
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('app_settings').select('key, value'),
+    ]),
+    req.cookies.refresh_token
+      ? supabase.auth.refreshSession({ refresh_token: req.cookies.refresh_token })
+      : Promise.resolve(null),
+  ]);
+
+  const [{ count, error: countErr } = {}, { data: settings } = {}] =
+    statusResult.status === 'fulfilled' ? statusResult.value : [{}, {}];
+  const s = {};
+  (settings || []).forEach(r => { s[r.key] = r.value; });
+  const allowRegistration = s.allowRegistration !== 'false';
+  const userLimit = parseInt(s.userLimit || '0', 10);
+  const reachedLimit = userLimit > 0 && (count || 0) >= userLimit;
+  const hasUsers = countErr ? true : (count || 0) > 0;
+  const baseStatus = { hasUsers, allowRegistration, userLimit, reachedLimit };
+
+  const session = refreshResult.status === 'fulfilled' ? refreshResult.value?.data?.session : null;
+  if (!session) return res.json({ ...baseStatus, ok: false });
+
+  res.cookie('refresh_token', session.refresh_token, REFRESH_COOKIE_OPTS);
+  const userId = refreshResult.value.data.user.id;
+
+  // Fetch profile + friendships + announcements in parallel
+  const [profileRes, friendshipsRes, announcementsRes] = await Promise.allSettled([
+    supabase.from('profiles').select('username, role').eq('id', userId).single(),
+    supabase.from('friendships').select('requester_id, addressee_id, status').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
+    supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(10),
+  ]);
+
+  const profile = profileRes.value?.data;
+  if (!profile) return res.json({ ...baseStatus, ok: false });
+
+  const friendships = friendshipsRes.value?.data || [];
+  const announcements = announcementsRes.value?.data || [];
+
+  const accepted = friendships.filter(f => f.status === 'accepted');
+  const incoming = friendships.filter(f => f.status === 'pending' && f.addressee_id === userId);
+  const outgoing = friendships.filter(f => f.status === 'pending' && f.requester_id === userId);
+  const friendIds = accepted.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id);
+  const feedIds = [...new Set([...friendIds, userId])];
+  const allProfileIds = [...new Set([...feedIds, ...incoming.map(f => f.requester_id), ...outgoing.map(f => f.addressee_id)])];
+
+  // Fetch activity + all needed profiles in parallel
+  const [activityRes, profilesRes] = await Promise.allSettled([
+    supabase.from('activity').select('id, user_id, type, payload, created_at').in('user_id', feedIds).order('created_at', { ascending: false }).limit(50),
+    supabase.from('profiles').select('id, username, avatar_base64, bio, role').in('id', allProfileIds),
+  ]);
+
+  const activity = activityRes.value?.data || [];
+  const profiles = profilesRes.value?.data || [];
+  const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+
+  const feed = activity.map(a => {
+    const p = profileMap[a.user_id] || {};
+    return { ...(a.payload || {}), id: a.id, type: a.type, createdAt: a.created_at, username: p.username, avatarBase64: p.avatar_base64, role: p.role };
+  });
+
+  const fmt = p => ({ username: p.username, avatarBase64: p.avatar_base64, bio: p.bio, role: p.role });
+  const friends = {
+    friends: friendIds.map(id => profileMap[id]).filter(Boolean).map(fmt),
+    incoming: incoming.map(f => profileMap[f.requester_id]).filter(Boolean).map(fmt),
+    outgoing: outgoing.map(f => profileMap[f.addressee_id]?.username).filter(Boolean),
+  };
+
+  res.json({
+    ...baseStatus,
+    ok: true,
+    token: session.access_token,
+    username: profile.username,
+    role: profile.role,
+    feed,
+    friends,
+    announcements,
+  });
+});
+
 app.post('/api/auth/logout', async (req, res) => {
   res.clearCookie('refresh_token', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/' });
   res.json({ success: true });

@@ -300,38 +300,28 @@ export default function App() {
   }, [authStatus]);
 
 
-  // ── Fetch announcements ────────────────────────────────────────────────────
+  // ── Bootstrap: single round-trip auth + data fetch ───────────────────────
   useEffect(() => {
-    fetch('/api/announcements').then(r => r.json()).then(setAnnouncements).catch(() => {});
-  }, []);
-
-  // ── Auth Logic ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const saved = localStorage.getItem('auth_user');
-    fetch('/api/auth/status').then(r => r.json()).then(async d => {
+    fetch('/api/init', { credentials: 'include' }).then(r => r.json()).then(d => {
       const val = d.allowRegistration !== false && !d.reachedLimit;
-      setAllowRegistration(val); localStorage.setItem('verumen_allowRegistration', String(val));
+      setAllowRegistration(val);
+      localStorage.setItem('verumen_allowRegistration', String(val));
       if (!d.hasUsers) { setAuthStatus('no-user'); setAuthMode('signup'); return; }
-      if (!saved) { setAuthStatus('logged-out'); return; }
-      // Restore session by exchanging the HttpOnly refresh cookie for a new access token
-      try {
-        const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          setToken(data.token);
-          setAuthUsername(saved);
-          setUserRole(localStorage.getItem('auth_role') || 'user');
-          setAuthStatus('logged-in');
-        } else {
-          localStorage.removeItem('auth_user');
-          localStorage.removeItem('auth_role');
-          setAuthStatus('logged-out');
-        }
-      } catch {
+      if (!d.ok) {
         localStorage.removeItem('auth_user');
         localStorage.removeItem('auth_role');
         setAuthStatus('logged-out');
+        return;
       }
+      setToken(d.token);
+      setAuthUsername(d.username);
+      setUserRole(d.role || 'user');
+      localStorage.setItem('auth_user', d.username);
+      localStorage.setItem('auth_role', d.role || 'user');
+      if (Array.isArray(d.feed)) apiCache.set('/api/feed', d.feed);
+      if (d.friends) apiCache.set('/api/friends', d.friends);
+      if (Array.isArray(d.announcements)) { apiCache.set('/api/announcements', d.announcements); setAnnouncements(d.announcements); }
+      setAuthStatus('logged-in');
     }).catch(() => setAuthStatus('logged-out'));
   }, []);
 
