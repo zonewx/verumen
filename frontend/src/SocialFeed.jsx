@@ -21,29 +21,33 @@ function SteamScreenshotPreview({ url }) {
 
   if (!url) return null;
   return (
-    <a href={url} target="_blank" rel="noreferrer" className="block mt-2 rounded-xl overflow-hidden group">
+    <a href={url} target="_blank" rel="noreferrer" className="block mt-3 rounded-xl overflow-hidden group">
       {loading && (
-        <div className={`flex items-center gap-2 p-3 rounded-xl border bg-zinc-700/50 border-zinc-600`}>
-          <div className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs text-zinc-400">Loading preview...</span>
+        <div className="flex items-center gap-2 p-3 rounded-xl border bg-zinc-700/40 border-zinc-700">
+          <div className="w-3.5 h-3.5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs text-zinc-500">Loading preview…</span>
         </div>
       )}
       {!loading && preview && (
         <div className="relative">
           <img src={preview} alt="Steam screenshot" className="w-full rounded-xl object-cover max-h-72" />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition rounded-xl flex items-center justify-center">
-            <span className="opacity-0 group-hover:opacity-100 transition text-white text-xs font-semibold bg-black/60 px-3 py-1.5 rounded-full">View on Steam ↗</span>
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition rounded-xl flex items-center justify-center">
+            <span className="opacity-0 group-hover:opacity-100 transition text-white text-xs font-semibold bg-black/70 px-3 py-1.5 rounded-full">View on Steam ↗</span>
           </div>
         </div>
       )}
       {!loading && !preview && (
-        <div className={`flex items-center gap-3 p-3 rounded-xl border bg-zinc-700/50 border-zinc-600 hover:bg-zinc-700`}>
-          <span className="text-xl">📷</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">Steam Screenshot</p>
-            <p className="text-xs text-zinc-400 truncate">{url}</p>
+        <div className="flex items-center gap-3 p-3 rounded-xl border bg-zinc-700/30 border-zinc-700 hover:bg-zinc-700/60 transition">
+          <div className="w-8 h-8 rounded-lg bg-zinc-700 flex items-center justify-center shrink-0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+            </svg>
           </div>
-          <span className="text-xs text-zinc-400 shrink-0">View ↗</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-zinc-300">Steam Screenshot</p>
+            <p className="text-xs text-zinc-500 truncate">{url}</p>
+          </div>
+          <span className="text-xs text-zinc-500 shrink-0">View ↗</span>
         </div>
       )}
     </a>
@@ -52,12 +56,12 @@ function SteamScreenshotPreview({ url }) {
 
 const ROLE_BADGE = {
   admin: { label: 'Admin', cls: 'bg-red-900/40 text-red-400 border border-red-800' },
-  moderator: { label: 'mod', cls: 'bg-blue-900/40 text-blue-400 border border-blue-800' },
+  moderator: { label: 'Mod', cls: 'bg-blue-900/40 text-blue-400 border border-blue-800' },
 };
 
-function Avatar({ src, username, size = 'w-9 h-9', text = 'text-sm' }) {
+function Avatar({ src, username, size = 'w-8 h-8', text = 'text-xs' }) {
   return (
-    <div className={`${size} rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold ${text} overflow-hidden shrink-0`}>
+    <div className={`${size} rounded-full bg-zinc-700 flex items-center justify-center text-white font-bold ${text} overflow-hidden shrink-0`}>
       {src ? <img src={src} alt={username} className="w-full h-full object-cover" /> : username?.[0]?.toUpperCase()}
     </div>
   );
@@ -71,42 +75,47 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function ActivityCard({ item, onDelete, isOwn }) {
-  const card = `bg-zinc-800 border-zinc-700 border rounded-xl p-4`;
-
+function PostHeader({ item, onDelete, isOwn }) {
   const badge = ROLE_BADGE[item.role];
-
-  const Header = () => (
-    <div className="flex items-start gap-3 mb-3">
+  return (
+    <div className="flex items-center gap-2.5 mb-3">
       <Avatar src={item.avatarBase64} username={item.username} />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-sm">{item.username}</span>
-          {badge && <span className={`text-xs px-1.5 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="font-semibold text-sm text-zinc-100">{item.username}</span>
+          {badge && <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${badge.cls}`}>{badge.label}</span>}
         </div>
-        <p className={`text-xs mt-0.5 text-zinc-400`}>{timeAgo(item.createdAt)}</p>
+        <p className="text-xs text-zinc-500 mt-0.5">{timeAgo(item.createdAt)}</p>
       </div>
       {isOwn && (
-        <button onClick={() => onDelete(item.id)} className={`text-xs text-zinc-400 hover:text-red-400 transition shrink-0`}>✕</button>
+        <button onClick={onDelete} className="text-zinc-600 hover:text-red-400 transition p-1 rounded-lg hover:bg-red-400/10">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       )}
     </div>
   );
+}
+
+function ActivityCard({ item, onDelete, isOwn }) {
+  const isBuy = item.action === 'buy';
 
   if (item.type === 'cs_trade') {
-    const isBuy = item.action === 'buy';
     return (
-      <div className={card}>
-        <Header />
-        <div className={`flex items-center gap-3 p-3 rounded-lg ${isBuy ? 'bg-green-900/20 border border-green-800/40' : 'bg-red-900/20 border border-red-800/40'}`}>
-          <span className={`text-lg font-bold ${isBuy ? 'text-green-400' : 'text-red-400'}`}>{isBuy ? '↓' : '↑'}</span>
+      <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
+        <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
+        <div className={`flex items-start gap-3 pl-3 border-l-2 ${isBuy ? 'border-emerald-500/70' : 'border-red-500/70'}`}>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm truncate">{item.skinName}</p>
-            <p className={`text-xs text-zinc-400`}>
-              {isBuy ? `Bought for ${item.price} ${item.currency}` : `Sold for ${item.sellPrice} ${item.currency} (bought ${item.buyPrice} ${item.currency})`}
-              {item.exterior && <span className="ml-1 opacity-70">· {item.exterior}</span>}
+            <p className="font-semibold text-sm text-zinc-100 truncate">{item.skinName}</p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {isBuy
+                ? `${item.price} ${item.currency}`
+                : `Sold for ${item.sellPrice} ${item.currency} · bought ${item.buyPrice} ${item.currency}`}
+              {item.exterior && <span className="ml-1.5 text-zinc-600">· {item.exterior}</span>}
             </p>
           </div>
-          <span className={`text-xs font-bold px-2 py-1 rounded-full ${isBuy ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
+          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${isBuy ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
             {isBuy ? 'Bought' : 'Sold'}
           </span>
         </div>
@@ -116,40 +125,22 @@ function ActivityCard({ item, onDelete, isOwn }) {
 
   if (item.type === 'cs_trade_screenshot') {
     return (
-      <div className={card}>
-        <Header />
-        <p className="text-sm font-semibold mb-2">{item.skinName}</p>
+      <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
+        <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
+        <p className="text-sm font-semibold text-zinc-100">{item.skinName}</p>
         <SteamScreenshotPreview url={item.screenshotUrl} />
-      </div>
-    );
-  }
-
-  if (item.type === 'holdings_update') {
-    return (
-      <div className={card}>
-        <Header />
-        <div className={`flex items-center gap-3 p-3 rounded-lg bg-zinc-700/20 border border-zinc-600/40`}>
-          <span className="text-xl">📊</span>
-          <div>
-            <p className="font-semibold text-sm">Portfolio updated</p>
-            <p className={`text-xs text-zinc-400`}>
-              {item.holdingCount} holding{item.holdingCount !== 1 ? 's' : ''}
-              {item.tickers?.length > 0 && <span className="ml-1 opacity-70">· {item.tickers.join(', ')}{item.holdingCount > 5 ? '...' : ''}</span>}
-            </p>
-          </div>
-        </div>
       </div>
     );
   }
 
   if (item.type === 'skin_screenshot') {
     return (
-      <div className={card}>
-        <Header />
-        <p className="text-sm font-semibold mb-2">{item.skinName}</p>
-        {item.caption && <p className={`text-sm mb-3 text-zinc-300`}>{item.caption}</p>}
+      <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
+        <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
+        <p className="text-sm font-semibold text-zinc-100">{item.skinName}</p>
+        {item.caption && <p className="text-sm text-zinc-400 mt-1">{item.caption}</p>}
         {item.imageBase64 && (
-          <div className="rounded-xl overflow-hidden">
+          <div className="rounded-xl overflow-hidden mt-3">
             <img src={item.imageBase64} alt={item.skinName} className="w-full object-contain" />
           </div>
         )}
@@ -159,10 +150,10 @@ function ActivityCard({ item, onDelete, isOwn }) {
 
   if (item.type === 'friend_added') {
     return (
-      <div className={card}>
-        <Header />
-        <p className={`text-sm text-zinc-300`}>
-          Became friends with <span className="font-semibold">{item.targetUser}</span> 🤝
+      <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
+        <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
+        <p className="text-sm text-zinc-400">
+          Became friends with <span className="font-semibold text-zinc-200">{item.targetUser}</span>
         </p>
       </div>
     );
@@ -180,16 +171,11 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [announcements, setAnnouncements] = useState(() => apiCache.get('/api/announcements') || []);
-  // Screenshot upload
   const [showUpload, setShowUpload] = useState(false);
   const [uploadForm, setUploadForm] = useState({ skinName: '', caption: '', imageBase64: null });
   const [uploading, setUploading] = useState(false);
 
   const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
-  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
-  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
-  const btnPrimary = 'px-4 py-2 bg-zinc-600 hover:bg-zinc-500 text-white text-sm font-semibold rounded-lg transition disabled:opacity-50';
-  const btnGhost = `px-3 py-1.5 text-sm font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const fetchFeed = useCallback(async () => {
     if (!apiCache.has('/api/feed')) setFeedLoading(true);
@@ -259,14 +245,11 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   };
 
   const deleteActivity = async (id) => {
-    // Optimistic update — remove immediately
     setFeed(f => f.filter(item => String(item.id) !== String(id)));
     try {
       const authHeader = getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {};
       await fetch(`/api/activity/${id}`, { method: 'DELETE', headers: authHeader });
-    } catch(e) {
-      console.error('Delete error:', e);
-    }
+    } catch(e) { console.error('Delete error:', e); }
   };
 
   const handleImageUpload = (file) => {
@@ -301,176 +284,210 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
     setUploading(false);
   };
 
-  const ROLE_BADGE = {
+  const ROLE_BADGE_SIDEBAR = {
     admin: { cls: 'bg-red-900/40 text-red-400 border border-red-800' },
     moderator: { cls: 'bg-blue-900/40 text-blue-400 border border-blue-800' },
   };
 
   const FriendRow = ({ user, actions }) => (
-    <div className={`flex items-center gap-3 p-3 rounded-xl bg-zinc-700/50`}>
+    <div className="flex items-center gap-2.5 py-2">
       <button onClick={() => onViewProfile(user.username)} className="shrink-0">
         <Avatar src={user.avatarBase64} username={user.username} />
       </button>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <button onClick={() => onViewProfile(user.username)} className={`font-semibold text-sm hover:underline`}>{user.username}</button>
-          {user.role && ROLE_BADGE[user.role] && <span className={`text-xs px-1.5 py-0.5 rounded-full ${ROLE_BADGE[user.role].cls}`}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span>}
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => onViewProfile(user.username)} className="font-medium text-sm text-zinc-200 hover:text-white transition truncate">{user.username}</button>
+          {user.role && ROLE_BADGE_SIDEBAR[user.role] && <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold shrink-0 ${ROLE_BADGE_SIDEBAR[user.role].cls}`}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span>}
         </div>
-        {user.bio && <p className={`text-xs truncate text-zinc-400`}>{user.bio}</p>}
+        {user.bio && <p className="text-xs text-zinc-500 truncate">{user.bio}</p>}
       </div>
-      <div className="flex gap-2 shrink-0">{actions}</div>
+      <div className="flex gap-1.5 shrink-0">{actions}</div>
     </div>
   );
 
+  const announcementStyles = {
+    info:    'bg-blue-950/50 border-blue-800/60 text-blue-300',
+    warning: 'bg-amber-950/50 border-amber-800/60 text-amber-300',
+    success: 'bg-emerald-950/50 border-emerald-800/60 text-emerald-300',
+    error:   'bg-red-950/50 border-red-800/60 text-red-300',
+  };
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Social</h1>
-        </div>
+      <div className="max-w-5xl mx-auto px-6 py-6">
+
+        {/* Announcements */}
+        {announcements.length > 0 && (
+          <div className="flex flex-col gap-2 mb-5">
+            {announcements.map(a => (
+              <div key={a.id} className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${announcementStyles[a.type] || announcementStyles.info}`}>
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold">{a.title}</span>
+                  {a.message && <span className="ml-2 opacity-75">{a.message}</span>}
+                </div>
+                <span className="text-xs opacity-40 shrink-0">by {a.posted_by}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex gap-6">
-          {/* Left: Feed */}
+          {/* Feed */}
           <div className="flex-1 min-w-0">
 
-            {/* Announcements */}
-            {announcements.length > 0 && (
-              <div className="flex flex-col gap-2 mb-4">
-                {announcements.map(a => {
-                  const styles = {
-                    info:    'bg-blue-900/30 border-blue-800 text-blue-300',
-                    warning: 'bg-yellow-900/30 border-yellow-800 text-yellow-300',
-                    success: 'bg-green-900/30 border-green-800 text-green-300',
-                    error:   'bg-red-900/30 border-red-800 text-red-300',
-                  };
-                  const icons = { info: 'ℹ️', warning: '⚠️', success: '✅', error: '🚨' };
-                  return (
-                    <div key={a.id} className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${styles[a.type] || styles.info}`}>
-                      <span className="shrink-0 mt-0.5">{icons[a.type] || 'ℹ️'}</span>
-                      <div className="flex-1 min-w-0">
-                        <span className="font-semibold">{a.title}</span>
-                        {a.message && <span className="ml-2 opacity-80">{a.message}</span>}
-                      </div>
-                      <span className="text-xs opacity-50 shrink-0">by {a.posted_by}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Tab bar */}
             <div className="flex items-center justify-between mb-4">
-              <div className={`flex gap-0 border-b border-zinc-700`}>
-                {[['feed','Feed'],['mine','My Posts']].map(([id, label]) => (
-                  <button key={id} onClick={() => setTab(id)} className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${tab === id ? 'border-zinc-300 text-zinc-100' : `border-transparent text-zinc-400 hover:text-white`}`}>{label}</button>
+              <div className="flex gap-0 border-b border-zinc-700/60">
+                {[['feed', 'Feed'], ['mine', 'My Posts']].map(([id, label]) => (
+                  <button
+                    key={id}
+                    onClick={() => setTab(id)}
+                    className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${
+                      tab === id ? 'border-zinc-300 text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >{label}</button>
                 ))}
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => setShowUpload(v => !v)} className={btnGhost}>Post</button>
-                <button onClick={tab === 'feed' ? fetchFeed : fetchFeed} disabled={feedLoading} className={btnGhost}>
-                  {feedLoading ? <span className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin inline-block"/> : '↺ Refresh'}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowUpload(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Post
+                </button>
+                <button
+                  onClick={fetchFeed}
+                  disabled={feedLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition disabled:opacity-40"
+                >
+                  {feedLoading
+                    ? <span className="w-3 h-3 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+                    : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                  }
+                  Refresh
                 </button>
               </div>
             </div>
 
             {/* Post form */}
             {showUpload && (
-              <div className={`${card} mb-4 overflow-hidden`}>
-                <div className={`px-5 py-3 border-b border-zinc-700 bg-zinc-800/50 flex items-center justify-between`}>
-                  <h3 className="font-semibold text-sm">New Post</h3>
-                  <button onClick={() => { setShowUpload(false); setUploadForm({ skinName: '', caption: '', imageBase64: null }); }} className={`text-xs text-zinc-400 hover:text-white transition`}>✕</button>
+              <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl mb-4 overflow-hidden">
+                <div className="px-5 py-3 border-b border-zinc-700/60 flex items-center justify-between">
+                  <h3 className="font-semibold text-sm text-zinc-200">New Post</h3>
+                  <button onClick={() => { setShowUpload(false); setUploadForm({ skinName: '', caption: '', imageBase64: null }); }} className="text-zinc-500 hover:text-zinc-300 transition">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
                 </div>
                 <div className="p-5 flex flex-col gap-3">
                   <input
                     value={uploadForm.skinName}
                     onChange={e => setUploadForm(f => ({ ...f, skinName: e.target.value }))}
-                    placeholder="Title"
-                    className={inputCls}
+                    placeholder="Skin name"
+                    className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-900/60 border-zinc-700 text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 transition"
                   />
                   <input
                     value={uploadForm.caption}
                     onChange={e => setUploadForm(f => ({ ...f, caption: e.target.value }))}
-                    placeholder="Information"
-                    className={inputCls}
+                    placeholder="Caption (optional)"
+                    className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-900/60 border-zinc-700 text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 transition"
                   />
-                  <label className={`flex flex-col items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed cursor-pointer transition border-zinc-700 hover:border-zinc-500 hover:bg-zinc-700/10 text-zinc-400`}>
+                  <label className="flex flex-col items-center justify-center gap-2 py-8 rounded-xl border-2 border-dashed cursor-pointer transition border-zinc-700 hover:border-zinc-500 hover:bg-zinc-700/10 text-zinc-500">
                     {uploadForm.imageBase64 ? (
                       <img src={uploadForm.imageBase64} className="max-h-48 rounded-lg object-contain" />
                     ) : (
                       <>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
                         </svg>
                         <span className="text-sm">Click to select image</span>
-                        <span className={`text-xs text-zinc-400`}>Optional</span>
                       </>
                     )}
                     <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e.target.files[0])} />
                   </label>
                   {uploadForm.imageBase64 && (
-                    <button onClick={() => setUploadForm(f => ({ ...f, imageBase64: null }))} className={`text-xs text-zinc-400 hover:text-red-400 transition text-left`}>
+                    <button onClick={() => setUploadForm(f => ({ ...f, imageBase64: null }))} className="text-xs text-zinc-500 hover:text-red-400 transition text-left">
                       Remove image
                     </button>
                   )}
                   <div className="flex gap-2 pt-1">
-                    <button onClick={postScreenshot} disabled={uploading || !uploadForm.skinName.trim()} className={btnPrimary}>{uploading ? 'Posting...' : 'Post'}</button>
-                    <button onClick={() => { setShowUpload(false); setUploadForm({ skinName: '', caption: '', imageBase64: null }); }} className={btnGhost}>Cancel</button>
+                    <button onClick={postScreenshot} disabled={uploading || !uploadForm.skinName.trim()} className="px-4 py-2 bg-zinc-600 hover:bg-zinc-500 text-white text-sm font-semibold rounded-xl transition disabled:opacity-40">
+                      {uploading ? 'Posting…' : 'Post'}
+                    </button>
+                    <button onClick={() => { setShowUpload(false); setUploadForm({ skinName: '', caption: '', imageBase64: null }); }} className="px-3 py-2 text-sm font-semibold rounded-xl bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition">
+                      Cancel
+                    </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Feed */}
+            {/* Feed items */}
             {feedLoading ? (
-              <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/></div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {(() => {
-                  const items = (tab === 'mine'
-                    ? feed.filter(i => i.username === authUsername)
-                    : feed).filter(i => i.type !== 'holdings_update');
-                  if (items.length === 0) return (
-                    <div className={`${card} p-10 text-center`}>
-                      <p className="text-3xl mb-3">{tab === 'mine' ? '📝' : '👥'}</p>
-                      <p className="font-semibold mb-1">{tab === 'mine' ? 'No activity yet' : 'Your feed is empty'}</p>
-                      <p className={`text-sm text-zinc-400`}>{tab === 'mine' ? 'Your CS trades and screenshots will appear here.' : 'Add friends to see their activity here.'}</p>
-                    </div>
-                  );
-                  return items.map(item => (
-                    <ActivityCard key={item.id} item={item} onDelete={deleteActivity} isOwn={item.username === authUsername} />
-                  ));
-                })()}
+              <div className="flex items-center justify-center py-24">
+                <div className="w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
               </div>
-            )}
+            ) : (() => {
+              const items = (tab === 'mine'
+                ? feed.filter(i => i.username === authUsername)
+                : feed).filter(i => i.type !== 'holdings_update');
+
+              if (items.length === 0) return (
+                <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-2xl p-12 text-center">
+                  <p className="font-semibold text-zinc-300 mb-1">{tab === 'mine' ? 'No posts yet' : 'Your feed is empty'}</p>
+                  <p className="text-sm text-zinc-500">{tab === 'mine' ? 'Your CS trades and screenshots will appear here.' : 'Add friends to see their activity here.'}</p>
+                </div>
+              );
+
+              return (
+                <div className="flex flex-col gap-3">
+                  {items.map(item => (
+                    <ActivityCard key={item.id} item={item} onDelete={deleteActivity} isOwn={item.username === authUsername} />
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Right: Friends sidebar */}
-          <div className="w-72 shrink-0">
-            <div className={`${card} p-4 sticky top-0`}>
-              <button 
-                onClick={() => window.location.href = '/friends'}
-                className="w-full text-left mb-3 hover:opacity-80 transition"
-              >
-                <h3 className="font-bold text-sm">
-                  Friends {friends.friends?.length > 0 && <span className={`ml-1 text-xs text-zinc-400`}>({friends.friends.length})</span>}
-                </h3>
+          {/* Friends sidebar */}
+          <div className="w-64 shrink-0">
+            <div className="bg-zinc-800/60 border border-zinc-700/60 rounded-2xl p-4 sticky top-0">
+
+              {/* Friends header */}
+              <button onClick={() => window.location.href = '/friends'} className="w-full text-left mb-3 hover:opacity-75 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Friends</span>
+                  {friends.friends?.length > 0 && (
+                    <span className="text-xs text-zinc-500">{friends.friends.length}</span>
+                  )}
+                </div>
               </button>
 
-              {/* Search to add */}
-              <div className="relative mb-4">
-                <input value={searchQuery} onChange={e => searchUsers(e.target.value)} placeholder="Find users..." className={`${inputCls} pr-3`} />
+              {/* Search */}
+              <div className="relative mb-3">
+                <input
+                  value={searchQuery}
+                  onChange={e => searchUsers(e.target.value)}
+                  placeholder="Find users…"
+                  className="w-full px-3 py-2 rounded-xl border text-xs outline-none bg-zinc-900/60 border-zinc-700 text-zinc-200 placeholder-zinc-600 focus:border-zinc-500 transition"
+                />
                 {searchResults.length > 0 && (
-                  <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-xl overflow-hidden z-20 bg-zinc-800 border-zinc-700`}>
+                  <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-2xl overflow-hidden z-20 bg-zinc-800 border-zinc-700">
                     {searchResults.map(u => {
                       const isFriend = friends.friends?.some(f => f.username === u.username);
                       const isPending = friends.outgoing?.includes(u.username);
                       return (
-                        <div key={u.username} className={`flex items-center gap-3 px-3 py-2.5 border-b border-zinc-700 last:border-0`}>
+                        <div key={u.username} className="flex items-center gap-2.5 px-3 py-2.5 border-b border-zinc-700/60 last:border-0 hover:bg-zinc-700/30 transition">
                           <button onClick={() => { onViewProfile(u.username); setSearchQuery(''); setSearchResults([]); }} className="shrink-0">
-                            <Avatar src={u.avatarBase64} username={u.username} size="w-7 h-7" text="text-xs" />
+                            <Avatar src={u.avatarBase64} username={u.username} size="w-6 h-6" text="text-[10px]" />
                           </button>
-                          <span className="flex-1 text-sm font-semibold truncate">{u.username}</span>
-                          {isFriend ? <span className={`text-xs text-zinc-400`}>Friends</span>
-                            : isPending ? <span className="text-xs text-blue-400">Sent</span>
-                            : <button onClick={() => { sendRequest(u.username); setSearchQuery(''); setSearchResults([]); }} className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition">Add</button>}
+                          <span className="flex-1 text-xs font-semibold text-zinc-200 truncate">{u.username}</span>
+                          {isFriend
+                            ? <span className="text-[10px] text-zinc-500">Friends</span>
+                            : isPending
+                              ? <span className="text-[10px] text-blue-400">Sent</span>
+                              : <button onClick={() => { sendRequest(u.username); setSearchQuery(''); setSearchResults([]); }} className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold transition">Add</button>
+                          }
                         </div>
                       );
                     })}
@@ -480,13 +497,13 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
 
               {/* Incoming requests */}
               {friends.incoming?.length > 0 && (
-                <div className="mb-4">
-                  <p className={`text-xs font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Requests ({friends.incoming.length})</p>
-                  <div className="flex flex-col gap-2">
+                <div className="mb-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Requests ({friends.incoming.length})</p>
+                  <div className="flex flex-col">
                     {friends.incoming.map(u => (
                       <FriendRow key={u.username} user={u} actions={<>
-                        <button onClick={() => acceptRequest(u.username)} className="text-xs px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded-lg transition">Accept</button>
-                        <button onClick={() => declineRequest(u.username)} className={`text-xs px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded-lg transition`}>✕</button>
+                        <button onClick={() => acceptRequest(u.username)} className="text-[10px] px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg transition font-semibold">Accept</button>
+                        <button onClick={() => declineRequest(u.username)} className="text-[10px] px-2 py-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded-lg transition">✕</button>
                       </>} />
                     ))}
                   </div>
@@ -495,13 +512,13 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
 
               {/* Outgoing */}
               {friends.outgoing?.length > 0 && (
-                <div className="mb-4">
-                  <p className={`text-xs font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Sent</p>
-                  <div className="flex flex-col gap-2">
+                <div className="mb-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Sent</p>
+                  <div className="flex flex-col">
                     {friends.outgoing.map(u => (
-                      <div key={u} className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-700/50`}>
-                        <span className="text-sm font-semibold flex-1">{u}</span>
-                        <span className="text-xs text-blue-400">Pending</span>
+                      <div key={u} className="flex items-center gap-2 py-2">
+                        <span className="text-xs font-medium text-zinc-300 flex-1 truncate">{u}</span>
+                        <span className="text-[10px] text-blue-400">Pending</span>
                       </div>
                     ))}
                   </div>
@@ -510,21 +527,21 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
 
               {/* Friends list */}
               {friends.friends?.length === 0 && friends.incoming?.length === 0 ? (
-                <p className={`text-xs text-zinc-400 text-center py-4`}>Search for users above to add friends.</p>
-              ) : (
+                <p className="text-xs text-zinc-600 text-center py-4">Search above to find users.</p>
+              ) : friends.friends?.length > 0 && (
                 <div>
-                  {friends.friends?.length > 0 && (
-                    <>
-                      <p className={`text-xs font-bold uppercase tracking-wider mb-2 text-zinc-400`}>Friends</p>
-                      <div className="flex flex-col gap-2">
-                        {friends.friends.map(u => (
-                          <FriendRow key={u.username} user={u} actions={
-                            <button onClick={() => onViewProfile(u.username)} className={`text-xs text-zinc-400 hover:text-white transition`}>View →</button>
-                          } />
-                        ))}
-                      </div>
-                    </>
+                  {(friends.incoming?.length > 0 || friends.outgoing?.length > 0) && (
+                    <div className="border-t border-zinc-700/40 mt-2 pt-2 mb-1">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">Friends</p>
+                    </div>
                   )}
+                  <div className="flex flex-col divide-y divide-zinc-700/30">
+                    {friends.friends.map(u => (
+                      <FriendRow key={u.username} user={u} actions={
+                        <button onClick={() => onViewProfile(u.username)} className="text-[10px] text-zinc-500 hover:text-zinc-300 transition font-medium">View</button>
+                      } />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
