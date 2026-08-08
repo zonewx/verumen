@@ -590,8 +590,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
             <div className={`${card} p-2`}>
               {[
                 { id: 'activity', label: 'Recent Activity' },
-                { id: 'portfolio', label: 'Portfolio' },
-                { id: 'dividends', label: 'Dividends' },
                 { id: 'cs-trades', label: 'Trade Registry' },
               ].map(t => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)}
