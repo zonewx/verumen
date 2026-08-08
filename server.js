@@ -3493,7 +3493,12 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
     .eq('user_id', req.user.id);
   if (error) return res.status(500).json({ error: error.message });
   if (safeScreenshotUrl && !existing?.screenshot_url) {
-    await appendActivity(req.user.id, 'cs_trade_screenshot', { skinName: skin_name, screenshotUrl: safeScreenshotUrl });
+    const idMatch = safeScreenshotUrl.match(/id=(\d+)/);
+    let screenshotImgUrl = null;
+    if (idMatch) {
+      try { screenshotImgUrl = await fetchSteamScreenshotPreview(idMatch[1]); } catch(e) {}
+    }
+    await appendActivity(req.user.id, 'cs_trade_screenshot', { skinName: skin_name, screenshotUrl: safeScreenshotUrl, screenshotImgUrl });
   }
   res.json({ success: true });
 });
@@ -3518,20 +3523,23 @@ app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
   res.json({ id:data?.id, success:true });
 });
 
+async function fetchSteamScreenshotPreview(id) {
+  const r = await fetch(`https://steamcommunity.com/sharedfiles/filedetails/?id=${id}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+    signal: AbortSignal.timeout(8000),
+  });
+  const html = await r.text();
+  const match = html.match(/property="og:image"[^>]*content="([^"]+)"/i)
+              || html.match(/content="([^"]+)"[^>]*property="og:image"/i);
+  return match?.[1] || null;
+}
+
 app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
   const { id } = req.params;
   if (!/^\d+$/.test(id)) return res.status(400).json({ error: 'Invalid screenshot ID' });
   try {
-    // Scrape the Steam page for og:image which contains the full-resolution screenshot
-    const r = await fetch(`https://steamcommunity.com/sharedfiles/filedetails/?id=${id}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
-    });
-    const html = await r.text();
-    // Steam sometimes puts content before property — handle both orders
-    const match = html.match(/property="og:image"[^>]*content="([^"]+)"/i)
-                || html.match(/content="([^"]+)"[^>]*property="og:image"/i);
-    const previewUrl = match?.[1] || null;
-    if (!previewUrl) return res.status(404).json({ error: 'Screenshot not found', hint: html.slice(0, 500) });
+    const previewUrl = await fetchSteamScreenshotPreview(id);
+    if (!previewUrl) return res.status(404).json({ error: 'Screenshot not found' });
     res.json({ previewUrl });
   } catch(e) {
     res.status(500).json({ error: e.message });

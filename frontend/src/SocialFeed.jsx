@@ -26,21 +26,25 @@ function useSkinIcon(iconUrl, skinName, exterior) {
   return resolved;
 }
 
-function SteamScreenshotPreview({ url }) {
-  const [preview, setPreview] = useState(null);
+function SteamScreenshotPreview({ url, imgUrl }) {
+  const [preview, setPreview] = useState(imgUrl || null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (imgUrl) { setPreview(imgUrl); return; }
     if (!url) return;
     const match = url.match(/id=(\d+)/);
     if (!match) return;
     setLoading(true);
-    fetch(`/api/cs/steam/screenshot/${match[1]}`)
+    const token = getToken();
+    fetch(`/api/cs/steam/screenshot/${match[1]}`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    })
       .then(r => r.json())
       .then(d => { if (d.previewUrl) setPreview(d.previewUrl); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [url]);
+  }, [url, imgUrl]);
 
   if (!url) return null;
   return (
@@ -161,7 +165,7 @@ function ActivityCard({ item, onDelete, isOwn }) {
       <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
         <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
         <p className="text-sm font-semibold text-zinc-100">{item.skinName}</p>
-        <SteamScreenshotPreview url={item.screenshotUrl} />
+        <SteamScreenshotPreview url={item.screenshotUrl} imgUrl={item.screenshotImgUrl} />
       </div>
     );
   }
