@@ -124,6 +124,17 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
     loadFriends();
   }, [profile]);
 
+  async function toggleHideFromProfile(id, currentlyHidden) {
+    const token = getToken();
+    if (!token) return;
+    setCsTrades(prev => prev.map(t => t.id === id ? { ...t, hiddenFromProfile: !currentlyHidden } : t));
+    await fetch(`/api/cs/inventory/${id}/profile-visibility`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ hidden: !currentlyHidden }),
+    });
+  }
+
   // Re-fetch cs-trades when the auth token arrives (token may not be ready on first profile load)
   useEffect(() => {
     if (!authToken || !profile) return;
@@ -247,6 +258,11 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
     setLoadingCsTrades(true);
     try {
       const token = getToken();
+      if (isOwnProfile && token) {
+        const res = await fetch('/api/cs/profile-holdings', { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) { setCsTrades(await res.json()); setLoadingCsTrades(false); return; }
+      }
+      // Fallback: public endpoint for other users
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const res = await fetch(`/api/users/${targetUser}/cs-trades`, { headers });
       if (res.ok) setCsTrades(await res.json());
@@ -504,14 +520,11 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                   <div className="flex items-center justify-center py-12">
                     <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
                   </div>
-                ) : csTrades && csTrades.filter(t => !t.sold).length > 0 ? (
+                ) : csTrades && csTrades.filter(t => !t.sold && !t.hiddenFromProfile).length > 0 ? (
                   <div className="divide-y divide-zinc-700/40">
-                    {csTrades.filter(t => !t.sold).map(t => {
+                    {csTrades.filter(t => !t.sold && !t.hiddenFromProfile).map(t => {
                       const hasScreenshot = !!t.screenshotUrl;
                       const isExpanded = expandedTradeIds.has(t.id);
-                      const fmtPrice = (price, currency) => price != null
-                        ? `${price.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${currency || ''}`
-                        : '—';
                       return (
                         <Fragment key={t.id}>
                           <div
@@ -533,17 +546,24 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
 
                             {/* Name + exterior */}
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-white truncate">
-                                {t.hasStar && <span className="text-purple-400 mr-1">★</span>}{t.skinName}
+                              <p className={`text-sm font-semibold truncate ${t.hasStar ? 'text-violet-300' : t.skinName?.includes('StatTrak') ? 'text-orange-400' : 'text-white'}`}>
+                                {t.hasStar && <span className="mr-1">★</span>}{t.skinName}
                               </p>
-                              <p className="text-xs text-zinc-400 mt-0.5">{t.exterior || '—'}</p>
+                              <p className="text-xs text-zinc-400 mt-0.5">{t.exterior || '—'}{t.purchaseDate ? ` · ${t.purchaseDate}` : ''}</p>
                             </div>
 
-                            {/* Buy info */}
-                            <div className="text-right shrink-0 hidden sm:block">
-                              <p className="text-xs font-mono text-zinc-300">{fmtPrice(t.purchasePrice, t.purchaseCurrency)}</p>
-                              <p className="text-xs text-zinc-500 mt-0.5">{t.purchaseDate || '—'}</p>
-                            </div>
+                            {/* Hide toggle — own profile only */}
+                            {isOwnProfile && (
+                              <button
+                                onClick={e => { e.stopPropagation(); toggleHideFromProfile(t.id, false); }}
+                                title="Hide from profile"
+                                className="shrink-0 p-1.5 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700 transition"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/>
+                                </svg>
+                              </button>
+                            )}
 
                             {/* Share */}
                             {t.shareToken && (
@@ -564,6 +584,25 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                         </Fragment>
                       );
                     })}
+                    {/* Hidden items row — own profile only */}
+                    {isOwnProfile && csTrades.filter(t => !t.sold && t.hiddenFromProfile).length > 0 && (
+                      <div className="px-4 py-3">
+                        <p className="text-xs text-zinc-500">{csTrades.filter(t => !t.sold && t.hiddenFromProfile).length} hidden from profile —{' '}
+                          {csTrades.filter(t => !t.sold && t.hiddenFromProfile).map(t => (
+                            <button key={t.id} onClick={() => toggleHideFromProfile(t.id, true)} className="text-zinc-400 hover:text-zinc-200 transition mr-2 underline text-xs">{t.skinName}</button>
+                          ))}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : isOwnProfile && csTrades && csTrades.filter(t => !t.sold && t.hiddenFromProfile).length > 0 ? (
+                  <div className="px-4 py-6 text-center">
+                    <p className="text-sm text-zinc-400 mb-2">All holdings are hidden from profile.</p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {csTrades.filter(t => !t.sold && t.hiddenFromProfile).map(t => (
+                        <button key={t.id} onClick={() => toggleHideFromProfile(t.id, true)} className="text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">{t.skinName}</button>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-center py-10 text-sm text-zinc-400">No current holdings</p>

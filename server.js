@@ -2717,6 +2717,39 @@ app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
   res.json({ iconUrl: iconUrl || null });
 });
 
+// Authenticated profile holdings — own profile only, no public_cs_trades check needed
+// Requires: ALTER TABLE cs_inventory ADD COLUMN IF NOT EXISTS hidden_from_profile BOOLEAN DEFAULT FALSE;
+app.get('/api/cs/profile-holdings', requireUser, async (req, res) => {
+  const { data, error } = await supabase.from('cs_inventory')
+    .select('id, skin_name, exterior, has_star, icon_url, share_token, purchase_date, sold, screenshot_url, hidden_from_profile')
+    .eq('user_id', req.user.id)
+    .eq('sold', false)
+    .order('purchase_date', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data || []).map(item => ({
+    id: item.id,
+    skinName: item.skin_name,
+    exterior: item.exterior,
+    hasStar: item.has_star,
+    iconUrl: item.icon_url,
+    shareToken: item.share_token,
+    purchaseDate: item.purchase_date,
+    sold: item.sold,
+    screenshotUrl: item.screenshot_url,
+    hiddenFromProfile: item.hidden_from_profile || false,
+  })));
+});
+
+app.patch('/api/cs/inventory/:id/profile-visibility', requireUser, async (req, res) => {
+  const { hidden } = req.body;
+  const { error } = await supabase.from('cs_inventory')
+    .update({ hidden_from_profile: !!hidden })
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
 // Public CS trades endpoint — requires public_cs_trades column: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_cs_trades BOOLEAN DEFAULT FALSE;
 app.get('/api/users/:username/cs-trades', async (req, res) => {
   const { data: profile } = await supabase.from('profiles').select('id, public_cs_trades').eq('username', req.params.username).single();
@@ -2729,10 +2762,12 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
     if (user?.id === profile.id) isOwner = true;
   }
   if (!isOwner && !profile.public_cs_trades) return res.status(403).json({ error: "This user's CS trades are private." });
-  const { data, error } = await supabase.from('cs_inventory')
-    .select('id, skin_name, exterior, float_value, pattern, has_star, notes, icon_url, share_token, purchase_price, purchase_currency, purchase_date, sold, screenshot_url, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
+  let query = supabase.from('cs_inventory')
+    .select('id, skin_name, exterior, float_value, pattern, has_star, notes, icon_url, share_token, purchase_price, purchase_currency, purchase_date, sold, screenshot_url, hidden_from_profile, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
     .eq('user_id', profile.id)
     .order('purchase_date', { ascending: false });
+  if (!isOwner) query = query.eq('hidden_from_profile', false);
+  const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   res.json((data || []).map(item => ({
     id: item.id,
