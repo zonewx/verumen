@@ -181,7 +181,7 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-zinc-100 truncate">{item.skinName}</p>
           <p className="text-xs text-zinc-500 mt-0.5">
-            {item.price ? `${item.price} ${item.currency}` : ''}
+            {item.price != null ? `${item.price} ${item.currency}` : ''}
             {item.exterior && <span className="ml-1.5 text-zinc-600">· {item.exterior}</span>}
           </p>
         </div>

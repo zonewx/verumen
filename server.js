@@ -3518,7 +3518,8 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
       screenshotUrl: safeScreenshotUrl, screenshotImgUrl,
       iconUrl: safeIconUrl || null,
       action: isSold ? 'sell' : 'buy',
-      price: existing?.purchase_price, currency: existing?.purchase_currency || purchase_currency,
+      price: purchase_price ?? existing?.purchase_price,
+      currency: purchase_currency || existing?.purchase_currency,
     });
   }
   res.json({ success: true });
