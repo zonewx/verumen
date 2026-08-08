@@ -161,13 +161,16 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
   return (
     <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
       <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
-      <div className="flex items-center gap-3 mb-3">
+      <div className="flex items-center gap-3 pl-3 border-l-2 border-zinc-500/70 mb-3">
         {skinIcon && (
-          <div className="w-10 h-10 shrink-0 flex items-center justify-center">
+          <div className="w-14 h-14 shrink-0 flex items-center justify-center">
             <img src={skinIcon} alt={item.skinName} className="w-full h-full object-contain drop-shadow-md" />
           </div>
         )}
-        <p className="font-semibold text-sm text-zinc-100">{item.skinName}</p>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm text-zinc-100 truncate">{item.skinName}</p>
+          {item.exterior && <p className="text-xs text-zinc-500 mt-0.5">{item.exterior}</p>}
+        </div>
       </div>
       <SteamScreenshotPreview url={item.screenshotUrl} imgUrl={item.screenshotImgUrl} />
     </div>
