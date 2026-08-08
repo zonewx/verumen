@@ -155,19 +155,32 @@ function TradeCard({ item, onDelete, isOwn }) {
   );
 }
 
+function ScreenshotCard({ item, onDelete, isOwn }) {
+  const skinIcon = useSkinIcon(item.iconUrl, item.skinName, item.exterior);
+
+  return (
+    <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
+      <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
+      <div className="flex items-center gap-3 mb-3">
+        {skinIcon && (
+          <div className="w-10 h-10 shrink-0 flex items-center justify-center">
+            <img src={skinIcon} alt={item.skinName} className="w-full h-full object-contain drop-shadow-md" />
+          </div>
+        )}
+        <p className="font-semibold text-sm text-zinc-100">{item.skinName}</p>
+      </div>
+      <SteamScreenshotPreview url={item.screenshotUrl} imgUrl={item.screenshotImgUrl} />
+    </div>
+  );
+}
+
 function ActivityCard({ item, onDelete, isOwn }) {
   if (item.type === 'cs_trade') {
     return <TradeCard item={item} onDelete={onDelete} isOwn={isOwn} />;
   }
 
   if (item.type === 'cs_trade_screenshot') {
-    return (
-      <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
-        <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
-        <p className="text-sm font-semibold text-zinc-100">{item.skinName}</p>
-        <SteamScreenshotPreview url={item.screenshotUrl} imgUrl={item.screenshotImgUrl} />
-      </div>
-    );
+    return <ScreenshotCard item={item} onDelete={onDelete} isOwn={isOwn} />;
   }
 
   if (item.type === 'skin_screenshot') {

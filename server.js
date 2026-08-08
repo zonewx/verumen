@@ -3498,7 +3498,7 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
     if (idMatch) {
       try { screenshotImgUrl = await fetchSteamScreenshotPreview(idMatch[1]); } catch(e) {}
     }
-    await appendActivity(req.user.id, 'cs_trade_screenshot', { skinName: skin_name, screenshotUrl: safeScreenshotUrl, screenshotImgUrl });
+    await appendActivity(req.user.id, 'cs_trade_screenshot', { skinName: skin_name, screenshotUrl: safeScreenshotUrl, screenshotImgUrl, iconUrl: safeIconUrl || null });
   }
   res.json({ success: true });
 });
