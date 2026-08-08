@@ -165,8 +165,8 @@ function TradeCard({ item, onDelete, isOwn }) {
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <p className="text-xs text-zinc-500">
                 {isBuy
-                  ? `${item.price} ${item.currency}`
-                  : `Sold for ${item.sellPrice} ${item.currency} · bought ${item.buyPrice} ${item.currency}`}
+                  ? `${item.price} USD`
+                  : `Sold for ${item.sellPrice} USD · bought ${item.buyPrice} USD`}
                 {item.floatValue != null && <span className="ml-1.5 text-zinc-600">· {parseFloat(item.floatValue).toFixed(4)}</span>}
               </p>
               {item.stickers?.map((s, i) => (
@@ -206,7 +206,7 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
             <p className={`font-semibold text-sm truncate ${skinNameColor(item.skinName)}`}>{item.skinName}</p>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <p className="text-xs text-zinc-500">
-                {item.price != null ? `${item.price} ${item.currency}` : ''}
+                {item.price != null ? `${item.price} USD` : ''}
                 {item.floatValue != null && <span className="ml-1.5 text-zinc-600">· {parseFloat(item.floatValue).toFixed(4)}</span>}
               </p>
               {item.stickers?.map((s, i) => (

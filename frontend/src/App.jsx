@@ -142,10 +142,14 @@ export default function App() {
 
   // ── Core state ─────────────────────────────────────────────────────────────
   const [portfolio, setPortfolio] = useState(() => JSON.parse(localStorage.getItem('portfolio')) || []);
-  const [baseCurrency, setBaseCurrency] = useState(() => localStorage.getItem('baseCurrency') || 'SEK');
+  const [baseCurrency, setBaseCurrency] = useState(() => {
+    const stored = localStorage.getItem('baseCurrency');
+    if (!stored || stored === 'SEK') { localStorage.setItem('baseCurrency', 'USD'); return 'USD'; }
+    return stored;
+  });
   const [dashboardData, setDashboardData] = useState(() => {
     const saved = JSON.parse(localStorage.getItem('portfolio')) || [];
-    const cur = localStorage.getItem('baseCurrency') || 'SEK';
+    const cur = localStorage.getItem('baseCurrency') || 'USD';
     const fp = portfolioFingerprint(saved, cur);
     return apiCache.get('/api/portfolio-fingerprint') === fp ? apiCache.get('/api/portfolio-dashboard') : null;
   });
@@ -163,7 +167,7 @@ export default function App() {
   const [appLoadingLabel, setAppLoadingLabel] = useState('Loading your data...');
   const [isAppLoading, setIsAppLoading] = useState(() => {
     const saved = JSON.parse(localStorage.getItem('portfolio')) || [];
-    const cur = localStorage.getItem('baseCurrency') || 'SEK';
+    const cur = localStorage.getItem('baseCurrency') || 'USD';
     const fp = portfolioFingerprint(saved, cur);
     return !(apiCache.get('/api/portfolio-fingerprint') === fp && apiCache.has('/api/portfolio-dashboard'));
   });
