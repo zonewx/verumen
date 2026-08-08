@@ -485,7 +485,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
               </div>
             )}
 
-            {/* Trade Registry Tab */}
+            {/* Current Holdings Tab */}
             {activeTab === 'cs-trades' && (
               <div className={`${card} overflow-hidden`}>
                 {!profile.publicCsTrades ? (
@@ -494,16 +494,14 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                   <div className="flex items-center justify-center py-12">
                     <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
                   </div>
-                ) : csTrades && csTrades.length > 0 ? (
+                ) : csTrades && csTrades.filter(t => !t.sold).length > 0 ? (
                   <div className="divide-y divide-zinc-700/40">
-                    {csTrades.map(t => {
+                    {csTrades.filter(t => !t.sold).map(t => {
                       const hasScreenshot = !!t.screenshotUrl;
                       const isExpanded = expandedTradeIds.has(t.id);
                       const fmtPrice = (price, currency) => price != null
                         ? `${price.toLocaleString('sv-SE', { maximumFractionDigits: 0 })} ${currency || ''}`
                         : '—';
-                      const pnl = t.sold && t.salePrice != null && t.purchasePrice != null
-                        ? t.salePrice - t.purchasePrice : null;
                       return (
                         <Fragment key={t.id}>
                           <div
@@ -537,18 +535,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                               <p className="text-xs text-zinc-500 mt-0.5">{t.purchaseDate || '—'}</p>
                             </div>
 
-                            {/* Status */}
-                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${t.sold ? 'bg-red-900/30 text-red-400' : 'bg-green-900/30 text-green-400'}`}>
-                              {t.sold ? 'Sold' : 'Holding'}
-                            </span>
-
-                            {/* P&L for sold */}
-                            {t.sold && pnl != null && (
-                              <span className={`text-xs font-mono shrink-0 ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {pnl >= 0 ? '+' : ''}{pnl.toLocaleString('sv-SE', { maximumFractionDigits: 0 })}
-                              </span>
-                            )}
-
                             {/* Share */}
                             {t.shareToken && (
                               <a href={`/trade/${t.shareToken}`} target="_blank" rel="noopener noreferrer"
@@ -570,7 +556,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                     })}
                   </div>
                 ) : (
-                  <p className="text-center py-10 text-sm text-zinc-400">No trades recorded</p>
+                  <p className="text-center py-10 text-sm text-zinc-400">No current holdings</p>
                 )}
               </div>
             )}
@@ -585,7 +571,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
             <div className={`${card} p-2`}>
               {[
                 { id: 'activity', label: 'Recent Activity' },
-                { id: 'cs-trades', label: 'Trade Registry' },
+                { id: 'cs-trades', label: 'Current Holdings' },
               ].map(t => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)}
                   className={`w-full text-left px-3 py-2.5 text-sm font-semibold rounded-lg transition ${

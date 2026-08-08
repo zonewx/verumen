@@ -235,10 +235,7 @@ export default function ProfileEditPage({ authUsername }) {
                 {[
                   { key: 'isPublic', title: 'Public profile', desc: 'Allow anyone to view your profile without logging in' },
                   { key: 'publicInventory', title: 'Public CS Inventory', desc: 'Show Steam CS inventory on profile' },
-                  { key: 'publicCsTrades', title: 'Public CS Trade Registry', desc: 'Show CS trade history on profile' },
-                  { key: 'publicHoldings', title: 'Public Portfolio', desc: 'Show stock holdings on profile' },
-                  { key: 'publicDividends', title: 'Public Dividends', desc: 'Show dividend data on profile' },
-                  { key: 'showPortfolioValue', title: 'Show Portfolio Value', desc: 'Display currency values of holdings' },
+                  { key: 'publicCsTrades', title: 'Public CS Holdings', desc: 'Show current CS holdings on profile' },
                 ].map(({ key, title, desc }) => (
                   <div key={key} className={`flex items-center justify-between gap-3 p-3 rounded-xl bg-zinc-700/50`}>
                     <div className="flex-1 min-w-0">
