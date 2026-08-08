@@ -3471,6 +3471,20 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
   const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value:safeFloat, pattern:safePattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'SEK', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null, share_token:crypto.randomUUID(), stickers:safeStickerList(stickers) }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior, iconUrl: safeIconUrl || null });
+  if (safeScreenshotUrl) {
+    const idMatch = safeScreenshotUrl.match(/id=(\d+)/);
+    let screenshotImgUrl = null;
+    if (idMatch) {
+      try { screenshotImgUrl = await fetchSteamScreenshotPreview(idMatch[1]); } catch(e) {}
+    }
+    await appendActivity(req.user.id, 'cs_trade_screenshot', {
+      skinName: skin_name, exterior,
+      screenshotUrl: safeScreenshotUrl, screenshotImgUrl,
+      iconUrl: safeIconUrl || null,
+      action: 'buy',
+      price: purchase_price, currency: purchase_currency,
+    });
+  }
   res.json({ id:data.id, success:true });
 });
 
