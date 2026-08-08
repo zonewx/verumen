@@ -154,9 +154,6 @@ function TradeCard({ item, onDelete, isOwn }) {
             {item.exterior && <span className="ml-1.5 text-zinc-600">· {item.exterior}</span>}
           </p>
         </div>
-        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${isBuy ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
-          {isBuy ? 'Bought' : 'Sold'}
-        </span>
       </div>
     </div>
   );
@@ -184,9 +181,6 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
             {item.exterior && <span className="ml-1.5 text-zinc-600">· {item.exterior}</span>}
           </p>
         </div>
-        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 bg-zinc-700/60 text-zinc-400">
-          Screenshot
-        </span>
       </div>
       <SteamScreenshotPreview url={item.screenshotUrl} imgUrl={item.screenshotImgUrl} />
     </div>
