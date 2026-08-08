@@ -2650,8 +2650,8 @@ const handleUpload = async (files) => {
       {/* Global flash notification — top-center toast */}
       {globalFlash && (
         <div className="fixed z-[9998] pointer-events-none -translate-x-1/2" style={{ top: '52px', left: 'calc(50% + var(--sidebar-w) / 2)' }}>
-          <div className="px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl">
-            <span className="text-sm font-medium text-zinc-100 whitespace-nowrap">{globalFlash.startsWith('✓') ? globalFlash.slice(2) : globalFlash}</span>
+          <div className="px-4 py-3 rounded-xl bg-white border border-zinc-200 shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
+            <span className="text-sm font-semibold text-zinc-900 whitespace-nowrap">{globalFlash.startsWith('✓') ? globalFlash.slice(2) : globalFlash}</span>
           </div>
         </div>
       )}
