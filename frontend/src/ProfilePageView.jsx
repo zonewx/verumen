@@ -74,7 +74,7 @@ function FlagIcon({ ticker, size = 'w-8 h-6' }) {
   );
 }
 
-export default function ProfilePageView({ authUsername, viewUsername = null }) {
+export default function ProfilePageView({ authUsername, viewUsername = null, authToken = null }) {
   const navigate = useNavigate();
   const isOwnProfile = !viewUsername || viewUsername === authUsername;
   const targetUser = viewUsername || authUsername;
@@ -123,6 +123,14 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
     loadUserActivity();
     loadFriends();
   }, [profile]);
+
+  // Re-fetch cs-trades when the auth token arrives (token may not be ready on first profile load)
+  useEffect(() => {
+    if (!authToken || !profile) return;
+    if (profile.publicCsTrades || isOwnProfile) {
+      loadPublicCsTrades();
+    }
+  }, [authToken]);
 
   async function fetchProfile() {
     setLoadingProfile(true);

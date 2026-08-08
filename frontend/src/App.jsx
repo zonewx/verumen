@@ -33,10 +33,10 @@ function RetryCountdown({ onRetry }) {
   return <span className="shrink-0 font-semibold opacity-70">Retrying in {secs}s…</span>;
 }
 
-function ProfileRoute({ authUsername, shellProps }) {
+function ProfileRoute({ authUsername, authToken, shellProps }) {
   const { username } = useParams();
   const viewUser = username || null;
-  return <PageShell {...shellProps}><ProfilePageView authUsername={authUsername} viewUsername={viewUser}/></PageShell>;
+  return <PageShell {...shellProps}><ProfilePageView authUsername={authUsername} viewUsername={viewUser} authToken={authToken}/></PageShell>;
 }
 
 function PageShell({ title, children }) {
@@ -98,6 +98,7 @@ export default function App() {
     localStorage.getItem('auth_user') ? 'loading' : 'logged-out'
   );
   const [authUsername, setAuthUsername] = useState(() => localStorage.getItem('auth_user') || '');
+  const [authToken, setAuthToken] = useState(null);
   const [authMode, setAuthMode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('reset_token')) return 'reset-password';
@@ -318,6 +319,7 @@ export default function App() {
         return;
       }
       setToken(d.token);
+      setAuthToken(d.token);
       setAuthUsername(d.username);
       setUserRole(d.role || 'user');
       localStorage.setItem('auth_user', d.username);
@@ -386,6 +388,7 @@ export default function App() {
         localStorage.setItem('auth_user', data.username);
         localStorage.setItem('auth_role', data.role || 'user');
         setToken(data.token);
+        setAuthToken(data.token);
         setAuthUsername(data.username); setUserRole(data.role || 'user'); setIsInitializing(true); setAuthStatus('logged-in');
         setUserRole(data.role || 'user');
       }
@@ -420,6 +423,7 @@ export default function App() {
 
   const handleLogout = (msg = '') => {
     clearToken();
+    setAuthToken(null);
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_role');
     setAuthStatus('logged-out'); setAuthUsername('');
@@ -2266,7 +2270,7 @@ const handleUpload = async (files) => {
           <span className="text-sm font-semibold text-zinc-300">Verumen</span>
         </div>
         <div style={{ paddingTop: '40px' }}>
-          <ProfilePageView authUsername={authUsername} viewUsername={viewUsername} />
+          <ProfilePageView authUsername={authUsername} viewUsername={viewUsername} authToken={authToken} />
         </div>
       </div>
     );
@@ -2595,8 +2599,8 @@ const handleUpload = async (files) => {
           <Route path="/skins/traderegistry" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/settings" element={<PageShell {...shellProps}><SettingsPage baseCurrency={baseCurrency} onSetBaseCurrency={setBaseCurrency}/></PageShell>}/>
           <Route path="/user/:username/edit" element={<PageShell {...shellProps}><ProfileEditPage authUsername={authUsername}/></PageShell>}/>
-          <Route path="/user" element={<ProfileRoute authUsername={authUsername} shellProps={shellProps}/>}/>
-          <Route path="/user/:username" element={<ProfileRoute authUsername={authUsername} shellProps={shellProps}/>}/>
+          <Route path="/user" element={<ProfileRoute authUsername={authUsername} authToken={authToken} shellProps={shellProps}/>}/>
+          <Route path="/user/:username" element={<ProfileRoute authUsername={authUsername} authToken={authToken} shellProps={shellProps}/>}/>
 
           {/* Admin routes — single wildcard prevents remount on sub-nav */}
           <Route path="/adminpanel/*" element={<PageShell {...shellProps}><AdminPanel authUsername={authUsername}/></PageShell>}/>
