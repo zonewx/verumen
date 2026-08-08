@@ -2723,7 +2723,7 @@ app.get('/api/cs/profile-holdings', requireUser, async (req, res) => {
   const { data, error } = await supabase.from('cs_inventory')
     .select('id, skin_name, exterior, has_star, icon_url, share_token, purchase_date, sold, screenshot_url, hidden_from_profile')
     .eq('user_id', req.user.id)
-    .eq('sold', false)
+    .not('sold', 'is', true)
     .order('purchase_date', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   res.json((data || []).map(item => ({
