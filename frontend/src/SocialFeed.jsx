@@ -159,7 +159,7 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
   const skinIcon = useSkinIcon(item.iconUrl, item.skinName, item.exterior);
 
   return (
-    <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
+    <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
       <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
       <div className="flex items-center gap-3 pl-3 border-l-2 border-zinc-500/70 mb-3">
         {skinIcon && (
@@ -188,7 +188,7 @@ function ActivityCard({ item, onDelete, isOwn }) {
 
   if (item.type === 'skin_screenshot') {
     return (
-      <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
+      <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
         <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
         <p className="text-sm font-semibold text-zinc-100">{item.skinName}</p>
         {item.caption && <p className="text-sm text-zinc-400 mt-1">{item.caption}</p>}
