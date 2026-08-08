@@ -3643,6 +3643,8 @@ async function fetchSteamScreenshotPreview(id) {
   const fileInfo = json?.response?.publishedfiledetails?.[0];
   if (!fileInfo) return null;
 
+  console.log('[screenshot] hcontent_file:', fileInfo.hcontent_file, 'hcontent_preview:', fileInfo.hcontent_preview, 'preview_url:', fileInfo.preview_url);
+
   // Use GetUGCFileDetails to get the full-res screenshot file URL
   const STEAM_KEY = process.env.STEAM_API_KEY;
   if (STEAM_KEY && fileInfo.hcontent_file && fileInfo.hcontent_file !== '0') {
@@ -3652,8 +3654,9 @@ async function fetchSteamScreenshotPreview(id) {
         { signal: AbortSignal.timeout(5000) }
       );
       const ugc = await ugcRes.json();
+      console.log('[screenshot] GetUGCFileDetails response:', JSON.stringify(ugc));
       if (ugc?.data?.url) return ugc.data.url;
-    } catch {}
+    } catch(e) { console.log('[screenshot] GetUGCFileDetails error:', e.message); }
   }
 
   // Fallback to preview_url without size-limiting query params
