@@ -71,26 +71,6 @@ export default function SettingsPage({ baseCurrency, onSetBaseCurrency }) {
         <h1 className="text-2xl font-bold">Settings</h1>
 
         <div className={card}>
-          <h2 className={`text-sm font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Display</h2>
-          <div>
-            <label className={label}>Base Currency</label>
-            <select
-              value={baseCurrency}
-              onChange={e => onSetBaseCurrency(e.target.value)}
-              className={select}
-            >
-              <option value="EUR">EUR — Euro</option>
-              <option value="GBP">GBP — British Pound</option>
-              <option value="SEK">SEK — Swedish Krona</option>
-              <option value="USD">USD — US Dollar</option>
-            </select>
-            <p className={`text-xs mt-2 text-zinc-400`}>
-              Used across Stock Portfolio and CS Skins for value calculations and display.
-            </p>
-          </div>
-        </div>
-
-        <div className={card}>
           <h2 className={`text-sm font-bold uppercase tracking-wider mb-4 text-zinc-400`}>CS Item Prices</h2>
           <p className={`text-sm mb-4 text-zinc-400`}>
             Prices are sourced from Skinport and Steam Market, updated automatically every 24 hours.
