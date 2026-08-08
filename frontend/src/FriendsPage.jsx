@@ -142,17 +142,17 @@ export default function FriendsPage({ authUsername }) {
                 <div className={`${card} border rounded-xl divide-y ${divider}`}>
                   {filteredFriends.map(friend => (
                     <div key={friend.username} className="p-4 flex items-center gap-4">
-                      <Link to={`/user/${friend.username}`}>
+                      <a href={`/user/${friend.username}`} onClick={e => { e.preventDefault(); navigate(`/user/${friend.username}`); }}>
                         <Avatar user={friend} />
-                      </Link>
+                      </a>
                       <div className="flex-1 min-w-0">
-                        <Link to={`/user/${friend.username}`} className="font-semibold hover:underline text-left truncate block">
+                        <a href={`/user/${friend.username}`} onClick={e => { e.preventDefault(); navigate(`/user/${friend.username}`); }} className="font-semibold hover:underline text-left truncate block">
                           {friend.username}
-                        </Link>
+                        </a>
                         {friend.bio && <p className={`text-sm truncate ${textSecondary}`}>{friend.bio}</p>}
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <Link to={`/user/${friend.username}`} className="px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-lg text-sm font-medium transition">View</Link>
+                        <a href={`/user/${friend.username}`} onClick={e => { e.preventDefault(); navigate(`/user/${friend.username}`); }} className="px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-lg text-sm font-medium transition">View</a>
                         <button onClick={() => handleRemove(friend.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition bg-zinc-700 hover:bg-red-900/40 hover:text-red-400`}>Remove</button>
                       </div>
                     </div>

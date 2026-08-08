@@ -361,9 +361,9 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
                     title={!isExpanded ? item.label : ''}
                   >{navItemChildren}</button>
                 ) : (
-                  <Link to={item.path} className={navItemCls} title={!isExpanded ? item.label : ''}>
+                  <a href={item.path} onClick={e => { e.preventDefault(); navigate(item.path); }} className={navItemCls} title={!isExpanded ? item.label : ''}>
                     {navItemChildren}
-                  </Link>
+                  </a>
                 )}
 
                 {item.subItems && isOpen && isExpanded && (
@@ -408,16 +408,17 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
                       }
 
                       return (
-                        <Link
+                        <a
                           key={subItem.id}
-                          to={subItem.path}
+                          href={subItem.path}
+                          onClick={e => { e.preventDefault(); navigate(subItem.path); }}
                           className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors text-left ${
                             isActive(subItem.path) ? activeBg : hoverBg
                           } ${textPrimary}`}
                         >
                           {subItem.icon && <span className={`shrink-0 ${isActive(subItem.path) ? 'text-zinc-200' : textSecondary}`}>{subItem.icon}</span>}
                           <span className="text-sm">{subItem.label}</span>
-                        </Link>
+                        </a>
                       );
                     })}
                   </div>
@@ -438,8 +439,9 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
       />
       <div className="p-2">
         <div className="flex items-center gap-1">
-          <Link
-            to={`/user/${currentUser?.username}`}
+          <a
+            href={`/user/${currentUser?.username}`}
+            onClick={e => { e.preventDefault(); navigate(`/user/${currentUser?.username}`); }}
             className={`flex-1 min-w-0 overflow-hidden flex items-center gap-3 py-2 rounded-lg ${hoverBg} ${textPrimary}`}
             style={{ paddingLeft: isExpanded ? '12px' : '8px', paddingRight: isExpanded ? '12px' : '8px', transition: 'background-color 150ms ease, padding-left 300ms cubic-bezier(0.4, 0, 0.2, 1), padding-right 300ms cubic-bezier(0.4, 0, 0.2, 1)' }}
             title={!isExpanded ? currentUser?.username : ''}
@@ -465,9 +467,10 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
               <p className="text-sm font-medium truncate">{currentUser?.username}</p>
               <p className="text-xs text-zinc-400">{currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : ''}</p>
             </div>
-          </Link>
-          <Link
-            to={`/user/${currentUser?.username}/edit`}
+          </a>
+          <a
+            href={`/user/${currentUser?.username}/edit`}
+            onClick={e => { e.preventDefault(); navigate(`/user/${currentUser?.username}/edit`); }}
             className={`rounded-lg ${hoverBg} shrink-0 text-xs font-semibold ${textSecondary} overflow-hidden`}
             style={{
               opacity: isExpanded ? 1 : 0,
@@ -481,7 +484,7 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
             }}
           >
             Edit
-          </Link>
+          </a>
         </div>
       </div>
     </div>

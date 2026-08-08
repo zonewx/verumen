@@ -614,9 +614,10 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
               ) : friends.length > 0 ? (
                 <div className="flex flex-col gap-1">
                   {friends.map(friend => (
-                    <Link
+                    <a
                       key={friend.username}
-                      to={`/user/${friend.username}`}
+                      href={`/user/${friend.username}`}
+                      onClick={e => { e.preventDefault(); navigate(`/user/${friend.username}`); }}
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-700/50 transition"
                     >
                       <AvatarDisplay src={friend.avatarBase64} username={friend.username} size="w-8 h-8" textSize="text-sm" />
@@ -628,7 +629,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null }) {
                           </span>
                         )}
                       </div>
-                    </Link>
+                    </a>
                   ))}
                 </div>
               ) : (
