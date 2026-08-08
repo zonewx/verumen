@@ -3633,6 +3633,22 @@ app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
 });
 
 async function fetchSteamScreenshotPreview(id) {
+  const STEAM_KEY = process.env.STEAM_API_KEY;
+
+  if (STEAM_KEY) {
+    try {
+      const r = await fetch(
+        `https://api.steampowered.com/IPublishedFileService/GetDetails/v1/?key=${STEAM_KEY}&publishedfileids[0]=${id}`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      const json = await r.json();
+      const detail = json?.response?.publishedfiledetails?.[0];
+      if (detail?.file_url) return detail.file_url;
+      if (detail?.preview_url) return detail.preview_url.split('?')[0];
+    } catch {}
+  }
+
+  // Fallback: no API key — use GetPublishedFileDetails (no auth required)
   const r = await fetch('https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -3640,40 +3656,7 @@ async function fetchSteamScreenshotPreview(id) {
     signal: AbortSignal.timeout(8000),
   });
   const json = await r.json();
-  const fileInfo = json?.response?.publishedfiledetails?.[0];
-  if (!fileInfo) return null;
-
-  const STEAM_KEY = process.env.STEAM_API_KEY;
-  if (STEAM_KEY && fileInfo.hcontent_file && fileInfo.hcontent_file !== '0') {
-    // Try GetUGCFileDetails with both CS2 (730) and Steam (760) appids
-    for (const appid of [730, 760]) {
-      try {
-        const ugcRes = await fetch(
-          `https://api.steampowered.com/ISteamRemoteStorage/GetUGCFileDetails/v1/?key=${STEAM_KEY}&appid=${appid}&ugcid=${fileInfo.hcontent_file}`,
-          { signal: AbortSignal.timeout(5000) }
-        );
-        const ugc = await ugcRes.json();
-        console.log(`[screenshot] GetUGCFileDetails appid=${appid}:`, JSON.stringify(ugc));
-        if (ugc?.data?.url) return ugc.data.url;
-      } catch(e) { console.log(`[screenshot] GetUGCFileDetails appid=${appid} error:`, e.message); }
-    }
-
-    // Try IPublishedFileService/GetDetails which returns more fields
-    try {
-      const svcRes = await fetch(
-        `https://api.steampowered.com/IPublishedFileService/GetDetails/v1/?key=${STEAM_KEY}&publishedfileids[0]=${id}`,
-        { signal: AbortSignal.timeout(5000) }
-      );
-      const svc = await svcRes.json();
-      const detail = svc?.response?.publishedfiledetails?.[0];
-      console.log('[screenshot] IPublishedFileService detail keys:', Object.keys(detail || {}));
-      console.log('[screenshot] IPublishedFileService detail:', JSON.stringify(detail));
-      if (detail?.file_url) return detail.file_url;
-    } catch(e) { console.log('[screenshot] IPublishedFileService error:', e.message); }
-  }
-
-  // Fallback to preview_url without size-limiting query params
-  return fileInfo.preview_url?.split('?')[0] || null;
+  return json?.response?.publishedfiledetails?.[0]?.preview_url?.split('?')[0] || null;
 }
 
 app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
