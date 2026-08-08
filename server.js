@@ -3640,7 +3640,8 @@ async function fetchSteamScreenshotPreview(id) {
     signal: AbortSignal.timeout(8000),
   });
   const json = await r.json();
-  return json?.response?.publishedfiledetails?.[0]?.preview_url || null;
+  const url = json?.response?.publishedfiledetails?.[0]?.preview_url;
+  return url ? url.split('?')[0] : null;
 }
 
 app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
