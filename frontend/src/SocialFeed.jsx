@@ -104,6 +104,7 @@ function timeAgo(dateStr) {
 
 function PostHeader({ item, onDelete, isOwn }) {
   const badge = ROLE_BADGE[item.role];
+  const [confirming, setConfirming] = useState(false);
   return (
     <div className="flex items-center gap-2.5 mb-3">
       <Avatar src={item.avatarBase64} username={item.username} />
@@ -115,11 +116,19 @@ function PostHeader({ item, onDelete, isOwn }) {
         <p className="text-xs text-zinc-500 mt-0.5">{timeAgo(item.createdAt)}</p>
       </div>
       {isOwn && (
-        <button onClick={onDelete} className="text-zinc-600 hover:text-red-400 transition p-1 rounded-lg hover:bg-red-400/10">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
+        confirming ? (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-xs text-zinc-400">Delete?</span>
+            <button onClick={onDelete} className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/40 transition">Yes</button>
+            <button onClick={() => setConfirming(false)} className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">No</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirming(true)} className="text-zinc-600 hover:text-red-400 transition p-1 rounded-lg hover:bg-red-400/10">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        )
       )}
     </div>
   );
