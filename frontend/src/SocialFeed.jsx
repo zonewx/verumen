@@ -151,7 +151,7 @@ function TradeCard({ item, onDelete, isOwn }) {
             {isBuy
               ? `${item.price} ${item.currency}`
               : `Sold for ${item.sellPrice} ${item.currency} · bought ${item.buyPrice} ${item.currency}`}
-            {item.exterior && <span className="ml-1.5 text-zinc-600">· {item.exterior}</span>}
+            {item.floatValue != null && <span className="ml-1.5 text-zinc-600">· {parseFloat(item.floatValue).toFixed(4)}</span>}
           </p>
         </div>
       </div>
@@ -178,7 +178,7 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
           <p className="font-semibold text-sm text-zinc-100 truncate">{item.skinName}</p>
           <p className="text-xs text-zinc-500 mt-0.5">
             {item.price != null ? `${item.price} ${item.currency}` : ''}
-            {item.exterior && <span className="ml-1.5 text-zinc-600">· {item.exterior}</span>}
+            {item.floatValue != null && <span className="ml-1.5 text-zinc-600">· {parseFloat(item.floatValue).toFixed(4)}</span>}
           </p>
         </div>
       </div>
