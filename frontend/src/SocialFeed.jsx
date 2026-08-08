@@ -424,14 +424,14 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
             ) : (
               <div className="flex flex-col gap-3">
                 {(() => {
-                  const items = tab === 'mine'
+                  const items = (tab === 'mine'
                     ? feed.filter(i => i.username === authUsername)
-                    : feed;
+                    : feed).filter(i => i.type !== 'holdings_update');
                   if (items.length === 0) return (
                     <div className={`${card} p-10 text-center`}>
                       <p className="text-3xl mb-3">{tab === 'mine' ? '📝' : '👥'}</p>
                       <p className="font-semibold mb-1">{tab === 'mine' ? 'No activity yet' : 'Your feed is empty'}</p>
-                      <p className={`text-sm text-zinc-400`}>{tab === 'mine' ? 'Your CS trades, portfolio updates and screenshots will appear here.' : 'Add friends to see their activity here.'}</p>
+                      <p className={`text-sm text-zinc-400`}>{tab === 'mine' ? 'Your CS trades and screenshots will appear here.' : 'Add friends to see their activity here.'}</p>
                     </div>
                   );
                   return items.map(item => (
