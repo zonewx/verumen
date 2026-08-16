@@ -425,10 +425,11 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="flex justify-center gap-6 px-6 py-6">
+      <div className="mx-auto w-full max-w-[960px] px-6 py-6">
+        <div className="flex gap-6">
 
-        {/* Feed column — centered */}
-        <div className="flex-1 max-w-2xl min-w-0">
+        {/* Feed column */}
+        <div className="flex-1 min-w-0">
 
           {/* Announcements */}
           {announcements.length > 0 && (
@@ -657,6 +658,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                 </div>
               )}
             </div>
+        </div>
         </div>
       </div>
     </div>
