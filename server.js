@@ -2720,14 +2720,12 @@ app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
 // Authenticated profile holdings — own profile only, no public_cs_trades check needed
 // Requires: ALTER TABLE cs_inventory ADD COLUMN IF NOT EXISTS hidden_from_profile BOOLEAN DEFAULT FALSE;
 app.get('/api/cs/profile-holdings', requireUser, async (req, res) => {
-  log.info('profile-holdings: request', { userId: req.user.id });
   const { data, error } = await supabase.from('cs_inventory')
     .select('id, skin_name, exterior, icon_url, share_token, purchase_date, sold, screenshot_url, hidden_from_profile')
     .eq('user_id', req.user.id)
     .not('sold', 'is', true)
     .order('purchase_date', { ascending: false });
-  if (error) { log.error('profile-holdings: db error', { error: error.message, userId: req.user.id }); return res.status(500).json({ error: error.message }); }
-  log.info('profile-holdings: returning', { count: (data || []).length, userId: req.user.id });
+  if (error) return res.status(500).json({ error: error.message });
   res.json((data || []).map(item => ({
     id: item.id,
     skinName: item.skin_name,

@@ -258,26 +258,19 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
     setLoadingCsTrades(true);
     try {
       const token = getToken();
-      console.log('[holdings] isOwnProfile:', isOwnProfile, 'hasToken:', !!token);
       if (isOwnProfile && token) {
         const res = await fetch('/api/cs/profile-holdings', { headers: { Authorization: `Bearer ${token}` } });
-        console.log('[holdings] profile-holdings status:', res.status);
         if (res.ok) {
-          const data = await res.json();
-          console.log('[holdings] items returned:', data.length);
-          setCsTrades(data);
+          setCsTrades(await res.json());
           setLoadingCsTrades(false);
           return;
         }
-        const errBody = await res.text();
-        console.error('[holdings] profile-holdings error:', res.status, errBody);
       }
       // Fallback: public endpoint for other users
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const res = await fetch(`/api/users/${targetUser}/cs-trades`, { headers });
-      console.log('[holdings] cs-trades fallback status:', res.status);
       if (res.ok) setCsTrades(await res.json());
-    } catch(e) { console.error('[holdings] exception:', e); }
+    } catch(e) {}
     setLoadingCsTrades(false);
   }
 
