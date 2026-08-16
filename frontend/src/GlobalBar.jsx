@@ -75,7 +75,10 @@ export default function GlobalBar({ authUsername, onNavigate, onLogout, userRole
           </svg>
           <input ref={inputRef} value={search} onChange={handleSearchInput} placeholder="Search users..."
             className={`bg-transparent outline-none flex-1 text-sm text-white placeholder-zinc-500`} />
-          {searching && <div className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin shrink-0"/>}
+          {searching
+            ? <div className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin shrink-0"/>
+            : !search && <kbd className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-zinc-700/50 border-zinc-600 text-zinc-500 leading-none tracking-wide select-none">SPACE</kbd>
+          }
         </div>
         {results.length > 0 && (
           <div className={`absolute top-full left-0 right-0 mt-1 rounded-xl border shadow-xl overflow-hidden z-50 bg-zinc-800 border-zinc-700`}>
