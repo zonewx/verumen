@@ -313,6 +313,20 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
     }).catch(() => {});
   }, []);
 
+  // Heartbeat — updates online presence while this tab is open
+  useEffect(() => {
+    const beat = () => {
+      const token = getToken();
+      if (!token) return;
+      fetch('/api/users/heartbeat', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    };
+    beat();
+    const id = setInterval(() => { if (document.visibilityState === 'visible') beat(); }, 60 * 1000);
+    const onVisibility = () => { if (document.visibilityState === 'visible') beat(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisibility); };
+  }, []);
+
   const searchUsers = async (q) => {
     setSearchQuery(q);
     if (q.length < 2) { setSearchResults([]); return; }
@@ -388,23 +402,17 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
     setUploading(false);
   };
 
-  const ROLE_BADGE_SIDEBAR = {
-    admin: { cls: 'bg-red-900/40 text-red-400 border border-red-800' },
-    moderator: { cls: 'bg-blue-900/40 text-blue-400 border border-blue-800' },
-  };
-
   const FriendRow = ({ user, actions }) => (
     <div className="flex items-center gap-2.5 py-2">
       <button onClick={() => onViewProfile(user.username)} className="shrink-0">
         <Avatar src={user.avatarBase64} username={user.username} />
       </button>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => onViewProfile(user.username)} className="font-medium text-sm text-zinc-200 hover:text-white transition truncate">{user.username}</button>
-        </div>
-        {user.bio && <p className="text-xs text-zinc-500 truncate">{user.bio}</p>}
+        <button onClick={() => onViewProfile(user.username)} className="font-medium text-sm text-zinc-200 hover:text-white transition truncate text-left block w-full">
+          {user.username}
+        </button>
       </div>
-      <div className="flex gap-1.5 shrink-0">{actions}</div>
+      <div className="flex items-center gap-1.5 shrink-0">{actions}</div>
     </div>
   );
 
@@ -417,26 +425,25 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-6 py-6">
+      <div className="flex justify-center gap-6 px-6 py-6">
 
-        {/* Announcements */}
-        {announcements.length > 0 && (
-          <div className="flex flex-col gap-2 mb-5">
-            {announcements.map(a => (
-              <div key={a.id} className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${announcementStyles[a.type] || announcementStyles.info}`}>
-                <div className="flex-1 min-w-0">
-                  <span className="font-semibold">{a.title}</span>
-                  {a.message && <span className="ml-2 opacity-75">{a.message}</span>}
+        {/* Feed column — centered */}
+        <div className="w-full max-w-2xl min-w-0">
+
+          {/* Announcements */}
+          {announcements.length > 0 && (
+            <div className="flex flex-col gap-2 mb-5">
+              {announcements.map(a => (
+                <div key={a.id} className={`flex items-start gap-3 px-4 py-3 rounded-xl border text-sm ${announcementStyles[a.type] || announcementStyles.info}`}>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold">{a.title}</span>
+                    {a.message && <span className="ml-2 opacity-75">{a.message}</span>}
+                  </div>
+                  <span className="text-xs opacity-40 shrink-0">by {a.posted_by}</span>
                 </div>
-                <span className="text-xs opacity-40 shrink-0">by {a.posted_by}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex gap-6">
-          {/* Feed */}
-          <div className="flex-1 min-w-0">
+              ))}
+            </div>
+          )}
 
             {/* Tab bar */}
             <div className="flex items-center justify-between mb-4">
@@ -550,10 +557,10 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                 </div>
               );
             })()}
-          </div>
+        </div>{/* end feed column */}
 
-          {/* Friends sidebar */}
-          <div className="w-64 shrink-0">
+        {/* Friends panel */}
+        <div className="w-64 shrink-0">
             <div className="bg-zinc-800/60 border border-zinc-700/60 rounded-2xl p-4 sticky top-0">
 
               {/* Friends header */}
@@ -641,14 +648,15 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                   <div className="flex flex-col divide-y divide-zinc-700/30">
                     {friends.friends.map(u => (
                       <FriendRow key={u.username} user={u} actions={
-                        <button onClick={() => onViewProfile(u.username)} className="text-[10px] text-zinc-500 hover:text-zinc-300 transition font-medium">View</button>
+                        u.isOnline
+                          ? <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Online" />
+                          : null
                       } />
                     ))}
                   </div>
                 </div>
               )}
             </div>
-          </div>
         </div>
       </div>
     </div>

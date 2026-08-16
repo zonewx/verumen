@@ -235,6 +235,13 @@ const FX_PAIRS = ['USDSEK=X','EURSEK=X','GBPSEK=X','NOKSEK=X','DKKSEK=X'];
   }
 })();
 
+// In-memory presence map — userId → last heartbeat timestamp
+const _presence = new Map();
+setInterval(() => {
+  const cutoff = Date.now() - 3 * 60 * 1000;
+  for (const [id, ts] of _presence) if (ts < cutoff) _presence.delete(id);
+}, 60 * 1000).unref();
+
 // Simple in-memory rate limiter for auth routes
 const rateLimitMap = new Map();
 setInterval(() => { const now = Date.now(); for (const [k, v] of rateLimitMap) if (now > v.resetAt) rateLimitMap.delete(k); }, 5 * 60 * 1000).unref();
@@ -2973,6 +2980,11 @@ async function appendActivity(userId, type, payload={}) { await supabase.from('a
 async function appendModLog(moderator, action, targetUser, details='') { await supabase.from('moderation_log').insert({ moderator, action, target_user:targetUser, details }); }
 
 // ── Friends ─────────────────────────────────────────────────────────────────
+app.post('/api/users/heartbeat', requireUser, (req, res) => {
+  _presence.set(req.user.id, Date.now());
+  res.json({ ok: true });
+});
+
 app.get('/api/friends', requireUser, async (req, res) => {
   const userId = req.user.id;
   const { data: all } = await supabase.from('friendships').select('requester_id, addressee_id, status').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
@@ -2980,8 +2992,9 @@ app.get('/api/friends', requireUser, async (req, res) => {
   const getProfiles = async (ids) => { if(!ids.length) return []; const { data } = await supabase.from('profiles').select('id, username, avatar_base64, bio, role').in('id', ids); return data||[]; };
   const friendIds=accepted.map(f=>f.requester_id===userId?f.addressee_id:f.requester_id);
   const [fp, ip, op] = await Promise.all([getProfiles(friendIds), getProfiles(incoming.map(f=>f.requester_id)), getProfiles(outgoing.map(f=>f.addressee_id))]);
-  const fmt=p=>({ username:p.username, avatarBase64:p.avatar_base64, bio:p.bio, role:p.role });
-  res.json({ friends:fp.map(fmt), incoming:ip.map(fmt), outgoing:op.map(p=>p.username) });
+  const now = Date.now();
+  const fmt = p => ({ username: p.username, avatarBase64: p.avatar_base64, role: p.role, isOnline: _presence.has(p.id) && now - _presence.get(p.id) < 2 * 60 * 1000 });
+  res.json({ friends: fp.map(fmt), incoming: ip.map(fmt), outgoing: op.map(p => p.username) });
 });
 
 app.get('/api/friends/pending-count', requireUser, async (req, res) => {
