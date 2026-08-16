@@ -2648,11 +2648,22 @@ const handleUpload = async (files) => {
         </div>
       )}
 
-      {/* Global flash notification — top-center toast */}
+      {/* Global flash notification — centered in content area */}
       {globalFlash && (
-        <div className="fixed z-[9998] pointer-events-none -translate-x-1/2" style={{ top: '52px', left: 'calc(50% + var(--sidebar-w) / 2)' }}>
-          <div className="px-4 py-3 rounded-xl bg-white border border-zinc-200 shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
-            <span className="text-sm font-semibold text-zinc-900 whitespace-nowrap">{globalFlash.startsWith('✓') ? globalFlash.slice(2) : globalFlash}</span>
+        <div className="fixed z-[9998] pointer-events-none flex justify-center" style={{ top: '52px', left: 'var(--sidebar-w, 240px)', right: 0 }}>
+          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
+            {globalFlash.startsWith('✓') ? (
+              <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            )}
+            <span className="text-sm font-medium text-zinc-100 whitespace-nowrap">
+              {globalFlash.startsWith('✓') ? globalFlash.slice(2) : globalFlash}
+            </span>
           </div>
         </div>
       )}
