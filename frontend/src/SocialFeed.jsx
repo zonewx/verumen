@@ -403,12 +403,12 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   };
 
   const FriendRow = ({ user, actions }) => (
-    <div className="flex items-center gap-2.5 py-2">
-      <button onClick={() => onViewProfile(user.username)} className="shrink-0">
+    <div className="flex items-center gap-2.5 py-2 group/row">
+      <button onClick={() => onViewProfile(user.username)} className="shrink-0 opacity-90 group-hover/row:opacity-100 transition">
         <Avatar src={user.avatarBase64} username={user.username} />
       </button>
       <div className="flex-1 min-w-0">
-        <button onClick={() => onViewProfile(user.username)} className="font-medium text-sm text-zinc-200 hover:text-white transition truncate text-left block w-full">
+        <button onClick={() => onViewProfile(user.username)} className="font-medium text-sm text-zinc-200 hover:underline truncate text-left block w-full">
           {user.username}
         </button>
       </div>
@@ -428,7 +428,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
       <div className="flex justify-center gap-6 px-6 py-6">
 
         {/* Feed column — centered */}
-        <div className="w-full max-w-2xl min-w-0">
+        <div className="flex-1 max-w-2xl min-w-0">
 
           {/* Announcements */}
           {announcements.length > 0 && (
