@@ -130,12 +130,12 @@ export default function App() {
   );
 
   // ── Global flash notification ───────────────────────────────────────────────
-  const [globalFlash, setGlobalFlash] = useState('');
+  const [globalFlash, setGlobalFlash] = useState(null); // { msg, ms }
   useEffect(() => {
     const handler = e => {
       const { msg, ms = 3000 } = e.detail;
-      setGlobalFlash(msg);
-      setTimeout(() => setGlobalFlash(g => g === msg ? '' : g), ms);
+      setGlobalFlash({ msg, ms });
+      setTimeout(() => setGlobalFlash(f => f?.msg === msg ? null : f), ms);
     };
     window.addEventListener('app:flash', handler);
     return () => window.removeEventListener('app:flash', handler);
@@ -2651,8 +2651,11 @@ const handleUpload = async (files) => {
       {/* Global flash notification — centered in content area */}
       {globalFlash && (
         <div className="fixed z-[9998] pointer-events-none flex justify-center" style={{ top: '52px', left: 'var(--sidebar-w, 240px)', right: 0 }}>
-          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
-            {globalFlash.startsWith('✓') ? (
+          <div
+            className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 shadow-[0_4px_24px_rgba(0,0,0,0.6)]"
+            style={{ animation: `flash-toast ${globalFlash.ms}ms ease forwards` }}
+          >
+            {globalFlash.msg.startsWith('✓') ? (
               <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
               </svg>
@@ -2662,7 +2665,7 @@ const handleUpload = async (files) => {
               </svg>
             )}
             <span className="text-sm font-medium text-zinc-100 whitespace-nowrap">
-              {globalFlash.startsWith('✓') ? globalFlash.slice(2) : globalFlash}
+              {globalFlash.msg.startsWith('✓') ? globalFlash.msg.slice(2) : globalFlash.msg}
             </span>
           </div>
         </div>

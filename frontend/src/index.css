@@ -29,6 +29,14 @@ body {
 ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
 
+/* Flash toast animation */
+@keyframes flash-toast {
+  0%   { opacity: 0; transform: translateY(-6px); }
+  8%   { opacity: 1; transform: translateY(0); }
+  75%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
 /* Smooth transitions */
 * { transition-property: color, border-color; transition-duration: 150ms; }
 
