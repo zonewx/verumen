@@ -432,6 +432,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
 
         {/* Feed column */}
         <div className="flex-1 min-w-0">
+          <div className="mx-auto max-w-[680px]">
 
           {/* Announcements */}
           {announcements.length > 0 && (
@@ -560,6 +561,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                 </div>
               );
             })()}
+          </div>{/* end max-w content wrapper */}
         </div>{/* end feed column */}
 
         {/* Friends panel */}
