@@ -425,7 +425,10 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[960px] px-6 py-6 flex gap-6">
+      <div className="px-6 py-6 flex gap-6">
+
+        {/* Left spacer mirrors friends panel width so feed centers in content area */}
+        <div className="w-64 shrink-0 hidden xl:block" />
 
         {/* Feed column */}
         <div className="flex-1 min-w-0">
