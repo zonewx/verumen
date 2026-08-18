@@ -348,13 +348,8 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
       if (!res.ok) { setFeedLoading(false); setRefreshing(false); return; }
       const data = await res.json();
       if (Array.isArray(data)) {
-        if (isManual) {
-          const current = apiCache.get('/api/feed') || [];
-          const hasNew = data.length !== current.length || data[0]?.id !== current[0]?.id;
-          if (hasNew) { apiCache.set('/api/feed', data); setFeed(data); }
-        } else {
-          apiCache.set('/api/feed', data); setFeed(data);
-        }
+        apiCache.set('/api/feed', data);
+        setFeed(data);
       }
     } catch(e) { console.error('Feed fetch error:', e); }
     setFeedLoading(false);
