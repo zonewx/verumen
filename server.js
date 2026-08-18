@@ -3052,15 +3052,17 @@ app.get('/api/feed', requireUser, async (req, res) => {
     const allIds = [...new Set([...friendIds, req.user.id])];
     log.info('feed debug', { user: req.username, friendIds, allIds });
 
-    const [{ data: activity }, { data: profiles }] = await Promise.all([
+    const [activityResult, { data: profiles }] = await Promise.all([
       supabase.from('activity').select('id, user_id, type, payload, created_at').in('user_id', allIds).order('created_at', { ascending:false }).limit(50),
       supabase.from('profiles').select('id, username, avatar_base64, role').in('id', allIds),
     ]);
+    const activity = activityResult.data;
+    log.info('feed debug activity', { user: req.username, count: activity?.length, error: activityResult.error?.message, types: activity?.map(a => a.type) });
 
     const profileMap = {};
     (profiles||[]).forEach(p => { profileMap[p.id] = p; });
 
-    res.json((activity||[]).map(a => {
+    res.json((activity || []).map(a => {
       const profile = profileMap[a.user_id] || {};
       const payload = a.payload || {};
       // Strip prices stored in non-USD currency to avoid displaying misleading values
