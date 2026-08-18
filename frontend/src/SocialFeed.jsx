@@ -112,9 +112,19 @@ function timeAgo(dateStr) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + year;
 }
 
-function PostHeader({ item, onDelete, isOwn }) {
+function PostHeader({ item, onDelete, onEdit, isOwn }) {
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menuOpen]);
+
   return (
     <div className="flex items-center gap-2.5 mb-3">
       <a href={`/user/${item.username}`} onClick={e => { e.preventDefault(); navigate(`/user/${item.username}`); }}>
@@ -135,11 +145,25 @@ function PostHeader({ item, onDelete, isOwn }) {
             <button onClick={() => setConfirming(false)} className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">No</button>
           </div>
         ) : (
-          <button onClick={() => setConfirming(true)} className="text-zinc-600 hover:text-red-400 transition p-1 rounded-lg hover:bg-red-400/10">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+          <div ref={menuRef} className="relative shrink-0">
+            <button onClick={() => setMenuOpen(v => !v)} className="text-zinc-500 hover:text-zinc-300 transition p-1.5 rounded-lg hover:bg-zinc-700/50">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+              </svg>
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-20 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl overflow-hidden min-w-[120px]">
+                {onEdit && (
+                  <button onClick={() => { setMenuOpen(false); onEdit(); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-700/60 transition text-left">
+                    Edit
+                  </button>
+                )}
+                <button onClick={() => { setMenuOpen(false); setConfirming(true); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-400/10 transition text-left">
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
         )
       )}
     </div>
@@ -228,7 +252,18 @@ function ScreenshotCard({ item, onDelete, isOwn }) {
   );
 }
 
-function ActivityCard({ item, onDelete, isOwn }) {
+function ActivityCard({ item, onDelete, onSaveEdit, isOwn }) {
+  const [editing, setEditing] = useState(false);
+  const [editCaption, setEditCaption] = useState(item.caption || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSaveEdit(item.id, editCaption);
+    setSaving(false);
+    setEditing(false);
+  };
+
   if (item.type === 'cs_trade') {
     return <TradeCard item={item} onDelete={onDelete} isOwn={isOwn} />;
   }
@@ -240,9 +275,28 @@ function ActivityCard({ item, onDelete, isOwn }) {
   if (item.type === 'skin_screenshot') {
     return (
       <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
-        <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
+        <PostHeader item={item} onDelete={() => onDelete(item.id)} onEdit={isOwn ? () => setEditing(true) : null} isOwn={isOwn} />
         <p className={`text-sm font-semibold ${skinNameColor(item.skinName)}`}>{item.skinName}</p>
-        {item.caption && <p className="text-sm text-zinc-400 mt-1">{item.caption}</p>}
+        {editing ? (
+          <div className="mt-2">
+            <textarea
+              value={editCaption}
+              onChange={e => setEditCaption(e.target.value)}
+              rows={3}
+              className="w-full bg-zinc-900/60 border border-zinc-600 rounded-xl px-3 py-2 text-sm text-zinc-200 resize-none outline-none focus:border-zinc-400 transition"
+            />
+            <div className="flex gap-2 mt-2">
+              <button onClick={handleSave} disabled={saving} className="text-xs px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-lg transition disabled:opacity-50">
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={() => { setEditing(false); setEditCaption(item.caption || ''); }} className="text-xs px-3 py-1.5 bg-zinc-700/50 text-zinc-400 hover:bg-zinc-700 rounded-lg transition">
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          item.caption && <p className="text-sm text-zinc-400 mt-1">{item.caption}</p>
+        )}
         {item.imageBase64 && (
           <div className="rounded-xl overflow-hidden mt-3">
             <img src={item.imageBase64} alt={item.skinName} className="w-full object-contain" />
@@ -380,6 +434,18 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
       const authHeader = getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {};
       await fetch(`/api/activity/${id}`, { method: 'DELETE', headers: authHeader });
     } catch(e) { console.error('Delete error:', e); }
+  };
+
+  const editActivity = async (id, caption) => {
+    try {
+      const token = getToken();
+      await fetch(`/api/activity/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ caption }),
+      });
+      setFeed(f => f.map(item => String(item.id) === String(id) ? { ...item, caption } : item));
+    } catch(e) { console.error('Edit error:', e); }
   };
 
   const handleImageUpload = (file) => {
@@ -568,7 +634,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
               return (
                 <div className="flex flex-col gap-3">
                   {items.map(item => (
-                    <ActivityCard key={item.id} item={item} onDelete={deleteActivity} isOwn={item.username === authUsername} />
+                    <ActivityCard key={item.id} item={item} onDelete={deleteActivity} onSaveEdit={editActivity} isOwn={item.username === authUsername} />
                   ))}
                 </div>
               );

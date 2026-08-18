@@ -3109,6 +3109,13 @@ app.delete('/api/activity/:id', requireUser, async (req, res) => {
   res.json({ success:true });
 });
 
+app.patch('/api/activity/:id', requireUser, async (req, res) => {
+  const { data } = await supabase.from('activity').select('id, payload').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  if (!data) return res.status(404).json({ error: 'Not found' });
+  await supabase.from('activity').update({ payload: { ...data.payload, caption: req.body.caption ?? '' } }).eq('id', req.params.id);
+  res.json({ success: true });
+});
+
 // ── Announcements ───────────────────────────────────────────────────────────
 app.get('/api/announcements', async (req, res) => {
   const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending:false }).limit(10);
