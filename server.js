@@ -10,7 +10,7 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const brotliDecompress = promisify(zlib.brotliDecompress);
 const { Resend } = require('resend');
-const { supabase, db } = require('./supabase');
+const { supabase, db, supabaseAnon } = require('./supabase');
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const APP_URL = process.env.APP_URL || 'https://verumen.com';
@@ -380,25 +380,14 @@ app.get('/api/diag/yf', requireAdmin, async (req, res) => {
 async function requireUser(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
-  // Decode JWT locally to avoid calling supabase.auth.getUser() on the shared service client.
-  // That call contaminates the client's in-memory auth state, causing subsequent data queries
-  // to run with the user's JWT instead of the service role key — which triggers RLS and makes
-  // each user see only their own rows instead of friend + self rows.
-  let userId;
-  try {
-    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
-    if (!payload.sub || (payload.exp && payload.exp < Math.floor(Date.now() / 1000))) {
-      return res.status(401).json({ error: 'Session expired. Please log in again.' });
-    }
-    userId = payload.sub;
-  } catch {
-    return res.status(401).json({ error: 'Invalid or expired session' });
-  }
-  // Verify the user exists via admin API (service-role, no session side effects)
-  const { data: { user }, error } = await supabase.auth.admin.getUserById(userId);
+  // Verify via supabaseAnon.auth.getUser(token): calls Supabase's /auth/v1/user endpoint
+  // which verifies the JWT signature and checks live session state (catches revocations).
+  // Uses the anon client so the service-role clients (supabase, db) are never touched.
+  if (!supabaseAnon) return res.status(500).json({ error: 'Auth not configured' });
+  const { data: { user }, error } = await supabaseAnon.auth.getUser(token);
   if (error || !user) return res.status(401).json({ error: 'Invalid or expired session' });
   req.user = user;
-  const { data: profile } = await db.from('profiles').select('username, role').eq('id', userId).single();
+  const { data: profile } = await db.from('profiles').select('username, role').eq('id', user.id).single();
   if (!profile) return res.status(401).json({ error: 'Profile not found' });
   req.username = profile.username;
   req.role = profile.role;
@@ -656,9 +645,11 @@ app.post('/api/auth/reset-password', authRateLimit, async (req, res) => {
   if (!resetEntry || new Date(resetEntry.expires_at) < new Date()) {
     return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
   }
-  // Mark token used atomically before changing password to prevent TOCTOU race
-  const { count } = await db.from('password_reset_tokens').update({ used: true }).eq('token', token).eq('used', false);
-  if (count === 0) return res.status(400).json({ error: 'This reset link has already been used.' });
+  // Mark token used atomically before changing password to prevent TOCTOU race.
+  // .select() is required — without it Supabase JS v2 returns count:null (no body), so
+  // count===0 never fires. With .select() an empty array means 0 rows were updated (already used).
+  const { data: updated } = await db.from('password_reset_tokens').update({ used: true }).eq('token', token).eq('used', false).select('token');
+  if (!updated || updated.length === 0) return res.status(400).json({ error: 'This reset link has already been used.' });
   const { data: profile } = await db.from('profiles').select('id').eq('username', resetEntry.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found.' });
   const { error } = await supabase.auth.admin.updateUserById(profile.id, { password });
