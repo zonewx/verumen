@@ -273,6 +273,7 @@ function ActivityCard({ item, onDelete, onSaveEdit, isOwn }) {
   }
 
   if (item.type === 'skin_screenshot') {
+    console.log('[ActivityCard] rendering skin_screenshot', item.id, item.skinName, 'isOwn:', isOwn);
     return (
       <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
         <PostHeader item={item} onDelete={() => onDelete(item.id)} onEdit={isOwn ? () => setEditing(true) : null} isOwn={isOwn} />
