@@ -3050,6 +3050,7 @@ app.get('/api/feed', requireUser, async (req, res) => {
       .map(f => f.requester_id === req.user.id ? f.addressee_id : f.requester_id);
 
     const allIds = [...new Set([...friendIds, req.user.id])];
+    log.info('feed debug', { user: req.username, friendIds, allIds });
 
     const [{ data: activity }, { data: profiles }] = await Promise.all([
       supabase.from('activity').select('id, user_id, type, payload, created_at').in('user_id', allIds).order('created_at', { ascending:false }).limit(50),
