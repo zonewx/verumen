@@ -282,7 +282,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
   const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
 
   const fetchFeed = useCallback(async () => {
-    if (!apiCache.has('/api/feed')) setFeedLoading(true);
+    setFeedLoading(true);
     try {
       const token = getToken();
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
