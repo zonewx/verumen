@@ -380,10 +380,25 @@ app.get('/api/diag/yf', requireAdmin, async (req, res) => {
 async function requireUser(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+  // Decode JWT locally to avoid calling supabase.auth.getUser() on the shared service client.
+  // That call contaminates the client's in-memory auth state, causing subsequent data queries
+  // to run with the user's JWT instead of the service role key — which triggers RLS and makes
+  // each user see only their own rows instead of friend + self rows.
+  let userId;
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+    if (!payload.sub || (payload.exp && payload.exp < Math.floor(Date.now() / 1000))) {
+      return res.status(401).json({ error: 'Session expired. Please log in again.' });
+    }
+    userId = payload.sub;
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+  // Verify the user exists via admin API (service-role, no session side effects)
+  const { data: { user }, error } = await supabase.auth.admin.getUserById(userId);
   if (error || !user) return res.status(401).json({ error: 'Invalid or expired session' });
   req.user = user;
-  const { data: profile } = await supabase.from('profiles').select('username, role').eq('id', user.id).single();
+  const { data: profile } = await supabase.from('profiles').select('username, role').eq('id', userId).single();
   if (!profile) return res.status(401).json({ error: 'Profile not found' });
   req.username = profile.username;
   req.role = profile.role;
