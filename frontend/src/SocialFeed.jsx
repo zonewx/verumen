@@ -281,18 +281,30 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
 
   const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
 
-  const fetchFeed = useCallback(async () => {
-    setFeedLoading(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchFeed = useCallback(async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    else setFeedLoading(true);
     try {
       const token = getToken();
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const res = await fetch('/api/feed', { headers });
-      if (res.status === 401) { window.dispatchEvent(new Event('session-expired')); setFeedLoading(false); return; }
-      if (!res.ok) { setFeedLoading(false); return; }
+      if (res.status === 401) { window.dispatchEvent(new Event('session-expired')); setFeedLoading(false); setRefreshing(false); return; }
+      if (!res.ok) { setFeedLoading(false); setRefreshing(false); return; }
       const data = await res.json();
-      if (Array.isArray(data)) { apiCache.set('/api/feed', data); setFeed(data); }
+      if (Array.isArray(data)) {
+        if (isManual) {
+          const current = apiCache.get('/api/feed') || [];
+          const hasNew = data.length !== current.length || data[0]?.id !== current[0]?.id;
+          if (hasNew) { apiCache.set('/api/feed', data); setFeed(data); }
+        } else {
+          apiCache.set('/api/feed', data); setFeed(data);
+        }
+      }
     } catch(e) { console.error('Feed fetch error:', e); }
     setFeedLoading(false);
+    setRefreshing(false);
   }, [authUsername]);
 
   const fetchFriends = useCallback(async () => {
@@ -471,11 +483,11 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                   Post
                 </button>
                 <button
-                  onClick={fetchFeed}
-                  disabled={feedLoading}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition ${feedLoading ? 'bg-zinc-700/40 text-zinc-500 cursor-not-allowed' : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'}`}
+                  onClick={() => fetchFeed(true)}
+                  disabled={refreshing}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition ${refreshing ? 'bg-zinc-700/40 text-zinc-500 cursor-not-allowed' : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'}`}
                 >
-                  {feedLoading
+                  {refreshing
                     ? <span className="w-3 h-3 border-2 border-zinc-500 border-t-zinc-200 rounded-full animate-spin" />
                     : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
                   }
