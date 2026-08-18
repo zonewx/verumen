@@ -2976,7 +2976,10 @@ app.post('/api/history', requireUser, heavyRateLimit(60000, 'history'), async (r
 });
 
 // ── Activity helpers ────────────────────────────────────────────────────────
-async function appendActivity(userId, type, payload={}) { await supabase.from('activity').insert({ user_id:userId, type, payload }); }
+async function appendActivity(userId, type, payload={}) {
+  const { error } = await supabase.from('activity').insert({ user_id:userId, type, payload });
+  if (error) log.error('appendActivity failed', { userId, type, error: error.message });
+}
 async function appendModLog(moderator, action, targetUser, details='') { await supabase.from('moderation_log').insert({ moderator, action, target_user:targetUser, details }); }
 
 // ── Friends ─────────────────────────────────────────────────────────────────
@@ -3050,14 +3053,10 @@ app.get('/api/feed', requireUser, async (req, res) => {
       .map(f => f.requester_id === req.user.id ? f.addressee_id : f.requester_id);
 
     const allIds = [...new Set([...friendIds, req.user.id])];
-    log.info('feed debug', { user: req.username, friendIds, allIds });
-
-    const [activityResult, { data: profiles }] = await Promise.all([
+    const [{ data: activity }, { data: profiles }] = await Promise.all([
       supabase.from('activity').select('id, user_id, type, payload, created_at').in('user_id', allIds).order('created_at', { ascending:false }).limit(50),
       supabase.from('profiles').select('id, username, avatar_base64, role').in('id', allIds),
     ]);
-    const activity = activityResult.data;
-    log.info('feed debug activity', { user: req.username, count: activity?.length, error: activityResult.error?.message, types: activity?.map(a => a.type) });
 
     const profileMap = {};
     (profiles||[]).forEach(p => { profileMap[p.id] = p; });
