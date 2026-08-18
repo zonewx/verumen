@@ -347,6 +347,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
       if (res.status === 401) { window.dispatchEvent(new Event('session-expired')); setFeedLoading(false); setRefreshing(false); return; }
       if (!res.ok) { setFeedLoading(false); setRefreshing(false); return; }
       const data = await res.json();
+      console.log('[feed] received', data?.length, 'items, types:', data?.map?.(i => i.type));
       if (Array.isArray(data)) {
         apiCache.set('/api/feed', data);
         setFeed(data);
