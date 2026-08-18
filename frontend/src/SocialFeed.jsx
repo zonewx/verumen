@@ -273,7 +273,6 @@ function ActivityCard({ item, onDelete, onSaveEdit, isOwn }) {
   }
 
   if (item.type === 'skin_screenshot') {
-    console.log('[ActivityCard] rendering skin_screenshot', item.id, item.skinName, 'isOwn:', isOwn);
     return (
       <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
         <PostHeader item={item} onDelete={() => onDelete(item.id)} onEdit={isOwn ? () => setEditing(true) : null} isOwn={isOwn} />
@@ -348,7 +347,6 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
       if (res.status === 401) { window.dispatchEvent(new Event('session-expired')); setFeedLoading(false); setRefreshing(false); return; }
       if (!res.ok) { setFeedLoading(false); setRefreshing(false); return; }
       const data = await res.json();
-      console.log('[feed] received', data?.length, 'items, types:', data?.map?.(i => i.type));
       if (Array.isArray(data)) {
         apiCache.set('/api/feed', data);
         setFeed(data);
@@ -620,8 +618,6 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
               const items = (tab === 'mine'
                 ? feed.filter(i => i.username === authUsername)
                 : feed).filter(i => i.type !== 'holdings_update');
-
-              console.log('[render] tab:', tab, 'feed:', feed.length, 'items after filter:', items.length, 'authUsername:', authUsername, 'item usernames:', feed.map(i => i.username));
 
               if (items.length === 0) return (
                 <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-2xl p-12 text-center">

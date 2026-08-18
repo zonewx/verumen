@@ -3068,13 +3068,10 @@ app.get('/api/feed', requireUser, async (req, res) => {
       .map(f => f.requester_id === req.user.id ? f.addressee_id : f.requester_id);
 
     const allIds = [...new Set([...friendIds, req.user.id])];
-    log.info('feed query', { username: req.username, userId: req.user.id, friendCount: friendIds.length, allIds });
     const [{ data: activity }, { data: profiles }] = await Promise.all([
       db.from('activity').select('id, user_id, type, payload, created_at').in('user_id', allIds).order('created_at', { ascending:false }).limit(50),
       db.from('profiles').select('id, username, avatar_base64, role').in('id', allIds),
     ]);
-    log.info('feed result', { username: req.username, activityCount: (activity||[]).length, types: [...new Set((activity||[]).map(a=>a.type))] });
-
     const profileMap = {};
     (profiles||[]).forEach(p => { profileMap[p.id] = p; });
 
@@ -3114,14 +3111,12 @@ app.get('/api/users/:username/activity', requireUser, async (req, res) => {
 
 app.post('/api/activity/screenshot', requireUser, async (req, res) => {
   const { skinName, caption, imageBase64 } = req.body;
-  log.info('post attempt', { user: req.username, skinName, hasCaption: !!caption, hasImage: !!imageBase64 });
   if (!skinName) return res.status(400).json({ error: 'Skin name required.' });
   if (caption && caption.length > 500) return res.status(400).json({ error: 'Caption too long.' });
   if (imageBase64 && imageBase64.length > 1.5 * 1024 * 1024) return res.status(400).json({ error: 'Image too large. Maximum 1.5 MB.' });
   const ALLOWED_IMG_TYPES = ['data:image/jpeg;', 'data:image/jpg;', 'data:image/png;', 'data:image/webp;', 'data:image/gif;'];
   if (imageBase64 && !ALLOWED_IMG_TYPES.some(p => imageBase64.startsWith(p))) return res.status(400).json({ error: 'Invalid image format. JPEG, PNG, WebP or GIF only.' });
   await appendActivity(req.user.id, 'skin_screenshot', { skinName: skinName||'Unknown skin', caption: caption||'', imageBase64: imageBase64||null });
-  log.info('post complete', { user: req.username, skinName });
   res.json({ success:true });
 });
 
