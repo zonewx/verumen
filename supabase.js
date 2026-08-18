@@ -9,9 +9,16 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   process.exit(1);
 }
 
-// Service client — full access, used server-side only
+// Auth client — used for auth operations (signIn, refreshSession, admin.getUserById, etc.)
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
-module.exports = { supabase };
+// Data client — used exclusively for database queries (.from().select() etc.)
+// Kept separate from the auth client so auth operations (signIn, refreshSession) never
+// contaminate this client's session state — data queries always run as service role.
+const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false }
+});
+
+module.exports = { supabase, db };

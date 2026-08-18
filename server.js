@@ -10,7 +10,7 @@ const zlib = require('zlib');
 const { promisify } = require('util');
 const brotliDecompress = promisify(zlib.brotliDecompress);
 const { Resend } = require('resend');
-const { supabase } = require('./supabase');
+const { supabase, db } = require('./supabase');
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const APP_URL = process.env.APP_URL || 'https://verumen.com';
@@ -195,7 +195,7 @@ function shouldRefetch(yfTicker) {
 // Write-through helper: keeps _priceCache and Supabase price_cache in sync
 function setPriceCache(ticker, data) {
   _priceCache.set(ticker, data);
-  supabase.from('price_cache').upsert(
+  db.from('price_cache').upsert(
     { ticker, quote: data.q, cached_at: new Date(data.cachedAt).toISOString() },
     { onConflict: 'ticker' }
   ).then(() => {}).catch(() => {});
@@ -207,7 +207,7 @@ const FX_PAIRS = ['USDSEK=X','EURSEK=X','GBPSEK=X','NOKSEK=X','DKKSEK=X'];
 ;(async () => {
   try {
     const cutoff = new Date(Date.now() - PRICE_CACHE_WARM_TTL).toISOString();
-    const { data } = await supabase.from('price_cache').select('ticker, quote, cached_at').gt('cached_at', cutoff);
+    const { data } = await db.from('price_cache').select('ticker, quote, cached_at').gt('cached_at', cutoff);
     if (data?.length) {
       const fxSet = new Set(FX_PAIRS);
       data.forEach(({ ticker, quote, cached_at }) => {
@@ -324,7 +324,7 @@ if (FRONTEND_DIST) {
 // Cached registration state — injected into index.html so the frontend knows
 // the value synchronously before any API call completes.
 let _allowRegistrationCached = true;
-supabase.from('app_settings').select('value').eq('key', 'allowRegistration').single()
+db.from('app_settings').select('value').eq('key', 'allowRegistration').single()
   .then(({ data }) => { if (data) _allowRegistrationCached = data.value !== 'false'; })
   .catch(() => {});
 
@@ -398,7 +398,7 @@ async function requireUser(req, res, next) {
   const { data: { user }, error } = await supabase.auth.admin.getUserById(userId);
   if (error || !user) return res.status(401).json({ error: 'Invalid or expired session' });
   req.user = user;
-  const { data: profile } = await supabase.from('profiles').select('username, role').eq('id', userId).single();
+  const { data: profile } = await db.from('profiles').select('username, role').eq('id', userId).single();
   if (!profile) return res.status(401).json({ error: 'Profile not found' });
   req.username = profile.username;
   req.role = profile.role;
@@ -426,8 +426,8 @@ async function requireAdmin(req, res, next) {
 // ── Auth routes ─────────────────────────────────────────────────────────────
 app.get('/api/auth/status', async (req, res) => {
   const [{ count, error: countErr }, { data: settings }] = await Promise.all([
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('app_settings').select('key, value'),
+    db.from('profiles').select('*', { count: 'exact', head: true }),
+    db.from('app_settings').select('key, value'),
   ]);
   const s = {};
   (settings || []).forEach(r => { s[r.key] = r.value; });
@@ -443,18 +443,18 @@ app.get('/api/auth/status', async (req, res) => {
 app.post('/api/auth/register', authRateLimit, async (req, res) => {
   const { username, password, country, email } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required.' });
-  const { data: regSetting } = await supabase.from('app_settings').select('value').eq('key', 'allowRegistration').single();
+  const { data: regSetting } = await db.from('app_settings').select('value').eq('key', 'allowRegistration').single();
   if (regSetting && regSetting.value === 'false') return res.status(403).json({ error: 'Registration is currently disabled.' });
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(username.trim())) return res.status(400).json({ error: 'Username must be 3-20 characters, letters/numbers/underscore only.' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ error: 'A valid email address is required.' });
-  const { data: existing } = await supabase.from('profiles').select('id').ilike('username', username.trim()).single();
+  const { data: existing } = await db.from('profiles').select('id').ilike('username', username.trim()).single();
   if (existing) return res.status(400).json({ error: 'Username already taken.' });
-  const { data: existingEmail } = await supabase.from('profiles').select('id').ilike('email', email.trim()).single();
+  const { data: existingEmail } = await db.from('profiles').select('id').ilike('email', email.trim()).single();
   if (existingEmail) return res.status(400).json({ error: 'Unable to complete registration. Please check your details and try again.' });
   const [{ count }, { data: limitSetting }] = await Promise.all([
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('app_settings').select('value').eq('key', 'userLimit').single(),
+    db.from('profiles').select('*', { count: 'exact', head: true }),
+    db.from('app_settings').select('value').eq('key', 'userLimit').single(),
   ]);
   const userLimit = parseInt(limitSetting?.value || '0', 10);
   if (userLimit > 0 && count >= userLimit) return res.status(400).json({ error: `User limit of ${userLimit} reached.` });
@@ -462,7 +462,7 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email: fakeEmail, password, email_confirm: true });
   if (authError) return res.status(400).json({ error: authError.message });
   const role = username.trim().toLowerCase() === 'admin' ? 'admin' : 'user';
-  const { error: profileError } = await supabase.from('profiles').insert({ id: authData.user.id, username: username.trim(), role, bio: '', steam_id: '', public_inventory: false, public_holdings: false, country: country || 'se', email: email.trim().toLowerCase(), email_verified: false });
+  const { error: profileError } = await db.from('profiles').insert({ id: authData.user.id, username: username.trim(), role, bio: '', steam_id: '', public_inventory: false, public_holdings: false, country: country || 'se', email: email.trim().toLowerCase(), email_verified: false });
   if (profileError) return res.status(500).json({ error: profileError.message });
   const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
   if (signInError) return res.status(500).json({ error: signInError.message });
@@ -470,7 +470,7 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   if (resend) {
     const vToken = crypto.randomBytes(32).toString('hex');
     const vExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    await supabase.from('email_verification_tokens').insert({ username: username.trim(), email: email.trim().toLowerCase(), token: vToken, expires_at: vExpiry });
+    await db.from('email_verification_tokens').insert({ username: username.trim(), email: email.trim().toLowerCase(), token: vToken, expires_at: vExpiry });
     const verifyUrl = `${APP_URL}/?email_token=${vToken}`;
     resend.emails.send({
       from: 'Verumen <noreply@verumen.com>',
@@ -504,7 +504,7 @@ app.post('/api/auth/login', authRateLimit, async (req, res) => {
   const email = `${username.trim().toLowerCase()}@statera.local`;
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return res.status(401).json({ error: 'Invalid username or password.' });
-  const { data: profile } = await supabase.from('profiles').select('username, role, email, email_verified').eq('id', data.user.id).single();
+  const { data: profile } = await db.from('profiles').select('username, role, email, email_verified').eq('id', data.user.id).single();
   if (profile.email && !profile.email_verified) {
     return res.status(403).json({ error: 'Please verify your email address before signing in. Check your inbox for the verification link.' });
   }
@@ -526,8 +526,8 @@ app.get('/api/init', async (req, res) => {
   // Run app-status queries + session refresh in parallel
   const [statusResult, refreshResult] = await Promise.allSettled([
     Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
-      supabase.from('app_settings').select('key, value'),
+      db.from('profiles').select('*', { count: 'exact', head: true }),
+      db.from('app_settings').select('key, value'),
     ]),
     req.cookies.refresh_token
       ? supabase.auth.refreshSession({ refresh_token: req.cookies.refresh_token })
@@ -552,9 +552,9 @@ app.get('/api/init', async (req, res) => {
 
   // Fetch profile + friendships + announcements in parallel
   const [profileRes, friendshipsRes, announcementsRes] = await Promise.allSettled([
-    supabase.from('profiles').select('username, role').eq('id', userId).single(),
-    supabase.from('friendships').select('requester_id, addressee_id, status').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
-    supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(10),
+    db.from('profiles').select('username, role').eq('id', userId).single(),
+    db.from('friendships').select('requester_id, addressee_id, status').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
+    db.from('announcements').select('*').order('created_at', { ascending: false }).limit(10),
   ]);
 
   const profile = profileRes.value?.data;
@@ -572,8 +572,8 @@ app.get('/api/init', async (req, res) => {
 
   // Fetch activity + all needed profiles in parallel
   const [activityRes, profilesRes] = await Promise.allSettled([
-    supabase.from('activity').select('id, user_id, type, payload, created_at').in('user_id', feedIds).order('created_at', { ascending: false }).limit(50),
-    supabase.from('profiles').select('id, username, avatar_base64, bio, role').in('id', allProfileIds),
+    db.from('activity').select('id, user_id, type, payload, created_at').in('user_id', feedIds).order('created_at', { ascending: false }).limit(50),
+    db.from('profiles').select('id, username, avatar_base64, bio, role').in('id', allProfileIds),
   ]);
 
   const activity = activityRes.value?.data || [];
@@ -624,11 +624,11 @@ app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required.' });
   // Always respond with success to prevent email enumeration; add delay for non-existing emails to match timing of the full send path
-  const { data: profile } = await supabase.from('profiles').select('username').ilike('email', email.trim()).single();
+  const { data: profile } = await db.from('profiles').select('username').ilike('email', email.trim()).single();
   if (!profile) { await new Promise(r => setTimeout(r, 400)); return res.json({ success: true }); }
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
-  await supabase.from('password_reset_tokens').insert({ username: profile.username, token, expires_at: expiresAt });
+  await db.from('password_reset_tokens').insert({ username: profile.username, token, expires_at: expiresAt });
   if (resend) {
     const resetUrl = `${APP_URL}/?reset_token=${token}`;
     await resend.emails.send({
@@ -652,14 +652,14 @@ app.post('/api/auth/reset-password', authRateLimit, async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password) return res.status(400).json({ error: 'Token and password required.' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
-  const { data: resetEntry } = await supabase.from('password_reset_tokens').select('*').eq('token', token).eq('used', false).single();
+  const { data: resetEntry } = await db.from('password_reset_tokens').select('*').eq('token', token).eq('used', false).single();
   if (!resetEntry || new Date(resetEntry.expires_at) < new Date()) {
     return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
   }
   // Mark token used atomically before changing password to prevent TOCTOU race
-  const { count } = await supabase.from('password_reset_tokens').update({ used: true }).eq('token', token).eq('used', false);
+  const { count } = await db.from('password_reset_tokens').update({ used: true }).eq('token', token).eq('used', false);
   if (count === 0) return res.status(400).json({ error: 'This reset link has already been used.' });
-  const { data: profile } = await supabase.from('profiles').select('id').eq('username', resetEntry.username).single();
+  const { data: profile } = await db.from('profiles').select('id').eq('username', resetEntry.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found.' });
   const { error } = await supabase.auth.admin.updateUserById(profile.id, { password });
   if (error) return res.status(500).json({ error: error.message });
@@ -677,13 +677,13 @@ app.post('/api/auth/verify-password', requireUser, authRateLimit, async (req, re
 
 // ── Profile routes ──────────────────────────────────────────────────────────
 app.get('/api/users', requireUser, async (req, res) => {
-  const { data, error } = await supabase.from('profiles').select('username, role, bio, public_inventory, public_holdings, public_dividends, avatar_base64, created_at, steam_id');
+  const { data, error } = await db.from('profiles').select('username, role, bio, public_inventory, public_holdings, public_dividends, avatar_base64, created_at, steam_id');
   if (error) return res.status(500).json({ error: error.message });
   res.json(data.map(p => ({ username: p.username, role: p.role, bio: p.bio, publicInventory: p.public_inventory, publicHoldings: p.public_holdings, publicDividends: p.public_dividends, steamId: p.public_inventory ? p.steam_id : null, steamLevel: p.public_inventory ? (p.steam_level || 0) : null, showcaseItems: p.public_inventory ? (p.showcase_items || []) : [], avatarBase64: p.avatar_base64 || null, createdAt: p.created_at })));
 });
 
 app.get('/api/users/:username/profile', async (req, res) => {
-  const { data, error } = await supabase.from('profiles').select('*').ilike('username', req.params.username).single();
+  const { data, error } = await db.from('profiles').select('*').ilike('username', req.params.username).single();
   if (error || !data) return res.status(404).json({ error: 'User not found' });
   if (data.is_public === false) {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -700,7 +700,7 @@ app.put('/api/users/:username/profile', requireUser, largeJson, async (req, res)
   const update = {};
   if (bio !== undefined) { if (typeof bio === 'string' && bio.length > 500) return res.status(400).json({ error: 'Bio must be 500 characters or fewer.' }); update.bio = bio; }
   if (country !== undefined) { if (!/^[a-z]{2}$/.test(country)) return res.status(400).json({ error: 'Invalid country code.' }); update.country = country; }
-  if (steamId !== undefined) { update.steam_id = steamId; if (steamId !== (await supabase.from('profiles').select('steam_id').eq('id', req.user.id).single()).data?.steam_id) update.steam_verified = false; }
+  if (steamId !== undefined) { update.steam_id = steamId; if (steamId !== (await db.from('profiles').select('steam_id').eq('id', req.user.id).single()).data?.steam_id) update.steam_verified = false; }
   if (publicInventory !== undefined) update.public_inventory = publicInventory;
   if (publicHoldings !== undefined) update.public_holdings = publicHoldings;
   if (publicDividends !== undefined) update.public_dividends = publicDividends;
@@ -717,7 +717,7 @@ app.put('/api/users/:username/profile', requireUser, largeJson, async (req, res)
     const items = Array.isArray(showcaseItems) ? showcaseItems.slice(0, 10) : [];
     update.showcase_items = items;
   }
-  const { data, error } = await supabase.from('profiles').update(update).eq('id', req.user.id).select().single();
+  const { data, error } = await db.from('profiles').update(update).eq('id', req.user.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, profile: { username: data.username, bio: data.bio, country: data.country, steamId: data.steam_id, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, avatarBase64: data.avatar_base64, showcaseItems: data.showcase_items, steamLevel: data.steam_level } });
 });
@@ -730,18 +730,18 @@ app.put('/api/users/:username/username', requireUser, async (req, res) => {
   // Validate format: 3-20 chars, letters/numbers/underscores only
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(newUsername)) return res.status(400).json({ error: 'Username must be 3-20 characters and contain only letters, numbers, and underscores.' });
   // Check uniqueness (case-insensitive)
-  const { data: existing } = await supabase.from('profiles').select('id').ilike('username', newUsername).single();
+  const { data: existing } = await db.from('profiles').select('id').ilike('username', newUsername).single();
   if (existing && existing.id !== req.user.id) return res.status(409).json({ error: 'Username is already taken.' });
-  const { data, error } = await supabase.from('profiles').update({ username: newUsername }).eq('id', req.user.id).select().single();
+  const { data, error } = await db.from('profiles').update({ username: newUsername }).eq('id', req.user.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, username: data.username });
 });
 
 app.get('/api/users/:username/holdings', async (req, res) => {
-  const { data: profile } = await supabase.from('profiles').select('id, public_holdings').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, public_holdings').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
   if (!profile.public_holdings) return res.status(403).json({ error: "This user's holdings are private." });
-  const { data: txs } = await supabase.from('transactions').select('ticker, raw_ticker, quantity, price, type, name, currency').eq('user_id', profile.id).in('type', ['buy', 'sell', 'other', 'withdrawal']);
+  const { data: txs } = await db.from('transactions').select('ticker, raw_ticker, quantity, price, type, name, currency').eq('user_id', profile.id).in('type', ['buy', 'sell', 'other', 'withdrawal']);
   const trades = (txs || []).map(t => ({ ...t, ticker: (t.ticker || t.raw_ticker || '').trim(), quantity: Math.abs(t.quantity || 0) })).filter(t => t.ticker && t.quantity > 0);
   
   const holdings = {};
@@ -786,7 +786,7 @@ app.get('/api/users/:username/holdings', async (req, res) => {
 });
 
 app.get('/api/users/:username/inventory', async (req, res) => {
-  const { data: profile } = await supabase.from('profiles').select('id, public_inventory, steam_id').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, public_inventory, steam_id').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
   if (!profile.public_inventory || !profile.steam_id) return res.status(403).json({ error: "This user's inventory is private." });
   try {
@@ -795,7 +795,7 @@ app.get('/api/users/:username/inventory', async (req, res) => {
     const descMap = {};
     (data.descriptions || []).forEach(d => { descMap[`${d.classid}_${d.instanceid}`] = d; });
     const names = (data.assets || []).map(a => { const d = descMap[`${a.classid}_${a.instanceid}`]; return d?.market_hash_name || d?.name || 'Unknown'; }).filter(n => n !== 'Unknown');
-    const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
+    const { data: prices } = await db.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
     const priceMap = {};
     (prices || []).forEach(p => { priceMap[p.skin_name] = p.price_sek; });
     const items = (data.assets || []).map(asset => {
@@ -836,7 +836,7 @@ app.get('/api/cs/float', requireUser, async (req, res) => {
 async function loadGlobalIsinCache(isins) {
   if (!isins?.length) return {};
   try {
-    const { data } = await supabase.from('global_isin_cache').select('isin, ticker').in('isin', isins);
+    const { data } = await db.from('global_isin_cache').select('isin, ticker').in('isin', isins);
     const map = {};
     (data || []).forEach(r => { if (r.ticker) map[r.isin] = r.ticker; });
     return map;
@@ -845,26 +845,26 @@ async function loadGlobalIsinCache(isins) {
 async function saveGlobalIsinCache(isin, ticker) {
   if (!isin || !ticker) return;
   try {
-    await supabase.from('global_isin_cache')
+    await db.from('global_isin_cache')
       .upsert({ isin, ticker, updated_at: new Date().toISOString() }, { onConflict: 'isin' });
   } catch {}
 }
 
 // ── Ticker cache/overrides helpers ──────────────────────────────────────────
 async function loadTickerCache(userId) {
-  const { data } = await supabase.from('ticker_cache').select('cache_key, ticker').eq('user_id', userId);
+  const { data } = await db.from('ticker_cache').select('cache_key, ticker').eq('user_id', userId);
   const cache = {};
   (data || []).forEach(r => { cache[r.cache_key] = r.ticker; });
   return cache;
 }
 async function saveTickerCacheEntry(userId, key, ticker) {
   if (!ticker) return;
-  await supabase.from('ticker_cache').upsert({ user_id: userId, cache_key: key, ticker, updated_at: new Date().toISOString() });
+  await db.from('ticker_cache').upsert({ user_id: userId, cache_key: key, ticker, updated_at: new Date().toISOString() });
 }
 async function loadOverrides(userId) {
   const [{ data: global }, { data: user }] = await Promise.all([
-    supabase.from('global_ticker_overrides').select('isin, ticker').eq('active', true),
-    supabase.from('ticker_overrides').select('isin, ticker').eq('user_id', userId),
+    db.from('global_ticker_overrides').select('isin, ticker').eq('active', true),
+    db.from('ticker_overrides').select('isin, ticker').eq('user_id', userId),
   ]);
   const overrides = {};
   // Per-user loaded first, then global overwrites — global always wins
@@ -1644,7 +1644,7 @@ function detectBrokerAndParse(filename, content, forcedBroker = null) {
 // ── Transactions ────────────────────────────────────────────────────────────
 app.get('/api/transactions', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data, error } = await supabase.from('transactions').select('*').eq('user_id', req.user.id).order('date', { ascending: false });
+  const { data, error } = await db.from('transactions').select('*').eq('user_id', req.user.id).order('date', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   let bcRate = 1;
   if (BC !== 'SEK') {
@@ -1667,7 +1667,7 @@ app.get('/api/transactions', requireUser, async (req, res) => {
 });
 
 app.get('/api/transactions/count', requireUser, async (req, res) => {
-  const { data } = await supabase.from('transactions').select('broker, type').eq('user_id', req.user.id);
+  const { data } = await db.from('transactions').select('broker, type').eq('user_id', req.user.id);
   const rows = data || [];
   const total = rows.length;
   const trades = rows.filter(r => r.type === 'buy' || r.type === 'sell').length;
@@ -1683,14 +1683,14 @@ app.get('/api/transactions/count', requireUser, async (req, res) => {
 
 app.delete('/api/transactions', requireUser, async (req, res) => {
   const { broker } = req.query;
-  let query = supabase.from('transactions').delete().eq('user_id', req.user.id);
+  let query = db.from('transactions').delete().eq('user_id', req.user.id);
   if (broker) query = query.eq('broker', broker);
   await query;
   res.json({ success: true });
 });
 
 app.delete('/api/ticker-cache', requireUser, async (req, res) => {
-  await supabase.from('ticker_cache').delete().eq('user_id', req.user.id);
+  await db.from('ticker_cache').delete().eq('user_id', req.user.id);
   res.json({ success: true });
 });
 
@@ -1713,13 +1713,13 @@ app.post('/api/transactions/upload', requireUser, largeJson, async (req, res) =>
     }
     catch(e) { results.push({ file:name, error:e.message }); }
   }
-  const { data: existing } = await supabase.from('transactions').select('broker, date, type, isin, quantity, price').eq('user_id', req.user.id);
+  const { data: existing } = await db.from('transactions').select('broker, date, type, isin, quantity, price').eq('user_id', req.user.id);
   const dedupKey = t => `${t.broker||''}|${t.date||''}|${t.type||''}|${t.isin||''}|${Math.round((t.quantity||0)*10000)}|${Math.round((t.price||0)*10000)}`;
   const existingIds = new Set((existing||[]).map(dedupKey));
   const newUnique = allNew.filter(t => !existingIds.has(dedupKey(t)));
   if (newUnique.length > 0) {
     const rows = newUnique.map(t => ({ user_id:req.user.id, broker:t.broker, date:t.date, type:t.type, name:t.name, isin:t.isin, raw_ticker:t.rawTicker, ticker:t.ticker, quantity:t.quantity, price:t.price, currency:t.currency, total_sek:t.totalSEK, account:t.account }));
-    await supabase.from('transactions').insert(rows);
+    await db.from('transactions').insert(rows);
 
     // If any dividend rows were inserted, resolve their names in the background
     const hasDividends = newUnique.some(t => t.type === 'dividend' || t.type === 'foreign-tax');
@@ -1728,11 +1728,11 @@ app.post('/api/transactions/upload', requireUser, largeJson, async (req, res) =>
     }
 
     // Log activity only when new transactions are added
-    const { data: holdingsData } = await supabase.from('transactions').select('ticker').eq('user_id', req.user.id).not('ticker', 'is', null);
+    const { data: holdingsData } = await db.from('transactions').select('ticker').eq('user_id', req.user.id).not('ticker', 'is', null);
     const uniqueTickers = [...new Set((holdingsData || []).map(h => h.ticker))];
     await appendActivity(req.user.id, 'holdings_update', { holdingCount: uniqueTickers.length, tickers: uniqueTickers.slice(0, 5) });
   }
-  const { count: total } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id);
+  const { count: total } = await db.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id);
   res.json({ results, newAdded:newUnique.length, total:total||0 });
 });
 
@@ -1744,7 +1744,7 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
     // Do NOT clear the entire ticker_cache — that forces all stocks to hit YF simultaneously
     // and triggers rate-limiting. Cache hits for already-correct tickers are free; only
     // genuinely unresolved tickers (cache miss) will make fresh YF calls.
-    const { data: allTxs } = await supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker').eq('user_id', req.user.id).in('type', ['buy','sell','other','withdrawal']);
+    const { data: allTxs } = await db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker').eq('user_id', req.user.id).in('type', ['buy','sell','other','withdrawal']);
     const txList = allTxs || [];
     // resolveSymbolBatch loads the (now-empty) cache once and skips the rate-limit
     // sleep for repeated tickers — huge speedup when one stock has many transactions
@@ -1753,7 +1753,7 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
     await Promise.all(txList.map(async tx => {
       const ticker = tickerMap[tx.id];
       if (ticker && ticker !== tx.ticker) {
-        await supabase.from('transactions').update({ ticker }).eq('id', tx.id);
+        await db.from('transactions').update({ ticker }).eq('id', tx.id);
         resolved++;
       }
     }));
@@ -1761,23 +1761,23 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
   }
 
   // Normal mode: resolve up to `limit` unresolved transactions per call
-  let q = supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker').eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
+  let q = db.from('transactions').select('id, raw_ticker, isin, name, currency, broker').eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
   if (batchSize) q = q.limit(batchSize);
   const { data: unresolved } = await q;
-  await supabase.from('ticker_cache').delete().eq('user_id', req.user.id).is('ticker', null);
+  await db.from('ticker_cache').delete().eq('user_id', req.user.id).is('ticker', null);
   const txList = unresolved || [];
   const tickerMap = await resolveSymbolBatch(txList, req.user.id);
   let resolved = 0;
   await Promise.all(txList.map(async tx => {
     const ticker = tickerMap[tx.id];
     if (ticker) {
-      await supabase.from('transactions').update({ ticker }).eq('id', tx.id);
+      await db.from('transactions').update({ ticker }).eq('id', tx.id);
       resolved++;
     }
     // Unresolved transactions stay with ticker = '' — the client's no-progress counter
     // handles the infinite-loop case. Committing raw_ticker would set a wrong exchange.
   }));
-  const { count: remaining } = await supabase.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
+  const { count: remaining } = await db.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
   res.json({ resolved, total: txList.length, remaining: remaining || 0 });
 });
 
@@ -1791,9 +1791,9 @@ app.post('/api/transactions/resolve-failed', requireUser, async (req, res) => {
 
   // Two separate safe queries: by resolved ticker and by raw_ticker (for unresolved rows where ticker='')
   const [byTicker, byRaw] = await Promise.all([
-    supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
+    db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
       .eq('user_id', req.user.id).in('ticker', failedTickers).in('type', ['buy', 'sell']),
-    supabase.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
+    db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
       .eq('user_id', req.user.id).in('raw_ticker', failedTickers).in('type', ['buy', 'sell']),
   ]);
   const seen = new Set();
@@ -1808,12 +1808,12 @@ app.post('/api/transactions/resolve-failed', requireUser, async (req, res) => {
   // Delete ticker_cache entries for these so resolver tries YF fresh
   const cacheKeys = txs.map(tx => `${tx.broker||''}|${tx.currency||''}|${tx.isin||tx.raw_ticker||tx.name}`);
   await Promise.all(cacheKeys.map(k =>
-    supabase.from('ticker_cache').delete().eq('user_id', req.user.id).eq('cache_key', k)
+    db.from('ticker_cache').delete().eq('user_id', req.user.id).eq('cache_key', k)
   ));
 
   // Reset tickers to '' so they're treated as unresolved (update by id to avoid mis-matching on raw_ticker)
   const txIds = txs.map(t => t.id);
-  await supabase.from('transactions').update({ ticker: '' }).eq('user_id', req.user.id).in('id', txIds);
+  await db.from('transactions').update({ ticker: '' }).eq('user_id', req.user.id).in('id', txIds);
 
   // Re-resolve
   const tickerMap = await resolveSymbolBatch(txs.map(tx => ({ ...tx, ticker: '' })), req.user.id);
@@ -1821,7 +1821,7 @@ app.post('/api/transactions/resolve-failed', requireUser, async (req, res) => {
   await Promise.all(txs.map(async tx => {
     const ticker = tickerMap[tx.id];
     if (ticker) {
-      await supabase.from('transactions').update({ ticker }).eq('id', tx.id);
+      await db.from('transactions').update({ ticker }).eq('id', tx.id);
       resolved++;
     }
   }));
@@ -1829,7 +1829,7 @@ app.post('/api/transactions/resolve-failed', requireUser, async (req, res) => {
 });
 
 app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
-  const { data: txs } = await supabase.from('transactions')
+  const { data: txs } = await db.from('transactions')
     .select('ticker, raw_ticker, quantity, price, isin, type, date, name')
     .eq('user_id', req.user.id)
     .in('type', ['buy', 'sell', 'other', 'withdrawal'])
@@ -1926,7 +1926,7 @@ app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
 
 
 // Probe for global_isin_cache table on startup — log a clear message if it hasn't been created yet
-supabase.from('global_isin_cache').select('isin').limit(1).then(({ error }) => {
+db.from('global_isin_cache').select('isin').limit(1).then(({ error }) => {
   if (error) log.warn('global_isin_cache table missing — cross-user ISIN caching disabled. Create it with:\n  CREATE TABLE global_isin_cache (isin TEXT PRIMARY KEY, ticker TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW());');
   else log.info('global_isin_cache ready');
 }).catch(() => {});
@@ -2042,7 +2042,7 @@ app.post('/api/portfolio', requireUser, heavyRateLimit(30000, 'portfolio'), asyn
     const coldTickers = portfolio.map(h => h.ticker).filter(t => t && !_priceCache.has(t));
     if (coldTickers.length > 0) {
       const cutoff = new Date(Date.now() - PRICE_CACHE_WARM_TTL).toISOString();
-      const { data: dbPrices } = await supabase.from('price_cache')
+      const { data: dbPrices } = await db.from('price_cache')
         .select('ticker, quote, cached_at').in('ticker', coldTickers).gt('cached_at', cutoff);
       (dbPrices || []).forEach(({ ticker, quote, cached_at }) => {
         if (!_priceCache.has(ticker))
@@ -2069,7 +2069,7 @@ app.post('/api/portfolio', requireUser, heavyRateLimit(30000, 'portfolio'), asyn
   }
 
   // Load last-good Supabase snapshot — used as per-ticker fallback when YF is temporarily down
-  const { data: snapForFallback } = await supabase.from('portfolio_cache')
+  const { data: snapForFallback } = await db.from('portfolio_cache')
     .select('dashboard, built_at').eq('user_id', req.user.id).eq('currency', BC).single();
   const snapshotBuiltAt = snapForFallback?.built_at || null;
   const cachedRowMap = {};        // keyed by ticker
@@ -2111,7 +2111,7 @@ app.post('/api/portfolio', requireUser, heavyRateLimit(30000, 'portfolio'), asyn
       }
       const resolvedTicker = q._resolvedTicker || h.ticker;
       if (resolvedTicker !== h.ticker) {
-        supabase.from('transactions').update({ ticker: resolvedTicker })
+        db.from('transactions').update({ ticker: resolvedTicker })
           .eq('user_id', req.user.id).eq('raw_ticker', h.ticker).then(() => {});
       }
       const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice;
@@ -2131,7 +2131,7 @@ app.post('/api/portfolio', requireUser, heavyRateLimit(30000, 'portfolio'), asyn
   const builtAt = new Date().toISOString();
   res.json({ portfolio:results, totals, hasStalePrices, builtAt });
   // Persist to Supabase so the next login loads instantly with no YF calls
-  supabase.from('portfolio_cache').upsert({
+  db.from('portfolio_cache').upsert({
     user_id: req.user.id, currency: BC,
     holdings: portfolio,
     dashboard: { portfolio: results, totals, hasStalePrices },
@@ -2141,7 +2141,7 @@ app.post('/api/portfolio', requireUser, heavyRateLimit(30000, 'portfolio'), asyn
 
 app.get('/api/portfolio/cached', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data } = await supabase.from('portfolio_cache')
+  const { data } = await db.from('portfolio_cache')
     .select('holdings, dashboard, built_at')
     .eq('user_id', req.user.id).eq('currency', BC).single();
   if (!data) return res.json(null);
@@ -2149,7 +2149,7 @@ app.get('/api/portfolio/cached', requireUser, async (req, res) => {
 });
 
 app.delete('/api/portfolio/cached', requireUser, async (req, res) => {
-  await supabase.from('portfolio_cache').delete().eq('user_id', req.user.id);
+  await db.from('portfolio_cache').delete().eq('user_id', req.user.id);
   res.json({ success: true });
 });
 
@@ -2157,7 +2157,7 @@ app.delete('/api/portfolio/cached', requireUser, async (req, res) => {
 // Resolves ticker-like dividend names (e.g. "Utdelning EVO 547 SEK/aktie" → stored as "Evolution")
 // and writes the resolved company name back to transactions.name so future queries are instant.
 async function resolveDividendNames(userId) {
-  const { data: divRows } = await supabase.from('transactions')
+  const { data: divRows } = await db.from('transactions')
     .select('id, name, raw_ticker, isin, currency, broker, ticker')
     .eq('user_id', userId)
     .in('type', ['dividend', 'foreign-tax']);
@@ -2179,7 +2179,7 @@ async function resolveDividendNames(userId) {
   const nameMap = {};
 
   // Phase 1: portfolio_cache + buy/sell transactions (instant, no API calls)
-  const { data: snap } = await supabase.from('portfolio_cache')
+  const { data: snap } = await db.from('portfolio_cache')
     .select('dashboard').eq('user_id', userId).limit(1).single();
   (snap?.dashboard?.portfolio || []).forEach(h => {
     if (!h.name || !h.ticker) return;
@@ -2189,7 +2189,7 @@ async function resolveDividendNames(userId) {
     if (!nameMap[base]) nameMap[base] = n;
     if (h.isin && !nameMap[h.isin]) nameMap[h.isin] = n;
   });
-  const { data: buyTxs } = await supabase.from('transactions')
+  const { data: buyTxs } = await db.from('transactions')
     .select('isin, raw_ticker, name, ticker')
     .eq('user_id', userId).in('type', ['buy', 'sell']).not('name', 'is', null);
   (buyTxs || []).forEach(t => {
@@ -2268,7 +2268,7 @@ async function resolveDividendNames(userId) {
     if (!name) return;
     const finalName = shareClass && !name.includes(shareClass) ? `${name} ${shareClass}` : name;
     if (finalName !== row.name) {
-      await supabase.from('transactions').update({ name: finalName }).eq('id', row.id);
+      await db.from('transactions').update({ name: finalName }).eq('id', row.id);
       resolved++;
     }
   }));
@@ -2285,7 +2285,7 @@ app.post('/api/dividends/fix-names', requireUser, async (req, res) => {
 // ── Dividends ───────────────────────────────────────────────────────────────
 app.get('/api/dividends', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data: txs } = await supabase.from('transactions').select('date, name, total_sek, isin, broker').eq('user_id', req.user.id).eq('type', 'dividend');
+  const { data: txs } = await db.from('transactions').select('date, name, total_sek, isin, broker').eq('user_id', req.user.id).eq('type', 'dividend');
   const divs = (txs||[]).filter(t => t.total_sek);
   let bcRate = 1;
   if (BC !== 'SEK') {
@@ -2317,7 +2317,7 @@ app.get('/api/dividends', requireUser, async (req, res) => {
   // Seed name maps from last portfolio_cache snapshot — these names were already properly
   // resolved from YF and stored, so they work even when YF is currently unavailable.
   {
-    const { data: snap } = await supabase.from('portfolio_cache')
+    const { data: snap } = await db.from('portfolio_cache')
       .select('dashboard').eq('user_id', req.user.id).limit(1).single();
     (snap?.dashboard?.portfolio || []).forEach(h => {
       if (!h.name || !h.ticker) return;
@@ -2329,7 +2329,7 @@ app.get('/api/dividends', requireUser, async (req, res) => {
       if (h.isin && !isinToBase[h.isin]) isinToBase[h.isin] = base;
     });
   }
-  const { data: buyTxs } = await supabase.from('transactions')
+  const { data: buyTxs } = await db.from('transactions')
     .select('isin, raw_ticker, name, ticker')
     .eq('user_id', req.user.id)
     .in('type', ['buy', 'sell'])
@@ -2462,11 +2462,11 @@ app.get('/api/dividends', requireUser, async (req, res) => {
 
 // Public dividends endpoint
 app.get('/api/users/:username/dividends', async (req, res) => {
-  const { data: profile } = await supabase.from('profiles').select('id, public_dividends').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, public_dividends').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
   if (!profile.public_dividends) return res.status(403).json({ error: "This user's dividends are private." });
   
-  const { data: txs } = await supabase.from('transactions').select('date, name, total_sek').eq('user_id', profile.id).eq('type', 'dividend');
+  const { data: txs } = await db.from('transactions').select('date, name, total_sek').eq('user_id', profile.id).eq('type', 'dividend');
   const divs = (txs||[]).filter(t => t.total_sek);
   const thisYear = new Date().getFullYear().toString();
   const totalAllTime = divs.reduce((s,t)=>s+Math.abs(t.total_sek),0);
@@ -2487,7 +2487,7 @@ app.get('/api/cs/trades/:id/public', async (req, res) => {
     .eq('share_token', req.params.id)
     .single();
   if (error || !item) return res.status(404).json({ error: 'Trade not found' });
-  const { data: profile } = await supabase.from('profiles').select('username').eq('id', item.user_id).single();
+  const { data: profile } = await db.from('profiles').select('username').eq('id', item.user_id).single();
   const sale = item.cs_sales?.[0] ?? null;
   res.json({
     id: item.id,
@@ -2599,11 +2599,11 @@ function buildTradePageHtml(opts) {
 app.get('/trade/:token', async (req, res) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.token))
     return res.status(404).send(buildTradePageHtml({ error: 'Trade not found' }));
-  const { data: item, error } = await supabase.from('cs_inventory')
+  const { data: item, error } = await db.from('cs_inventory')
     .select('skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, sold, notes, screenshot_url, user_id, icon_url, stickers, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
     .eq('share_token', req.params.token).single();
   if (error || !item) return res.status(404).send(buildTradePageHtml({ error: 'Trade not found' }));
-  const { data: profile } = await supabase.from('profiles').select('username, avatar_base64').eq('id', item.user_id).single();
+  const { data: profile } = await db.from('profiles').select('username, avatar_base64').eq('id', item.user_id).single();
   const screenshotPageUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url || null;
   let screenshotImgUrl = null;
   if (screenshotPageUrl) {
@@ -2684,7 +2684,7 @@ app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
       if (!iconUrl) continue;
       // .is('icon_url', null) prevents overwriting an icon the user manually set
       // while this background loop was still running (race condition guard)
-      const { data: upd } = await supabase.from('cs_inventory')
+      const { data: upd } = await db.from('cs_inventory')
         .update({ icon_url: iconUrl })
         .eq('id', item.id)
         .eq('user_id', req.user.id)
@@ -2698,7 +2698,7 @@ app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
 
 // Reset and re-fetch icon for a single inventory item
 app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
-  const { data: item } = await supabase.from('cs_inventory')
+  const { data: item } = await db.from('cs_inventory')
     .select('id, skin_name, exterior, steam_asset_id')
     .eq('id', req.params.id)
     .eq('user_id', req.user.id)
@@ -2710,7 +2710,7 @@ app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
   // Prefer: pull icon directly from Steam inventory (same source as the grid images)
   if (item.steam_asset_id) {
     try {
-      const { data: profile } = await supabase.from('profiles').select('steam_id').eq('id', req.user.id).single();
+      const { data: profile } = await db.from('profiles').select('steam_id').eq('id', req.user.id).single();
       if (profile?.steam_id) {
         const invData = await fetchJSON(`https://steamcommunity.com/inventory/${profile.steam_id}/730/2?l=english&count=500`);
         if (invData?.assets && invData?.descriptions) {
@@ -2734,7 +2734,7 @@ app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
   }
 
   if (iconUrl) {
-    await supabase.from('cs_inventory').update({ icon_url: iconUrl }).eq('id', item.id).eq('user_id', req.user.id);
+    await db.from('cs_inventory').update({ icon_url: iconUrl }).eq('id', item.id).eq('user_id', req.user.id);
   }
   res.json({ iconUrl: iconUrl || null });
 });
@@ -2742,7 +2742,7 @@ app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
 // Authenticated profile holdings — own profile only, no public_cs_trades check needed
 // Requires: ALTER TABLE cs_inventory ADD COLUMN IF NOT EXISTS hidden_from_profile BOOLEAN DEFAULT FALSE;
 app.get('/api/cs/profile-holdings', requireUser, async (req, res) => {
-  const { data, error } = await supabase.from('cs_inventory')
+  const { data, error } = await db.from('cs_inventory')
     .select('id, skin_name, exterior, icon_url, share_token, purchase_date, sold, screenshot_url, hidden_from_profile')
     .eq('user_id', req.user.id)
     .not('sold', 'is', true)
@@ -2764,7 +2764,7 @@ app.get('/api/cs/profile-holdings', requireUser, async (req, res) => {
 
 app.patch('/api/cs/inventory/:id/profile-visibility', requireUser, async (req, res) => {
   const { hidden } = req.body;
-  const { error } = await supabase.from('cs_inventory')
+  const { error } = await db.from('cs_inventory')
     .update({ hidden_from_profile: !!hidden })
     .eq('id', req.params.id)
     .eq('user_id', req.user.id);
@@ -2774,7 +2774,7 @@ app.patch('/api/cs/inventory/:id/profile-visibility', requireUser, async (req, r
 
 // Public CS trades endpoint — requires public_cs_trades column: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_cs_trades BOOLEAN DEFAULT FALSE;
 app.get('/api/users/:username/cs-trades', async (req, res) => {
-  const { data: profile } = await supabase.from('profiles').select('id, public_cs_trades').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, public_cs_trades').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
   // Allow owner to always see their own trades regardless of public setting
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -2784,7 +2784,7 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
     if (user?.id === profile.id) isOwner = true;
   }
   if (!isOwner && !profile.public_cs_trades) return res.status(403).json({ error: "This user's CS trades are private." });
-  let query = supabase.from('cs_inventory')
+  let query = db.from('cs_inventory')
     .select('id, skin_name, exterior, float_value, pattern, notes, icon_url, share_token, purchase_price, purchase_currency, purchase_date, sold, screenshot_url, hidden_from_profile, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
     .eq('user_id', profile.id)
     .order('purchase_date', { ascending: false });
@@ -2813,7 +2813,7 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
 });
 
 app.get('/api/users/:username/friends', async (req, res) => {
-  const { data: profile } = await supabase.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
   const { data: friendships } = await supabase
     .from('friendships')
@@ -2822,15 +2822,15 @@ app.get('/api/users/:username/friends', async (req, res) => {
     .eq('status', 'accepted');
   const friendIds = (friendships || []).map(f => f.requester_id === profile.id ? f.addressee_id : f.requester_id);
   if (!friendIds.length) return res.json([]);
-  const { data: friends } = await supabase.from('profiles').select('username, avatar_base64, role').in('id', friendIds);
+  const { data: friends } = await db.from('profiles').select('username, avatar_base64, role').in('id', friendIds);
   res.json((friends || []).map(p => ({ username: p.username, avatarBase64: p.avatar_base64, role: p.role })));
 });
 
 // ── Overrides ───────────────────────────────────────────────────────────────
 app.get('/api/overrides', requireUser, async (req, res) => {
   const [{ data: global }, { data: user }] = await Promise.all([
-    supabase.from('global_ticker_overrides').select('isin, ticker').eq('active', true),
-    supabase.from('ticker_overrides').select('isin, ticker').eq('user_id', req.user.id),
+    db.from('global_ticker_overrides').select('isin, ticker').eq('active', true),
+    db.from('ticker_overrides').select('isin, ticker').eq('user_id', req.user.id),
   ]);
   res.json({ global: global || [], user: user || [] });
 });
@@ -2838,19 +2838,19 @@ app.get('/api/overrides', requireUser, async (req, res) => {
 app.post('/api/overrides', requireUser, async (req, res) => {
   const { isin, ticker } = req.body;
   if (!isin || !ticker) return res.status(400).json({ error: 'isin and ticker required' });
-  await supabase.from('ticker_overrides').upsert({ user_id:req.user.id, isin:isin.toUpperCase(), ticker:ticker.toUpperCase() });
-  await supabase.from('ticker_cache').delete().eq('user_id', req.user.id).like('cache_key', `%${isin}%`);
+  await db.from('ticker_overrides').upsert({ user_id:req.user.id, isin:isin.toUpperCase(), ticker:ticker.toUpperCase() });
+  await db.from('ticker_cache').delete().eq('user_id', req.user.id).like('cache_key', `%${isin}%`);
   res.json({ success: true });
 });
 
 app.delete('/api/overrides/:isin', requireUser, async (req, res) => {
-  await supabase.from('ticker_overrides').delete().eq('user_id', req.user.id).eq('isin', req.params.isin);
+  await db.from('ticker_overrides').delete().eq('user_id', req.user.id).eq('isin', req.params.isin);
   res.json({ success: true });
 });
 
 // ── Global overrides (admin/mod) ─────────────────────────────────────────────
 app.get('/api/admin/global-overrides', requireModerator, async (req, res) => {
-  const { data, error } = await supabase.from('global_ticker_overrides').select('isin, ticker, active, created_by, created_at').order('created_at', { ascending: false });
+  const { data, error } = await db.from('global_ticker_overrides').select('isin, ticker, active, created_by, created_at').order('created_at', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   const enriched = await Promise.all((data || []).map(async o => {
     try {
@@ -2865,16 +2865,16 @@ app.get('/api/admin/global-overrides', requireModerator, async (req, res) => {
 });
 
 app.patch('/api/admin/global-overrides/:isin/toggle', requireModerator, async (req, res) => {
-  const { data: current, error } = await supabase.from('global_ticker_overrides').select('active').eq('isin', req.params.isin).single();
+  const { data: current, error } = await db.from('global_ticker_overrides').select('active').eq('isin', req.params.isin).single();
   if (error || !current) return res.status(404).json({ error: 'Not found' });
-  await supabase.from('global_ticker_overrides').update({ active: !current.active }).eq('isin', req.params.isin);
+  await db.from('global_ticker_overrides').update({ active: !current.active }).eq('isin', req.params.isin);
   res.json({ active: !current.active });
 });
 
 app.post('/api/admin/global-overrides', requireModerator, async (req, res) => {
   const { isin, ticker } = req.body;
   if (!isin || !ticker) return res.status(400).json({ error: 'isin and ticker required' });
-  const { error } = await supabase.from('global_ticker_overrides').upsert({ isin: isin.toUpperCase(), ticker: ticker.toUpperCase(), created_by: req.username, created_at: new Date().toISOString() });
+  const { error } = await db.from('global_ticker_overrides').upsert({ isin: isin.toUpperCase(), ticker: ticker.toUpperCase(), created_by: req.username, created_at: new Date().toISOString() });
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
@@ -2885,7 +2885,7 @@ app.delete('/api/admin/global-overrides/:isin', requireModerator, async (req, re
   const email = `${req.username.toLowerCase()}@statera.local`;
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return res.status(401).json({ error: 'Incorrect password' });
-  await supabase.from('global_ticker_overrides').delete().eq('isin', req.params.isin);
+  await db.from('global_ticker_overrides').delete().eq('isin', req.params.isin);
   res.json({ success: true });
 });
 
@@ -2895,7 +2895,7 @@ app.delete('/api/admin/global-overrides', requireModerator, async (req, res) => 
   const email = `${req.username.toLowerCase()}@statera.local`;
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return res.status(401).json({ error: 'Incorrect password' });
-  await supabase.from('global_ticker_overrides').delete().neq('isin', '');
+  await db.from('global_ticker_overrides').delete().neq('isin', '');
   res.json({ success: true });
 });
 
@@ -2907,14 +2907,14 @@ const DB_TABLES = [
 ];
 
 app.get('/api/admin/db/size', requireAdmin, async (req, res) => {
-  const { data, error } = await supabase.rpc('get_db_size_stats');
+  const { data, error } = await db.rpc('get_db_size_stats');
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
 app.get('/api/admin/db/tables', requireAdmin, async (req, res) => {
   const counts = await Promise.all(DB_TABLES.map(async t => {
-    const { count, error } = await supabase.from(t).select('*', { count: 'exact', head: true });
+    const { count, error } = await db.from(t).select('*', { count: 'exact', head: true });
     return { table: t, rows: error ? null : count };
   }));
   res.json(counts);
@@ -2927,7 +2927,7 @@ app.get('/api/admin/db/table/:name', requireAdmin, async (req, res) => {
   const limit = 50;
   const filterCol = req.query.filter_col;
   const filterVal = req.query.filter_val;
-  let query = supabase.from(name).select('*', { count: 'exact' });
+  let query = db.from(name).select('*', { count: 'exact' });
   if (filterCol && filterVal && /^[a-z_]+$/.test(filterCol)) query = query.eq(filterCol, filterVal);
   const { data, error, count } = await query.range(page * limit, page * limit + limit - 1);
   if (error) return res.status(500).json({ error: error.message });
@@ -2992,10 +2992,10 @@ app.post('/api/history', requireUser, heavyRateLimit(60000, 'history'), async (r
 
 // ── Activity helpers ────────────────────────────────────────────────────────
 async function appendActivity(userId, type, payload={}) {
-  const { error } = await supabase.from('activity').insert({ user_id:userId, type, payload });
+  const { error } = await db.from('activity').insert({ user_id:userId, type, payload });
   if (error) log.error('appendActivity failed', { userId, type, error: error.message });
 }
-async function appendModLog(moderator, action, targetUser, details='') { await supabase.from('moderation_log').insert({ moderator, action, target_user:targetUser, details }); }
+async function appendModLog(moderator, action, targetUser, details='') { await db.from('moderation_log').insert({ moderator, action, target_user:targetUser, details }); }
 
 // ── Friends ─────────────────────────────────────────────────────────────────
 app.post('/api/users/heartbeat', requireUser, (req, res) => {
@@ -3005,9 +3005,9 @@ app.post('/api/users/heartbeat', requireUser, (req, res) => {
 
 app.get('/api/friends', requireUser, async (req, res) => {
   const userId = req.user.id;
-  const { data: all } = await supabase.from('friendships').select('requester_id, addressee_id, status').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+  const { data: all } = await db.from('friendships').select('requester_id, addressee_id, status').or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
   const accepted=(all||[]).filter(f=>f.status==='accepted'), incoming=(all||[]).filter(f=>f.status==='pending'&&f.addressee_id===userId), outgoing=(all||[]).filter(f=>f.status==='pending'&&f.requester_id===userId);
-  const getProfiles = async (ids) => { if(!ids.length) return []; const { data } = await supabase.from('profiles').select('id, username, avatar_base64, bio, role').in('id', ids); return data||[]; };
+  const getProfiles = async (ids) => { if(!ids.length) return []; const { data } = await db.from('profiles').select('id, username, avatar_base64, bio, role').in('id', ids); return data||[]; };
   const friendIds=accepted.map(f=>f.requester_id===userId?f.addressee_id:f.requester_id);
   const [fp, ip, op] = await Promise.all([getProfiles(friendIds), getProfiles(incoming.map(f=>f.requester_id)), getProfiles(outgoing.map(f=>f.addressee_id))]);
   const now = Date.now();
@@ -3016,40 +3016,40 @@ app.get('/api/friends', requireUser, async (req, res) => {
 });
 
 app.get('/api/friends/pending-count', requireUser, async (req, res) => {
-  const { count } = await supabase.from('friendships').select('*', { count:'exact', head:true }).eq('addressee_id', req.user.id).eq('status', 'pending');
+  const { count } = await db.from('friendships').select('*', { count:'exact', head:true }).eq('addressee_id', req.user.id).eq('status', 'pending');
   res.json({ count:count||0 });
 });
 
 app.post('/api/friends/request/:username', requireUser, async (req, res) => {
-  const { data: target } = await supabase.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: target } = await db.from('profiles').select('id').eq('username', req.params.username).single();
   if (!target) return res.status(404).json({ error: 'User not found.' });
   if (target.id === req.user.id) return res.status(400).json({ error: 'Cannot friend yourself.' });
-  const { data: reverse } = await supabase.from('friendships').select('id').eq('requester_id', target.id).eq('addressee_id', req.user.id).eq('status', 'pending').single();
-  if (reverse) { await supabase.from('friendships').update({ status:'accepted' }).eq('id', reverse.id); await Promise.all([appendActivity(req.user.id,'friend_added',{ targetUser:req.params.username }),appendActivity(target.id,'friend_added',{ targetUser:req.username })]); return res.json({ success:true, status:'accepted' }); }
-  const { error } = await supabase.from('friendships').insert({ requester_id:req.user.id, addressee_id:target.id, status:'pending' });
+  const { data: reverse } = await db.from('friendships').select('id').eq('requester_id', target.id).eq('addressee_id', req.user.id).eq('status', 'pending').single();
+  if (reverse) { await db.from('friendships').update({ status:'accepted' }).eq('id', reverse.id); await Promise.all([appendActivity(req.user.id,'friend_added',{ targetUser:req.params.username }),appendActivity(target.id,'friend_added',{ targetUser:req.username })]); return res.json({ success:true, status:'accepted' }); }
+  const { error } = await db.from('friendships').insert({ requester_id:req.user.id, addressee_id:target.id, status:'pending' });
   if (error) return res.status(400).json({ error:error.message });
   res.json({ success:true, status:'requested' });
 });
 
 app.post('/api/friends/accept/:username', requireUser, async (req, res) => {
-  const { data: sender } = await supabase.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: sender } = await db.from('profiles').select('id').eq('username', req.params.username).single();
   if (!sender) return res.status(404).json({ error: 'User not found.' });
-  await supabase.from('friendships').update({ status:'accepted' }).eq('requester_id', sender.id).eq('addressee_id', req.user.id).eq('status', 'pending');
+  await db.from('friendships').update({ status:'accepted' }).eq('requester_id', sender.id).eq('addressee_id', req.user.id).eq('status', 'pending');
   await Promise.all([appendActivity(req.user.id,'friend_added',{ targetUser:req.params.username }),appendActivity(sender.id,'friend_added',{ targetUser:req.username })]);
   res.json({ success:true });
 });
 
 app.post('/api/friends/decline/:username', requireUser, async (req, res) => {
-  const { data: sender } = await supabase.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: sender } = await db.from('profiles').select('id').eq('username', req.params.username).single();
   if (!sender) return res.status(404).json({ error: 'User not found.' });
-  await supabase.from('friendships').delete().eq('requester_id', sender.id).eq('addressee_id', req.user.id);
+  await db.from('friendships').delete().eq('requester_id', sender.id).eq('addressee_id', req.user.id);
   res.json({ success:true });
 });
 
 app.post('/api/friends/remove/:username', requireUser, async (req, res) => {
-  const { data: target } = await supabase.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: target } = await db.from('profiles').select('id').eq('username', req.params.username).single();
   if (!target) return res.status(404).json({ error: 'User not found.' });
-  await supabase.from('friendships').delete().or(`and(requester_id.eq.${req.user.id},addressee_id.eq.${target.id}),and(requester_id.eq.${target.id},addressee_id.eq.${req.user.id})`);
+  await db.from('friendships').delete().or(`and(requester_id.eq.${req.user.id},addressee_id.eq.${target.id}),and(requester_id.eq.${target.id},addressee_id.eq.${req.user.id})`);
   res.json({ success:true });
 });
 
@@ -3070,8 +3070,8 @@ app.get('/api/feed', requireUser, async (req, res) => {
     const allIds = [...new Set([...friendIds, req.user.id])];
     log.info('feed query', { username: req.username, userId: req.user.id, friendCount: friendIds.length, allIds });
     const [{ data: activity }, { data: profiles }] = await Promise.all([
-      supabase.from('activity').select('id, user_id, type, payload, created_at').in('user_id', allIds).order('created_at', { ascending:false }).limit(50),
-      supabase.from('profiles').select('id, username, avatar_base64, role').in('id', allIds),
+      db.from('activity').select('id, user_id, type, payload, created_at').in('user_id', allIds).order('created_at', { ascending:false }).limit(50),
+      db.from('profiles').select('id, username, avatar_base64, role').in('id', allIds),
     ]);
     log.info('feed result', { username: req.username, activityCount: (activity||[]).length, types: [...new Set((activity||[]).map(a=>a.type))] });
 
@@ -3097,15 +3097,15 @@ app.get('/api/feed', requireUser, async (req, res) => {
 });
 
 app.get('/api/activity/mine', requireUser, async (req, res) => {
-  const { data } = await supabase.from('activity').select('*').eq('user_id', req.user.id).order('created_at', { ascending:false }).limit(50);
+  const { data } = await db.from('activity').select('*').eq('user_id', req.user.id).order('created_at', { ascending:false }).limit(50);
   res.json(data||[]);
 });
 
 // Get a specific user's public activity
 app.get('/api/users/:username/activity', requireUser, async (req, res) => {
-  const { data: profile } = await supabase.from('profiles').select('id, username').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, username').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
-  const { data: activities } = await supabase.from('activity').select('*').eq('user_id', profile.id).order('created_at', { ascending:false }).limit(10);
+  const { data: activities } = await db.from('activity').select('*').eq('user_id', profile.id).order('created_at', { ascending:false }).limit(10);
   res.json((activities || []).map(a => {
     const payload = a.payload || {};
     return { ...payload, id: a.id, type: a.type, created_at: a.created_at, username: profile.username };
@@ -3126,20 +3126,20 @@ app.post('/api/activity/screenshot', requireUser, async (req, res) => {
 });
 
 app.delete('/api/activity/:id', requireUser, async (req, res) => {
-  await supabase.from('activity').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  await db.from('activity').delete().eq('id', req.params.id).eq('user_id', req.user.id);
   res.json({ success:true });
 });
 
 app.patch('/api/activity/:id', requireUser, async (req, res) => {
-  const { data } = await supabase.from('activity').select('id, payload').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  const { data } = await db.from('activity').select('id, payload').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (!data) return res.status(404).json({ error: 'Not found' });
-  await supabase.from('activity').update({ payload: { ...data.payload, caption: req.body.caption ?? '' } }).eq('id', req.params.id);
+  await db.from('activity').update({ payload: { ...data.payload, caption: req.body.caption ?? '' } }).eq('id', req.params.id);
   res.json({ success: true });
 });
 
 // ── Announcements ───────────────────────────────────────────────────────────
 app.get('/api/announcements', async (req, res) => {
-  const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending:false }).limit(10);
+  const { data } = await db.from('announcements').select('*').order('created_at', { ascending:false }).limit(10);
   res.json(data||[]);
 });
 
@@ -3199,13 +3199,13 @@ function fetchJSON(url) {
 
 // ── CS routes ───────────────────────────────────────────────────────────────
 app.get('/api/cs/settings', requireUser, async (req, res) => {
-  const { data: profile } = await supabase.from('profiles').select('steam_id').eq('id', req.user.id).single();
+  const { data: profile } = await db.from('profiles').select('steam_id').eq('id', req.user.id).single();
   res.json({ steam_id:profile?.steam_id||'' });
 });
 
 app.post('/api/cs/settings', requireUser, async (req, res) => {
   const { key, value } = req.body;
-  if (key === 'steam_id') await supabase.from('profiles').update({ steam_id:value }).eq('id', req.user.id);
+  if (key === 'steam_id') await db.from('profiles').update({ steam_id:value }).eq('id', req.user.id);
   res.json({ success:true });
 });
 
@@ -3241,7 +3241,7 @@ async function runPriceSync() {
     const CHUNK = 500;
     await Promise.all(
       Array.from({ length: Math.ceil(entries.length / CHUNK) }, (_, i) =>
-        supabase.from('cs_price_cache').upsert(entries.slice(i * CHUNK, (i + 1) * CHUNK), { onConflict: 'skin_name' })
+        db.from('cs_price_cache').upsert(entries.slice(i * CHUNK, (i + 1) * CHUNK), { onConflict: 'skin_name' })
       )
     );
 
@@ -3278,7 +3278,7 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   // Normalize query: strip CS special chars, split into words for flexible matching
   const words = req.params.query.replace(/[|★™®]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 1);
   if (words.length === 0) return res.json([]);
-  let q = supabase.from('cs_price_cache').select('skin_name, price_sek').limit(200);
+  let q = db.from('cs_price_cache').select('skin_name, price_sek').limit(200);
   for (const word of words) q = q.ilike('skin_name', `%${word}%`);
   const { data } = await q;
   if (!data) return res.json([]);
@@ -3305,7 +3305,7 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
 });
 
 app.get('/api/cs/prices/overrides', requireUser, async (req, res) => {
-  const { data, error } = await supabase.from('cs_price_overrides').select('skin_name, price_sek').eq('user_id', req.user.id);
+  const { data, error } = await db.from('cs_price_overrides').select('skin_name, price_sek').eq('user_id', req.user.id);
   if (error) return res.status(500).json({ error: error.message });
   res.json(data || []);
 });
@@ -3314,7 +3314,7 @@ app.post('/api/cs/prices/override', requireUser, async (req, res) => {
   const { skin_name, price, currency } = req.body;
   if (!skin_name || price == null || isNaN(price)) return res.status(400).json({ error: 'skin_name and numeric price required' });
   const price_sek = await toSEK(parseFloat(price), currency || 'SEK');
-  const { error } = await supabase.from('cs_price_overrides').upsert(
+  const { error } = await db.from('cs_price_overrides').upsert(
     { user_id: req.user.id, skin_name, price_sek },
     { onConflict: 'user_id,skin_name' }
   );
@@ -3323,7 +3323,7 @@ app.post('/api/cs/prices/override', requireUser, async (req, res) => {
 });
 
 app.delete('/api/cs/prices/override/:skinName', requireUser, async (req, res) => {
-  const { error } = await supabase.from('cs_price_overrides').delete()
+  const { error } = await db.from('cs_price_overrides').delete()
     .eq('user_id', req.user.id).eq('skin_name', decodeURIComponent(req.params.skinName));
   if (error) return res.status(500).json({ error: error.message });
   res.json({ ok: true });
@@ -3340,8 +3340,8 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
     (data.descriptions||[]).forEach(d=>{ descMap[`${d.classid}_${d.instanceid}`]=d; });
     const names = (data.assets||[]).map(a=>{ const d=descMap[`${a.classid}_${a.instanceid}`]; return d?.market_hash_name||d?.name||'Unknown'; }).filter(n=>n!=='Unknown');
     const [{ data: prices }, { data: overrideRows }] = await Promise.all([
-      supabase.from('cs_price_cache').select('skin_name, price_sek, last_updated').in('skin_name', names),
-      supabase.from('cs_price_overrides').select('skin_name, price_sek').eq('user_id', req.user.id),
+      db.from('cs_price_cache').select('skin_name, price_sek, last_updated').in('skin_name', names),
+      db.from('cs_price_overrides').select('skin_name, price_sek').eq('user_id', req.user.id),
     ]);
     const priceMap = {};
     (prices||[]).forEach(p=>{ priceMap[p.skin_name] = p; });
@@ -3476,7 +3476,7 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
     const cacheEntries = async (entries) => {
       if (!entries.length) return;
       const now = new Date().toISOString();
-      await supabase.from('cs_price_cache').upsert(
+      await db.from('cs_price_cache').upsert(
         entries.map(e => ({ skin_name: e.name, price_sek: e.sek, price_usd: e.usd, last_updated: now })),
         { onConflict: 'skin_name' }
       );
@@ -3498,7 +3498,7 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
       const syncNow = new Date().toISOString();
       setImmediate(async () => {
         await cacheEntries(syncEntries);
-        if (syncFailed.length > 0) await supabase.from('cs_price_cache').upsert(
+        if (syncFailed.length > 0) await db.from('cs_price_cache').upsert(
           syncFailed.map(n => ({ skin_name: n, price_sek: 0, price_usd: 0, last_updated: syncNow })),
           { onConflict: 'skin_name' }
         );
@@ -3542,7 +3542,7 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
           if (bgEntries.length > 0) log.info('steam bg price fallback cached', { count: bgEntries.length });
           if (bgFailed.length > 0) {
             const bgNow = new Date().toISOString();
-            await supabase.from('cs_price_cache').upsert(
+            await db.from('cs_price_cache').upsert(
               bgFailed.map(n => ({ skin_name: n, price_sek: 0, price_usd: 0, last_updated: bgNow })),
               { onConflict: 'skin_name' }
             );
@@ -3555,13 +3555,13 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
 
 app.get('/api/cs/inventory', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data, error } = await supabase.from('cs_inventory').select('*, cs_sales(*)').eq('user_id', req.user.id).order('purchase_date', { ascending:false });
+  const { data, error } = await db.from('cs_inventory').select('*, cs_sales(*)').eq('user_id', req.user.id).order('purchase_date', { ascending:false });
   if (error) { log.error('cs_inventory GET failed', { error: error.message, userId: req.user.id }); return res.status(500).json({ error: error.message }); }
   const items = data || [];
   const names = [...new Set(items.map(i => normSkinName(i.skin_name)))];
   let priceMap = {};
   if (names.length > 0) {
-    const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek, price_usd').in('skin_name', names);
+    const { data: prices } = await db.from('cs_price_cache').select('skin_name, price_sek, price_usd').in('skin_name', names);
     (prices || []).forEach(p => { priceMap[p.skin_name] = p; });
   }
   // Build FX: sale currencies + BC if not SEK. fxFromSEK[cur] = how many `cur` per 1 SEK.
@@ -3634,7 +3634,7 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
   const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
-  const { data, error } = await supabase.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value:safeFloat, pattern:safePattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'USD', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null, share_token:crypto.randomUUID(), stickers:safeStickerList(stickers) }).select().single();
+  const { data, error } = await db.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value:safeFloat, pattern:safePattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'USD', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null, share_token:crypto.randomUUID(), stickers:safeStickerList(stickers) }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   const safeStickers = safeStickerList(stickers);
   await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior, floatValue: safeFloat, iconUrl: safeIconUrl || null, stickers: safeStickers });
@@ -3662,14 +3662,14 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
-  const { data: existing } = await supabase.from('cs_inventory').select('skin_name, screenshot_url, sold, purchase_price, purchase_currency, stickers').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  const { data: existing } = await db.from('cs_inventory').select('skin_name, screenshot_url, sold, purchase_price, purchase_currency, stickers').eq('id', req.params.id).eq('user_id', req.user.id).single();
   const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
   const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
   const updateFields = { skin_name, exterior, float_value: safeFloat, pattern: safePattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'USD', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null, icon_url: safeIconUrl || null };
   if (stickers !== undefined) updateFields.stickers = safeStickerList(stickers);
-  const { error } = await supabase.from('cs_inventory')
+  const { error } = await db.from('cs_inventory')
     .update(updateFields)
     .eq('id', req.params.id)
     .eq('user_id', req.user.id);
@@ -3696,7 +3696,7 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
 });
 
 app.delete('/api/cs/inventory/:id', requireUser, async (req, res) => {
-  await supabase.from('cs_inventory').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  await db.from('cs_inventory').delete().eq('id', req.params.id).eq('user_id', req.user.id);
   res.json({ success:true });
 });
 
@@ -3706,11 +3706,11 @@ app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
-  const { data: item } = await supabase.from('cs_inventory').select('skin_name, exterior, float_value, purchase_price, sold, icon_url, stickers').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  const { data: item } = await db.from('cs_inventory').select('skin_name, exterior, float_value, purchase_price, sold, icon_url, stickers').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (!item) return res.status(404).json({ error: 'Item not found.' });
   if (item.sold) return res.status(409).json({ error: 'Item already marked as sold.' });
-  await supabase.from('cs_inventory').update({ sold:true }).eq('id', req.params.id).eq('user_id', req.user.id);
-  const { data } = await supabase.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price, sale_currency:sale_currency||'USD', sale_date, notes, screenshot_url:safeScreenshotUrl }).select().single();
+  await db.from('cs_inventory').update({ sold:true }).eq('id', req.params.id).eq('user_id', req.user.id);
+  const { data } = await db.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price, sale_currency:sale_currency||'USD', sale_date, notes, screenshot_url:safeScreenshotUrl }).select().single();
   await appendActivity(req.user.id, 'cs_trade', { action:'sell', skinName:item.skin_name, exterior: item.exterior, floatValue: item.float_value, buyPrice:item.purchase_price, sellPrice:sale_price, currency:sale_currency, iconUrl: item.icon_url || null, stickers: item.stickers || [] });
   res.json({ id:data?.id, success:true });
 });
@@ -3757,14 +3757,14 @@ app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
 app.get('/api/cs/pnl', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
   const [{ data: sold }, { data: holding }] = await Promise.all([
-    supabase.from('cs_inventory').select('purchase_price, purchase_price_sek, cs_sales(sale_price, sale_currency)').eq('user_id', req.user.id).eq('sold', true),
-    supabase.from('cs_inventory').select('id, skin_name, purchase_price, purchase_price_sek').eq('user_id', req.user.id).eq('sold', false),
+    db.from('cs_inventory').select('purchase_price, purchase_price_sek, cs_sales(sale_price, sale_currency)').eq('user_id', req.user.id).eq('sold', true),
+    db.from('cs_inventory').select('id, skin_name, purchase_price, purchase_price_sek').eq('user_id', req.user.id).eq('sold', false),
   ]);
   const holdingItems = holding || [];
   let priceMap = {};
   if (holdingItems.length > 0) {
     const names = [...new Set(holdingItems.map(i => normSkinName(i.skin_name)))];
-    const { data: prices } = await supabase.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
+    const { data: prices } = await db.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
     (prices || []).forEach(p => { priceMap[p.skin_name] = p.price_sek; });
   }
   const saleCurrencies = [...new Set((sold||[]).map(r => r.cs_sales?.[0]?.sale_currency).filter(Boolean).filter(c => c !== 'SEK'))];
@@ -3849,10 +3849,10 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
     // Fetch profiles and transaction counts in parallel — no N+1
     const [{ data: profiles }, { data: txCounts }, { count: totalTx }, { data: pendingTokens }] = await Promise.all([
-      supabase.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64, email, email_verified'),
-      supabase.from('transactions').select('user_id').limit(100000), // capped to avoid unbounded memory usage
-      supabase.from('transactions').select('*', { count:'exact', head:true }),
-      supabase.from('email_verification_tokens').select('username, email, expires_at').eq('used', false).gt('expires_at', new Date().toISOString()),
+      db.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64, email, email_verified'),
+      db.from('transactions').select('user_id').limit(100000), // capped to avoid unbounded memory usage
+      db.from('transactions').select('*', { count:'exact', head:true }),
+      db.from('email_verification_tokens').select('username, email, expires_at').eq('used', false).gt('expires_at', new Date().toISOString()),
     ]);
 
     // Group transaction counts by user_id client-side
@@ -3893,7 +3893,7 @@ app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {
   const email = `${req.username.toLowerCase()}@statera.local`;
   const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
   if (authError) return res.status(401).json({ error: 'Incorrect password' });
-  const { data: profile } = await supabase.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error:'User not found.' });
   await supabase.auth.admin.deleteUser(profile.id);
   await appendModLog('admin', 'delete-user', req.params.username);
@@ -3903,7 +3903,7 @@ app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {
 app.post('/api/admin/users/:username/reset-password', requireAdmin, async (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword||newPassword.length<6) return res.status(400).json({ error:'Password must be at least 6 characters.' });
-  const { data: profile } = await supabase.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error:'User not found.' });
   await supabase.auth.admin.updateUserById(profile.id, { password:newPassword });
   await appendModLog('admin', 'reset-password', req.params.username);
@@ -3913,26 +3913,26 @@ app.post('/api/admin/users/:username/reset-password', requireAdmin, async (req, 
 app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) => {
   const { username } = req.params;
   const { email } = req.body;
-  const { data: profile } = await supabase.from('profiles').select('id').eq('username', username).single();
+  const { data: profile } = await db.from('profiles').select('id').eq('username', username).single();
   if (!profile) return res.status(404).json({ error: 'User not found.' });
   if (email) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format.' });
-    const { data: existing } = await supabase.from('profiles').select('username').ilike('email', email).single();
+    const { data: existing } = await db.from('profiles').select('username').ilike('email', email).single();
     if (existing && existing.username !== username) return res.status(400).json({ error: 'Email already in use by another user.' });
   }
   // If clearing email, update profiles immediately. Otherwise, don't commit until user verifies —
   // so if the link expires unused, profiles.email stays unchanged.
   if (!email) {
-    await supabase.from('profiles').update({ email: null, email_verified: false }).eq('username', username);
+    await db.from('profiles').update({ email: null, email_verified: false }).eq('username', username);
     return res.json({ success: true, emailSent: false });
   }
   // Invalidate any prior pending tokens for this user
-  await supabase.from('email_verification_tokens').update({ used: true }).eq('username', username).eq('used', false);
+  await db.from('email_verification_tokens').update({ used: true }).eq('username', username).eq('used', false);
   let emailSent = false;
   if (resend) {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
-    const { error: insertErr } = await supabase.from('email_verification_tokens').insert({ username, email, token, expires_at: expiresAt });
+    const { error: insertErr } = await db.from('email_verification_tokens').insert({ username, email, token, expires_at: expiresAt });
     if (insertErr) {
       log.error('Failed to insert verification token', { error: insertErr.message, username, email });
       return res.status(500).json({ error: 'Failed to create verification token: ' + insertErr.message });
@@ -3958,7 +3958,7 @@ app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) 
 app.post('/api/auth/verify-email', async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: 'Token required.' });
-  const { data: record } = await supabase.from('email_verification_tokens').select('*').eq('token', token).single();
+  const { data: record } = await db.from('email_verification_tokens').select('*').eq('token', token).single();
   if (!record) return res.status(400).json({ error: 'Invalid or expired verification link.' });
   if (record.used) return res.status(400).json({ error: 'This link has already been used.' });
   if (new Date(record.expires_at) < new Date()) return res.status(400).json({ error: 'Verification link has expired.' });
@@ -3976,18 +3976,18 @@ app.post('/api/auth/verify-email', async (req, res) => {
     log.error('verify-email: update matched 0 rows', { username: record.username, email: record.email });
     return res.status(500).json({ error: `No profile found for username "${record.username}" — email not saved.` });
   }
-  await supabase.from('email_verification_tokens').update({ used: true }).eq('token', token);
+  await db.from('email_verification_tokens').update({ used: true }).eq('token', token);
   res.json({ success: true, username: record.username });
 });
 
 app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req, res) => {
-  const { data: profile } = await supabase.from('profiles').select('email').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('email').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found.' });
   if (!profile.email) return res.status(400).json({ error: 'This user has no email address on file.' });
   if (!resend) return res.status(500).json({ error: 'Email service not configured.' });
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
-  await supabase.from('password_reset_tokens').insert({ username: req.params.username, token, expires_at: expiresAt });
+  await db.from('password_reset_tokens').insert({ username: req.params.username, token, expires_at: expiresAt });
   const resetUrl = `${APP_URL}/?reset_token=${token}`;
   await resend.emails.send({
     from: 'Verumen <noreply@verumen.com>',
@@ -4008,7 +4008,7 @@ app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req
 app.post('/api/admin/users/:username/set-role', requireAdmin, async (req, res) => {
   const { role } = req.body;
   if (!['user','moderator'].includes(role)) return res.status(400).json({ error:'Invalid role.' });
-  await supabase.from('profiles').update({ role }).eq('username', req.params.username);
+  await db.from('profiles').update({ role }).eq('username', req.params.username);
   await appendModLog('admin', `set-role:${role}`, req.params.username);
   res.json({ success:true });
 });
@@ -4020,26 +4020,26 @@ app.post('/api/admin/users/:username/set-role-admin', requireAdmin, async (req, 
   if (!['user','moderator','admin'].includes(role)) return res.status(400).json({ error: 'Invalid role.' });
   // Protect the root admin account from being demoted
   if (req.params.username?.toLowerCase() === 'admin') return res.status(400).json({ error: 'Cannot change the root admin role.' });
-  await supabase.from('profiles').update({ role }).eq('username', req.params.username);
+  await db.from('profiles').update({ role }).eq('username', req.params.username);
   await appendModLog('admin', `set-role-admin:${role}`, req.params.username);
   res.json({ success: true });
 });
 
 app.post('/api/admin/users/:username/clear-bio', requireAdmin, async (req, res) => {
-  await supabase.from('profiles').update({ bio:'' }).eq('username', req.params.username);
+  await db.from('profiles').update({ bio:'' }).eq('username', req.params.username);
   await appendModLog('admin', 'clear-bio', req.params.username);
   res.json({ success:true });
 });
 
 app.post('/api/admin/cache/clear', requireAdmin, async (req, res) => {
   const { username } = req.body;
-  if (username) { const { data: p } = await supabase.from('profiles').select('id').eq('username', username).single(); if (p) await supabase.from('ticker_cache').delete().eq('user_id', p.id); }
-  else await supabase.from('ticker_cache').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
+  if (username) { const { data: p } = await db.from('profiles').select('id').eq('username', username).single(); if (p) await db.from('ticker_cache').delete().eq('user_id', p.id); }
+  else await db.from('ticker_cache').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
   res.json({ success:true });
 });
 
 app.get('/api/admin/ticker-failures', requireAdmin, async (req, res) => {
-  const { data } = await supabase.from('transactions').select('raw_ticker, isin, name, profiles(username)').in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.').limit(200);
+  const { data } = await db.from('transactions').select('raw_ticker, isin, name, profiles(username)').in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.').limit(200);
   const grouped = {};
   (data||[]).forEach(t => { const key=t.raw_ticker||t.isin||t.name||'unknown'; if(!grouped[key]) grouped[key]={ key, count:0, users:new Set(), isin:t.isin, name:t.name }; grouped[key].count++; if(t.profiles?.username) grouped[key].users.add(t.profiles.username); });
   res.json(Object.values(grouped).map(g=>({ ...g, users:[...g.users] })).sort((a,b)=>b.count-a.count).slice(0,50));
@@ -4048,26 +4048,26 @@ app.get('/api/admin/ticker-failures', requireAdmin, async (req, res) => {
 app.post('/api/admin/announcements', requireAdmin, async (req, res) => {
   const { title, message, type } = req.body;
   if (!title||!message) return res.status(400).json({ error:'title and message required.' });
-  const { data, error } = await supabase.from('announcements').insert({ title, message, type:type||'info', posted_by:req.username }).select().single();
+  const { data, error } = await db.from('announcements').insert({ title, message, type:type||'info', posted_by:req.username }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   res.json({ success:true, announcement:data });
 });
 
 app.delete('/api/admin/announcements/:id', requireAdmin, async (req, res) => {
-  await supabase.from('announcements').delete().eq('id', req.params.id);
+  await db.from('announcements').delete().eq('id', req.params.id);
   res.json({ success:true });
 });
 
 // ── Moderator routes ─────────────────────────────────────────────────────────
 app.get('/api/mod/log', requireModerator, async (req, res) => {
-  const { data } = await supabase.from('moderation_log').select('*').order('created_at', { ascending:false }).limit(100);
+  const { data } = await db.from('moderation_log').select('*').order('created_at', { ascending:false }).limit(100);
   res.json(data||[]);
 });
 
 app.post('/api/mod/users/:username/reset-password', requireModerator, async (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
-  const { data: profile } = await supabase.from('profiles').select('id, role').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, role').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error:'User not found.' });
   if (profile.role==='admin') return res.status(403).json({ error:'Cannot reset admin password.' });
   await supabase.auth.admin.updateUserById(profile.id, { password:newPassword });
@@ -4076,7 +4076,7 @@ app.post('/api/mod/users/:username/reset-password', requireModerator, async (req
 });
 
 app.post('/api/mod/users/:username/clear-bio', requireModerator, async (req, res) => {
-  await supabase.from('profiles').update({ bio:'' }).eq('username', req.params.username);
+  await db.from('profiles').update({ bio:'' }).eq('username', req.params.username);
   await appendModLog(req.username, 'clear-bio', req.params.username);
   res.json({ success:true });
 });
@@ -4084,13 +4084,13 @@ app.post('/api/mod/users/:username/clear-bio', requireModerator, async (req, res
 app.post('/api/mod/announcements', requireModerator, async (req, res) => {
   const { title, message, type } = req.body;
   if (!title||!message) return res.status(400).json({ error:'title and message required.' });
-  const { data } = await supabase.from('announcements').insert({ title, message, type:type||'info', posted_by:req.username }).select().single();
+  const { data } = await db.from('announcements').insert({ title, message, type:type||'info', posted_by:req.username }).select().single();
   await appendModLog(req.username, 'post-announcement', '-', title);
   res.json({ success:true, announcement:data });
 });
 
 app.delete('/api/mod/announcements/:id', requireModerator, async (req, res) => {
-  await supabase.from('announcements').delete().eq('id', req.params.id);
+  await db.from('announcements').delete().eq('id', req.params.id);
   await appendModLog(req.username, 'delete-announcement', '-', req.params.id);
   res.json({ success:true });
 });
@@ -4164,7 +4164,7 @@ app.get('/api/steam/callback', async (req, res) => {
     }
 
     // Save verified Steam ID and level
-    await supabase.from('profiles').update({
+    await db.from('profiles').update({
       steam_id: steamId,
       steam_verified: true,
       steam_level: steamLevel
@@ -4180,7 +4180,7 @@ app.get('/api/steam/callback', async (req, res) => {
 
 // Step 3: Unlink Steam
 app.delete('/api/steam/unlink', requireUser, async (req, res) => {
-  await supabase.from('profiles').update({ steam_id: '', steam_verified: false }).eq('id', req.user.id);
+  await db.from('profiles').update({ steam_id: '', steam_verified: false }).eq('id', req.user.id);
   res.json({ success: true });
 });
 
@@ -4223,7 +4223,7 @@ app.get('/api/steam/lookup/:steamId', requireUser, async (req, res) => {
 
 // ── App settings ────────────────────────────────────────────────────────────
 app.get('/api/admin/settings', requireAdmin, async (req, res) => {
-  const { data } = await supabase.from('app_settings').select('key, value');
+  const { data } = await db.from('app_settings').select('key, value');
   const settings = {};
   (data || []).forEach(s => { settings[s.key] = s.value; });
   res.setHeader('Cache-Control', 'no-store');
@@ -4233,15 +4233,15 @@ app.get('/api/admin/settings', requireAdmin, async (req, res) => {
 app.post('/api/admin/settings', requireAdmin, async (req, res) => {
   const { key, value } = req.body;
   if (!key) return res.status(400).json({ error: 'key required' });
-  const { data: existing, error: selError } = await supabase.from('app_settings').select('key').eq('key', key).single();
+  const { data: existing, error: selError } = await db.from('app_settings').select('key').eq('key', key).single();
   if (selError && selError.code !== 'PGRST116') {
     return res.status(500).json({ error: 'Settings table not found. Run: CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);' });
   }
   if (existing) {
-    const { error } = await supabase.from('app_settings').update({ value: String(value) }).eq('key', key);
+    const { error } = await db.from('app_settings').update({ value: String(value) }).eq('key', key);
     if (error) return res.status(500).json({ error: error.message });
   } else {
-    const { error } = await supabase.from('app_settings').insert({ key, value: String(value) });
+    const { error } = await db.from('app_settings').insert({ key, value: String(value) });
     if (error) return res.status(500).json({ error: error.message });
   }
   if (key === 'allowRegistration') _allowRegistrationCached = String(value) !== 'false';
