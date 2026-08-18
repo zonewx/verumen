@@ -473,10 +473,10 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                 <button
                   onClick={fetchFeed}
                   disabled={feedLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition disabled:opacity-40"
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition ${feedLoading ? 'bg-zinc-700/40 text-zinc-500 cursor-not-allowed' : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'}`}
                 >
                   {feedLoading
-                    ? <span className="w-3 h-3 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+                    ? <span className="w-3 h-3 border-2 border-zinc-500 border-t-zinc-200 rounded-full animate-spin" />
                     : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
                   }
                   Refresh
@@ -565,8 +565,8 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
         </div>{/* end feed column */}
 
         {/* Friends panel */}
-        <div className="w-64 shrink-0">
-            <div className="bg-zinc-800/60 border border-zinc-700/60 rounded-2xl p-4 sticky top-0">
+        <div className="w-64 shrink-0 sticky top-6 self-start">
+            <div className="bg-zinc-800/60 border border-zinc-700/60 rounded-2xl p-4">
 
               {/* Friends header */}
               <button onClick={() => window.location.href = '/friends'} className="w-full text-left mb-3 hover:opacity-75 transition">
