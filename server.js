@@ -3097,12 +3097,14 @@ app.get('/api/users/:username/activity', requireUser, async (req, res) => {
 
 app.post('/api/activity/screenshot', requireUser, async (req, res) => {
   const { skinName, caption, imageBase64 } = req.body;
+  log.info('screenshot post attempt', { user: req.username, skinName, hasCaption: !!caption, hasImage: !!imageBase64 });
   if (!skinName) return res.status(400).json({ error: 'Skin name required.' });
   if (caption && caption.length > 500) return res.status(400).json({ error: 'Caption too long.' });
   if (imageBase64 && imageBase64.length > 1.5 * 1024 * 1024) return res.status(400).json({ error: 'Image too large. Maximum 1.5 MB.' });
   const ALLOWED_IMG_TYPES = ['data:image/jpeg;', 'data:image/jpg;', 'data:image/png;', 'data:image/webp;', 'data:image/gif;'];
   if (imageBase64 && !ALLOWED_IMG_TYPES.some(p => imageBase64.startsWith(p))) return res.status(400).json({ error: 'Invalid image format. JPEG, PNG, WebP or GIF only.' });
   await appendActivity(req.user.id, 'skin_screenshot', { skinName: skinName||'Unknown skin', caption: caption||'', imageBase64: imageBase64||null });
+  log.info('screenshot post complete', { user: req.username, skinName });
   res.json({ success:true });
 });
 
