@@ -620,6 +620,8 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                 ? feed.filter(i => i.username === authUsername)
                 : feed).filter(i => i.type !== 'holdings_update');
 
+              console.log('[render] tab:', tab, 'feed:', feed.length, 'items after filter:', items.length, 'authUsername:', authUsername, 'item usernames:', feed.map(i => i.username));
+
               if (items.length === 0) return (
                 <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-2xl p-12 text-center">
                   <p className="font-semibold text-zinc-300 mb-1">{tab === 'mine' ? 'No posts yet' : 'Your feed is empty'}</p>
