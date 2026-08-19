@@ -700,40 +700,64 @@ function TradeScreenshot({ url }) {
   return <img src={preview} alt="Trade screenshot" className="w-full rounded-lg object-contain max-h-80" />;
 }
 
-// Activity item component for profile page
-function ActivityItem({ activity }) {
-  const formatTime = (date) => {
-    const d = new Date(date);
-    const now = new Date();
-    const diffMs = now - d;
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return d.toLocaleDateString('sv-SE');
-  };
+function skinNameColor(name) {
+  if (!name) return 'text-zinc-100';
+  if (name.includes('★')) return 'text-violet-300';
+  if (name.includes('StatTrak')) return 'text-orange-400';
+  return 'text-zinc-100';
+}
 
-  const itemBg = 'bg-zinc-700/30';
-  const textSecondary = 'text-zinc-400';
+function formatActivityTime(date) {
+  const d = new Date(date);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString('sv-SE');
+}
+
+function ActivityItem({ activity }) {
+  if (activity.type === 'skin_screenshot') {
+    return (
+      <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex-1 min-w-0">
+            <p className={`font-semibold text-sm truncate ${skinNameColor(activity.skinName)}`}>{activity.skinName}</p>
+            <p className="text-xs text-zinc-500 mt-0.5">{formatActivityTime(activity.created_at)}</p>
+          </div>
+        </div>
+        {activity.caption && (
+          <p className="text-sm text-zinc-300 mb-3">{activity.caption}</p>
+        )}
+        {activity.imageBase64 && (
+          <img
+            src={activity.imageBase64}
+            alt={activity.skinName}
+            className="w-full rounded-xl object-contain"
+          />
+        )}
+      </div>
+    );
+  }
 
   if (activity.type === 'cs_trade' || activity.type === 'skin_trade') {
     const isBuy = (activity.action || activity.tradeType) === 'buy';
     return (
-      <div className={`${itemBg} rounded-lg p-2`}>
+      <div className="bg-zinc-700/30 rounded-lg p-2">
         <div className="flex items-center gap-2">
-          <span className={`text-sm font-bold ${isBuy ? 'text-green-400' : 'text-red-400'}`}>
-            {isBuy ? '↓' : '↑'}
-          </span>
+          <svg className={`w-3.5 h-3.5 shrink-0 ${isBuy ? 'text-emerald-400' : 'text-red-400'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            {isBuy ? <path d="M12 5v14M5 12l7 7 7-7"/> : <path d="M12 19V5M5 12l7-7 7 7"/>}
+          </svg>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold truncate">{activity.skinName}</p>
-            <p className={`text-[10px] ${textSecondary}`}>
-              {formatTime(activity.created_at)}
-            </p>
+            <p className="text-[10px] text-zinc-400">{formatActivityTime(activity.created_at)}</p>
           </div>
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isBuy ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isBuy ? 'bg-emerald-900/40 text-emerald-400' : 'bg-red-900/40 text-red-400'}`}>
             {isBuy ? 'Buy' : 'Sell'}
           </span>
         </div>
@@ -743,39 +767,16 @@ function ActivityItem({ activity }) {
 
   if (activity.type === 'holdings_update') {
     return (
-      <div className={`${itemBg} rounded-lg p-2`}>
+      <div className="bg-zinc-700/30 rounded-lg p-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm">📊</span>
+          <svg className="w-3.5 h-3.5 shrink-0 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold">Portfolio updated</p>
-            <p className={`text-[10px] ${textSecondary}`}>
-              {formatTime(activity.created_at)}
-            </p>
+            <p className="text-xs font-semibold text-zinc-300">Portfolio updated</p>
+            <p className="text-[10px] text-zinc-400">{formatActivityTime(activity.created_at)}</p>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (activity.type === 'skin_screenshot') {
-    return (
-      <div className={`${itemBg} rounded-lg p-2`}>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm">📸</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold truncate">{activity.skinName}</p>
-            <p className={`text-[10px] ${textSecondary}`}>
-              {formatTime(activity.created_at)}
-            </p>
-          </div>
-        </div>
-        {activity.imageBase64 && (
-          <img
-            src={activity.imageBase64}
-            alt={activity.skinName}
-            className="w-full rounded-md object-contain"
-          />
-        )}
       </div>
     );
   }

@@ -3093,7 +3093,7 @@ app.get('/api/activity/mine', requireUser, async (req, res) => {
 app.get('/api/users/:username/activity', requireUser, async (req, res) => {
   const { data: profile } = await db.from('profiles').select('id, username').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
-  const { data: activities } = await db.from('activity').select('*').eq('user_id', profile.id).order('created_at', { ascending:false }).limit(10);
+  const { data: activities } = await db.from('activity').select('*').eq('user_id', profile.id).order('created_at', { ascending:false }).limit(25);
   res.json((activities || []).map(a => {
     const payload = a.payload || {};
     return { ...payload, id: a.id, type: a.type, created_at: a.created_at, username: profile.username };

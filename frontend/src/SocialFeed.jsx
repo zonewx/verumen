@@ -321,7 +321,6 @@ function ActivityCard({ item, onDelete, onSaveEdit, isOwn }) {
 }
 
 export default function SocialFeed({ authUsername, onViewProfile }) {
-  const [tab, setTab] = useState('feed');
   const [feed, setFeed] = useState(() => apiCache.get('/api/feed') || []);
   const [friends, setFriends] = useState(() => apiCache.get('/api/friends') || { friends: [], incoming: [], outgoing: [] });
   const [feedLoading, setFeedLoading] = useState(!apiCache.has('/api/feed'));
@@ -522,19 +521,8 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
             </div>
           )}
 
-            {/* Tab bar */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex gap-0 border-b border-zinc-700/60">
-                {[['feed', 'Feed'], ['mine', 'My Posts']].map(([id, label]) => (
-                  <button
-                    key={id}
-                    onClick={() => setTab(id)}
-                    className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${
-                      tab === id ? 'border-zinc-300 text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-300'
-                    }`}
-                  >{label}</button>
-                ))}
-              </div>
+            {/* Action bar */}
+            <div className="flex items-center justify-end mb-4">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowUpload(v => !v)}
@@ -615,14 +603,12 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                 <div className="w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
               </div>
             ) : (() => {
-              const items = (tab === 'mine'
-                ? feed.filter(i => i.username === authUsername)
-                : feed).filter(i => i.type !== 'holdings_update');
+              const items = feed.filter(i => i.type !== 'holdings_update');
 
               if (items.length === 0) return (
                 <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-2xl p-12 text-center">
-                  <p className="font-semibold text-zinc-300 mb-1">{tab === 'mine' ? 'No posts yet' : 'Your feed is empty'}</p>
-                  <p className="text-sm text-zinc-500">{tab === 'mine' ? 'Your CS trades and screenshots will appear here.' : 'Add friends to see their activity here.'}</p>
+                  <p className="font-semibold text-zinc-300 mb-1">Your feed is empty</p>
+                  <p className="text-sm text-zinc-500">Add friends to see their activity here.</p>
                 </div>
               );
 
