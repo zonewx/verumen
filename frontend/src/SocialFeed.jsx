@@ -135,8 +135,8 @@ function PostHeader({ item, onDelete, onEdit, isOwn }) {
           <a href={`/user/${item.username}`} onClick={e => { e.preventDefault(); navigate(`/user/${item.username}`); }} className="font-semibold text-sm text-zinc-100 hover:underline">{item.username}</a>
           {item.isUpdate && <span className="text-xs text-zinc-100">updated a holding</span>}
         </div>
-        <p className="text-xs text-zinc-500 mt-0.5">{timeAgo(item.createdAt)}</p>
       </div>
+      <span className="text-xs text-zinc-500 shrink-0">{timeAgo(item.createdAt)}</span>
       {isOwn && (
         confirming ? (
           <div className="flex items-center gap-1.5 shrink-0">

@@ -423,21 +423,19 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
 
             {/* Recent Activity Tab */}
             {activeTab === 'activity' && (
-              <div className={`${card} p-4`}>
-                {loadingActivity ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                  </div>
-                ) : userActivity.length > 0 ? (
-                  <div className="flex flex-col gap-2">
-                    {userActivity.map(activity => (
-                      <ActivityItem key={activity.id} activity={activity} isOwn={isOwnProfile} onDelete={deleteActivity} onSaveEdit={editActivity} profileAvatar={profile.avatarBase64} />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center py-10 text-sm text-zinc-400">No recent activity</p>
-                )}
-              </div>
+              loadingActivity ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
+                </div>
+              ) : userActivity.length > 0 ? (
+                <div className="flex flex-col gap-3">
+                  {userActivity.map(activity => (
+                    <ActivityItem key={activity.id} activity={activity} isOwn={isOwnProfile} onDelete={deleteActivity} onSaveEdit={editActivity} profileAvatar={profile.avatarBase64} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center py-10 text-sm text-zinc-400">No recent activity</p>
+              )
             )}
 
             {/* Portfolio Tab — holdings only */}
@@ -769,8 +767,8 @@ function ActivityItem({ activity, isOwn, onDelete, onSaveEdit, profileAvatar }) 
           </button>
           <div className="flex-1 min-w-0">
             <button onClick={() => navigate(`/user/${activity.username}`)} className="font-semibold text-sm text-zinc-100 hover:underline">{activity.username}</button>
-            <p className="text-xs text-zinc-500">{formatActivityTime(activity.created_at)}</p>
           </div>
+          <span className="text-xs text-zinc-500 shrink-0">{formatActivityTime(activity.created_at)}</span>
           {isOwn && (
             confirming ? (
               <div className="flex items-center gap-1.5 shrink-0">
