@@ -431,7 +431,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                 ) : userActivity.length > 0 ? (
                   <div className="flex flex-col gap-2">
                     {userActivity.map(activity => (
-                      <ActivityItem key={activity.id} activity={activity} isOwn={isOwnProfile} onDelete={deleteActivity} onSaveEdit={editActivity} />
+                      <ActivityItem key={activity.id} activity={activity} isOwn={isOwnProfile} onDelete={deleteActivity} onSaveEdit={editActivity} profileAvatar={profile.avatarBase64} />
                     ))}
                   </div>
                 ) : (
@@ -739,7 +739,8 @@ function formatActivityTime(date) {
   return d.toLocaleDateString('sv-SE');
 }
 
-function ActivityItem({ activity, isOwn, onDelete, onSaveEdit }) {
+function ActivityItem({ activity, isOwn, onDelete, onSaveEdit, profileAvatar }) {
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -757,10 +758,18 @@ function ActivityItem({ activity, isOwn, onDelete, onSaveEdit }) {
   if (activity.type === 'skin_screenshot') {
     return (
       <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
-        <div className="flex items-center gap-2 mb-3">
+        {/* Header — avatar, username, timestamp + menu */}
+        <div className="flex items-center gap-2.5 mb-3">
+          <button onClick={() => navigate(`/user/${activity.username}`)} className="shrink-0">
+            <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-white font-bold text-xs overflow-hidden shrink-0">
+              {profileAvatar
+                ? <img src={profileAvatar} alt={activity.username} className="w-full h-full object-cover" />
+                : activity.username?.[0]?.toUpperCase()}
+            </div>
+          </button>
           <div className="flex-1 min-w-0">
-            <p className={`font-semibold text-sm truncate ${skinNameColor(activity.skinName)}`}>{activity.skinName}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">{formatActivityTime(activity.created_at)}</p>
+            <button onClick={() => navigate(`/user/${activity.username}`)} className="font-semibold text-sm text-zinc-100 hover:underline">{activity.username}</button>
+            <p className="text-xs text-zinc-500">{formatActivityTime(activity.created_at)}</p>
           </div>
           {isOwn && (
             confirming ? (
@@ -784,6 +793,7 @@ function ActivityItem({ activity, isOwn, onDelete, onSaveEdit }) {
             )
           )}
         </div>
+        <p className={`font-semibold text-sm mb-2 ${skinNameColor(activity.skinName)}`}>{activity.skinName}</p>
         {editing ? (
           <div className="mb-3">
             <textarea
