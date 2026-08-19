@@ -679,7 +679,7 @@ app.get('/api/users/:username/profile', async (req, res) => {
   if (data.is_public === false) {
     const token = req.headers.authorization?.replace('Bearer ', '');
     let authenticated = false;
-    if (token) { const { data: { user } } = await supabase.auth.getUser(token); if (user) authenticated = true; }
+    if (token && supabaseAnon) { const { data: { user } } = await supabaseAnon.auth.getUser(token); if (user) authenticated = true; }
     if (!authenticated) return res.json({ username: data.username, avatarBase64: data.avatar_base64, isPrivate: true });
   }
   res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', isPublic: data.is_public !== false, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, publicCsTrades: data.public_cs_trades || false, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_verified ? (data.steam_id || null) : null, steamVerified: data.steam_verified || false, steamLevel: data.steam_verified ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
@@ -2770,8 +2770,8 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
   // Allow owner to always see their own trades regardless of public setting
   const token = req.headers.authorization?.replace('Bearer ', '');
   let isOwner = false;
-  if (token) {
-    const { data: { user } } = await supabase.auth.getUser(token);
+  if (token && supabaseAnon) {
+    const { data: { user } } = await supabaseAnon.auth.getUser(token);
     if (user?.id === profile.id) isOwner = true;
   }
   if (!isOwner && !profile.public_cs_trades) return res.status(403).json({ error: "This user's CS trades are private." });
@@ -2806,7 +2806,7 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
 app.get('/api/users/:username/friends', async (req, res) => {
   const { data: profile } = await db.from('profiles').select('id').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
-  const { data: friendships } = await supabase
+  const { data: friendships } = await db
     .from('friendships')
     .select('requester_id, addressee_id')
     .or(`requester_id.eq.${profile.id},addressee_id.eq.${profile.id}`)
@@ -3049,7 +3049,7 @@ app.get('/api/feed', requireUser, async (req, res) => {
   try {
     // Fetch all friendships involving this user, filter accepted in JS
     // (chaining .or() + .eq() in Supabase can produce unexpected results)
-    const { data: friendships } = await supabase
+    const { data: friendships } = await db
       .from('friendships')
       .select('requester_id, addressee_id, status')
       .or(`requester_id.eq.${req.user.id},addressee_id.eq.${req.user.id}`);
@@ -3117,9 +3117,12 @@ app.delete('/api/activity/:id', requireUser, async (req, res) => {
 });
 
 app.patch('/api/activity/:id', requireUser, async (req, res) => {
+  const caption = req.body.caption ?? '';
+  if (typeof caption !== 'string') return res.status(400).json({ error: 'Invalid caption.' });
+  if (caption.length > 500) return res.status(400).json({ error: 'Caption too long.' });
   const { data } = await db.from('activity').select('id, payload').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (!data) return res.status(404).json({ error: 'Not found' });
-  await db.from('activity').update({ payload: { ...data.payload, caption: req.body.caption ?? '' } }).eq('id', req.params.id);
+  await db.from('activity').update({ payload: { ...data.payload, caption } }).eq('id', req.params.id);
   res.json({ success: true });
 });
 
