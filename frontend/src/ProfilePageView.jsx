@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
@@ -288,6 +288,24 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
     return new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   }
 
+  const deleteActivity = async (id) => {
+    setUserActivity(a => a.filter(item => String(item.id) !== String(id)));
+    const token = getToken();
+    if (token) fetch(`/api/activity/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+  };
+
+  const editActivity = async (id, caption) => {
+    const token = getToken();
+    if (token) {
+      await fetch(`/api/activity/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ caption }),
+      }).catch(() => {});
+    }
+    setUserActivity(a => a.map(item => String(item.id) === String(id) ? { ...item, caption } : item));
+  };
+
   if (!profile) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -413,7 +431,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                 ) : userActivity.length > 0 ? (
                   <div className="flex flex-col gap-2">
                     {userActivity.map(activity => (
-                      <ActivityItem key={activity.id} activity={activity} />
+                      <ActivityItem key={activity.id} activity={activity} isOwn={isOwnProfile} onDelete={deleteActivity} onSaveEdit={editActivity} />
                     ))}
                   </div>
                 ) : (
@@ -721,7 +739,21 @@ function formatActivityTime(date) {
   return d.toLocaleDateString('sv-SE');
 }
 
-function ActivityItem({ activity }) {
+function ActivityItem({ activity, isOwn, onDelete, onSaveEdit }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editCaption, setEditCaption] = useState(activity.caption || '');
+  const [saving, setSaving] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menuOpen]);
+
   if (activity.type === 'skin_screenshot') {
     return (
       <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4">
@@ -730,16 +762,51 @@ function ActivityItem({ activity }) {
             <p className={`font-semibold text-sm truncate ${skinNameColor(activity.skinName)}`}>{activity.skinName}</p>
             <p className="text-xs text-zinc-500 mt-0.5">{formatActivityTime(activity.created_at)}</p>
           </div>
+          {isOwn && (
+            confirming ? (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs text-zinc-400">Delete?</span>
+                <button onClick={() => onDelete(activity.id)} className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/40 transition">Yes</button>
+                <button onClick={() => setConfirming(false)} className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">No</button>
+              </div>
+            ) : (
+              <div ref={menuRef} className="relative shrink-0">
+                <button onClick={() => setMenuOpen(v => !v)} className="text-zinc-500 hover:text-zinc-300 transition p-1.5 rounded-lg hover:bg-zinc-700/50">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                </button>
+                {menuOpen && (
+                  <div className="absolute right-0 top-full mt-1 z-20 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl overflow-hidden min-w-[120px]">
+                    <button onClick={() => { setMenuOpen(false); setEditing(true); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-700/60 transition text-left">Edit</button>
+                    <button onClick={() => { setMenuOpen(false); setConfirming(true); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-400/10 transition text-left">Delete</button>
+                  </div>
+                )}
+              </div>
+            )
+          )}
         </div>
-        {activity.caption && (
+        {editing ? (
+          <div className="mb-3">
+            <textarea
+              value={editCaption}
+              onChange={e => setEditCaption(e.target.value)}
+              maxLength={500}
+              rows={2}
+              className="w-full px-3 py-2 rounded-xl border text-sm outline-none bg-zinc-900/60 border-zinc-700 text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 transition resize-none"
+            />
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={async () => { setSaving(true); await onSaveEdit(activity.id, editCaption); setSaving(false); setEditing(false); }}
+                disabled={saving}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-zinc-600 hover:bg-zinc-500 text-white transition disabled:opacity-40"
+              >{saving ? 'Saving…' : 'Save'}</button>
+              <button onClick={() => { setEditing(false); setEditCaption(activity.caption || ''); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition">Cancel</button>
+            </div>
+          </div>
+        ) : activity.caption ? (
           <p className="text-sm text-zinc-300 mb-3">{activity.caption}</p>
-        )}
+        ) : null}
         {activity.imageBase64 && (
-          <img
-            src={activity.imageBase64}
-            alt={activity.skinName}
-            className="w-full rounded-xl object-contain"
-          />
+          <img src={activity.imageBase64} alt={activity.skinName} className="w-full rounded-xl object-contain" />
         )}
       </div>
     );
