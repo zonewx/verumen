@@ -1309,7 +1309,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               {colLabel}<SortIcon col={key} />
                             </th>
                           ))}
-                          <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap">Stickers</th>
+                          <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap min-w-[120px]">Stickers</th>
                           <th className="px-2 py-3 w-8" />
                           {[
                             { key: 'exterior', label: 'Exterior' },
@@ -1369,7 +1369,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     <div className="flex gap-0.5">
                                       {item.stickers.map((s, i) => (
                                         <div key={i} className="relative group/sticker">
-                                          <img src={s.url} alt={s.name || ''} className="w-6 h-6 object-contain opacity-70 hover:opacity-100 transition" />
+                                          <img src={s.url} alt={s.name || ''} className="w-8 h-8 object-contain opacity-70 hover:opacity-100 transition" />
                                           {s.name && (
                                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg text-[11px] text-white whitespace-nowrap opacity-0 group-hover/sticker:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
                                               {s.name}
@@ -1433,6 +1433,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                       <div className="w-px self-stretch bg-zinc-700 shrink-0" />
                                       {/* Middle: supplementary info */}
                                       <div className="flex-1 min-w-0 flex flex-col gap-3 pt-1">
+                                        {/* Item name */}
+                                        {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return <p className={`font-bold text-sm ${nameColor}`}>{n}</p>; })()}
                                         {/* Float bar */}
                                         {item.float_value && !isVanilla && (
                                           <div>
