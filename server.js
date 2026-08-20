@@ -3319,9 +3319,20 @@ app.delete('/api/cs/prices/override/:skinName', requireUser, async (req, res) =>
 });
 
 
+const steamInvCache = new Map(); // steamId:BC → { payload, ts }
+const STEAM_INV_CACHE_TTL_MS = 5 * 60 * 1000;
+
 app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, 'steam-inv'), async (req, res) => {
   if (!/^\d{17}$/.test(req.params.steamId)) return res.status(400).json({ error: 'Invalid Steam ID' });
   const BC = (req.query.currency || 'SEK').toUpperCase();
+  const cacheKey = `${req.params.steamId}:${BC}`;
+  const cached = steamInvCache.get(cacheKey);
+
+  // Serve from server-side cache if fresh (avoids hammering Steam on every tab visit)
+  if (cached && Date.now() - cached.ts < STEAM_INV_CACHE_TTL_MS) {
+    return res.json({ ...cached.payload, fromCache: true });
+  }
+
   try {
     const data = await fetchJSON(`https://steamcommunity.com/inventory/${req.params.steamId}/730/2?l=english&count=500`);
     if (!data?.assets) return res.status(404).json({ error:'Inventory not found or private' });
@@ -3512,7 +3523,9 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
     }).filter(i => i.name !== 'Unknown');
 
     const items = buildItems();
-    res.json({ items, totalValue: items.reduce((s,i)=>s+i.price,0), count: items.length, pricingPending: bgBatch.length > 0, display_currency: BC });
+    const payload = { items, totalValue: items.reduce((s,i)=>s+i.price,0), count: items.length, pricingPending: bgBatch.length > 0, display_currency: BC };
+    steamInvCache.set(cacheKey, { payload, ts: Date.now() });
+    res.json(payload);
 
     // Background: fetch remaining items after response — skip if a job is already running
     if (bgBatch.length > 0 && !steamPriceLookupRunning) {
@@ -3539,7 +3552,14 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
         } finally { steamPriceLookupRunning = false; }
       });
     }
-  } catch(e) { res.status(500).json({ error:e.message }); }
+  } catch(e) {
+    // On Steam error (rate-limit, private, etc.) serve stale cache rather than a hard failure
+    if (cached) {
+      log.warn('steam inventory fetch failed — serving stale cache', { error: e.message, steamId: req.params.steamId });
+      return res.json({ ...cached.payload, stale: true, staleReason: e.message });
+    }
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/cs/inventory', requireUser, async (req, res) => {

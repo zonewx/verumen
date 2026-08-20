@@ -728,6 +728,11 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                 </div>
               )}
               {steamError && <div className={`${card} p-4`}><p className="text-red-400 text-sm">{steamError}</p></div>}
+              {steamInventory?.stale && (
+                <p className={`text-xs px-3 py-2 rounded-lg bg-zinc-700/60 text-zinc-400`}>
+                  Showing cached inventory — Steam is temporarily unavailable ({steamInventory.staleReason})
+                </p>
+              )}
               {steamInventory?.pricingPending && (
                 <p className={`text-xs px-3 py-2 rounded-lg bg-yellow-900/30 text-yellow-400`}>
                   Fetching prices for new items in background — updating automatically in ~20s
@@ -764,7 +769,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                   <p className={`text-sm text-zinc-400`}>Fetching your Steam inventory…</p>
                 </div>
               )}
-              {!steamInventory && !steamLoading && settings.steam_id && (
+              {!steamInventory && !steamLoading && !steamError && settings.steam_id && (
                 <div className={`${card} p-6 text-center`}>
                   <p className={`text-sm text-zinc-400`}>Loading your Steam inventory...</p>
                 </div>
