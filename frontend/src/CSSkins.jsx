@@ -1420,19 +1420,9 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
                                   <td colSpan={10} className="p-0">
-                                    <div className="bg-zinc-800/60 px-6 py-4 flex items-start gap-5" onClick={e => e.stopPropagation()}>
-                                      {/* Left: action buttons */}
-                                      <div className="flex flex-col gap-2 shrink-0 pt-1">
-                                        {!item.sold && (
-                                          <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Sell</button>
-                                        )}
-                                        <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Edit</button>
-                                        <button onClick={() => setShowDeleteConfirm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition">Delete</button>
-                                      </div>
-                                      {/* Divider */}
-                                      <div className="w-px self-stretch bg-zinc-700 shrink-0" />
-                                      {/* Middle: supplementary info */}
-                                      <div className="flex-1 min-w-0 flex flex-col gap-3 pt-1">
+                                    <div className="bg-zinc-800/60 px-6 py-5 flex items-start gap-6" onClick={e => e.stopPropagation()}>
+                                      {/* Content column */}
+                                      <div className="flex-1 min-w-0 flex flex-col gap-3">
                                         {/* Item name */}
                                         {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return <p className={`font-bold text-sm ${nameColor}`}>{n}</p>; })()}
                                         {/* Float bar */}
@@ -1466,7 +1456,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                             </div>
                                           </div>
                                         )}
-                                        {/* Stats */}
+                                        {/* Stats row */}
                                         <div className="flex flex-wrap gap-x-6 gap-y-2">
                                           {item.pattern != null && item.pattern !== '' && (
                                             <div>
@@ -1486,12 +1476,21 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                               <p className={`text-sm font-bold ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>{pnlPos ? '+' : ''}{fmtBC(pnlVal)}</p>
                                             </div>
                                           )}
-                                          {item.notes && (
-                                            <div className="min-w-0">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Notes</p>
-                                              <p className="text-sm text-zinc-300 max-w-xs truncate">{item.notes}</p>
-                                            </div>
+                                        </div>
+                                        {/* Notes */}
+                                        {item.notes && (
+                                          <div>
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Notes</p>
+                                            <p className="text-sm text-zinc-300">{item.notes}</p>
+                                          </div>
+                                        )}
+                                        {/* Action buttons — bottom right */}
+                                        <div className="flex gap-2 justify-end pt-1">
+                                          {!item.sold && (
+                                            <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Sell</button>
                                           )}
+                                          <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Edit</button>
+                                          <button onClick={() => setShowDeleteConfirm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition">Delete</button>
                                         </div>
                                       </div>
                                       {/* Right: screenshot */}
