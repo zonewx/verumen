@@ -777,6 +777,34 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                 <span className={`text-xs text-zinc-400`}>{filteredInv.length} trades</span>
               </div>
 
+              {/* Stats strip */}
+              {inventory.length > 0 && (() => {
+                const holding = inventory.filter(i => !i.sold);
+                const sold = inventory.filter(i => i.sold);
+                const invested = holding.reduce((s, i) => s + (i.purchase_price_display || 0), 0);
+                const current = holding.reduce((s, i) => s + (i.current_price || 0), 0);
+                const unrealized = current - invested;
+                const realized = sold.reduce((s, i) => s + ((i.sale_price_display || 0) - (i.purchase_price_display || 0)), 0);
+                return (
+                  <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-zinc-400 px-1">
+                    {holding.length > 0 && (
+                      <span>
+                        <span className="text-zinc-200 font-semibold">{holding.length}</span> holding
+                        {' · '}Invested {fmtBC(invested)}
+                        {' · '}Current {fmtBC(current)}
+                        {' · '}<span className={unrealized >= 0 ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{unrealized >= 0 ? '+' : ''}{fmtBC(unrealized)}</span>
+                      </span>
+                    )}
+                    {sold.length > 0 && (
+                      <span>
+                        <span className="text-zinc-200 font-semibold">{sold.length}</span> sold
+                        {' · '}Realized <span className={realized >= 0 ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{realized >= 0 ? '+' : ''}{fmtBC(realized)}</span>
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Add trade modal */}
               {showAddForm && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
@@ -1281,6 +1309,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               {colLabel}<SortIcon col={key} />
                             </th>
                           ))}
+                          <th className="px-3 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap">Stickers</th>
                           <th className="px-2 py-3 w-8" />
                           {[
                             { key: 'exterior', label: 'Exterior' },
@@ -1288,6 +1317,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                             { key: 'purchase_date', label: 'Buy Date' },
                             { key: 'purchase_price', label: 'Buy Price' },
                             { key: 'sold', label: 'Status' },
+                            { key: 'pnl', label: 'P&L' },
                           ].map(({ key, label: colLabel }) => (
                             <th
                               key={key}
@@ -1330,16 +1360,25 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     <div className="flex flex-col min-w-0 flex-1">
                                       <div className="w-fit flex flex-col">
                                         {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return (<span className={`font-semibold flex items-baseline min-w-0 ${nameColor}`}><span className="shrink-0 w-4 text-xs">{hasStar ? '★' : ''}</span><span className="truncate">{hasStar ? n.slice(1).trim() : n}</span></span>); })()}
-                                        {item.stickers?.length > 0 && (
-                                          <div className="flex justify-center gap-0.5 mt-0.5" onClick={e => e.stopPropagation()}>
-                                            {item.stickers.map((s, i) => (
-                                              <img key={i} src={s.url} alt={s.name || ''} title={s.name || ''} className="w-5 h-5 object-contain opacity-70 hover:opacity-100 transition" />
-                                            ))}
-                                          </div>
-                                        )}
                                       </div>
                                     </div>
                                   </div>
+                                </td>
+                                <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                                  {item.stickers?.length > 0 && (
+                                    <div className="flex gap-0.5">
+                                      {item.stickers.map((s, i) => (
+                                        <div key={i} className="relative group/sticker">
+                                          <img src={s.url} alt={s.name || ''} className="w-6 h-6 object-contain opacity-70 hover:opacity-100 transition" />
+                                          {s.name && (
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg text-[11px] text-white whitespace-nowrap opacity-0 group-hover/sticker:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                                              {s.name}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="px-2 py-2.5 w-8" onClick={e => e.stopPropagation()}>
                                   {item.share_token && (
@@ -1368,10 +1407,19 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                     {item.sold ? `Sold ${item.sale_date || ''}` : 'Holding'}
                                   </span>
                                 </td>
+                                <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs font-bold">
+                                  {(item.sold || currentPrice > 0) ? (
+                                    <span className={pnlPos ? 'text-green-400' : 'text-red-400'}>
+                                      {pnlPos ? '+' : ''}{fmtBC(pnlVal)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-zinc-600">—</span>
+                                  )}
+                                </td>
                               </tr>
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
-                                  <td colSpan={8} className="p-0">
+                                  <td colSpan={10} className="p-0">
                                     <div className="bg-zinc-800/60 px-6 py-4 flex items-start gap-5" onClick={e => e.stopPropagation()}>
                                       {/* Left: action buttons */}
                                       <div className="flex flex-col gap-2 shrink-0 pt-1">
