@@ -627,6 +627,19 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
           {tab === 'overview' && (
             <div className="flex flex-col gap-6">
 
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold">Overview</h2>
+                  <p className={`text-xs mt-0.5 text-zinc-400`}>Your CS2 skin portfolio at a glance</p>
+                </div>
+                {inventory.length > 0 && (
+                  <button onClick={() => setTab('tracker')} className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition">
+                    Trade Registry →
+                  </button>
+                )}
+              </div>
+
               {pnl && (
                 <>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -646,8 +659,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
               {inventory.length > 0 && (
                 <div className={`${card} p-5`}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className={`text-sm font-bold uppercase tracking-wider text-zinc-400`}>Recent Trades</h3>
-                    <button onClick={() => setTab('tracker')} className={`text-xs text-sky-400 hover:underline`}>View all →</button>
+                    <p className={`text-xs font-semibold uppercase tracking-wider text-zinc-400`}>Recent Trades</p>
+                    <button onClick={() => setTab('tracker')} className={`text-xs text-zinc-400 hover:text-zinc-200 transition`}>View all →</button>
                   </div>
                   <div className="flex flex-col divide-y divide-zinc-700">
                     {inventory.slice(0, 5).map(item => {
@@ -688,7 +701,26 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
           {/* STEAM INVENTORY TAB */}
           {tab === 'inventory' && (
             <div className="flex flex-col gap-4">
-              <h2 className="text-lg font-bold">Steam Inventory</h2>
+
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold">Steam Inventory</h2>
+                  <p className={`text-xs mt-0.5 text-zinc-400`}>Live tradable items from your Steam account</p>
+                </div>
+                {steamInventory && (
+                  <select
+                    value={invSort}
+                    onChange={e => setInvSort(e.target.value)}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition outline-none cursor-pointer"
+                  >
+                    <option value="default">Inventory order</option>
+                    <option value="price-desc">Price: High → Low</option>
+                    <option value="price-asc">Price: Low → High</option>
+                  </select>
+                )}
+              </div>
+
               {!settings.steam_id && (
                 <div className={`${card} p-6 text-center`}>
                   <p className={`text-sm mb-1 font-semibold`}>No Steam account linked</p>
@@ -703,25 +735,18 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
               )}
               {steamInventory && (() => {
                 const tradable = steamInventory.items.filter(i=>i.tradable);
+                const totalValue = tradable.reduce((s,i)=>s+i.price,0);
                 const sorted = invSort === 'price-desc' ? [...tradable].sort((a,b)=>b.price-a.price)
                   : invSort === 'price-asc' ? [...tradable].sort((a,b)=>a.price-b.price)
                   : tradable;
                 return (
                   <>
-                    <div className={`${card} p-4 flex items-center justify-between`}>
-                      <div className="flex gap-6">
-                        <div><p className={`text-xs text-zinc-400 mb-1`}>Tradable items</p><p className="text-2xl font-bold">{tradable.length}</p></div>
-                        <div><p className={`text-xs text-zinc-400 mb-1`}>Estimated value</p><p className="text-2xl font-bold text-green-400">{fmtBC(tradable.reduce((s,i)=>s+i.price,0))}</p></div>
-                      </div>
-                      <select
-                        value={invSort}
-                        onChange={e => setInvSort(e.target.value)}
-                        className={`px-2 py-1.5 rounded-lg border text-xs outline-none bg-zinc-700 border-zinc-600 text-white`}
-                      >
-                        <option value="default">Inventory order</option>
-                        <option value="price-desc">Price: High → Low</option>
-                        <option value="price-asc">Price: Low → High</option>
-                      </select>
+                    {/* Stats strip */}
+                    <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-zinc-400 px-1">
+                      <span>
+                        <span className="text-zinc-200 font-semibold">{tradable.length}</span> tradable items
+                        {totalValue > 0 && <> · Estimated value <span className="text-green-400 font-semibold">{fmtBC(totalValue)}</span></>}
+                      </span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                       {sorted.map((item, i) => (
