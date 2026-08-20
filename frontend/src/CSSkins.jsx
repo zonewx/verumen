@@ -1420,7 +1420,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
                                   <td colSpan={10} className="p-0">
-                                    <div className="bg-zinc-800/60 px-6 py-5 flex items-start gap-6" onClick={e => e.stopPropagation()}>
+                                    <div className="bg-zinc-800/60 px-6 py-5 flex items-stretch gap-6" onClick={e => e.stopPropagation()}>
                                       {/* Content column */}
                                       <div className="flex-1 min-w-0 flex flex-col gap-3">
                                         {/* Item name */}
@@ -1484,8 +1484,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                                             <p className="text-sm text-zinc-300">{item.notes}</p>
                                           </div>
                                         )}
-                                        {/* Action buttons — bottom right */}
-                                        <div className="flex gap-2 justify-end pt-1">
+                                        {/* Action buttons — bottom left */}
+                                        <div className="flex gap-2 mt-auto pt-3">
                                           {!item.sold && (
                                             <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Sell</button>
                                           )}
