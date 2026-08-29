@@ -332,7 +332,7 @@ export default function ProfileEditPage({ authUsername }) {
               </button>
             </div>
             <button onClick={() => navigate('/profile')} className="px-6 py-2.5 bg-transparent hover:bg-zinc-700 text-zinc-300 hover:text-white font-semibold rounded-lg border border-zinc-600 transition">
-              Discard changes
+              Cancel
             </button>
           </div>
         </div>
