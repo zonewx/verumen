@@ -192,17 +192,9 @@ export default function ProfileEditPage({ authUsername }) {
     <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold mb-1">Edit Profile</h1>
-            <p className={`text-sm text-zinc-400`}>Manage your profile settings and privacy</p>
-          </div>
-          <button
-            onClick={() => navigate('/profile')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition bg-zinc-700 hover:bg-zinc-600 text-zinc-300`}
-          >
-            Cancel
-          </button>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold mb-1">Edit Profile</h1>
+          <p className={`text-sm text-zinc-400`}>Manage your profile settings and privacy</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -339,7 +331,7 @@ export default function ProfileEditPage({ authUsername }) {
                 {saving ? 'Saving...' : 'Save Profile'}
               </button>
             </div>
-            <button onClick={() => navigate('/profile')} className={`text-sm text-zinc-400 hover:text-white transition`}>
+            <button onClick={() => navigate('/profile')} className="px-6 py-2.5 bg-transparent hover:bg-zinc-700 text-zinc-300 hover:text-white font-semibold rounded-lg border border-zinc-600 transition">
               Discard changes
             </button>
           </div>
