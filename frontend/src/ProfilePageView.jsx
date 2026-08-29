@@ -403,7 +403,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                       rel="noopener noreferrer"
                       className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-zinc-300 hover:text-white"
                     >
-                      Steam Profile
+                      Steam profile
                     </a>
                   )}
                   {isOwnProfile && (
@@ -412,7 +412,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                       onClick={e => { e.preventDefault(); navigate(`/user/${targetUser}/edit`); }}
                       className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-zinc-300 hover:text-white"
                     >
-                      Edit Profile
+                      Edit profile
                     </a>
                   )}
                 </div>
