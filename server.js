@@ -3325,7 +3325,7 @@ const STEAM_INV_CACHE_TTL_MS = 5 * 60 * 1000;
 app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, 'steam-inv'), async (req, res) => {
   if (!/^\d{17}$/.test(req.params.steamId)) return res.status(400).json({ error: 'Invalid Steam ID' });
   const BC = (req.query.currency || 'SEK').toUpperCase();
-  const cacheKey = `${req.params.steamId}:${BC}`;
+  const cacheKey = `v2:${req.params.steamId}:${BC}`;
   const cached = steamInvCache.get(cacheKey);
 
   // Serve from server-side cache if fresh (avoids hammering Steam on every tab visit)
@@ -3358,14 +3358,17 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
     // Shared Steam Market fetch helpers
     const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
     let usdToSek = 10.5;
-    let bcRate = 1; // SEK→BC conversion rate (populated after usdToSek fetch)
+    let bcRate = 1; // SEK→BC conversion rate
     if (allMissing.length > 0 || BC !== 'SEK') {
       try {
-        const targets = BC !== 'SEK' ? `SEK,${BC}` : 'SEK';
-        const fx = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${targets}`);
+        // Query from=SEK so USD (and any other BC) appear in rates — Frankfurter
+        // excludes the base currency from results, so querying from=USD means
+        // rates.USD is absent and bcRate would silently stay at 1.
+        const targets = BC !== 'SEK' ? `USD,${BC}` : 'USD';
+        const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${targets}`);
         const fxd = await fx.json();
-        usdToSek = fxd?.rates?.SEK || usdToSek;
-        if (BC !== 'SEK' && fxd?.rates?.[BC]) bcRate = (fxd.rates[BC]) / usdToSek;
+        if (fxd?.rates?.USD) usdToSek = 1 / fxd.rates.USD;
+        if (BC !== 'SEK' && fxd?.rates?.[BC]) bcRate = fxd.rates[BC];
       } catch(e) {}
     }
 
