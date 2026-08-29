@@ -380,18 +380,17 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
               {profile.steamLevel > 0 && (() => {
                 const colors = getSteamLevelColors(profile.steamLevel);
                 return (
-                  <div className="flex flex-col items-center gap-2">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Level</span>
                     <div
-                      className="w-[68px] h-[68px] rounded-full flex items-center justify-center"
+                      className="w-12 h-12 rounded-full flex items-center justify-center"
                       style={{
-                        background: '#18181b',
-                        border: `3px solid ${colors.from}`,
-                        boxShadow: `0 0 18px ${colors.from}70, 0 0 6px ${colors.from}40, inset 0 0 10px ${colors.from}18`,
+                        background: `linear-gradient(160deg, ${colors.from}, ${colors.to})`,
+                        boxShadow: `0 0 16px ${colors.from}70, 0 0 5px ${colors.from}40`,
                       }}
                     >
-                      <span className="font-bold text-2xl tracking-tight text-white">{profile.steamLevel}</span>
+                      <span className="font-bold text-base tracking-tight text-white drop-shadow">{profile.steamLevel}</span>
                     </div>
-                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Level</span>
                   </div>
                 );
               })()}
