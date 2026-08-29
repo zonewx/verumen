@@ -380,17 +380,14 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
               {profile.steamLevel > 0 && (() => {
                 const colors = getSteamLevelColors(profile.steamLevel);
                 return (
-                  <div className="flex items-center gap-3">
-                    <span className="text-4xl font-bold">Level</span>
-                    <div className="relative">
-                      <div className="absolute inset-0 rounded-full bg-black/20 blur-sm translate-y-0.5"></div>
-                      <div
-                        className="relative w-11 h-11 rounded-full flex items-center justify-center shadow-md"
-                        style={{ background: `linear-gradient(to bottom, ${colors.from}, ${colors.to})` }}
-                      >
-                        <span className="text-white font-bold text-lg drop-shadow-md">{profile.steamLevel}</span>
-                      </div>
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg"
+                      style={{ background: `linear-gradient(160deg, ${colors.from}, ${colors.to})` }}
+                    >
+                      <span className="text-white font-bold text-2xl tracking-tight drop-shadow">{profile.steamLevel}</span>
                     </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Level</span>
                   </div>
                 );
               })()}
@@ -401,27 +398,17 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                       href={`https://steamcommunity.com/profiles/${profile.steamId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-zinc-300 hover:text-white"
+                      className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-zinc-300 hover:text-white"
                     >
-                      <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.718L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0z"/>
-                      </svg>
                       Steam Profile
-                      <svg className="w-3 h-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                      </svg>
                     </a>
                   )}
                   {isOwnProfile && (
                     <a
                       href={`/user/${targetUser}/edit`}
                       onClick={e => { e.preventDefault(); navigate(`/user/${targetUser}/edit`); }}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-zinc-300 hover:text-white"
+                      className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-zinc-300 hover:text-white"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                      </svg>
                       Edit Profile
                     </a>
                   )}
