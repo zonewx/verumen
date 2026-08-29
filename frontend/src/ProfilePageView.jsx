@@ -399,7 +399,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
 
           {/* Bottom action row */}
           {(profile.steamVerified || isOwnProfile) && (
-            <div className="flex items-center gap-2 mt-5 pt-5 border-t border-zinc-700">
+            <div className="flex items-center gap-2 mt-5 justify-end">
               {profile.steamVerified && (
                 <a
                   href={`https://steamcommunity.com/profiles/${profile.steamId}`}
