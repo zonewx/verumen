@@ -468,23 +468,6 @@ export default function Sidebar({ currentUser, onLogout, selectedBroker, onBroke
               <p className="text-xs text-zinc-400">{currentUser?.role ? currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : ''}</p>
             </div>
           </a>
-          <a
-            href={`/user/${currentUser?.username}/edit`}
-            onClick={e => { e.preventDefault(); navigate(`/user/${currentUser?.username}/edit`); }}
-            className={`rounded-lg ${hoverBg} shrink-0 text-xs font-semibold ${textSecondary} overflow-hidden`}
-            style={{
-              opacity: isExpanded ? 1 : 0,
-              transform: isExpanded ? 'none' : 'translateX(-12px)',
-              transition: isExpanded
-                ? 'opacity 200ms ease 150ms, transform 200ms ease 150ms, max-width 0ms, padding 0ms'
-                : 'opacity 150ms ease, transform 150ms ease, max-width 0ms 150ms, padding 0ms 150ms',
-              maxWidth: isExpanded ? '60px' : 0,
-              padding: isExpanded ? '6px 12px' : 0,
-              pointerEvents: isExpanded ? 'auto' : 'none',
-            }}
-          >
-            Edit
-          </a>
         </div>
       </div>
     </div>
