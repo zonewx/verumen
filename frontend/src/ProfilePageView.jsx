@@ -381,7 +381,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                 const colors = getSteamLevelColors(profile.steamLevel);
                 return (
                   <div className="flex flex-col items-center gap-1.5">
-                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Level</span>
+                    <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300">Level</span>
                     <div
                       className="w-12 h-12 rounded-full flex items-center justify-center"
                       style={{
