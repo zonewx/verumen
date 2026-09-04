@@ -1138,15 +1138,20 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
 
                     {/* Footer */}
                     <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
-                      <button
-                        onClick={addItem}
-                        disabled={addModalTab === 'inventory'
+                      {(() => {
+                        const isDisabled = addModalTab === 'inventory'
                           ? !selectedModalItem || !addForm.purchase_price
-                          : !addForm.skin_name || !addForm.purchase_price || (addForm.hasExterior && !addForm.float_value)}
-                        className={`${btnOrange} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-zinc-600`}
-                      >
-                        Add to Registry
-                      </button>
+                          : !addForm.skin_name || !addForm.purchase_price || (addForm.hasExterior && !addForm.float_value);
+                        return (
+                          <button
+                            onClick={addItem}
+                            disabled={isDisabled}
+                            className={`${btn} transition ${isDisabled ? 'bg-zinc-600 text-zinc-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}
+                          >
+                            Add to Registry
+                          </button>
+                        );
+                      })()}
                       <button onClick={closeAddModal} className={btnGhost}>Cancel</button>
                     </div>
                   </div>
