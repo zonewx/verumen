@@ -3145,30 +3145,37 @@ function parseSteamTags(tags) {
 }
 
 function parseSteamStickers(descriptions) {
-  // Capture stickers/patches/autographs (sticker_info) and CS2 charms/keychains (charm_info)
-  const entries = (descriptions || []).filter(d =>
+  if (!descriptions?.length) return [];
+  // Collect icon URLs from sticker_info / charm_info entries
+  const stickerEntries = descriptions.filter(d =>
     d.value?.includes('sticker_info') || d.value?.includes('charm_info')
   );
-  if (!entries.length) return [];
-  const result = [];
-  for (const entry of entries) {
-    const icons = [...entry.value.matchAll(/src=["']([^"']+)["']/g)].map(m => m[1]);
-    if (!icons.length) continue;
-    // Normalize: convert <br> to comma separators, strip remaining tags, decode entities
-    const plain = entry.value
-      .replace(/<br\s*\/?>/gi, ', ')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
-      .replace(/\s+/g, ' ').trim();
-    const labelMatch = plain.match(/(?:Stickers?|Patches?|Autograph|Charm|Keychain|Accessories):\s*(.+)/i);
-    let names = [];
-    if (labelMatch) {
-      // Strip stray HTML artifacts like *> and trim each name
-      names = labelMatch[1].split(/,\s*/).map(n => n.replace(/\s*\*>.*$/, '').trim()).filter(Boolean);
-    }
-    icons.forEach((url, i) => result.push({ url, name: names[i] || '' }));
+  if (!stickerEntries.length) return [];
+  const icons = [];
+  for (const entry of stickerEntries) {
+    for (const m of entry.value.matchAll(/src=["']([^"']+)["']/g)) icons.push(m[1]);
   }
-  return result;
+  if (!icons.length) return [];
+
+  // Find names from ANY description entry — agent patches put the "Accessories:" label
+  // in a separate entry from the sticker_info icons, so we must scan all entries.
+  const decodePlain = html => html
+    .replace(/<br\s*\/?>/gi, ', ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
+    .replace(/\s+/g, ' ').trim();
+
+  let names = [];
+  for (const entry of descriptions) {
+    const plain = decodePlain(entry.value || '');
+    const m = plain.match(/(?:Stickers?|Patches?|Autograph|Charm|Keychain|Accessories):\s*(.+)/i);
+    if (m) {
+      names = m[1].split(/,\s*/).map(n => n.replace(/\s*\*>.*$/, '').trim()).filter(Boolean);
+      break;
+    }
+  }
+
+  return icons.map((url, i) => ({ url, name: names[i] || '' }));
 }
 
 function fetchJSON(url) {
