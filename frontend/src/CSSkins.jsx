@@ -456,7 +456,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       const cached = localStorage.getItem('steam_inv_cache');
       if (cached) {
         const { data, ts, v } = JSON.parse(cached);
-        if (v === INVENTORY_CACHE_VERSION && Date.now() - ts < INVENTORY_CACHE_TTL) { setModalInventory(data.items || []); return; }
+        if (v === INVENTORY_CACHE_VERSION && Date.now() - ts < INVENTORY_CACHE_TTL) { setModalInventory((data.items || []).filter(i => i.tradable)); return; }
       }
     } catch(e) {}
     setModalInvLoading(true);
@@ -464,7 +464,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       const res = await fetch(`/api/cs/steam/inventory/${id}?currency=${baseCurrency}`, { headers: authHeaders() });
       const data = await res.json();
       if (res.ok) {
-        setModalInventory(data.items || []);
+        setModalInventory((data.items || []).filter(i => i.tradable));
         try { localStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION })); } catch(e) {}
       }
     } catch(e) {}
