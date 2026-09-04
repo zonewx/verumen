@@ -1666,36 +1666,16 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                               <p className="text-sm font-mono text-zinc-200">{item.pattern}</p>
                                             </div>
                                           )}
-                                          {item.purchase_date && (
-                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Date</p>
-                                              <p className="text-sm text-zinc-200">{item.purchase_date}</p>
-                                            </div>
-                                          )}
-                                          {buyPrice != null && (
-                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Price</p>
-                                              <p className="text-sm font-mono text-zinc-200">{fmtBC(buyPrice)}</p>
-                                            </div>
-                                          )}
-                                          {item.sold && item.sale_date && (
-                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Sale Date</p>
-                                              <p className="text-sm text-zinc-200">{item.sale_date}</p>
-                                            </div>
-                                          )}
-                                          {item.sold && item.sale_price_display != null && (
-                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Sale Price</p>
-                                              <p className="text-sm font-mono text-zinc-200">{fmtBC(item.sale_price_display)}</p>
-                                            </div>
-                                          )}
-                                          {pnlVal !== null && (
-                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">P&L</p>
-                                              <p className={`text-sm font-bold font-mono ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>{pnlPos ? '+' : ''}{fmtBC(pnlVal)}</p>
-                                            </div>
-                                          )}
+                                          <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Price</p>
+                                            <p className="text-sm font-mono text-zinc-200">{fmtBC(buyPrice)}</p>
+                                          </div>
+                                          <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Sale Price</p>
+                                            <p className={`text-sm font-mono ${item.sold && item.sale_price_display != null ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                                              {item.sold && item.sale_price_display != null ? fmtBC(item.sale_price_display) : '—'}
+                                            </p>
+                                          </div>
                                         </div>
                                         {/* Float bar + stickers side by side */}
                                         {(item.float_value && !isVanilla) || item.stickers?.length > 0 ? (
