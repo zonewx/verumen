@@ -269,6 +269,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const [modalInventory, setModalInventory] = useState(null);
   const [modalInvLoading, setModalInvLoading] = useState(false);
   const [modalInvSearch, setModalInvSearch] = useState('');
+  const [modalInvSort, setModalInvSort] = useState('default');
   const [selectedModalItem, setSelectedModalItem] = useState(null);
   const [showEditForm, setShowEditForm] = useState(null);
   const [editModalTab, setEditModalTab] = useState('skin');
@@ -436,6 +437,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     setAddModalTab(null);
     setSelectedModalItem(null);
     setModalInvSearch('');
+    setModalInvSort('default');
   };
 
   const closeAddModal = () => {
@@ -955,7 +957,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                               {/* Grid */}
                               {!selectedModalItem && (
                                 <>
-                                  <div className="flex justify-center">
+                                  <div className="flex items-center justify-center gap-3">
                                     <div className="w-1/2">
                                       <input
                                         value={modalInvSearch}
@@ -963,6 +965,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                         placeholder="Search your inventory..."
                                         className={`${input} text-xs`}
                                       />
+                                    </div>
+                                    <div className="flex rounded-lg border border-zinc-700 bg-zinc-900 p-0.5 gap-0.5 shrink-0">
+                                      {[['default', 'Inventory order'], ['rarity', 'Rarity']].map(([v, l]) => (
+                                        <button key={v} onClick={() => setModalInvSort(v)}
+                                          className={`px-3 py-1 text-xs font-semibold rounded-md transition ${modalInvSort === v ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                                          {l}
+                                        </button>
+                                      ))}
                                     </div>
                                   </div>
                                   {modalInvLoading ? (
@@ -977,9 +987,12 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                     <p className={`text-center py-8 text-sm text-zinc-400`}>No CS items found in your inventory.</p>
                                   ) : (
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                      {modalInventory
-                                        .filter(i => !modalInvSearch || i.name.toLowerCase().includes(modalInvSearch.toLowerCase()))
-                                        .map(item => {
+                                      {(() => {
+                                        const RARITY_RANK = { Extraordinary: 7, Contraband: 6, Covert: 5, Classified: 4, Restricted: 3, 'Mil-Spec Grade': 2, 'Industrial Grade': 1, 'Consumer Grade': 0 };
+                                        const filtered = modalInventory.filter(i => !modalInvSearch || i.name.toLowerCase().includes(modalInvSearch.toLowerCase()));
+                                        const displayed = modalInvSort === 'rarity' ? [...filtered].sort((a, b) => (RARITY_RANK[b.rarity] ?? -1) - (RARITY_RANK[a.rarity] ?? -1)) : filtered;
+                                        return displayed;
+                                      })().map(item => {
                                           const alreadyTracked = registeredAssetIds.has(item.assetId);
                                           const isSpecial = item.quality && (item.quality.includes('StatTrak') || item.quality.includes('Souvenir'));
                                           const qualityColor = item.quality?.includes('StatTrak') ? '#cf6a32' : item.quality?.includes('Souvenir') ? '#ffd700' : null;
