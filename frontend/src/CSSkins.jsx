@@ -703,6 +703,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       return 0;
     });
 
+  const registeredAssetIds = new Set(inventory.filter(i => i.steam_asset_id).map(i => i.steam_asset_id));
+
   const PnlCard = ({ label, value, positive, sub }) => (
     <div className={`${card} p-5`}>
       <p className={`text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-400`}>{label}</p>
@@ -836,7 +838,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                 const sorted = invSort === 'rarity'
                   ? [...tradable].sort((a, b) => (RARITY_RANK[b.rarity] ?? -1) - (RARITY_RANK[a.rarity] ?? -1))
                   : tradable;
-                const registeredAssetIds = new Set(inventory.filter(i => i.steam_asset_id).map(i => i.steam_asset_id));
                 const sortedWithFloats = sorted.map(item => ({
                   ...item,
                   floatValue: floatCache[item.assetId]?.floatValue ?? null,
@@ -999,17 +1000,26 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                     <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 gap-2 max-h-96 overflow-y-auto">
                                       {modalInventory
                                         .filter(i => !modalInvSearch || i.name.toLowerCase().includes(modalInvSearch.toLowerCase()))
-                                        .map(item => (
-                                          <button
-                                            key={item.assetId}
-                                            onClick={() => selectModalSkin(item)}
-                                            className={`p-2 rounded-lg border-2 transition text-left border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-zinc-400/60`}
-                                          >
-                                            <img src={item.iconUrl} alt={item.name} className="w-full h-20 object-contain mb-1.5" />
-                                            <p className={`text-xs truncate text-zinc-300 leading-tight`}>{item.name}</p>
-                                            {item.price > 0 && <p className="text-xs text-green-400 font-bold mt-0.5">{fmtBC(item.price)}</p>}
-                                          </button>
-                                        ))
+                                        .map(item => {
+                                          const alreadyTracked = registeredAssetIds.has(item.assetId);
+                                          return (
+                                            <button
+                                              key={item.assetId}
+                                              onClick={() => !alreadyTracked && selectModalSkin(item)}
+                                              disabled={alreadyTracked}
+                                              className={`relative p-2 rounded-lg border-2 transition text-left ${alreadyTracked ? 'border-green-800/50 bg-green-950/30 opacity-60 cursor-not-allowed' : 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-zinc-400/60'}`}
+                                            >
+                                              <img src={item.iconUrl} alt={item.name} className="w-full h-20 object-contain mb-1.5" />
+                                              <p className={`text-xs truncate leading-tight ${alreadyTracked ? 'text-zinc-400' : 'text-zinc-300'}`}>{item.name}</p>
+                                              {item.price > 0 && <p className="text-xs text-green-400 font-bold mt-0.5">{fmtBC(item.price)}</p>}
+                                              {alreadyTracked && (
+                                                <div className="absolute top-1.5 right-1.5 px-1 py-0.5 rounded bg-green-900/80 border border-green-700/60">
+                                                  <span className="text-[8px] font-semibold text-green-400 uppercase tracking-wide leading-none">Tracked</span>
+                                                </div>
+                                              )}
+                                            </button>
+                                          );
+                                        })
                                       }
                                     </div>
                                   )}
