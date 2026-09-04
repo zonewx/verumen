@@ -782,7 +782,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                 </p>
               )}
               {steamInventory && (() => {
-                const RARITY_RANK = { Extraordinary: 7, Contraband: 6, Covert: 5, Classified: 4, Restricted: 3, 'Mil-Spec Grade': 2, 'Industrial Grade': 1, 'Consumer Grade': 0 };
+                const RARITY_RANK = {
+  // Weapons / gloves / knives
+  Contraband: 8, Covert: 7, Classified: 6, Restricted: 5, 'Mil-Spec Grade': 4, 'Industrial Grade': 1, 'Consumer Grade': 0,
+  // Stickers / charms / music kits (color-matched to weapon tiers)
+  Extraordinary: 8, Exotic: 6, Remarkable: 5, 'High Grade': 4, 'Base Grade': 0,
+  // Agents
+  Master: 7, Distinguished: 6, Exceptional: 5, Superior: 4,
+};
                 const tradable = steamInventory.items.filter(i=>i.tradable);
                 const sorted = invSort === 'rarity'
                   ? [...tradable].sort((a, b) => (RARITY_RANK[b.rarity] ?? -1) - (RARITY_RANK[a.rarity] ?? -1))
@@ -994,7 +1001,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                   ) : (
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                       {(() => {
-                                        const RARITY_RANK = { Extraordinary: 7, Contraband: 6, Covert: 5, Classified: 4, Restricted: 3, 'Mil-Spec Grade': 2, 'Industrial Grade': 1, 'Consumer Grade': 0 };
+                                        const RARITY_RANK = {
+  // Weapons / gloves / knives
+  Contraband: 8, Covert: 7, Classified: 6, Restricted: 5, 'Mil-Spec Grade': 4, 'Industrial Grade': 1, 'Consumer Grade': 0,
+  // Stickers / charms / music kits (color-matched to weapon tiers)
+  Extraordinary: 8, Exotic: 6, Remarkable: 5, 'High Grade': 4, 'Base Grade': 0,
+  // Agents
+  Master: 7, Distinguished: 6, Exceptional: 5, Superior: 4,
+};
                                         const filtered = modalInventory.filter(i => !modalInvSearch || i.name.toLowerCase().includes(modalInvSearch.toLowerCase()));
                                         const displayed = modalInvSort === 'rarity' ? [...filtered].sort((a, b) => (RARITY_RANK[b.rarity] ?? -1) - (RARITY_RANK[a.rarity] ?? -1)) : filtered;
                                         return displayed;
