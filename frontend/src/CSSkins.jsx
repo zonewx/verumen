@@ -283,6 +283,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const [filterSold, setFilterSold] = useState('all');
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [openActionMenu, setOpenActionMenu] = useState(null);
+  const [menuPos, setMenuPos] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [trackerSearch, setTrackerSearch] = useState('');
   const [sortCol, setSortCol] = useState('purchase_date');
@@ -312,12 +313,13 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const expandParam = _urlParams.get('expand');
   const addSkinParam = _urlParams.get('addSkin');
 
-  // Close the row action menu when clicking outside
+  // Close the row action menu when clicking outside or scrolling
   useEffect(() => {
     if (!openActionMenu) return;
-    const close = () => setOpenActionMenu(null);
+    const close = () => { setOpenActionMenu(null); setMenuPos(null); };
     document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    document.addEventListener('scroll', close, true);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('scroll', close, true); };
   }, [openActionMenu]);
 
   // Auto-expand + scroll to a registry row when ?expand=<id> is in the URL
@@ -1610,20 +1612,20 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                 <td className="px-2 py-2.5 w-10">
                                   <div className="relative flex justify-center">
                                     <button
-                                      onClick={e => { e.stopPropagation(); setOpenActionMenu(openActionMenu === item.id ? null : item.id); }}
+                                      onClick={e => { e.stopPropagation(); if (openActionMenu === item.id) { setOpenActionMenu(null); setMenuPos(null); } else { const r = e.currentTarget.getBoundingClientRect(); setMenuPos({ top: r.bottom + 4, right: window.innerWidth - r.right }); setOpenActionMenu(item.id); } }}
                                       className="p-1.5 rounded text-zinc-300 hover:text-white hover:bg-zinc-700 transition"
                                     >
                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                         <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
                                       </svg>
                                     </button>
-                                    {openActionMenu === item.id && (
-                                      <div className="absolute right-0 top-full mt-1 z-50 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden min-w-[90px]" onClick={e => e.stopPropagation()}>
+                                    {openActionMenu === item.id && menuPos && (
+                                      <div style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999 }} className="bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden min-w-[90px]" onClick={e => e.stopPropagation()}>
                                         {!item.sold && (
-                                          <button onClick={() => { setOpenActionMenu(null); setShowSellForm(item); }} className="w-full text-center px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700">Sell</button>
+                                          <button onClick={() => { setOpenActionMenu(null); setMenuPos(null); setShowSellForm(item); }} className="w-full text-center px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700">Sell</button>
                                         )}
-                                        <button onClick={() => { setOpenActionMenu(null); openEditModal(item); }} className="w-full text-center px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700">Edit</button>
-                                        <button onClick={() => { setOpenActionMenu(null); setShowDeleteConfirm(item); }} className="w-full text-center px-3 py-2 text-xs text-red-400 hover:bg-red-900/30 transition">Delete</button>
+                                        <button onClick={() => { setOpenActionMenu(null); setMenuPos(null); openEditModal(item); }} className="w-full text-center px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700">Edit</button>
+                                        <button onClick={() => { setOpenActionMenu(null); setMenuPos(null); setShowDeleteConfirm(item); }} className="w-full text-center px-3 py-2 text-xs text-red-400 hover:bg-red-900/30 transition">Delete</button>
                                       </div>
                                     )}
                                   </div>
