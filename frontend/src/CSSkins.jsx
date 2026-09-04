@@ -1161,24 +1161,26 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       )}
                     </div>
 
-                    {/* Footer */}
-                    <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
-                      {(() => {
-                        const isDisabled = addModalTab === 'inventory'
-                          ? !selectedModalItem || !addForm.purchase_price
-                          : !addForm.skin_name || !addForm.purchase_price || (addForm.hasExterior && !addForm.float_value);
-                        return (
-                          <button
-                            onClick={addItem}
-                            disabled={isDisabled}
-                            className={`${btn} transition ${isDisabled ? 'bg-zinc-600 text-zinc-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}
-                          >
-                            Add to Registry
-                          </button>
-                        );
-                      })()}
-                      <button onClick={closeAddModal} className={btnGhost}>Cancel</button>
-                    </div>
+                    {/* Footer — hidden on inventory tab until a skin is selected */}
+                    {(addModalTab === 'manual' || selectedModalItem) && (
+                      <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
+                        {(() => {
+                          const isDisabled = addModalTab === 'inventory'
+                            ? !selectedModalItem || !addForm.purchase_price
+                            : !addForm.skin_name || !addForm.purchase_price || (addForm.hasExterior && !addForm.float_value);
+                          return (
+                            <button
+                              onClick={addItem}
+                              disabled={isDisabled}
+                              className={`${btn} transition ${isDisabled ? 'bg-zinc-600 text-zinc-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}
+                            >
+                              Add to Registry
+                            </button>
+                          );
+                        })()}
+                        <button onClick={closeAddModal} className={btnGhost}>Cancel</button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
