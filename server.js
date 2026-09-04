@@ -3160,7 +3160,7 @@ function parseSteamStickers(descriptions) {
       .replace(/<[^>]+>/g, '')
       .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
       .replace(/\s+/g, ' ').trim();
-    const labelMatch = plain.match(/(?:Stickers?|Patches?|Autograph|Charm|Keychain):\s*(.+)/i);
+    const labelMatch = plain.match(/(?:Stickers?|Patches?|Autograph|Charm|Keychain|Accessories):\s*(.+)/i);
     let names = [];
     if (labelMatch) {
       // Strip stray HTML artifacts like *> and trim each name
