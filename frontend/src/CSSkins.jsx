@@ -4,6 +4,7 @@ import apiCache from './apiCache';
 import { getToken } from './tokenStore';
 
 const EXTERIORS = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
+const FLOAT_CACHE_KEY = 'cs_float_cache';
 
 // Vanilla = special item (★) with no skin pattern (no |)
 const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | Vanilla` : (n || '');
@@ -115,28 +116,38 @@ function authHeaders(extra = {}) {
   return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extra };
 }
 
-function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
+function SkinCard({ item, onClick, inRegistry, registryId }) {
   const isSpecial = item.quality && (item.quality.includes('StatTrak') || item.quality.includes('Souvenir'));
   const isKnifeOrGloves = item.rarity === 'Extraordinary';
   const qualityColor = item.quality?.includes('StatTrak') ? '#cf6a32' : item.quality?.includes('Souvenir') ? '#ffd700' : null;
 
+  const addRegistryUrl = (() => {
+    const baseName = item.name
+      .replace(/^StatTrak™\s*/i, '')
+      .replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '');
+    const params = new URLSearchParams({ addSkin: baseName });
+    if (item.exterior) params.set('exterior', item.exterior); else params.set('noExterior', '1');
+    if (item.quality?.toLowerCase().includes('stattrak')) params.set('statTrak', '1');
+    if (item.iconUrl) params.set('iconUrl', item.iconUrl);
+    if (item.floatValue != null) {
+      params.set('floatValue', String(item.floatValue));
+      if (item.paintSeed != null) params.set('paintSeed', String(item.paintSeed));
+    }
+    return `/skins/traderegistry?${params.toString()}`;
+  })();
+
   return (
     <div
       onClick={onClick}
-      className={`relative rounded-xl border flex flex-col transition-transform hover:scale-[1.02] hover:z-10 ${onClick ? 'cursor-pointer' : ''} ${inRegistry ? 'border-green-700/60' : 'border-zinc-700'}`}
+      className={`group/card relative rounded-xl border flex flex-col transition-transform hover:scale-[1.02] hover:z-10 ${onClick ? 'cursor-pointer' : ''} ${inRegistry ? 'border-green-700/60' : 'border-zinc-700'}`}
       style={{ background: item.rarityColor ? `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 100%), #27272a` : '#27272a' }}
     >
       {/* Image area */}
       <div className="relative p-3 pb-2">
         {inRegistry && (
-          <button
-            onClick={e => { e.stopPropagation(); onViewInRegistry?.(); }}
-            className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-zinc-900/90 border border-zinc-600 rounded px-1.5 py-0.5 hover:border-zinc-400 transition"
-            title="In Trade Registry"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+          <div className="absolute top-2 right-2 z-10 flex items-center bg-zinc-900/90 border border-zinc-600 rounded px-1.5 py-0.5">
             <span className="text-[9px] font-semibold text-zinc-300 uppercase tracking-wide">In trade registry</span>
-          </button>
+          </div>
         )}
         {item.iconUrl
           ? <img src={item.iconUrl} alt={item.name} className="w-full h-24 object-contain mt-5" />
@@ -192,6 +203,41 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
           )}
         </div>
       </div>
+
+      {/* Swoop-in button on hover */}
+      <div className="grid grid-rows-[0fr] group-hover/card:grid-rows-[1fr] transition-all duration-200 ease-out">
+        <div className="overflow-hidden">
+          <div className="px-3 pb-3 pt-1 translate-y-2 group-hover/card:translate-y-0 transition-transform duration-200 ease-out">
+            {inRegistry ? (
+              <a
+                href={`/skins/traderegistry${registryId ? `?expand=${registryId}` : ''}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-green-900/40 border border-green-700/50 text-green-400 text-[11px] font-semibold hover:bg-green-900/60 hover:border-green-600/60 transition"
+              >
+                View in registry
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+              </a>
+            ) : (
+              <a
+                href={addRegistryUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-zinc-700/60 border border-zinc-600/60 text-zinc-300 text-[11px] font-semibold hover:bg-zinc-700 hover:border-zinc-500 transition"
+              >
+                Add to registry
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -209,6 +255,9 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [steamInventory, setSteamInventory] = useState(null);
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState('');
+  const [floatCache, setFloatCache] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(FLOAT_CACHE_KEY) || '{}'); } catch { return {}; }
+  });
   const [invSort, setInvSort] = useState('default');
 const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory?currency=${baseCurrency}`) || []);
   const [pnl, setPnl] = useState(() => apiCache.get(`/api/cs/pnl?currency=${baseCurrency}`));
@@ -254,6 +303,68 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const btn = `px-4 py-2 text-sm font-semibold rounded-lg transition`;
   const btnOrange = `${btn} bg-zinc-600 hover:bg-zinc-500 text-white`;
   const btnGhost = `${btn} bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
+
+  const _urlParams = new URLSearchParams(location.search);
+  const expandParam = _urlParams.get('expand');
+  const addSkinParam = _urlParams.get('addSkin');
+
+  // Auto-expand + scroll to a registry row when ?expand=<id> is in the URL
+  useEffect(() => {
+    if (!expandParam || inventory.length === 0) return;
+    const id = parseInt(expandParam, 10);
+    setExpandedRows(prev => new Set([...prev, id]));
+    setTimeout(() => {
+      document.getElementById(`registry-row-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  }, [expandParam, inventory.length]);
+
+  // Pre-fill and open the add form when ?addSkin=... is in the URL
+  useEffect(() => {
+    if (!addSkinParam) return;
+    const floatValueParam = _urlParams.get('floatValue');
+    const paintSeedParam = _urlParams.get('paintSeed');
+    setAddForm(f => ({
+      ...f,
+      skin_name: addSkinParam,
+      statTrak: _urlParams.get('statTrak') === '1',
+      hasExterior: _urlParams.get('noExterior') !== '1',
+      exterior: _urlParams.get('exterior') || 'Factory New',
+      icon_url: _urlParams.get('iconUrl') || '',
+      float_value: floatValueParam ? parseFloat(floatValueParam).toFixed(4) : '',
+      pattern: paintSeedParam || '',
+    }));
+    setShowAddForm(true);
+  }, [addSkinParam]);
+
+  // Background-fetch floats for all tradable inventory items after load.
+  // Floats are immutable per item, so cache by assetId with no expiry.
+  useEffect(() => {
+    if (!steamInventory?.items) return;
+    let cancelled = false;
+    const run = async () => {
+      const tradable = steamInventory.items.filter(i => i.tradable && i.inspectLink);
+      const stored = (() => { try { return JSON.parse(localStorage.getItem(FLOAT_CACHE_KEY) || '{}'); } catch { return {}; } })();
+      const missing = tradable.filter(i => !stored[i.assetId]);
+      if (!missing.length) return;
+      const cache = { ...stored };
+      for (const item of missing) {
+        if (cancelled) break;
+        try {
+          const r = await fetch(`/api/cs/float?link=${encodeURIComponent(item.inspectLink)}`, { headers: authHeaders() });
+          if (cancelled) break;
+          const data = await r.json();
+          if (data.float !== undefined) {
+            cache[item.assetId] = { floatValue: data.float, paintSeed: data.paintSeed ?? null };
+            setFloatCache(c => ({ ...c, [item.assetId]: cache[item.assetId] }));
+            try { localStorage.setItem(FLOAT_CACHE_KEY, JSON.stringify(cache)); } catch {}
+          }
+        } catch {}
+        if (!cancelled) await new Promise(r => setTimeout(r, 350));
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [steamInventory]);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -708,6 +819,11 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                   ? [...tradable].sort((a, b) => (RARITY_RANK[b.rarity] ?? -1) - (RARITY_RANK[a.rarity] ?? -1))
                   : tradable;
                 const registeredAssetIds = new Set(inventory.filter(i => i.steam_asset_id).map(i => i.steam_asset_id));
+                const sortedWithFloats = sorted.map(item => ({
+                  ...item,
+                  floatValue: floatCache[item.assetId]?.floatValue ?? null,
+                  paintSeed: floatCache[item.assetId]?.paintSeed ?? null,
+                }));
                 return (
                   <>
                     {/* Stats strip */}
@@ -715,14 +831,10 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       <span><span className="text-zinc-200 font-semibold">{tradable.length}</span> tradable items</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                      {sorted.map((item, i) => (
+                      {sortedWithFloats.map((item, i) => (
                         <SkinCard key={i} item={item}
                           inRegistry={registeredAssetIds.has(item.assetId)}
-                          onViewInRegistry={() => {
-                            const match = inventory.find(r => r.steam_asset_id === item.assetId);
-                            if (match) setExpandedRows(prev => new Set([...prev, match.id]));
-                            setTab('tracker');
-                          }} />
+                          registryId={inventory.find(r => r.steam_asset_id === item.assetId)?.id} />
                       ))}
                     </div>
                   </>
@@ -1331,6 +1443,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                           return (
                             <Fragment key={item.id}>
                               <tr
+                                id={`registry-row-${item.id}`}
                                 onClick={() => setExpandedRows(prev => { const next = new Set(prev); isExpanded ? next.delete(item.id) : next.add(item.id); return next; })}
                                 className={`border-t ${isExpanded ? 'bg-zinc-700/40' : ''} border-zinc-700 hover:bg-zinc-600/30 transition cursor-pointer`}
                               >

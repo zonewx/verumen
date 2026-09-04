@@ -3514,6 +3514,10 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
       const tags = parseSteamTags(desc?.tags);
       const stickers = parseSteamStickers(desc?.descriptions);
       const priceSEK = overrideMap[name] ?? priceMap[name]?.price_sek ?? 0;
+      const actionLink = desc?.actions?.[0]?.link;
+      const inspectLink = actionLink
+        ? actionLink.replace('%owner_steamid%', req.params.steamId).replace('%assetid%', asset.assetid).replace('%d%', '0')
+        : null;
       return {
         assetId: asset.assetid, name,
         iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/360x360` : null,
@@ -3522,6 +3526,7 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
         isOverride: name in overrideMap,
         exterior: tags.exterior || null, quality: tags.quality || null,
         rarity: tags.rarity || null, rarityColor: tags.rarityColor || null, stickers,
+        inspectLink,
       };
     }).filter(i => i.name !== 'Unknown');
 
