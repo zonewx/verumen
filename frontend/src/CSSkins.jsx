@@ -1105,7 +1105,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                             </select>
                           </div>
                           <div>
-                            <label className={label}>Float</label>
+                            <label className={label}>Float {addForm.hasExterior && <span className="text-red-400 normal-case font-normal tracking-normal">*</span>}</label>
                             <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => { const ext = floatToExterior(e.target.value); setAddForm(f => ({ ...f, float_value: e.target.value, ...(ext ? { exterior: ext } : {}) })); }} placeholder="0.0000" className={input} />
                           </div>
                           <div>
@@ -1142,7 +1142,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                         onClick={addItem}
                         disabled={addModalTab === 'inventory'
                           ? !selectedModalItem || !addForm.purchase_price
-                          : !addForm.skin_name || !addForm.purchase_price}
+                          : !addForm.skin_name || !addForm.purchase_price || (addForm.hasExterior && !addForm.float_value)}
                         className={`${btnOrange} disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-zinc-600`}
                       >
                         Add to Registry
