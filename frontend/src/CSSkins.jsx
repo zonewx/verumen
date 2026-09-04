@@ -4,7 +4,6 @@ import apiCache from './apiCache';
 import { getToken } from './tokenStore';
 
 const EXTERIORS = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
-const FLOAT_CACHE_KEY = 'cs_float_cache';
 
 // Vanilla = special item (★) with no skin pattern (no |)
 const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | Vanilla` : (n || '');
@@ -131,10 +130,6 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
     if (item.quality?.toLowerCase().includes('stattrak')) params.set('statTrak', '1');
     if (item.iconUrl) params.set('iconUrl', item.iconUrl);
     if (item.assetId) params.set('assetId', String(item.assetId));
-    if (item.floatValue != null) {
-      params.set('floatValue', String(item.floatValue));
-      if (item.paintSeed != null) params.set('paintSeed', String(item.paintSeed));
-    }
     return `/skins/traderegistry?${params.toString()}`;
   })();
 
@@ -266,9 +261,6 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [steamInventory, setSteamInventory] = useState(null);
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState('');
-  const [floatCache, setFloatCache] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(FLOAT_CACHE_KEY) || '{}'); } catch { return {}; }
-  });
   const [invSort, setInvSort] = useState('default');
 const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory?currency=${baseCurrency}`) || []);
   const [pnl, setPnl] = useState(() => apiCache.get(`/api/cs/pnl?currency=${baseCurrency}`));
@@ -287,7 +279,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const [iconResetting, setIconResetting] = useState(false);
   const [skinSearch, setSkinSearch] = useState('');
   const [skinSearchResults, setSkinSearchResults] = useState([]);
-  const [fetchingFloat, setFetchingFloat] = useState(false);
   const [filterSold, setFilterSold] = useState('all');
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
@@ -332,8 +323,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   // Pre-fill and open the add form when ?addSkin=... is in the URL
   useEffect(() => {
     if (!addSkinParam) return;
-    const floatValueParam = _urlParams.get('floatValue');
-    const paintSeedParam = _urlParams.get('paintSeed');
     setAddForm(f => ({
       ...f,
       skin_name: addSkinParam,
@@ -341,8 +330,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       hasExterior: _urlParams.get('noExterior') !== '1',
       exterior: _urlParams.get('exterior') || 'Factory New',
       icon_url: _urlParams.get('iconUrl') || '',
-      float_value: floatValueParam ? parseFloat(floatValueParam).toFixed(4) : '',
-      pattern: paintSeedParam || '',
+      float_value: '',
+      pattern: '',
       _assetId: _urlParams.get('assetId') || null,
     }));
     setSkinSearch(addSkinParam);
@@ -350,35 +339,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     setShowAddForm(true);
   }, [addSkinParam]);
 
-  // Background-fetch floats for all tradable inventory items after load.
-  // Floats are immutable per item, so cache by assetId with no expiry.
-  useEffect(() => {
-    if (!steamInventory?.items) return;
-    let cancelled = false;
-    const run = async () => {
-      const tradable = steamInventory.items.filter(i => i.tradable && i.inspectLink);
-      const stored = (() => { try { return JSON.parse(localStorage.getItem(FLOAT_CACHE_KEY) || '{}'); } catch { return {}; } })();
-      const missing = tradable.filter(i => !stored[i.assetId]);
-      if (!missing.length) return;
-      const cache = { ...stored };
-      for (const item of missing) {
-        if (cancelled) break;
-        try {
-          const r = await fetch(`/api/cs/float?link=${encodeURIComponent(item.inspectLink)}`, { headers: authHeaders() });
-          if (cancelled) break;
-          const data = await r.json();
-          if (data.float !== undefined) {
-            cache[item.assetId] = { floatValue: data.float, paintSeed: data.paintSeed ?? null };
-            setFloatCache(c => ({ ...c, [item.assetId]: cache[item.assetId] }));
-            try { localStorage.setItem(FLOAT_CACHE_KEY, JSON.stringify(cache)); } catch {}
-          }
-        } catch {}
-        if (!cancelled) await new Promise(r => setTimeout(r, 350));
-      }
-    };
-    run();
-    return () => { cancelled = true; };
-  }, [steamInventory]);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -513,22 +473,10 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     });
   };
 
-  const selectModalSkin = async (item) => {
+  const selectModalSkin = (item) => {
     setSelectedModalItem(item);
     const exterior = parseExteriorFromName(item.name);
-    setAddForm(f => ({ ...f, skin_name: withVanilla(item.name), purchase_price: item.price > 0 ? String(item.price.toFixed(2)) : f.purchase_price, icon_url: item.iconUrl || '', hasExterior: !!exterior, float_value: '', ...(exterior ? { exterior } : {}) }));
-    if (item.inspectLink) {
-      setFetchingFloat(true);
-      try {
-        const r = await fetch(`/api/cs/float?link=${encodeURIComponent(item.inspectLink)}`, { headers: authHeaders() });
-        const data = await r.json();
-        if (data.float !== undefined) {
-          const ext = floatToExterior(data.float);
-          setAddForm(f => ({ ...f, float_value: data.float.toFixed(4), ...(ext ? { exterior: ext } : {}), ...(data.paintSeed ? { pattern: String(data.paintSeed) } : {}) }));
-        }
-      } catch { /* float fetch failed silently */ }
-      setFetchingFloat(false);
-    }
+    setAddForm(f => ({ ...f, skin_name: withVanilla(item.name), icon_url: item.iconUrl || '', hasExterior: !!exterior, float_value: '', ...(exterior ? { exterior } : {}) }));
   };
 
   const searchSkins = async (q) => {
@@ -837,11 +785,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                 const sorted = invSort === 'rarity'
                   ? [...tradable].sort((a, b) => (RARITY_RANK[b.rarity] ?? -1) - (RARITY_RANK[a.rarity] ?? -1))
                   : tradable;
-                const sortedWithFloats = sorted.map(item => ({
-                  ...item,
-                  floatValue: floatCache[item.assetId]?.floatValue ?? null,
-                  paintSeed: floatCache[item.assetId]?.paintSeed ?? null,
-                }));
                 return (
                   <>
                     {/* Stats strip */}
@@ -849,7 +792,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       <span><span className="text-zinc-200 font-semibold">{tradable.length}</span> tradable items</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                      {sortedWithFloats.map((item, i) => (
+                      {sorted.map((item, i) => (
                         <SkinCard key={i} item={item}
                           inRegistry={registeredAssetIds.has(item.assetId)}
                           registryId={inventory.find(r => r.steam_asset_id === item.assetId)?.id} />
@@ -1073,7 +1016,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                                       {item.exterior && <span className="text-[10px] text-zinc-400">{item.exterior}</span>}
                                                     </div>
                                                   )}
-                                                  {item.price > 0 && <p className="text-[10px] text-green-400 font-bold mt-0.5">{fmtBC(item.price)}</p>}
                                                 </div>
                                               </div>
                                             </button>
@@ -1095,8 +1037,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                     </select>
                                   </div>
                                   <div>
-                                    <label className={label}>Float {addForm.hasExterior && <span className="text-red-400">*</span>}{fetchingFloat && <span className="text-zinc-500 normal-case font-normal tracking-normal ml-1">fetching…</span>}</label>
-                                    <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => setAddForm(f => ({ ...f, float_value: e.target.value }))} placeholder={fetchingFloat ? 'Fetching…' : '0.0000'} disabled={fetchingFloat} className={input} />
+                                    <label className={label}>Float {addForm.hasExterior && <span className="text-red-400">*</span>}</label>
+                                    <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => setAddForm(f => ({ ...f, float_value: e.target.value }))} placeholder="0.0000" className={input} />
                                   </div>
                                   <div>
                                     <label className={label}>Buy price <span className="text-red-400">*</span></label>
