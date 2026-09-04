@@ -930,7 +930,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
               {/* Add trade modal */}
               {showAddForm && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col`} style={{ maxHeight: '92vh' }}>
+                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-7xl flex flex-col`} style={{ maxHeight: '96vh' }}>
 
                     {/* Header */}
                     <div className={`flex items-center justify-between px-6 py-4 border-b border-zinc-700 shrink-0`}>
@@ -997,26 +997,51 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                   ) : modalInventory.length === 0 ? (
                                     <p className={`text-center py-8 text-sm text-zinc-400`}>No CS items found in your inventory.</p>
                                   ) : (
-                                    <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 gap-2 max-h-96 overflow-y-auto">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                       {modalInventory
                                         .filter(i => !modalInvSearch || i.name.toLowerCase().includes(modalInvSearch.toLowerCase()))
                                         .map(item => {
                                           const alreadyTracked = registeredAssetIds.has(item.assetId);
+                                          const isSpecial = item.quality && (item.quality.includes('StatTrak') || item.quality.includes('Souvenir'));
+                                          const qualityColor = item.quality?.includes('StatTrak') ? '#cf6a32' : item.quality?.includes('Souvenir') ? '#ffd700' : null;
+                                          const baseName = item.name.replace(/^StatTrak™\s*/i, '').replace(/^★\s*/, '').replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '');
                                           return (
                                             <button
                                               key={item.assetId}
                                               onClick={() => !alreadyTracked && selectModalSkin(item)}
                                               disabled={alreadyTracked}
-                                              className={`relative p-2 rounded-lg border-2 transition text-left ${alreadyTracked ? 'border-green-800/50 bg-green-950/30 opacity-60 cursor-not-allowed' : 'border-zinc-600 bg-zinc-700/50 hover:bg-zinc-600 hover:border-zinc-400/60'}`}
+                                              className={`relative rounded-xl border flex flex-col text-left transition-transform ${alreadyTracked ? 'border-green-800/50 opacity-60 cursor-not-allowed' : 'border-zinc-700 hover:scale-[1.02] hover:z-10 cursor-pointer'}`}
+                                              style={{ background: item.rarityColor ? `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 100%), #27272a` : '#27272a' }}
                                             >
-                                              <img src={item.iconUrl} alt={item.name} className="w-full h-20 object-contain mb-1.5" />
-                                              <p className={`text-xs truncate leading-tight ${alreadyTracked ? 'text-zinc-400' : 'text-zinc-300'}`}>{item.name}</p>
-                                              {item.price > 0 && <p className="text-xs text-green-400 font-bold mt-0.5">{fmtBC(item.price)}</p>}
-                                              {alreadyTracked && (
-                                                <div className="absolute top-1.5 right-1.5 px-1 py-px rounded bg-green-900/80 border border-green-700/60">
-                                                  <span className="text-[8px] font-semibold text-green-400 uppercase tracking-wide leading-none">Already added</span>
+                                              {/* Image area */}
+                                              <div className="relative p-3 pb-2">
+                                                {alreadyTracked && (
+                                                  <div className="absolute top-2 right-2 z-10 px-1 py-px rounded bg-green-900/80 border border-green-700/60">
+                                                    <span className="text-[8px] font-semibold text-green-400 uppercase tracking-wide leading-none">Already added</span>
+                                                  </div>
+                                                )}
+                                                {item.iconUrl
+                                                  ? <img src={item.iconUrl} alt={item.name} className="w-full h-24 object-contain mt-5" />
+                                                  : <div className="w-full h-24 flex items-center justify-center text-3xl mt-5">🔫</div>
+                                                }
+                                              </div>
+                                              {/* Info area */}
+                                              <div className="px-3 pb-3 flex flex-col flex-1">
+                                                <div className="mt-auto flex flex-col gap-0.5">
+                                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                                    {item.rarityColor && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.rarityColor }} />}
+                                                    {item.rarity && <span className="text-[10px] font-semibold" style={{ color: item.rarityColor || 'inherit' }}>{item.rarity}</span>}
+                                                  </div>
+                                                  <p className="text-xs font-semibold leading-tight line-clamp-2">{baseName}</p>
+                                                  {(isSpecial || item.exterior) && (
+                                                    <div className="flex items-center gap-1.5">
+                                                      {isSpecial && <span className="text-[10px] font-bold" style={{ color: qualityColor }}>{item.quality}</span>}
+                                                      {item.exterior && <span className="text-[10px] text-zinc-400">{item.exterior}</span>}
+                                                    </div>
+                                                  )}
+                                                  {item.price > 0 && <p className="text-[10px] text-green-400 font-bold mt-0.5">{fmtBC(item.price)}</p>}
                                                 </div>
-                                              )}
+                                              </div>
                                             </button>
                                           );
                                         })
