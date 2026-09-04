@@ -117,6 +117,7 @@ function authHeaders(extra = {}) {
 }
 
 function SkinCard({ item, onClick, inRegistry, registryId }) {
+  const [hovered, setHovered] = useState(false);
   const isSpecial = item.quality && (item.quality.includes('StatTrak') || item.quality.includes('Souvenir'));
   const isKnifeOrGloves = item.rarity === 'Extraordinary';
   const qualityColor = item.quality?.includes('StatTrak') ? '#cf6a32' : item.quality?.includes('Souvenir') ? '#ffd700' : null;
@@ -139,7 +140,9 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
   return (
     <div
       onClick={onClick}
-      className={`group/card relative rounded-xl border flex flex-col transition-transform hover:scale-[1.02] hover:z-10 ${onClick ? 'cursor-pointer' : ''} ${inRegistry ? 'border-green-700/60' : 'border-zinc-700'}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={`relative rounded-xl border flex flex-col transition-transform hover:scale-[1.02] hover:z-10 ${onClick ? 'cursor-pointer' : ''} ${inRegistry ? 'border-green-700/60' : 'border-zinc-700'}`}
       style={{ background: item.rarityColor ? `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 100%), #27272a` : '#27272a' }}
     >
       {/* Image area */}
@@ -206,8 +209,14 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
 
       {/* Swoop-in button — absolute overlay, card height never changes */}
       <div
-        className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-10 rounded-b-xl opacity-0 translate-y-2 group-hover/card:opacity-100 group-hover/card:translate-y-0 transition-all duration-200 ease-out pointer-events-none group-hover/card:pointer-events-auto"
-        style={{ background: 'linear-gradient(to top, #27272a 55%, transparent)' }}
+        className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-10 rounded-b-xl"
+        style={{
+          background: 'linear-gradient(to top, #27272a 55%, transparent)',
+          opacity: hovered ? 1 : 0,
+          transform: hovered ? 'translateY(0)' : 'translateY(8px)',
+          pointerEvents: hovered ? 'auto' : 'none',
+          transition: 'opacity 200ms ease-out, transform 200ms ease-out',
+        }}
       >
         {inRegistry ? (
           <a
