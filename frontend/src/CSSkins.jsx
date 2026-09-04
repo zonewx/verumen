@@ -204,39 +204,38 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
         </div>
       </div>
 
-      {/* Swoop-in button on hover */}
-      <div className="grid grid-rows-[0fr] group-hover/card:grid-rows-[1fr] transition-all duration-200 ease-out">
-        <div className="overflow-hidden">
-          <div className="px-3 pb-3 pt-1 translate-y-2 group-hover/card:translate-y-0 transition-transform duration-200 ease-out">
-            {inRegistry ? (
-              <a
-                href={`/skins/traderegistry${registryId ? `?expand=${registryId}` : ''}`}
-                target="_blank"
-                rel="noreferrer"
-                onClick={e => e.stopPropagation()}
-                className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-green-900/40 border border-green-700/50 text-green-400 text-[11px] font-semibold hover:bg-green-900/60 hover:border-green-600/60 transition"
-              >
-                View in registry
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                </svg>
-              </a>
-            ) : (
-              <a
-                href={addRegistryUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={e => e.stopPropagation()}
-                className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-zinc-700/60 border border-zinc-600/60 text-zinc-300 text-[11px] font-semibold hover:bg-zinc-700 hover:border-zinc-500 transition"
-              >
-                Add to registry
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-              </a>
-            )}
-          </div>
-        </div>
+      {/* Swoop-in button — absolute overlay, card height never changes */}
+      <div
+        className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-10 rounded-b-xl opacity-0 translate-y-2 group-hover/card:opacity-100 group-hover/card:translate-y-0 transition-all duration-200 ease-out pointer-events-none group-hover/card:pointer-events-auto"
+        style={{ background: 'linear-gradient(to top, #27272a 55%, transparent)' }}
+      >
+        {inRegistry ? (
+          <a
+            href={`/skins/traderegistry${registryId ? `?expand=${registryId}` : ''}`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-green-900/40 border border-green-700/50 text-green-400 text-[11px] font-semibold hover:bg-green-900/60 hover:border-green-600/60 transition"
+          >
+            View in registry
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </a>
+        ) : (
+          <a
+            href={addRegistryUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={e => e.stopPropagation()}
+            className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-zinc-700/60 border border-zinc-600/60 text-zinc-300 text-[11px] font-semibold hover:bg-zinc-700 hover:border-zinc-500 transition"
+          >
+            Add to registry
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </a>
+        )}
       </div>
     </div>
   );
