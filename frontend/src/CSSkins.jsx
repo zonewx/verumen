@@ -343,6 +343,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       float_value: floatValueParam ? parseFloat(floatValueParam).toFixed(4) : '',
       pattern: paintSeedParam || '',
     }));
+    setSkinSearch(addSkinParam);
+    setAddModalTab('manual');
     setShowAddForm(true);
   }, [addSkinParam]);
 
