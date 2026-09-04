@@ -130,6 +130,7 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
     if (item.exterior) params.set('exterior', item.exterior); else params.set('noExterior', '1');
     if (item.quality?.toLowerCase().includes('stattrak')) params.set('statTrak', '1');
     if (item.iconUrl) params.set('iconUrl', item.iconUrl);
+    if (item.assetId) params.set('assetId', String(item.assetId));
     if (item.floatValue != null) {
       params.set('floatValue', String(item.floatValue));
       if (item.paintSeed != null) params.set('paintSeed', String(item.paintSeed));
@@ -342,6 +343,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       icon_url: _urlParams.get('iconUrl') || '',
       float_value: floatValueParam ? parseFloat(floatValueParam).toFixed(4) : '',
       pattern: paintSeedParam || '',
+      _assetId: _urlParams.get('assetId') || null,
     }));
     setSkinSearch(addSkinParam);
     setAddModalTab('manual');
@@ -549,9 +551,13 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     }
     const payload = { ...addForm, skin_name: finalSkinName };
     delete payload.statTrak; delete payload.hasExterior;
+    const pendingAssetId = payload._assetId;
+    delete payload._assetId;
     if (selectedModalItem) {
       payload.steam_asset_id = selectedModalItem.assetId;
       payload.stickers = selectedModalItem.stickers || [];
+    } else if (pendingAssetId) {
+      payload.steam_asset_id = pendingAssetId;
     }
     await fetch('/api/cs/inventory', {
       method: 'POST',
@@ -563,7 +569,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       skin_name: '', statTrak: false, hasExterior: true, exterior: 'Factory New', float_value: '', pattern: '',
       purchase_price: '', purchase_currency: 'USD',
       purchase_date: new Date().toISOString().split('T')[0],
-      notes: '', screenshot_url: '', icon_url: ''
+      notes: '', screenshot_url: '', icon_url: '', _assetId: null,
     });
     await fetchAll();
   };
