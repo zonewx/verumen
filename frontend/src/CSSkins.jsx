@@ -1697,48 +1697,51 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                             </div>
                                           )}
                                         </div>
-                                        {/* Float bar with wear zone labels */}
-                                        {item.float_value && !isVanilla && (
-                                          <div className="max-w-[300px]">
-                                            <div className="relative h-1.5 rounded-full overflow-hidden" style={{background:'linear-gradient(to right,#22c55e,#84cc16,#eab308,#f97316,#ef4444)'}}>
-                                              {[0.07,0.15,0.38,0.45].map(v => (
-                                                <div key={v} className="absolute top-0 bottom-0 w-px bg-black/40" style={{left:`${v*100}%`}} />
-                                              ))}
-                                              <div className="absolute top-1/2 w-2.5 h-2.5 bg-white rounded-full shadow border-2 border-zinc-800" style={{left:`${Math.min(parseFloat(item.float_value)*100,99.5)}%`,transform:'translate(-50%,-50%)'}} />
-                                            </div>
-                                            <div className="relative mt-1.5" style={{height:'12px'}}>
-                                              {[
-                                                { label: 'FN',  center: 0.035 },
-                                                { label: 'MW',  center: 0.11  },
-                                                { label: 'FT',  center: 0.265 },
-                                                { label: 'WW',  center: 0.415 },
-                                                { label: 'BS',  center: 0.725 },
-                                              ].map(({ label, center }) => (
-                                                <span key={label} className="absolute text-[9px] font-semibold text-zinc-600 -translate-x-1/2 select-none" style={{left:`${center*100}%`}}>
-                                                  {label}
-                                                </span>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        )}
-                                        {/* Stickers */}
-                                        {item.stickers?.length > 0 && (
-                                          <div>
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Stickers</p>
-                                            <div className="flex gap-1.5 flex-wrap">
-                                              {item.stickers.map((s, i) => (
-                                                <div key={i} className="relative group/sticker">
-                                                  <img src={s.url} alt={s.name || ''} className="w-10 h-10 object-contain opacity-80 hover:opacity-100 transition" />
-                                                  {s.name && (
-                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg text-[11px] text-white max-w-[200px] text-center opacity-0 group-hover/sticker:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
-                                                      {s.name}
-                                                    </div>
-                                                  )}
+                                        {/* Float bar + stickers side by side */}
+                                        {(item.float_value && !isVanilla) || item.stickers?.length > 0 ? (
+                                          <div className="flex gap-4 items-start">
+                                            {item.float_value && !isVanilla && (
+                                              <div className="flex-1 min-w-0 max-w-[300px]">
+                                                <div className="relative h-1.5 rounded-full overflow-hidden" style={{background:'linear-gradient(to right,#22c55e,#84cc16,#eab308,#f97316,#ef4444)'}}>
+                                                  {[0.07,0.15,0.38,0.45].map(v => (
+                                                    <div key={v} className="absolute top-0 bottom-0 w-px bg-black/40" style={{left:`${v*100}%`}} />
+                                                  ))}
+                                                  <div className="absolute top-1/2 w-2.5 h-2.5 bg-white rounded-full shadow border-2 border-zinc-800" style={{left:`${Math.min(parseFloat(item.float_value)*100,99.5)}%`,transform:'translate(-50%,-50%)'}} />
                                                 </div>
-                                              ))}
-                                            </div>
+                                                <div className="relative mt-1.5" style={{height:'12px'}}>
+                                                  {[
+                                                    { label: 'FN',  center: 0.035 },
+                                                    { label: 'MW',  center: 0.11  },
+                                                    { label: 'FT',  center: 0.265 },
+                                                    { label: 'WW',  center: 0.415 },
+                                                    { label: 'BS',  center: 0.725 },
+                                                  ].map(({ label, center }) => (
+                                                    <span key={label} className="absolute text-[9px] font-semibold text-zinc-600 -translate-x-1/2 select-none" style={{left:`${center*100}%`}}>
+                                                      {label}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            {item.stickers?.length > 0 && (
+                                              <div className="flex-1 min-w-0">
+                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Stickers</p>
+                                                <div className="flex gap-1.5 flex-wrap">
+                                                  {item.stickers.map((s, i) => (
+                                                    <div key={i} className="relative group/sticker">
+                                                      <img src={s.url} alt={s.name || ''} className="w-10 h-10 object-contain opacity-80 hover:opacity-100 transition" />
+                                                      {s.name && (
+                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg text-[11px] text-white max-w-[200px] text-center opacity-0 group-hover/sticker:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                                                          {s.name}
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
                                           </div>
-                                        )}
+                                        ) : null}
                                         {/* Notes */}
                                         {item.notes && (
                                           <div className="bg-zinc-700/20 rounded-lg px-3 py-2.5 max-w-prose">
