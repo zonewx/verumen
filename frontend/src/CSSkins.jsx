@@ -1601,74 +1601,97 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
                                   <td colSpan={10} className="p-0">
-                                    <div className="bg-zinc-800/60 px-6 py-5 flex items-stretch gap-6" onClick={e => e.stopPropagation()}>
+                                    <div className="bg-zinc-800/60 px-6 py-5 flex items-stretch gap-5" onClick={e => e.stopPropagation()}>
                                       {/* Left: content */}
                                       <div className="flex-1 min-w-0 flex flex-col gap-4">
-                                        {/* Icon + name header */}
+                                        {/* Icon with rarity tint + name */}
                                         <div className="flex items-center gap-3">
-                                          {item.icon_url && (
-                                            <img src={item.icon_url} alt="" className="w-16 h-16 object-contain shrink-0 rounded" />
-                                          )}
+                                          {item.icon_url && (() => {
+                                            const n = item.skin_name || '';
+                                            const hasStar = n.includes('★') || n.startsWith('★');
+                                            const isST = n.toLowerCase().includes('stattrak');
+                                            const tint = hasStar ? 'rgba(167,139,250,0.12)' : isST ? 'rgba(207,106,50,0.12)' : 'rgba(255,255,255,0.04)';
+                                            return (
+                                              <div className="w-16 h-16 shrink-0 rounded-xl flex items-center justify-center border border-zinc-700/60" style={{ background: `linear-gradient(135deg, ${tint} 0%, rgba(0,0,0,0.15) 100%), #18181b` }}>
+                                                <img src={item.icon_url} alt="" className="w-13 h-13 object-contain" />
+                                              </div>
+                                            );
+                                          })()}
                                           {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return <p className={`font-bold text-base ${nameColor}`}>{n}</p>; })()}
                                         </div>
-                                        {/* Stat grid — always-populated fields first, conditionals after */}
-                                        <div className="grid grid-cols-3 gap-x-6 gap-y-3">
+                                        {/* Stat grid — each cell as a subtle panel */}
+                                        <div className="grid grid-cols-3 gap-2">
                                           {!isVanilla && item.exterior && (
-                                            <div>
+                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Exterior</p>
                                               <p className="text-sm text-zinc-200">{item.exterior}</p>
                                             </div>
                                           )}
                                           {item.float_value && !isVanilla && (
-                                            <div>
+                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Float</p>
                                               <p className="text-sm font-mono text-zinc-200">{parseFloat(item.float_value).toFixed(4)}</p>
                                             </div>
                                           )}
                                           {item.pattern != null && item.pattern !== '' && (
-                                            <div>
+                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Pattern</p>
                                               <p className="text-sm font-mono text-zinc-200">{item.pattern}</p>
                                             </div>
                                           )}
                                           {item.purchase_date && (
-                                            <div>
+                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Date</p>
                                               <p className="text-sm text-zinc-200">{item.purchase_date}</p>
                                             </div>
                                           )}
                                           {buyPrice != null && (
-                                            <div>
+                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Price</p>
                                               <p className="text-sm font-mono text-zinc-200">{fmtBC(buyPrice)}</p>
                                             </div>
                                           )}
                                           {item.sold && item.sale_date && (
-                                            <div>
+                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Sale Date</p>
                                               <p className="text-sm text-zinc-200">{item.sale_date}</p>
                                             </div>
                                           )}
                                           {item.sold && item.sale_price_display != null && (
-                                            <div>
+                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Sale Price</p>
                                               <p className="text-sm font-mono text-zinc-200">{fmtBC(item.sale_price_display)}</p>
                                             </div>
                                           )}
                                           {pnlVal !== null && (
-                                            <div>
+                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">P&L</p>
                                               <p className={`text-sm font-bold font-mono ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>{pnlPos ? '+' : ''}{fmtBC(pnlVal)}</p>
                                             </div>
                                           )}
                                         </div>
-                                        {/* Float bar (visual only — number is in the grid above) */}
+                                        {/* Float bar with wear zone labels */}
                                         {item.float_value && !isVanilla && (
-                                          <div className="relative h-1.5 rounded-full overflow-hidden max-w-[280px]" style={{background:'linear-gradient(to right,#22c55e,#84cc16,#eab308,#f97316,#ef4444)'}}>
-                                            {[0.07,0.15,0.38,0.45].map(v => (
-                                              <div key={v} className="absolute top-0 bottom-0 w-px bg-black/30" style={{left:`${v*100}%`}} />
-                                            ))}
-                                            <div className="absolute top-1/2 w-2.5 h-2.5 bg-white rounded-full shadow border-2 border-zinc-800" style={{left:`${Math.min(parseFloat(item.float_value)*100,99.5)}%`,transform:'translate(-50%,-50%)'}} />
+                                          <div className="max-w-[300px]">
+                                            <div className="relative h-1.5 rounded-full overflow-hidden" style={{background:'linear-gradient(to right,#22c55e,#84cc16,#eab308,#f97316,#ef4444)'}}>
+                                              {[0.07,0.15,0.38,0.45].map(v => (
+                                                <div key={v} className="absolute top-0 bottom-0 w-px bg-black/40" style={{left:`${v*100}%`}} />
+                                              ))}
+                                              <div className="absolute top-1/2 w-2.5 h-2.5 bg-white rounded-full shadow border-2 border-zinc-800" style={{left:`${Math.min(parseFloat(item.float_value)*100,99.5)}%`,transform:'translate(-50%,-50%)'}} />
+                                            </div>
+                                            <div className="relative mt-1.5" style={{height:'12px'}}>
+                                              {[
+                                                { label: 'FN',  center: 0.035 },
+                                                { label: 'MW',  center: 0.11  },
+                                                { label: 'FT',  center: 0.265 },
+                                                { label: 'WW',  center: 0.415 },
+                                                { label: 'BS',  center: 0.725 },
+                                              ].map(({ label, center }) => (
+                                                <span key={label} className="absolute text-[9px] font-semibold text-zinc-600 -translate-x-1/2 select-none" style={{left:`${center*100}%`}}>
+                                                  {label}
+                                                </span>
+                                              ))}
+                                            </div>
                                           </div>
                                         )}
                                         {/* Stickers */}
@@ -1678,7 +1701,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                             <div className="flex gap-1.5 flex-wrap">
                                               {item.stickers.map((s, i) => (
                                                 <div key={i} className="relative group/sticker">
-                                                  <img src={s.url} alt={s.name || ''} className="w-9 h-9 object-contain opacity-80 hover:opacity-100 transition" />
+                                                  <img src={s.url} alt={s.name || ''} className="w-10 h-10 object-contain opacity-80 hover:opacity-100 transition" />
                                                   {s.name && (
                                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg text-[11px] text-white max-w-[200px] text-center opacity-0 group-hover/sticker:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
                                                       {s.name}
@@ -1691,26 +1714,26 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                         )}
                                         {/* Notes */}
                                         {item.notes && (
-                                          <div>
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Notes</p>
-                                            <p className="text-sm text-zinc-300">{item.notes}</p>
+                                          <div className="bg-zinc-700/20 rounded-lg px-3 py-2.5 max-w-prose">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">Notes</p>
+                                            <p className="text-sm text-zinc-300 leading-relaxed">{item.notes}</p>
                                           </div>
                                         )}
-                                        {/* Action buttons */}
-                                        <div className="flex gap-2 mt-auto pt-1">
-                                          {!item.sold && (
-                                            <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Sell</button>
-                                          )}
-                                          <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Edit</button>
-                                          <button onClick={() => setShowDeleteConfirm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition">Delete</button>
-                                        </div>
                                       </div>
-                                      {/* Right: screenshot */}
+                                      {/* Center: screenshot */}
                                       {screenshotUrl && (
-                                        <div className="shrink-0 max-w-lg w-full">
+                                        <div className="shrink-0 max-w-lg w-full self-start">
                                           <SteamScreenshotEmbed url={screenshotUrl} />
                                         </div>
                                       )}
+                                      {/* Right: action buttons as vertical strip */}
+                                      <div className="flex flex-col gap-2 shrink-0 justify-start">
+                                        {!item.sold && (
+                                          <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition whitespace-nowrap w-full">Sell</button>
+                                        )}
+                                        <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition w-full">Edit</button>
+                                        <button onClick={() => setShowDeleteConfirm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition w-full">Delete</button>
+                                      </div>
                                     </div>
                                   </td>
                                 </tr>
