@@ -1555,7 +1555,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                                <td className="px-3 py-2.5">
                                   {item.stickers?.length > 0 && (
                                     <div className="flex gap-0.5">
                                       {item.stickers.map((s, i) => (
@@ -1607,7 +1607,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                     <span className="text-zinc-600">—</span>
                                   )}
                                 </td>
-                                <td className="px-2 py-2.5 w-10" onClick={e => e.stopPropagation()}>
+                                <td className="px-2 py-2.5 w-10">
                                   <div className="relative flex justify-center">
                                     <button
                                       onClick={e => { e.stopPropagation(); setOpenActionMenu(openActionMenu === item.id ? null : item.id); }}
