@@ -134,7 +134,7 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
             title="In Trade Registry"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
-            <span className="text-[9px] font-semibold text-zinc-300 uppercase tracking-wide">Tracked</span>
+            <span className="text-[9px] font-semibold text-zinc-300 uppercase tracking-wide">In trade registry</span>
           </button>
         )}
         {item.iconUrl
