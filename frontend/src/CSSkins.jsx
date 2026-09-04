@@ -517,7 +517,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const selectModalSkin = async (item) => {
     setSelectedModalItem(item);
     const exterior = parseExteriorFromName(item.name);
-    setAddForm(f => ({ ...f, skin_name: withVanilla(item.name), purchase_price: item.price > 0 ? String(item.price.toFixed(2)) : f.purchase_price, icon_url: item.iconUrl || '', ...(exterior ? { exterior } : {}) }));
+    setAddForm(f => ({ ...f, skin_name: withVanilla(item.name), purchase_price: item.price > 0 ? String(item.price.toFixed(2)) : f.purchase_price, icon_url: item.iconUrl || '', hasExterior: !!exterior, float_value: '', ...(exterior ? { exterior } : {}) }));
     if (item.inspectLink) {
       setFetchingFloat(true);
       try {
@@ -1166,7 +1166,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
                         {(() => {
                           const isDisabled = addModalTab === 'inventory'
-                            ? !selectedModalItem || !addForm.purchase_price
+                            ? !selectedModalItem || !addForm.purchase_price || (addForm.hasExterior && !addForm.float_value)
                             : !addForm.skin_name || !addForm.purchase_price || (addForm.hasExterior && !addForm.float_value);
                           return (
                             <button
@@ -1178,7 +1178,12 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                             </button>
                           );
                         })()}
-                        <button onClick={closeAddModal} className={btnGhost}>Cancel</button>
+                        <button
+                          onClick={() => addModalTab === 'inventory' && selectedModalItem ? setSelectedModalItem(null) : closeAddModal()}
+                          className={btnGhost}
+                        >
+                          {addModalTab === 'inventory' && selectedModalItem ? 'Back' : 'Cancel'}
+                        </button>
                       </div>
                     )}
                   </div>
