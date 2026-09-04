@@ -1611,19 +1611,19 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                   <div className="relative flex justify-center">
                                     <button
                                       onClick={e => { e.stopPropagation(); setOpenActionMenu(openActionMenu === item.id ? null : item.id); }}
-                                      className="p-1.5 rounded text-zinc-500 hover:text-white hover:bg-zinc-700 transition"
+                                      className="p-1.5 rounded text-zinc-300 hover:text-white hover:bg-zinc-700 transition"
                                     >
                                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                        <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                                        <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
                                       </svg>
                                     </button>
                                     {openActionMenu === item.id && (
                                       <div className="absolute right-0 top-full mt-1 z-50 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden min-w-[90px]" onClick={e => e.stopPropagation()}>
                                         {!item.sold && (
-                                          <button onClick={() => { setOpenActionMenu(null); setShowSellForm(item); }} className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700">Sell</button>
+                                          <button onClick={() => { setOpenActionMenu(null); setShowSellForm(item); }} className="w-full text-center px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700">Sell</button>
                                         )}
-                                        <button onClick={() => { setOpenActionMenu(null); openEditModal(item); }} className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700">Edit</button>
-                                        <button onClick={() => { setOpenActionMenu(null); setShowDeleteConfirm(item); }} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-900/30 transition">Delete</button>
+                                        <button onClick={() => { setOpenActionMenu(null); openEditModal(item); }} className="w-full text-center px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700">Edit</button>
+                                        <button onClick={() => { setOpenActionMenu(null); setShowDeleteConfirm(item); }} className="w-full text-center px-3 py-2 text-xs text-red-400 hover:bg-red-900/30 transition">Delete</button>
                                       </div>
                                     )}
                                   </div>
