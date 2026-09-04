@@ -126,7 +126,7 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
       className={`relative rounded-xl border flex flex-col transition-transform hover:scale-[1.02] hover:z-10 ${onClick ? 'cursor-pointer' : ''} bg-zinc-800 ${inRegistry ? 'border-green-700/60' : 'border-zinc-700'}`}
     >
       {/* Image area with rarity tint */}
-      <div className="relative p-3 pb-2" style={item.rarityColor ? { background: `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 70%)` } : {}}>
+      <div className="relative p-3 pb-2 rounded-t-xl" style={item.rarityColor ? { background: `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 70%)` } : {}}>
         {inRegistry && (
           <button
             onClick={e => { e.stopPropagation(); onViewInRegistry?.(); }}
@@ -170,9 +170,13 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
             {isSpecial && <span className="text-[10px] font-bold ml-auto" style={{ color: qualityColor }}>{item.quality}</span>}
           </div>
 
-          {/* Name */}
+          {/* Name — StatTrak™ prefix and wear suffix stripped since both shown separately */}
           <p className="text-xs font-semibold leading-tight line-clamp-2" title={item.name}>
-            {isKnifeOrGloves && <span className="text-yellow-400 mr-0.5">★</span>}{isKnifeOrGloves ? item.name.replace(/^★\s*/, '') : item.name}
+            {item.name.replace(/^StatTrak™\s*/i, '').startsWith('★') && <span className="mr-0.5">★</span>}
+            {item.name
+              .replace(/^★\s*/, '')
+              .replace(/^StatTrak™\s*/i, '')
+              .replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')}
           </p>
 
           {/* Exterior */}
@@ -658,42 +662,44 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                   <h2 className="text-lg font-bold">Steam Inventory</h2>
                 </div>
                 <div className="flex items-center gap-2">
-                {steamInventory && (
-                  <button
-                    onClick={() => fetchSteamInventory(true)}
-                    disabled={steamLoading}
-                    title="Refresh inventory"
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg border border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition disabled:opacity-40"
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={steamLoading ? 'animate-spin' : ''}>
-                      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
-                    </svg>
-                    Refresh
-                  </button>
-                )}
-                {steamInventory && (
-                  <div ref={invSortRef} className="bg-zinc-800 border border-zinc-700 rounded-xl p-2 min-w-[160px]">
-                    <button
-                      onClick={() => setInvSortOpen(v => !v)}
-                      className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border border-zinc-600 bg-zinc-700 hover:bg-zinc-600 text-sm font-semibold text-zinc-100 transition"
-                    >
-                      {invSort === 'default' ? 'Inventory order' : 'Rarity'}
-                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`text-zinc-400 transition-transform ${invSortOpen ? 'rotate-180' : ''}`}>
-                        <path d="M2 4l4 4 4-4"/>
-                      </svg>
-                    </button>
-                    {invSortOpen && (
-                      <div className="mt-2 bg-zinc-700/50 border border-zinc-600 rounded-lg overflow-hidden">
-                        {[['default', 'Inventory order'], ['rarity', 'Rarity']].map(([v, l]) => (
-                          <button key={v} onClick={() => { setInvSort(v); setInvSortOpen(false); }}
-                            className={`w-full text-left px-3 py-2 text-sm transition hover:bg-zinc-600 ${invSort === v ? 'text-white font-semibold' : 'text-zinc-400'}`}>
-                            {l}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                  {steamInventory && (
+                    <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-2">
+                      <button
+                        onClick={() => fetchSteamInventory(true)}
+                        disabled={steamLoading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-600 bg-zinc-700 hover:bg-zinc-600 text-sm font-semibold text-zinc-300 transition disabled:opacity-40"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={steamLoading ? 'animate-spin' : ''}>
+                          <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+                        </svg>
+                        Refresh
+                      </button>
+                    </div>
+                  )}
+                  {steamInventory && (
+                    <div ref={invSortRef} className="relative flex items-center gap-2.5 bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 shrink-0">Sort:</span>
+                      <button
+                        onClick={() => setInvSortOpen(v => !v)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-600 bg-zinc-700 hover:bg-zinc-600 text-sm font-semibold text-zinc-100 transition"
+                      >
+                        {invSort === 'default' ? 'Inventory order' : 'Rarity'}
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`text-zinc-400 transition-transform ${invSortOpen ? 'rotate-180' : ''}`}>
+                          <path d="M2 4l4 4 4-4"/>
+                        </svg>
+                      </button>
+                      {invSortOpen && (
+                        <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-50 min-w-[160px]">
+                          {[['default', 'Inventory order'], ['rarity', 'Rarity']].map(([v, l]) => (
+                            <button key={v} onClick={() => { setInvSort(v); setInvSortOpen(false); }}
+                              className={`w-full text-left px-4 py-2 text-sm transition hover:bg-zinc-700 ${invSort === v ? 'text-white font-semibold' : 'text-zinc-300'}`}>
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
