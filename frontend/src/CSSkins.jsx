@@ -154,7 +154,7 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
         }
         {/* Sticker row */}
         {item.stickers?.length > 0 && (
-          <div className="flex gap-1 mt-1.5 flex-wrap">
+          <div className="relative z-10 flex gap-1 mt-1.5 flex-wrap">
             {item.stickers.map((s, i) => (
               <div key={i} className="relative group">
                 <img src={s.url} alt={s.name} className="w-9 h-9 object-contain opacity-85 hover:opacity-100 transition" />
