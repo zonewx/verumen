@@ -73,6 +73,7 @@ export default function GlobalBar({ authUsername, onNavigate, onLogout, userRole
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input ref={inputRef} value={search} onChange={handleSearchInput} placeholder="Search users..."
+            onKeyDown={e => { if (e.key === 'Escape') { setSearch(''); setResults([]); inputRef.current?.blur(); } }}
             className={`bg-transparent outline-none flex-1 text-sm text-white placeholder-zinc-500`} />
           {searching
             ? <div className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin shrink-0"/>
