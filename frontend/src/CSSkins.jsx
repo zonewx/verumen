@@ -159,8 +159,8 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
               <div key={i} className="relative group">
                 <img src={s.url} alt={s.name} className="w-9 h-9 object-contain opacity-85 hover:opacity-100 transition" />
                 {s.name && (
-                  <div className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
-                    <p className="text-xs font-semibold text-white">{s.name}</p>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 max-w-[200px]">
+                    <p className="text-xs font-semibold text-white text-center">{s.name}</p>
                   </div>
                 )}
               </div>
@@ -1680,7 +1680,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                                 <div key={i} className="relative group/sticker">
                                                   <img src={s.url} alt={s.name || ''} className="w-9 h-9 object-contain opacity-80 hover:opacity-100 transition" />
                                                   {s.name && (
-                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg text-[11px] text-white whitespace-nowrap opacity-0 group-hover/sticker:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg text-[11px] text-white max-w-[200px] text-center opacity-0 group-hover/sticker:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
                                                       {s.name}
                                                     </div>
                                                   )}
