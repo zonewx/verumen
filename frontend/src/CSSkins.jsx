@@ -1620,7 +1620,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                       </svg>
                                     </button>
                                     {openActionMenu === item.id && menuPos && (
-                                      <div style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999 }} className="bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                                      <div style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999, width: 'max-content' }} className="bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
                                         {!item.sold && (
                                           <button onClick={() => { setOpenActionMenu(null); setMenuPos(null); setShowSellForm(item); }} className="w-full text-center px-4 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700 whitespace-nowrap">Sell</button>
                                         )}
