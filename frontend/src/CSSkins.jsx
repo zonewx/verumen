@@ -1644,7 +1644,32 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                           )}
                                           {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return <p className={`font-bold text-base ${nameColor}`}>{n}</p>; })()}
                                         </div>
-                                        {/* Float bar (left) + Stickers (right) aligned to the 2-col grid below */}
+                                        {/* Stat grid */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                          {item.float_value && !isVanilla && (
+                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Float</p>
+                                              <p className="text-sm font-mono text-zinc-200">{parseFloat(item.float_value).toFixed(4)}</p>
+                                            </div>
+                                          )}
+                                          {item.pattern != null && item.pattern !== '' && (
+                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Pattern</p>
+                                              <p className="text-sm font-mono text-zinc-200">{item.pattern}</p>
+                                            </div>
+                                          )}
+                                          <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Price</p>
+                                            <p className="text-sm font-mono text-zinc-200">{fmtBC(buyPrice)}</p>
+                                          </div>
+                                          <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Sale Price</p>
+                                            <p className={`text-sm font-mono ${item.sold && item.sale_price_display != null ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                                              {item.sold && item.sale_price_display != null ? fmtBC(item.sale_price_display) : '—'}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        {/* Float bar (left) + Stickers (right) — same 2-col grid as above for column alignment */}
                                         {((item.float_value && !isVanilla) || item.stickers?.length > 0) && (
                                           <div className="grid grid-cols-2 gap-2 items-start">
                                             <div>
@@ -1693,31 +1718,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                             </div>
                                           </div>
                                         )}
-                                        {/* Stat grid — below the bar/stickers, same 2-col width so columns align */}
-                                        <div className="grid grid-cols-2 gap-2">
-                                          {item.float_value && !isVanilla && (
-                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Float</p>
-                                              <p className="text-sm font-mono text-zinc-200">{parseFloat(item.float_value).toFixed(4)}</p>
-                                            </div>
-                                          )}
-                                          {item.pattern != null && item.pattern !== '' && (
-                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Pattern</p>
-                                              <p className="text-sm font-mono text-zinc-200">{item.pattern}</p>
-                                            </div>
-                                          )}
-                                          <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Price</p>
-                                            <p className="text-sm font-mono text-zinc-200">{fmtBC(buyPrice)}</p>
-                                          </div>
-                                          <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Sale Price</p>
-                                            <p className={`text-sm font-mono ${item.sold && item.sale_price_display != null ? 'text-zinc-200' : 'text-zinc-600'}`}>
-                                              {item.sold && item.sale_price_display != null ? fmtBC(item.sale_price_display) : '—'}
-                                            </p>
-                                          </div>
-                                        </div>
                                         {/* Notes */}
                                         {item.notes && (
                                           <div className="bg-zinc-700/20 rounded-lg px-3 py-2.5 max-w-prose">
