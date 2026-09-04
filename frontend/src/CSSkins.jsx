@@ -115,20 +115,10 @@ function authHeaders(extra = {}) {
   return { ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...extra };
 }
 
-function SkinCard({ item, onClick, onSetPrice, onClearPrice, baseCurrency = 'SEK' }) {
-  const [editing, setEditing] = useState(false);
-  const [inputVal, setInputVal] = useState('');
+function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
   const isSpecial = item.quality && (item.quality.includes('StatTrak') || item.quality.includes('Souvenir'));
   const isKnifeOrGloves = item.rarity === 'Extraordinary';
   const qualityColor = item.quality?.includes('StatTrak') ? '#cf6a32' : item.quality?.includes('Souvenir') ? '#ffd700' : null;
-
-  const startEdit = (e) => { e.stopPropagation(); setInputVal(''); setEditing(true); };
-  const cancelEdit = (e) => { e.stopPropagation(); setEditing(false); };
-  const saveEdit = (e) => {
-    e.stopPropagation();
-    const val = parseFloat(inputVal.replace(',', '.'));
-    if (!isNaN(val) && val > 0) { onSetPrice(val); setEditing(false); }
-  };
 
   return (
     <div
@@ -137,6 +127,16 @@ function SkinCard({ item, onClick, onSetPrice, onClearPrice, baseCurrency = 'SEK
     >
       {/* Image area with rarity tint */}
       <div className="relative p-3 pb-2" style={item.rarityColor ? { background: `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 70%)` } : {}}>
+        {inRegistry && (
+          <button
+            onClick={e => { e.stopPropagation(); onViewInRegistry?.(); }}
+            className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-zinc-900/90 border border-zinc-600 rounded px-1.5 py-0.5 hover:border-zinc-400 transition"
+            title="In Trade Registry"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+            <span className="text-[9px] font-semibold text-zinc-300 uppercase tracking-wide">Tracked</span>
+          </button>
+        )}
         {item.iconUrl
           ? <img src={item.iconUrl} alt={item.name} className="w-full h-24 object-contain" />
           : <div className="w-full h-24 flex items-center justify-center text-3xl">🔫</div>
@@ -171,45 +171,13 @@ function SkinCard({ item, onClick, onSetPrice, onClearPrice, baseCurrency = 'SEK
 
         {/* Name */}
         <p className="text-xs font-semibold leading-tight line-clamp-2" title={item.name}>
-          {isKnifeOrGloves && <span className="text-yellow-400 mr-0.5">★</span>}{item.name}
+          {isKnifeOrGloves && <span className="text-yellow-400 mr-0.5">★</span>}{isKnifeOrGloves ? item.name.replace(/^★\s*/, '') : item.name}
         </p>
 
         {/* Exterior */}
         {item.exterior && (
           <p className={`text-[10px] text-zinc-400`}>{item.exterior}</p>
         )}
-
-        <div className="mt-auto pt-1.5 flex items-center justify-between gap-1">
-          {editing ? (
-            <div className="flex items-center gap-1 w-full" onClick={e => e.stopPropagation()}>
-              <input
-                autoFocus
-                type="number"
-                min="0"
-                step="any"
-                placeholder={CUR_SYM[baseCurrency] || baseCurrency}
-                value={inputVal}
-                onChange={e => setInputVal(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') saveEdit(e); if (e.key === 'Escape') cancelEdit(e); }}
-                className={`w-full text-xs px-2 py-1 rounded border bg-zinc-700 border-zinc-600 text-white outline-none`}
-              />
-              <button onClick={saveEdit} className="text-[10px] px-1.5 py-1 rounded bg-green-600 text-white hover:bg-green-500 shrink-0">✓</button>
-              <button onClick={cancelEdit} className={`text-[10px] px-1.5 py-1 rounded shrink-0 bg-zinc-700 text-zinc-400 hover:bg-zinc-600`}>✕</button>
-            </div>
-          ) : item.price > 0 ? (
-            <div className="flex items-center gap-1">
-              <p className="text-sm font-bold text-green-400">{fmtCur(item.price, baseCurrency)}</p>
-              {item.isOverride && (
-                <button onClick={e => { e.stopPropagation(); onClearPrice(); }} title="Remove manual price" className="text-[10px] text-zinc-400 hover:text-red-400 transition">✕</button>
-              )}
-            </div>
-          ) : (
-            <button onClick={startEdit} className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition border-zinc-600 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200`}>
-              Set price
-            </button>
-          )}
-          {!item.tradable && !editing && <span className="text-[10px] text-yellow-500 font-medium">Not tradable</span>}
-        </div>
       </div>
     </div>
   );
@@ -228,8 +196,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [steamInventory, setSteamInventory] = useState(null);
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState('');
-  const [invSort, setInvSort] = useState('default');
-  const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory?currency=${baseCurrency}`) || []);
+const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory?currency=${baseCurrency}`) || []);
   const [pnl, setPnl] = useState(() => apiCache.get(`/api/cs/pnl?currency=${baseCurrency}`));
   const [pricesReady, setPricesReady] = useState(() => apiCache.has('/api/cs/prices-ready'));
   const [showAddForm, setShowAddForm] = useState(false);
@@ -708,17 +675,6 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
                   <h2 className="text-lg font-bold">Steam Inventory</h2>
                   <p className={`text-xs mt-0.5 text-zinc-400`}>Live tradable items from your Steam account</p>
                 </div>
-                {steamInventory && (
-                  <select
-                    value={invSort}
-                    onChange={e => setInvSort(e.target.value)}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition outline-none cursor-pointer"
-                  >
-                    <option value="default">Inventory order</option>
-                    <option value="price-desc">Price: High → Low</option>
-                    <option value="price-asc">Price: Low → High</option>
-                  </select>
-                )}
               </div>
 
               {!settings.steam_id && (
@@ -740,24 +696,18 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
               )}
               {steamInventory && (() => {
                 const tradable = steamInventory.items.filter(i=>i.tradable);
-                const totalValue = tradable.reduce((s,i)=>s+i.price,0);
-                const sorted = invSort === 'price-desc' ? [...tradable].sort((a,b)=>b.price-a.price)
-                  : invSort === 'price-asc' ? [...tradable].sort((a,b)=>a.price-b.price)
-                  : tradable;
+                const registeredAssetIds = new Set(inventory.filter(i => i.steam_asset_id).map(i => i.steam_asset_id));
                 return (
                   <>
                     {/* Stats strip */}
                     <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-zinc-400 px-1">
-                      <span>
-                        <span className="text-zinc-200 font-semibold">{tradable.length}</span> tradable items
-                        {totalValue > 0 && <> · Estimated value <span className="text-green-400 font-semibold">{fmtBC(totalValue)}</span></>}
-                      </span>
+                      <span><span className="text-zinc-200 font-semibold">{tradable.length}</span> tradable items</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                      {sorted.map((item, i) => (
-                        <SkinCard key={i} item={item} baseCurrency={baseCurrency}
-                          onSetPrice={p => saveOverride(item.name, p)}
-                          onClearPrice={() => clearOverride(item.name)} />
+                      {tradable.map((item, i) => (
+                        <SkinCard key={i} item={item}
+                          inRegistry={registeredAssetIds.has(item.assetId)}
+                          onViewInRegistry={() => setTab('tracker')} />
                       ))}
                     </div>
                   </>
