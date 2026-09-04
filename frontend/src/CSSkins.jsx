@@ -1012,12 +1012,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                               {/* Grid */}
                               {!selectedModalItem && (
                                 <>
-                                  <input
-                                    value={modalInvSearch}
-                                    onChange={e => setModalInvSearch(e.target.value)}
-                                    placeholder="Search your inventory..."
-                                    className={`${input} text-xs`}
-                                  />
+                                  <div className="flex justify-center">
+                                    <input
+                                      value={modalInvSearch}
+                                      onChange={e => setModalInvSearch(e.target.value)}
+                                      placeholder="Search your inventory..."
+                                      className={`${input} text-xs w-1/2`}
+                                    />
+                                  </div>
                                   {modalInvLoading ? (
                                     <div className="flex items-center justify-center py-12">
                                       <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
@@ -1048,8 +1050,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                               {/* Image area */}
                                               <div className="relative p-3 pb-2">
                                                 {alreadyTracked && (
-                                                  <div className="absolute top-2 right-2 z-10 px-1.5 rounded bg-green-900/80 border border-green-700/60" style={{ paddingTop: '2px', paddingBottom: '2px' }}>
-                                                    <span className="text-[7px] font-bold text-green-400 uppercase tracking-wider" style={{ lineHeight: 1 }}>Already added</span>
+                                                  <div className="absolute top-2 right-2 z-10 px-1.5 rounded bg-green-900/80 border border-green-700/60" style={{ paddingTop: '1px', paddingBottom: '1px' }}>
+                                                    <span className="text-[7px] font-bold text-green-400 uppercase tracking-wide" style={{ lineHeight: 1 }}>Already added</span>
                                                   </div>
                                                 )}
                                                 {item.iconUrl
@@ -1093,18 +1095,18 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                     </select>
                                   </div>
                                   <div>
-                                    <label className={label}>Float {fetchingFloat && <span className="text-zinc-500 normal-case font-normal tracking-normal ml-1">fetching…</span>}</label>
+                                    <label className={label}>Float {addForm.hasExterior && <span className="text-red-400">*</span>}{fetchingFloat && <span className="text-zinc-500 normal-case font-normal tracking-normal ml-1">fetching…</span>}</label>
                                     <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => setAddForm(f => ({ ...f, float_value: e.target.value }))} placeholder={fetchingFloat ? 'Fetching…' : '0.0000'} disabled={fetchingFloat} className={input} />
                                   </div>
                                   <div>
-                                    <label className={label}>Buy price *</label>
+                                    <label className={label}>Buy price <span className="text-red-400">*</span></label>
                                     <div className="flex gap-2">
                                       <NumInput step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} wrapperClass="flex-1" />
                                       <span className="shrink-0 px-2 py-2 text-sm text-zinc-400">USD</span>
                                     </div>
                                   </div>
                                   <div>
-                                    <label className={label}>Buy date *</label>
+                                    <label className={label}>Buy date <span className="text-red-400">*</span></label>
                                     <input type="date" value={addForm.purchase_date} onChange={e => setAddForm(f => ({ ...f, purchase_date: e.target.value }))} className={input} />
                                   </div>
                                   <div>
@@ -1131,7 +1133,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       {addModalTab === 'manual' && (
                         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="sm:col-span-2 relative">
-                            <label className={label}>Skin name *</label>
+                            <label className={label}>Skin name <span className="text-red-400">*</span></label>
                             <input value={skinSearch} onChange={e => { setSkinSearch(e.target.value); setAddForm(f => ({ ...f, skin_name: e.target.value })); searchSkins(e.target.value); }} placeholder="e.g. AK-47 | Redline" className={input} />
                             {skinSearchResults.length > 0 && (
                               <div className={`absolute z-50 w-full mt-1 bg-zinc-800 border-zinc-600 border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto`}>
@@ -1162,18 +1164,18 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                             </select>
                           </div>
                           <div>
-                            <label className={label}>Float {addForm.hasExterior && <span className="text-red-400 normal-case font-normal tracking-normal">*</span>}</label>
+                            <label className={label}>Float {addForm.hasExterior && <span className="text-red-400">*</span>}</label>
                             <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => { const ext = floatToExterior(e.target.value); setAddForm(f => ({ ...f, float_value: e.target.value, ...(ext ? { exterior: ext } : {}) })); }} placeholder="0.0000" className={input} />
                           </div>
                           <div>
-                            <label className={label}>Buy price *</label>
+                            <label className={label}>Buy price <span className="text-red-400">*</span></label>
                             <div className="flex gap-2">
                               <NumInput step="0.01" value={addForm.purchase_price} onChange={e => setAddForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} wrapperClass="flex-1" />
                               <span className="shrink-0 px-2 py-2 text-sm text-zinc-400">USD</span>
                             </div>
                           </div>
                           <div>
-                            <label className={label}>Buy date *</label>
+                            <label className={label}>Buy date <span className="text-red-400">*</span></label>
                             <input type="date" value={addForm.purchase_date} onChange={e => setAddForm(f => ({ ...f, purchase_date: e.target.value }))} className={input} />
                           </div>
                           <div>
@@ -1335,7 +1337,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       {editModalTab === 'details' && (
                         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="sm:col-span-2">
-                            <label className={label}>Skin name *</label>
+                            <label className={label}>Skin name <span className="text-red-400">*</span></label>
                             <input value={editForm.skin_name} onChange={e => setEditForm(f => ({ ...f, skin_name: e.target.value }))} placeholder="e.g. AK-47 | Redline" className={input} />
                           </div>
                           <div>
@@ -1349,14 +1351,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                             <NumInput step="0.0001" min="0" max="1" value={editForm.float_value} onChange={e => setEditForm(f => ({ ...f, float_value: e.target.value }))} placeholder="0.0000" className={input} />
                           </div>
                           <div>
-                            <label className={label}>Buy price *</label>
+                            <label className={label}>Buy price <span className="text-red-400">*</span></label>
                             <div className="flex gap-2">
                               <NumInput step="0.01" value={editForm.purchase_price} onChange={e => setEditForm(f => ({ ...f, purchase_price: e.target.value }))} placeholder="0.00" className={input} wrapperClass="flex-1" />
                               <span className="shrink-0 px-2 py-2 text-sm text-zinc-400">USD</span>
                             </div>
                           </div>
                           <div>
-                            <label className={label}>Buy date *</label>
+                            <label className={label}>Buy date <span className="text-red-400">*</span></label>
                             <input type="date" value={editForm.purchase_date} onChange={e => setEditForm(f => ({ ...f, purchase_date: e.target.value }))} className={input} />
                           </div>
                           <div>
@@ -1444,14 +1446,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                     </div>
                     <div className="p-6 grid grid-cols-2 gap-4">
                       <div>
-                        <label className={label}>Sale price *</label>
+                        <label className={label}>Sale price <span className="text-red-400">*</span></label>
                         <div className="flex gap-2">
                           <NumInput step="0.01" value={sellForm.sale_price} onChange={e => setSellForm(f => ({ ...f, sale_price: e.target.value }))} placeholder="0.00" className={input} />
                           <span className="shrink-0 px-2 py-2 text-sm text-zinc-400">USD</span>
                         </div>
                       </div>
                       <div>
-                        <label className={label}>Sale date *</label>
+                        <label className={label}>Sale date <span className="text-red-400">*</span></label>
                         <input type="date" value={sellForm.sale_date} onChange={e => setSellForm(f => ({ ...f, sale_date: e.target.value }))} className={input} />
                       </div>
                       <div className="col-span-2">
