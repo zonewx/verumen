@@ -123,7 +123,7 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
   return (
     <div
       onClick={onClick}
-      className={`rounded-xl border flex flex-col transition-transform hover:scale-[1.02] ${onClick ? 'cursor-pointer' : ''} bg-zinc-800 border-zinc-700`}
+      className={`rounded-xl border flex flex-col transition-transform hover:scale-[1.02] ${onClick ? 'cursor-pointer' : ''} bg-zinc-800 ${inRegistry ? 'border-green-700/60' : 'border-zinc-700'}`}
     >
       {/* Image area with rarity tint */}
       <div className="relative p-3 pb-2" style={item.rarityColor ? { background: `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 70%)` } : {}}>
@@ -197,6 +197,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState('');
   const [invSort, setInvSort] = useState('default');
+  const [invSortOpen, setInvSortOpen] = useState(false);
+  const invSortRef = useRef(null);
 const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory?currency=${baseCurrency}`) || []);
   const [pnl, setPnl] = useState(() => apiCache.get(`/api/cs/pnl?currency=${baseCurrency}`));
   const [pricesReady, setPricesReady] = useState(() => apiCache.has('/api/cs/prices-ready'));
@@ -298,6 +300,12 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     const t = setTimeout(() => { pricingRetries.current++; fetchSteamInventory(true); }, 20000);
     return () => clearTimeout(t);
   }, [steamInventory]);
+
+  useEffect(() => {
+    const close = e => { if (invSortRef.current && !invSortRef.current.contains(e.target)) setInvSortOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
 
   const INVENTORY_CACHE_TTL = 10 * 60 * 1000;
   const INVENTORY_CACHE_VERSION = 3; // bump when item shape changes
@@ -674,17 +682,30 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold">Steam Inventory</h2>
-                  <p className={`text-xs mt-0.5 text-zinc-400`}>Live tradable items from your Steam account</p>
                 </div>
                 {steamInventory && (
-                  <select
-                    value={invSort}
-                    onChange={e => setInvSort(e.target.value)}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition outline-none cursor-pointer"
-                  >
-                    <option value="default">Inventory order</option>
-                    <option value="rarity">Rarity</option>
-                  </select>
+                  <div ref={invSortRef} className="relative">
+                    <button
+                      onClick={() => setInvSortOpen(v => !v)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition"
+                    >
+                      <span className="text-zinc-400 font-normal">Sort:</span>
+                      {invSort === 'default' ? 'Inventory order' : 'Rarity'}
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">
+                        <path d="M2 4l4 4 4-4"/>
+                      </svg>
+                    </button>
+                    {invSortOpen && (
+                      <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-50 min-w-full">
+                        {[['default', 'Inventory order'], ['rarity', 'Rarity']].map(([v, l]) => (
+                          <button key={v} onClick={() => { setInvSort(v); setInvSortOpen(false); }}
+                            className={`w-full text-left px-4 py-2 text-sm transition hover:bg-zinc-700 ${invSort === v ? 'text-white font-semibold' : 'text-zinc-300'}`}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -722,7 +743,11 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       {sorted.map((item, i) => (
                         <SkinCard key={i} item={item}
                           inRegistry={registeredAssetIds.has(item.assetId)}
-                          onViewInRegistry={() => setTab('tracker')} />
+                          onViewInRegistry={() => {
+                            const match = inventory.find(r => r.steam_asset_id === item.assetId);
+                            if (match) setExpandedRows(prev => new Set([...prev, match.id]));
+                            setTab('tracker');
+                          }} />
                       ))}
                     </div>
                   </>
