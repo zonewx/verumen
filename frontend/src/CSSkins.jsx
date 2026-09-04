@@ -1602,21 +1602,73 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                 <tr className="border-t border-zinc-700">
                                   <td colSpan={10} className="p-0">
                                     <div className="bg-zinc-800/60 px-6 py-5 flex items-stretch gap-6" onClick={e => e.stopPropagation()}>
-                                      {/* Content column */}
-                                      <div className="flex-1 min-w-0 flex flex-col gap-3">
-                                        {/* Item name */}
-                                        {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return <p className={`font-bold text-sm ${nameColor}`}>{n}</p>; })()}
-                                        {/* Float bar */}
-                                        {item.float_value && !isVanilla && (
-                                          <div>
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">Float</p>
-                                            <div className="relative h-1.5 rounded-full overflow-hidden max-w-[240px]" style={{background:'linear-gradient(to right,#22c55e,#84cc16,#eab308,#f97316,#ef4444)'}}>
-                                              {[0.07,0.15,0.38,0.45].map(v => (
-                                                <div key={v} className="absolute top-0 bottom-0 w-px bg-black/30" style={{left:`${v*100}%`}} />
-                                              ))}
-                                              <div className="absolute top-1/2 w-2.5 h-2.5 bg-white rounded-full shadow border-2 border-zinc-800" style={{left:`${Math.min(parseFloat(item.float_value)*100,99.5)}%`,transform:'translate(-50%,-50%)'}} />
+                                      {/* Left: content */}
+                                      <div className="flex-1 min-w-0 flex flex-col gap-4">
+                                        {/* Icon + name header */}
+                                        <div className="flex items-center gap-3">
+                                          {item.icon_url && (
+                                            <img src={item.icon_url} alt="" className="w-16 h-16 object-contain shrink-0 rounded" />
+                                          )}
+                                          {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return <p className={`font-bold text-base ${nameColor}`}>{n}</p>; })()}
+                                        </div>
+                                        {/* Stat grid — always-populated fields first, conditionals after */}
+                                        <div className="grid grid-cols-3 gap-x-6 gap-y-3">
+                                          {!isVanilla && item.exterior && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Exterior</p>
+                                              <p className="text-sm text-zinc-200">{item.exterior}</p>
                                             </div>
-                                            <p className="text-[11px] font-mono text-zinc-400 mt-1">{parseFloat(item.float_value).toFixed(4)}</p>
+                                          )}
+                                          {item.float_value && !isVanilla && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Float</p>
+                                              <p className="text-sm font-mono text-zinc-200">{parseFloat(item.float_value).toFixed(4)}</p>
+                                            </div>
+                                          )}
+                                          {item.pattern != null && item.pattern !== '' && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Pattern</p>
+                                              <p className="text-sm font-mono text-zinc-200">{item.pattern}</p>
+                                            </div>
+                                          )}
+                                          {item.purchase_date && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Date</p>
+                                              <p className="text-sm text-zinc-200">{item.purchase_date}</p>
+                                            </div>
+                                          )}
+                                          {buyPrice != null && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Price</p>
+                                              <p className="text-sm font-mono text-zinc-200">{fmtBC(buyPrice)}</p>
+                                            </div>
+                                          )}
+                                          {item.sold && item.sale_date && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Sale Date</p>
+                                              <p className="text-sm text-zinc-200">{item.sale_date}</p>
+                                            </div>
+                                          )}
+                                          {item.sold && item.sale_price_display != null && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Sale Price</p>
+                                              <p className="text-sm font-mono text-zinc-200">{fmtBC(item.sale_price_display)}</p>
+                                            </div>
+                                          )}
+                                          {pnlVal !== null && (
+                                            <div>
+                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">P&L</p>
+                                              <p className={`text-sm font-bold font-mono ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>{pnlPos ? '+' : ''}{fmtBC(pnlVal)}</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                        {/* Float bar (visual only — number is in the grid above) */}
+                                        {item.float_value && !isVanilla && (
+                                          <div className="relative h-1.5 rounded-full overflow-hidden max-w-[280px]" style={{background:'linear-gradient(to right,#22c55e,#84cc16,#eab308,#f97316,#ef4444)'}}>
+                                            {[0.07,0.15,0.38,0.45].map(v => (
+                                              <div key={v} className="absolute top-0 bottom-0 w-px bg-black/30" style={{left:`${v*100}%`}} />
+                                            ))}
+                                            <div className="absolute top-1/2 w-2.5 h-2.5 bg-white rounded-full shadow border-2 border-zinc-800" style={{left:`${Math.min(parseFloat(item.float_value)*100,99.5)}%`,transform:'translate(-50%,-50%)'}} />
                                           </div>
                                         )}
                                         {/* Stickers */}
@@ -1637,21 +1689,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                             </div>
                                           </div>
                                         )}
-                                        {/* Stats row */}
-                                        <div className="flex flex-wrap gap-x-6 gap-y-2">
-                                          {item.pattern != null && item.pattern !== '' && (
-                                            <div>
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Pattern</p>
-                                              <p className="text-sm font-mono">{item.pattern}</p>
-                                            </div>
-                                          )}
-                                          {pnlVal !== null && (
-                                            <div>
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">P&L</p>
-                                              <p className={`text-sm font-bold ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>{pnlPos ? '+' : ''}{fmtBC(pnlVal)}</p>
-                                            </div>
-                                          )}
-                                        </div>
                                         {/* Notes */}
                                         {item.notes && (
                                           <div>
@@ -1659,8 +1696,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                             <p className="text-sm text-zinc-300">{item.notes}</p>
                                           </div>
                                         )}
-                                        {/* Action buttons — bottom left */}
-                                        <div className="flex gap-2 mt-auto pt-3">
+                                        {/* Action buttons */}
+                                        <div className="flex gap-2 mt-auto pt-1">
                                           {!item.sold && (
                                             <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">Sell</button>
                                           )}
@@ -1670,7 +1707,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                       </div>
                                       {/* Right: screenshot */}
                                       {screenshotUrl && (
-                                        <div className="shrink-0 max-w-2xl w-full">
+                                        <div className="shrink-0 max-w-lg w-full">
                                           <SteamScreenshotEmbed url={screenshotUrl} />
                                         </div>
                                       )}
