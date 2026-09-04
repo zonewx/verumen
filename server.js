@@ -3320,7 +3320,7 @@ app.delete('/api/cs/prices/override/:skinName', requireUser, async (req, res) =>
 
 
 const steamInvCache = new Map(); // steamId:BC → { payload, ts }
-const STEAM_INV_CACHE_TTL_MS = 5 * 60 * 1000;
+const STEAM_INV_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, 'steam-inv'), async (req, res) => {
   if (!/^\d{17}$/.test(req.params.steamId)) return res.status(400).json({ error: 'Invalid Steam ID' });

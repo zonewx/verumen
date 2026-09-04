@@ -123,7 +123,7 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
   return (
     <div
       onClick={onClick}
-      className={`rounded-xl border flex flex-col transition-transform hover:scale-[1.02] ${onClick ? 'cursor-pointer' : ''} bg-zinc-800 ${inRegistry ? 'border-green-700/60' : 'border-zinc-700'}`}
+      className={`relative rounded-xl border flex flex-col transition-transform hover:scale-[1.02] hover:z-10 ${onClick ? 'cursor-pointer' : ''} bg-zinc-800 ${inRegistry ? 'border-green-700/60' : 'border-zinc-700'}`}
     >
       {/* Image area with rarity tint */}
       <div className="relative p-3 pb-2" style={item.rarityColor ? { background: `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 70%)` } : {}}>
@@ -148,7 +148,7 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
               <div key={i} className="relative group">
                 <img src={s.url} alt={s.name} className="w-9 h-9 object-contain opacity-85 hover:opacity-100 transition" />
                 {s.name && (
-                  <div className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-200 whitespace-nowrap">
+                  <div className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
                     <p className="text-xs font-semibold text-white">{s.name}</p>
                   </div>
                 )}
@@ -159,25 +159,27 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
       </div>
 
       {/* Info area */}
-      <div className="px-3 pb-3 flex flex-col gap-0.5 flex-1">
-        {/* Rarity + quality badges */}
-        <div className="flex items-center gap-1.5 mb-0.5">
-          {item.rarityColor && (
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.rarityColor }} />
+      <div className="px-3 pb-3 flex flex-col flex-1">
+        <div className="mt-auto flex flex-col gap-0.5">
+          {/* Rarity + quality badges */}
+          <div className="flex items-center gap-1.5 mb-0.5">
+            {item.rarityColor && (
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.rarityColor }} />
+            )}
+            {item.rarity && <span className="text-[10px] font-semibold" style={{ color: item.rarityColor || 'inherit' }}>{item.rarity}</span>}
+            {isSpecial && <span className="text-[10px] font-bold ml-auto" style={{ color: qualityColor }}>{item.quality}</span>}
+          </div>
+
+          {/* Name */}
+          <p className="text-xs font-semibold leading-tight line-clamp-2" title={item.name}>
+            {isKnifeOrGloves && <span className="text-yellow-400 mr-0.5">★</span>}{isKnifeOrGloves ? item.name.replace(/^★\s*/, '') : item.name}
+          </p>
+
+          {/* Exterior */}
+          {item.exterior && (
+            <p className={`text-[10px] text-zinc-400`}>{item.exterior}</p>
           )}
-          {item.rarity && <span className="text-[10px] font-semibold" style={{ color: item.rarityColor || 'inherit' }}>{item.rarity}</span>}
-          {isSpecial && <span className="text-[10px] font-bold ml-auto" style={{ color: qualityColor }}>{item.quality}</span>}
         </div>
-
-        {/* Name */}
-        <p className="text-xs font-semibold leading-tight line-clamp-2" title={item.name}>
-          {isKnifeOrGloves && <span className="text-yellow-400 mr-0.5">★</span>}{isKnifeOrGloves ? item.name.replace(/^★\s*/, '') : item.name}
-        </p>
-
-        {/* Exterior */}
-        {item.exterior && (
-          <p className={`text-[10px] text-zinc-400`}>{item.exterior}</p>
-        )}
       </div>
     </div>
   );
@@ -201,7 +203,6 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const invSortRef = useRef(null);
 const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory?currency=${baseCurrency}`) || []);
   const [pnl, setPnl] = useState(() => apiCache.get(`/api/cs/pnl?currency=${baseCurrency}`));
-  const [pricesReady, setPricesReady] = useState(() => apiCache.has('/api/cs/prices-ready'));
   const [showAddForm, setShowAddForm] = useState(false);
   const [addModalTab, setAddModalTab] = useState('inventory');
   const [modalInventory, setModalInventory] = useState(null);
@@ -259,10 +260,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       setInventory(Array.isArray(inv) ? inv : []);
       setPnl(p);
       setSettings(s);
-      const priceCheck = await fetch('/api/cs/prices/search/AK-47', { headers: h }).then(r => r.json());
-      const ready = Array.isArray(priceCheck) && priceCheck.length > 0;
-      if (ready) apiCache.set('/api/cs/prices-ready', true);
-      setPricesReady(ready);
     } catch(e) { console.error(e); }
   }, [baseCurrency]);
 
@@ -280,26 +277,12 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   }, [inventory.length]);
 
   // Fetch Steam inventory whenever the user lands on the inventory tab.
-  // fetchSteamInventory has a 10-min sessionStorage cache so rapid revisits are free.
   useEffect(() => {
     if (settings.steam_id && tab === 'inventory') {
       fetchSteamInventory();
     }
   }, [settings.steam_id, tab]);
 
-  // Auto-refresh while server signals prices are still being fetched in background.
-  // Depends on the steamInventory object reference so it re-evaluates after every refresh,
-  // not just when pricingPending flips — otherwise a stuck-at-true value never retriggers.
-  const pricingRetries = useRef(0);
-  useEffect(() => {
-    if (!steamInventory?.pricingPending) { pricingRetries.current = 0; return; }
-    if (pricingRetries.current >= 5) {
-      setSteamInventory(prev => prev ? { ...prev, pricingPending: false } : prev);
-      return;
-    }
-    const t = setTimeout(() => { pricingRetries.current++; fetchSteamInventory(true); }, 20000);
-    return () => clearTimeout(t);
-  }, [steamInventory]);
 
   useEffect(() => {
     const close = e => { if (invSortRef.current && !invSortRef.current.contains(e.target)) setInvSortOpen(false); };
@@ -307,7 +290,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     return () => document.removeEventListener('mousedown', close);
   }, []);
 
-  const INVENTORY_CACHE_TTL = 10 * 60 * 1000;
+  const INVENTORY_CACHE_TTL = 24 * 60 * 60 * 1000; // 24h auto-refresh
   const INVENTORY_CACHE_VERSION = 3; // bump when item shape changes
 
   const fetchSteamInventory = async (force = false) => {
@@ -315,7 +298,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     if (!id) { setSteamError('No Steam ID linked — set it in your profile settings'); return; }
     if (!force) {
       try {
-        const cached = sessionStorage.getItem('steam_inv_cache');
+        const cached = localStorage.getItem('steam_inv_cache');
         if (cached) {
           const { data, ts, v } = JSON.parse(cached);
           if (v === INVENTORY_CACHE_VERSION && Date.now() - ts < INVENTORY_CACHE_TTL) { setSteamInventory(data); return; }
@@ -329,7 +312,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       if (!res.ok) { setSteamError(data.error || 'Failed to fetch inventory'); }
       else {
         setSteamInventory(data);
-        sessionStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION }));
+        try { localStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION })); } catch(e) {}
       }
     } catch(e) { setSteamError('Network error: ' + e.message); }
     setSteamLoading(false);
@@ -339,9 +322,9 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     if (modalInventory) return;
     const id = settings.steam_id;
     if (!id) return;
-    // Use the same sessionStorage cache as the inventory tab
+    // Use the same localStorage cache as the inventory tab
     try {
-      const cached = sessionStorage.getItem('steam_inv_cache');
+      const cached = localStorage.getItem('steam_inv_cache');
       if (cached) {
         const { data, ts, v } = JSON.parse(cached);
         if (v === INVENTORY_CACHE_VERSION && Date.now() - ts < INVENTORY_CACHE_TTL) { setModalInventory(data.items || []); return; }
@@ -353,7 +336,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       const data = await res.json();
       if (res.ok) {
         setModalInventory(data.items || []);
-        sessionStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION }));
+        try { localStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION })); } catch(e) {}
       }
     } catch(e) {}
     setModalInvLoading(false);
@@ -575,8 +558,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     .sort((a, b) => {
       let av = a[sortCol], bv = b[sortCol];
       if (sortCol === 'pnl') {
-        av = a.sold ? ((a.sale_price_display || 0) - (a.purchase_price_display || 0)) : ((a.current_price || 0) - (a.purchase_price_display || 0));
-        bv = b.sold ? ((b.sale_price_display || 0) - (b.purchase_price_display || 0)) : ((b.current_price || 0) - (b.purchase_price_display || 0));
+        av = a.sold ? ((a.sale_price_display || 0) - (a.purchase_price_display || 0)) : null;
+        bv = b.sold ? ((b.sale_price_display || 0) - (b.purchase_price_display || 0)) : null;
       }
       if (av == null) av = '';
       if (bv == null) bv = '';
@@ -617,18 +600,10 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
               </div>
 
               {pnl && (
-                <>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <PnlCard label="Current Value" value={fmtBC(pnl.currentValue)} />
-                    <PnlCard label="Total Invested" value={fmtBC(pnl.totalInvested)} />
-                    <PnlCard label="Unrealised P&L" value={`${pnl.unrealised >= 0 ? '+' : ''}${fmtBC(pnl.unrealised)}`} positive={pnl.unrealised >= 0} sub={`${pnl.holdingCount} skins held`} />
-                    <PnlCard label="Realised P&L" value={`${pnl.realised >= 0 ? '+' : ''}${fmtBC(pnl.realised)}`} positive={pnl.realised >= 0} sub={`${pnl.soldCount} skins sold`} />
-                  </div>
-                  <div className={`${card} p-5`}>
-                    <p className={`text-xs font-semibold uppercase tracking-wider mb-2 text-zinc-400`}>Total P&L</p>
-                    <p className={`text-4xl font-bold ${pnl.totalPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>{pnl.totalPnl >= 0 ? '+' : ''}{fmtBC(pnl.totalPnl)}</p>
-                  </div>
-                </>
+                <div className="grid grid-cols-2 gap-4">
+                  <PnlCard label="Total Invested" value={fmtBC(pnl.totalInvested)} sub={`${pnl.holdingCount} skins held`} />
+                  <PnlCard label="Realised P&L" value={`${pnl.realised >= 0 ? '+' : ''}${fmtBC(pnl.realised)}`} positive={pnl.realised >= 0} sub={`${pnl.soldCount} skins sold`} />
+                </div>
               )}
 
               {/* Recent trades */}
@@ -641,9 +616,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                   <div className="flex flex-col divide-y divide-zinc-700">
                     {inventory.slice(0, 5).map(item => {
                       const costPrice = item.purchase_price_display || 0;
-                      const currentPrice = item.current_price || 0;
-                      const pnlVal = item.sold ? ((item.sale_price_display || 0) - costPrice) : (currentPrice - costPrice);
-                      const pnlPos = pnlVal >= 0;
+                      const pnlVal = item.sold ? ((item.sale_price_display || 0) - costPrice) : null;
+                      const pnlPos = pnlVal !== null && pnlVal >= 0;
                       return (
                         <div key={item.id} className={`flex items-center gap-4 py-3 first:pt-0 last:pb-0`}>
                           <div className={`w-2 h-2 rounded-full shrink-0 ${item.sold ? 'bg-gray-500' : 'bg-green-400'}`} />
@@ -654,14 +628,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                               {item.exterior && <span className="ml-1">· {item.exterior}</span>}
                             </p>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className={`text-sm font-bold ${currentPrice === 0 && !item.sold ? 'text-zinc-400' : pnlPos ? 'text-green-400' : 'text-red-400'}`}>
-                              {currentPrice === 0 && !item.sold ? '—' : `${pnlPos ? '+' : ''}${fmtBC(pnlVal)}`}
-                            </p>
-                            <p className={`text-xs text-zinc-400`}>
-                              {fmtBC(item.purchase_price_display)}
-                            </p>
-                          </div>
+                          {pnlVal !== null && (
+                            <div className="text-right shrink-0">
+                              <p className={`text-sm font-bold ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>
+                                {pnlPos ? '+' : ''}{fmtBC(pnlVal)}
+                              </p>
+                              <p className={`text-xs text-zinc-400`}>{fmtBC(costPrice)}</p>
+                            </div>
+                          )}
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${item.sold ? 'bg-zinc-700 text-zinc-400' : 'bg-green-900/40 text-green-400'}`}>
                             {item.sold ? 'Sold' : 'Holding'}
                           </span>
@@ -683,23 +657,36 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                 <div>
                   <h2 className="text-lg font-bold">Steam Inventory</h2>
                 </div>
+                <div className="flex items-center gap-2">
                 {steamInventory && (
-                  <div ref={invSortRef} className="relative">
+                  <button
+                    onClick={() => fetchSteamInventory(true)}
+                    disabled={steamLoading}
+                    title="Refresh inventory"
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg border border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition disabled:opacity-40"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={steamLoading ? 'animate-spin' : ''}>
+                      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+                    </svg>
+                    Refresh
+                  </button>
+                )}
+                {steamInventory && (
+                  <div ref={invSortRef} className="bg-zinc-800 border border-zinc-700 rounded-xl p-2 min-w-[160px]">
                     <button
                       onClick={() => setInvSortOpen(v => !v)}
-                      className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg border border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition"
+                      className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border border-zinc-600 bg-zinc-700 hover:bg-zinc-600 text-sm font-semibold text-zinc-100 transition"
                     >
-                      <span className="text-zinc-400 font-normal">Sort:</span>
                       {invSort === 'default' ? 'Inventory order' : 'Rarity'}
-                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`text-zinc-400 transition-transform ${invSortOpen ? 'rotate-180' : ''}`}>
                         <path d="M2 4l4 4 4-4"/>
                       </svg>
                     </button>
                     {invSortOpen && (
-                      <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-50 min-w-full">
+                      <div className="mt-2 bg-zinc-700/50 border border-zinc-600 rounded-lg overflow-hidden">
                         {[['default', 'Inventory order'], ['rarity', 'Rarity']].map(([v, l]) => (
                           <button key={v} onClick={() => { setInvSort(v); setInvSortOpen(false); }}
-                            className={`w-full text-left px-4 py-2 text-sm transition hover:bg-zinc-700 ${invSort === v ? 'text-white font-semibold' : 'text-zinc-300'}`}>
+                            className={`w-full text-left px-3 py-2 text-sm transition hover:bg-zinc-600 ${invSort === v ? 'text-white font-semibold' : 'text-zinc-400'}`}>
                             {l}
                           </button>
                         ))}
@@ -707,6 +694,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                     )}
                   </div>
                 )}
+                </div>
               </div>
 
               {!settings.steam_id && (
@@ -719,11 +707,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
               {steamInventory?.stale && (
                 <p className={`text-xs px-3 py-2 rounded-lg bg-zinc-700/60 text-zinc-400`}>
                   Showing cached inventory — Steam is temporarily unavailable ({steamInventory.staleReason})
-                </p>
-              )}
-              {steamInventory?.pricingPending && (
-                <p className={`text-xs px-3 py-2 rounded-lg bg-yellow-900/30 text-yellow-400`}>
-                  Fetching prices for new items in background — updating automatically in ~20s
                 </p>
               )}
               {steamInventory && (() => {
@@ -802,8 +785,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                 const holding = inventory.filter(i => !i.sold);
                 const sold = inventory.filter(i => i.sold);
                 const invested = holding.reduce((s, i) => s + (i.purchase_price_display || 0), 0);
-                const current = holding.reduce((s, i) => s + (i.current_price || 0), 0);
-                const unrealized = current - invested;
                 const realized = sold.reduce((s, i) => s + ((i.sale_price_display || 0) - (i.purchase_price_display || 0)), 0);
                 return (
                   <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-zinc-400 px-1">
@@ -811,14 +792,12 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       <span>
                         <span className="text-zinc-200 font-semibold">{holding.length}</span> holding
                         {' · '}Invested {fmtBC(invested)}
-                        {' · '}Current {fmtBC(current)}
-                        {' · '}<span className={unrealized >= 0 ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{unrealized >= 0 ? '+' : ''}{fmtBC(unrealized)}</span>
                       </span>
                     )}
                     {sold.length > 0 && (
                       <span>
                         <span className="text-zinc-200 font-semibold">{sold.length}</span> sold
-                        {' · '}Realized <span className={realized >= 0 ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{realized >= 0 ? '+' : ''}{fmtBC(realized)}</span>
+                        {' · '}Realised <span className={realized >= 0 ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{realized >= 0 ? '+' : ''}{fmtBC(realized)}</span>
                       </span>
                     )}
                   </div>
@@ -1351,10 +1330,9 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       </thead>
                       <tbody>
                         {filteredInv.map(item => {
-                          const currentPrice = item.current_price || 0;
                           const buyPrice = item.purchase_price_display || 0;
-                          const pnlVal = item.sold ? ((item.sale_price_display || 0) - buyPrice) : (currentPrice - buyPrice);
-                          const pnlPos = pnlVal >= 0;
+                          const pnlVal = item.sold ? ((item.sale_price_display || 0) - buyPrice) : null;
+                          const pnlPos = pnlVal !== null && pnlVal >= 0;
                           const isExpanded = expandedRows.has(item.id);
                           const screenshotUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url;
                           const isVanilla = !item.float_value;
@@ -1428,7 +1406,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                   </span>
                                 </td>
                                 <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs font-bold">
-                                  {(item.sold || currentPrice > 0) ? (
+                                  {pnlVal !== null ? (
                                     <span className={pnlPos ? 'text-green-400' : 'text-red-400'}>
                                       {pnlPos ? '+' : ''}{fmtBC(pnlVal)}
                                     </span>
@@ -1484,13 +1462,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                               <p className="text-sm font-mono">{item.pattern}</p>
                                             </div>
                                           )}
-                                          {!item.sold && currentPrice > 0 && (
-                                            <div>
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Current</p>
-                                              <p className="text-sm font-mono">{fmtBC(currentPrice)}</p>
-                                            </div>
-                                          )}
-                                          {(item.sold || currentPrice > 0) && (
+                                          {pnlVal !== null && (
                                             <div>
                                               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">P&L</p>
                                               <p className={`text-sm font-bold ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>{pnlPos ? '+' : ''}{fmtBC(pnlVal)}</p>
