@@ -196,6 +196,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [steamInventory, setSteamInventory] = useState(null);
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState('');
+  const [invSort, setInvSort] = useState('default');
 const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory?currency=${baseCurrency}`) || []);
   const [pnl, setPnl] = useState(() => apiCache.get(`/api/cs/pnl?currency=${baseCurrency}`));
   const [pricesReady, setPricesReady] = useState(() => apiCache.has('/api/cs/prices-ready'));
@@ -675,6 +676,16 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                   <h2 className="text-lg font-bold">Steam Inventory</h2>
                   <p className={`text-xs mt-0.5 text-zinc-400`}>Live tradable items from your Steam account</p>
                 </div>
+                {steamInventory && (
+                  <select
+                    value={invSort}
+                    onChange={e => setInvSort(e.target.value)}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border border-zinc-600 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 transition outline-none cursor-pointer"
+                  >
+                    <option value="default">Inventory order</option>
+                    <option value="rarity">Rarity</option>
+                  </select>
+                )}
               </div>
 
               {!settings.steam_id && (
@@ -695,7 +706,11 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                 </p>
               )}
               {steamInventory && (() => {
+                const RARITY_RANK = { Extraordinary: 7, Contraband: 6, Covert: 5, Classified: 4, Restricted: 3, 'Mil-Spec Grade': 2, 'Industrial Grade': 1, 'Consumer Grade': 0 };
                 const tradable = steamInventory.items.filter(i=>i.tradable);
+                const sorted = invSort === 'rarity'
+                  ? [...tradable].sort((a, b) => (RARITY_RANK[b.rarity] ?? -1) - (RARITY_RANK[a.rarity] ?? -1))
+                  : tradable;
                 const registeredAssetIds = new Set(inventory.filter(i => i.steam_asset_id).map(i => i.steam_asset_id));
                 return (
                   <>
@@ -704,7 +719,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       <span><span className="text-zinc-200 font-semibold">{tradable.length}</span> tradable items</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                      {tradable.map((item, i) => (
+                      {sorted.map((item, i) => (
                         <SkinCard key={i} item={item}
                           inRegistry={registeredAssetIds.has(item.assetId)}
                           onViewInRegistry={() => setTab('tracker')} />
