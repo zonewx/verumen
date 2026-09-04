@@ -1013,8 +1013,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                               <p className={`text-xs truncate leading-tight ${alreadyTracked ? 'text-zinc-400' : 'text-zinc-300'}`}>{item.name}</p>
                                               {item.price > 0 && <p className="text-xs text-green-400 font-bold mt-0.5">{fmtBC(item.price)}</p>}
                                               {alreadyTracked && (
-                                                <div className="absolute top-1.5 right-1.5 px-1 py-0.5 rounded bg-green-900/80 border border-green-700/60">
-                                                  <span className="text-[8px] font-semibold text-green-400 uppercase tracking-wide leading-none">Tracked</span>
+                                                <div className="absolute top-1.5 right-1.5 px-1 py-px rounded bg-green-900/80 border border-green-700/60">
+                                                  <span className="text-[8px] font-semibold text-green-400 uppercase tracking-wide leading-none">Already added</span>
                                                 </div>
                                               )}
                                             </button>
