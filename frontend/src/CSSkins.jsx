@@ -988,6 +988,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                       ))}
                                     </div>
                                   </div>
+                                  <div className="overflow-y-auto" style={{ minHeight: '520px' }}>
                                   {modalInvLoading ? (
                                     <div className="flex items-center justify-center py-12">
                                       <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
@@ -1059,6 +1060,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                       }
                                     </div>
                                   )}
+                                  </div>
                                 </>
                               )}
 
