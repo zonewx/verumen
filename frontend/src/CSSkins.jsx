@@ -179,14 +179,16 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
               .replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')}
           </p>
 
-          {/* StatTrak / Souvenir quality */}
-          {isSpecial && (
-            <p className="text-[10px] font-bold" style={{ color: qualityColor }}>{item.quality}</p>
-          )}
-
-          {/* Exterior */}
-          {item.exterior && (
-            <p className="text-[10px] text-zinc-400">{item.exterior}</p>
+          {/* StatTrak / Souvenir + Exterior on same row */}
+          {(isSpecial || item.exterior) && (
+            <div className="flex items-center gap-1.5">
+              {isSpecial && (
+                <span className="text-[10px] font-bold" style={{ color: qualityColor }}>{item.quality}</span>
+              )}
+              {item.exterior && (
+                <span className="text-[10px] text-zinc-400">{item.exterior}</span>
+              )}
+            </div>
           )}
         </div>
       </div>
