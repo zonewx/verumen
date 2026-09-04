@@ -1016,8 +1016,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                               {/* Image area */}
                                               <div className="relative p-3 pb-2">
                                                 {alreadyTracked && (
-                                                  <div className="absolute top-2 right-2 z-10 px-1 py-px rounded bg-green-900/80 border border-green-700/60">
-                                                    <span className="text-[8px] font-semibold text-green-400 uppercase tracking-wide leading-none">Already added</span>
+                                                  <div className="absolute top-2 right-2 z-10 px-1.5 rounded bg-green-900/80 border border-green-700/60" style={{ paddingTop: '2px', paddingBottom: '2px' }}>
+                                                    <span className="text-[7px] font-bold text-green-400 uppercase tracking-wider" style={{ lineHeight: 1 }}>Already added</span>
                                                   </div>
                                                 )}
                                                 {item.iconUrl
