@@ -123,10 +123,11 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
   return (
     <div
       onClick={onClick}
-      className={`relative rounded-xl border flex flex-col transition-transform hover:scale-[1.02] hover:z-10 ${onClick ? 'cursor-pointer' : ''} bg-zinc-800 ${inRegistry ? 'border-green-700/60' : 'border-zinc-700'}`}
+      className={`relative rounded-xl border flex flex-col transition-transform hover:scale-[1.02] hover:z-10 ${onClick ? 'cursor-pointer' : ''} ${inRegistry ? 'border-green-700/60' : 'border-zinc-700'}`}
+      style={{ background: item.rarityColor ? `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 100%), #27272a` : '#27272a' }}
     >
-      {/* Image area with rarity tint */}
-      <div className="relative p-3 pb-2 rounded-t-xl" style={item.rarityColor ? { background: `linear-gradient(160deg, ${item.rarityColor}22 0%, transparent 70%)` } : {}}>
+      {/* Image area */}
+      <div className="relative p-3 pb-2">
         {inRegistry && (
           <button
             onClick={e => { e.stopPropagation(); onViewInRegistry?.(); }}
@@ -138,8 +139,8 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
           </button>
         )}
         {item.iconUrl
-          ? <img src={item.iconUrl} alt={item.name} className="w-full h-24 object-contain" />
-          : <div className="w-full h-24 flex items-center justify-center text-3xl">🔫</div>
+          ? <img src={item.iconUrl} alt={item.name} className="w-full h-24 object-contain mt-5" />
+          : <div className="w-full h-24 flex items-center justify-center text-3xl mt-5">🔫</div>
         }
         {/* Sticker row */}
         {item.stickers?.length > 0 && (
@@ -161,13 +162,12 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
       {/* Info area */}
       <div className="px-3 pb-3 flex flex-col flex-1">
         <div className="mt-auto flex flex-col gap-0.5">
-          {/* Rarity + quality badges */}
+          {/* Rarity badge */}
           <div className="flex items-center gap-1.5 mb-0.5">
             {item.rarityColor && (
               <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.rarityColor }} />
             )}
             {item.rarity && <span className="text-[10px] font-semibold" style={{ color: item.rarityColor || 'inherit' }}>{item.rarity}</span>}
-            {isSpecial && <span className="text-[10px] font-bold ml-auto" style={{ color: qualityColor }}>{item.quality}</span>}
           </div>
 
           {/* Name — StatTrak™ prefix and wear suffix stripped since both shown separately */}
@@ -179,9 +179,14 @@ function SkinCard({ item, onClick, inRegistry, onViewInRegistry }) {
               .replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')}
           </p>
 
+          {/* StatTrak / Souvenir quality */}
+          {isSpecial && (
+            <p className="text-[10px] font-bold" style={{ color: qualityColor }}>{item.quality}</p>
+          )}
+
           {/* Exterior */}
           {item.exterior && (
-            <p className={`text-[10px] text-zinc-400`}>{item.exterior}</p>
+            <p className="text-[10px] text-zinc-400">{item.exterior}</p>
           )}
         </div>
       </div>
@@ -203,8 +208,6 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState('');
   const [invSort, setInvSort] = useState('default');
-  const [invSortOpen, setInvSortOpen] = useState(false);
-  const invSortRef = useRef(null);
 const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory?currency=${baseCurrency}`) || []);
   const [pnl, setPnl] = useState(() => apiCache.get(`/api/cs/pnl?currency=${baseCurrency}`));
   const [showAddForm, setShowAddForm] = useState(false);
@@ -288,11 +291,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   }, [settings.steam_id, tab]);
 
 
-  useEffect(() => {
-    const close = e => { if (invSortRef.current && !invSortRef.current.contains(e.target)) setInvSortOpen(false); };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, []);
 
   const INVENTORY_CACHE_TTL = 24 * 60 * 60 * 1000; // 24h auto-refresh
   const INVENTORY_CACHE_VERSION = 3; // bump when item shape changes
@@ -663,13 +661,13 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                 </div>
                 <div className="flex items-center gap-2">
                   {steamInventory && (
-                    <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-2">
+                    <div className="flex rounded-lg border border-zinc-700 bg-zinc-900 p-0.5">
                       <button
                         onClick={() => fetchSteamInventory(true)}
                         disabled={steamLoading}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-600 bg-zinc-700 hover:bg-zinc-600 text-sm font-semibold text-zinc-300 transition disabled:opacity-40"
+                        className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-md transition text-zinc-400 hover:text-zinc-200 disabled:opacity-40"
                       >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={steamLoading ? 'animate-spin' : ''}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={steamLoading ? 'animate-spin' : ''}>
                           <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
                         </svg>
                         Refresh
@@ -677,27 +675,13 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                     </div>
                   )}
                   {steamInventory && (
-                    <div ref={invSortRef} className="relative flex items-center gap-2.5 bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 shrink-0">Sort:</span>
-                      <button
-                        onClick={() => setInvSortOpen(v => !v)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-600 bg-zinc-700 hover:bg-zinc-600 text-sm font-semibold text-zinc-100 transition"
-                      >
-                        {invSort === 'default' ? 'Inventory order' : 'Rarity'}
-                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className={`text-zinc-400 transition-transform ${invSortOpen ? 'rotate-180' : ''}`}>
-                          <path d="M2 4l4 4 4-4"/>
-                        </svg>
-                      </button>
-                      {invSortOpen && (
-                        <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-50 min-w-[160px]">
-                          {[['default', 'Inventory order'], ['rarity', 'Rarity']].map(([v, l]) => (
-                            <button key={v} onClick={() => { setInvSort(v); setInvSortOpen(false); }}
-                              className={`w-full text-left px-4 py-2 text-sm transition hover:bg-zinc-700 ${invSort === v ? 'text-white font-semibold' : 'text-zinc-300'}`}>
-                              {l}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                    <div className="flex rounded-lg border border-zinc-700 bg-zinc-900 p-0.5 gap-0.5">
+                      {[['default', 'Inventory order'], ['rarity', 'Rarity']].map(([v, l]) => (
+                        <button key={v} onClick={() => setInvSort(v)}
+                          className={`px-3 py-1 text-xs font-semibold rounded-md transition ${invSort === v ? 'bg-zinc-700 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                          {l}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
