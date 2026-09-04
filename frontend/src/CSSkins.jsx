@@ -873,14 +873,21 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
 
               {/* Add trade modal */}
               {showAddForm && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full flex flex-col ${addModalTab ? 'max-w-7xl' : 'max-w-lg'}`} style={{ maxHeight: '96vh' }}>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={closeAddModal}>
+                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full flex flex-col ${addModalTab ? 'max-w-7xl' : 'max-w-lg'}`} style={{ maxHeight: '96vh' }} onClick={e => e.stopPropagation()}>
 
                     {/* Header */}
                     <div className={`flex items-center gap-3 px-6 py-4 border-b border-zinc-700 shrink-0`}>
                       {addModalTab && (
                         <button
-                          onClick={() => { setAddModalTab(null); setSelectedModalItem(null); }}
+                          onClick={() => {
+                            if (addModalTab === 'inventory' && selectedModalItem) {
+                              setSelectedModalItem(null);
+                            } else {
+                              setAddModalTab(null);
+                              setSelectedModalItem(null);
+                            }
+                          }}
                           className="text-zinc-400 hover:text-white transition shrink-0"
                         >
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -948,7 +955,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                   <div className="flex-1 min-w-0">
                                     <p className="font-semibold text-sm truncate">{selectedModalItem.name}</p>
                                     <p className={`text-xs text-zinc-400`}>{selectedModalItem.type}</p>
-                                    {selectedModalItem.price > 0 && <p className="text-xs text-green-400 font-bold mt-0.5">Market: {fmtBC(selectedModalItem.price)}</p>}
                                   </div>
                                   <button onClick={() => { setSelectedModalItem(null); setAddForm(f => ({ ...f, skin_name: '' })); }} className={`text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-400 hover:bg-zinc-600 transition shrink-0`}>Change</button>
                                 </div>
