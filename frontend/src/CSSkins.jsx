@@ -209,8 +209,10 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
 
       {/* Swoop-in button — absolute overlay, card height never changes */}
       <div
-        className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-10 rounded-b-xl"
+        className="absolute inset-x-0 px-3 pb-3 pt-10"
         style={{
+          bottom: '1px',
+          borderRadius: '0 0 11px 11px',
           background: 'linear-gradient(to top, #27272a 55%, transparent)',
           opacity: hovered ? 1 : 0,
           transform: hovered ? 'translateY(0)' : 'translateY(8px)',
