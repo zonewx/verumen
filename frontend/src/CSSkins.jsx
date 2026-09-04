@@ -282,6 +282,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const [skinSearchResults, setSkinSearchResults] = useState([]);
   const [filterSold, setFilterSold] = useState('all');
   const [expandedRows, setExpandedRows] = useState(new Set());
+  const [openActionMenu, setOpenActionMenu] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [trackerSearch, setTrackerSearch] = useState('');
   const [sortCol, setSortCol] = useState('purchase_date');
@@ -310,6 +311,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const _urlParams = new URLSearchParams(location.search);
   const expandParam = _urlParams.get('expand');
   const addSkinParam = _urlParams.get('addSkin');
+
+  // Close the row action menu when clicking outside
+  useEffect(() => {
+    if (!openActionMenu) return;
+    const close = () => setOpenActionMenu(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [openActionMenu]);
 
   // Auto-expand + scroll to a registry row when ?expand=<id> is in the URL
   useEffect(() => {
@@ -1508,6 +1517,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                               {colLabel}<SortIcon col={key} />
                             </th>
                           ))}
+                          <th className="px-2 py-3 w-10" />
                         </tr>
                       </thead>
                       <tbody>
@@ -1597,10 +1607,31 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                     <span className="text-zinc-600">—</span>
                                   )}
                                 </td>
+                                <td className="px-2 py-2.5 w-10" onClick={e => e.stopPropagation()}>
+                                  <div className="relative flex justify-center">
+                                    <button
+                                      onClick={e => { e.stopPropagation(); setOpenActionMenu(openActionMenu === item.id ? null : item.id); }}
+                                      className="p-1.5 rounded text-zinc-500 hover:text-white hover:bg-zinc-700 transition"
+                                    >
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                        <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                                      </svg>
+                                    </button>
+                                    {openActionMenu === item.id && (
+                                      <div className="absolute right-0 top-full mt-1 z-50 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden min-w-[90px]" onClick={e => e.stopPropagation()}>
+                                        {!item.sold && (
+                                          <button onClick={() => { setOpenActionMenu(null); setShowSellForm(item); }} className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700">Sell</button>
+                                        )}
+                                        <button onClick={() => { setOpenActionMenu(null); openEditModal(item); }} className="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition border-b border-zinc-700">Edit</button>
+                                        <button onClick={() => { setOpenActionMenu(null); setShowDeleteConfirm(item); }} className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-900/30 transition">Delete</button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
                               </tr>
                               {isExpanded && (
                                 <tr className="border-t border-zinc-700">
-                                  <td colSpan={10} className="p-0">
+                                  <td colSpan={11} className="p-0">
                                     <div className="bg-zinc-800/60 px-6 py-5 flex items-stretch gap-5" onClick={e => e.stopPropagation()}>
                                       {/* Left: content */}
                                       <div className="flex-1 min-w-0 flex flex-col gap-4">
@@ -1620,13 +1651,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                           {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return <p className={`font-bold text-base ${nameColor}`}>{n}</p>; })()}
                                         </div>
                                         {/* Stat grid — each cell as a subtle panel */}
-                                        <div className="grid grid-cols-3 gap-2">
-                                          {!isVanilla && item.exterior && (
-                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Exterior</p>
-                                              <p className="text-sm text-zinc-200">{item.exterior}</p>
-                                            </div>
-                                          )}
+                                        <div className="grid grid-cols-2 gap-2">
                                           {item.float_value && !isVanilla && (
                                             <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                               <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Float</p>
@@ -1726,14 +1751,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                           <SteamScreenshotEmbed url={screenshotUrl} />
                                         </div>
                                       )}
-                                      {/* Right: action buttons as vertical strip */}
-                                      <div className="flex flex-col gap-2 shrink-0 justify-start">
-                                        {!item.sold && (
-                                          <button onClick={() => setShowSellForm(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition whitespace-nowrap w-full">Sell</button>
-                                        )}
-                                        <button onClick={() => openEditModal(item)} className="text-xs px-3 py-1.5 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition w-full">Edit</button>
-                                        <button onClick={() => setShowDeleteConfirm(item)} className="text-xs px-3 py-1.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition w-full">Delete</button>
-                                      </div>
                                     </div>
                                   </td>
                                 </tr>
