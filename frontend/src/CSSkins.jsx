@@ -956,12 +956,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                               {!selectedModalItem && (
                                 <>
                                   <div className="flex justify-center">
-                                    <input
-                                      value={modalInvSearch}
-                                      onChange={e => setModalInvSearch(e.target.value)}
-                                      placeholder="Search your inventory..."
-                                      className={`${input} text-xs w-1/2`}
-                                    />
+                                    <div className="w-1/2">
+                                      <input
+                                        value={modalInvSearch}
+                                        onChange={e => setModalInvSearch(e.target.value)}
+                                        placeholder="Search your inventory..."
+                                        className={`${input} text-xs`}
+                                      />
+                                    </div>
                                   </div>
                                   {modalInvLoading ? (
                                     <div className="flex items-center justify-center py-12">
