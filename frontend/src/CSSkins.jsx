@@ -473,10 +473,9 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
 
   const openAddModal = () => {
     setShowAddForm(true);
-    setAddModalTab('inventory');
+    setAddModalTab(null);
     setSelectedModalItem(null);
     setModalInvSearch('');
-    loadModalInventory();
   };
 
   const closeAddModal = () => {
@@ -930,31 +929,64 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
               {/* Add trade modal */}
               {showAddForm && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full max-w-7xl flex flex-col`} style={{ maxHeight: '96vh' }}>
+                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full flex flex-col ${addModalTab ? 'max-w-7xl' : 'max-w-lg'}`} style={{ maxHeight: '96vh' }}>
 
                     {/* Header */}
-                    <div className={`flex items-center justify-between px-6 py-4 border-b border-zinc-700 shrink-0`}>
-                      <h3 className="font-bold text-base">Register Trade</h3>
-                      <button onClick={closeAddModal} className={`text-xl leading-none text-zinc-400 hover:text-white`}>✕</button>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className={`flex border-b border-zinc-700 shrink-0`}>
-                      {[['inventory', 'From Steam Inventory'], ['manual', 'Enter Manually']].map(([t, tLabel]) => (
+                    <div className={`flex items-center gap-3 px-6 py-4 border-b border-zinc-700 shrink-0`}>
+                      {addModalTab && (
                         <button
-                          key={t}
-                          onClick={() => setAddModalTab(t)}
-                          className={`flex-1 py-3 text-sm font-semibold transition border-b-2 ${addModalTab === t ? 'border-zinc-300 text-zinc-100' : `border-transparent text-zinc-400 hover:text-zinc-100`}`}
+                          onClick={() => { setAddModalTab(null); setSelectedModalItem(null); }}
+                          className="text-zinc-400 hover:text-white transition shrink-0"
                         >
-                          {tLabel}
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M19 12H5M12 5l-7 7 7 7"/>
+                          </svg>
                         </button>
-                      ))}
+                      )}
+                      <h3 className="font-bold text-base flex-1">
+                        {addModalTab === 'inventory' ? 'From Steam Inventory' : addModalTab === 'manual' ? 'Enter Manually' : 'Register Trade'}
+                      </h3>
+                      <button onClick={closeAddModal} className={`text-xl leading-none text-zinc-400 hover:text-white`}>✕</button>
                     </div>
 
                     {/* Scrollable body */}
                     <div className="overflow-y-auto flex-1 min-h-0">
 
-                      {/* FROM INVENTORY TAB */}
+                      {/* MODE PICKER */}
+                      {!addModalTab && (
+                        <div className="p-6 flex flex-col gap-3">
+                          <button
+                            onClick={() => { setAddModalTab('inventory'); loadModalInventory(); }}
+                            className="flex items-start gap-4 p-5 rounded-xl border border-zinc-700 bg-zinc-700/30 hover:bg-zinc-700/60 hover:border-zinc-500 transition text-left"
+                          >
+                            <div className="mt-0.5 p-2.5 rounded-lg bg-zinc-700 shrink-0">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-300">
+                                <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm text-white mb-1">From Steam Inventory</p>
+                              <p className="text-xs text-zinc-400 leading-relaxed">Pick a skin directly from your current Steam inventory. Float and exterior are fetched automatically.</p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => setAddModalTab('manual')}
+                            className="flex items-start gap-4 p-5 rounded-xl border border-zinc-700 bg-zinc-700/30 hover:bg-zinc-700/60 hover:border-zinc-500 transition text-left"
+                          >
+                            <div className="mt-0.5 p-2.5 rounded-lg bg-zinc-700 shrink-0">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-300">
+                                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm text-white mb-1">Enter Manually</p>
+                              <p className="text-xs text-zinc-400 leading-relaxed">Log a past trade or a skin no longer in your inventory. Enter all details by hand.</p>
+                            </div>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* FROM INVENTORY */}
                       {addModalTab === 'inventory' && (
                         <div className="p-6 flex flex-col gap-4">
                           {!settings.steam_id ? (
@@ -1161,8 +1193,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       )}
                     </div>
 
-                    {/* Footer — hidden on inventory tab until a skin is selected */}
-                    {(addModalTab === 'manual' || selectedModalItem) && (
+                    {/* Footer — only shown when in a mode and a skin is selected (inventory) or any time (manual) */}
+                    {(addModalTab === 'manual' || (addModalTab === 'inventory' && selectedModalItem)) && (
                       <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
                         {(() => {
                           const isDisabled = addModalTab === 'inventory'
@@ -1179,10 +1211,10 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                           );
                         })()}
                         <button
-                          onClick={() => addModalTab === 'inventory' && selectedModalItem ? setSelectedModalItem(null) : closeAddModal()}
+                          onClick={() => addModalTab === 'inventory' ? setSelectedModalItem(null) : closeAddModal()}
                           className={btnGhost}
                         >
-                          {addModalTab === 'inventory' && selectedModalItem ? 'Back' : 'Cancel'}
+                          {addModalTab === 'inventory' ? 'Back' : 'Cancel'}
                         </button>
                       </div>
                     )}
