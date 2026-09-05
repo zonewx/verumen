@@ -1663,18 +1663,18 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                       <div className="flex-1 min-w-0 flex flex-col gap-4">
                                         {/* Stat grid */}
                                         <div className="grid grid-cols-2 gap-2">
-                                          {item.float_value && !isVanilla && (
-                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Float</p>
-                                              <p className="text-sm font-mono text-zinc-200">{parseFloat(item.float_value).toFixed(4)}</p>
-                                            </div>
-                                          )}
-                                          {item.pattern != null && item.pattern !== '' && (
-                                            <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
-                                              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Pattern</p>
-                                              <p className="text-sm font-mono text-zinc-200">{item.pattern}</p>
-                                            </div>
-                                          )}
+                                          <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Float</p>
+                                            <p className={`text-sm font-mono ${item.float_value && !isVanilla ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                                              {item.float_value && !isVanilla ? parseFloat(item.float_value).toFixed(4) : '—'}
+                                            </p>
+                                          </div>
+                                          <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Pattern</p>
+                                            <p className={`text-sm font-mono ${item.pattern != null && item.pattern !== '' ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                                              {item.pattern != null && item.pattern !== '' ? item.pattern : '—'}
+                                            </p>
+                                          </div>
                                           <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                             <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Price</p>
                                             <p className="text-sm font-mono text-zinc-200">{fmtBC(buyPrice)}</p>
