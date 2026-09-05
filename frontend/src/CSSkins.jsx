@@ -820,6 +820,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                           <input
                             value={invSearch}
                             onChange={e => setInvSearch(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape') { setInvSearch(''); e.target.blur(); } }}
                             placeholder="Search inventory..."
                             className="bg-transparent outline-none flex-1 text-xs text-white placeholder-zinc-500"
                           />
@@ -877,6 +878,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                 <input
                   value={trackerSearch}
                   onChange={e => setTrackerSearch(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Escape') { setTrackerSearch(''); e.target.blur(); } }}
                   placeholder="Search skins..."
                   className={`ml-auto text-xs px-3 py-1.5 rounded-lg border outline-none focus:ring-2 focus:ring-zinc-500/30 focus:border-zinc-500 w-48 bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500`}
                 />
@@ -1004,6 +1006,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                       <input
                                         value={modalInvSearch}
                                         onChange={e => setModalInvSearch(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Escape') { setModalInvSearch(''); e.target.blur(); } }}
                                         placeholder="Search your inventory..."
                                         className={`${input} text-xs`}
                                       />
@@ -1302,6 +1305,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                               <input
                                 value={editInvSearch}
                                 onChange={e => setEditInvSearch(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Escape') { setEditInvSearch(''); e.target.blur(); } }}
                                 placeholder="Search your inventory..."
                                 className={`${input} text-xs`}
                               />
