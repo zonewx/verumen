@@ -749,11 +749,34 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
             <div className="flex flex-col gap-4">
 
               {/* Header */}
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-center gap-3">
+                <div className="shrink-0">
                   <h2 className="text-lg font-bold">Steam Inventory</h2>
                 </div>
-                <div className="flex items-center gap-2">
+                {steamInventory && (() => {
+                  const _tradable = steamInventory.items.filter(i => i.tradable);
+                  const _filtered = invSearch ? _tradable.filter(i => i.name.toLowerCase().includes(invSearch.toLowerCase())) : _tradable;
+                  return (
+                    <div className="flex-1 flex justify-center">
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-zinc-800 border-zinc-700 w-full max-w-xs">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+                          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <input
+                          value={invSearch}
+                          onChange={e => setInvSearch(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Escape') { setInvSearch(''); e.target.blur(); } }}
+                          placeholder="Search inventory..."
+                          className="bg-transparent outline-none flex-1 text-xs text-white placeholder-zinc-500"
+                        />
+                        {invSearch && (
+                          <button onClick={() => setInvSearch('')} className="text-zinc-500 hover:text-white transition shrink-0 text-sm leading-none">✕</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div className="flex items-center gap-2 shrink-0">
                   {steamInventory && (
                     <div className="flex rounded-lg border border-zinc-700 bg-zinc-900 p-0.5">
                       <button
@@ -809,27 +832,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                   : filtered;
                 return (
                   <>
-                    {/* Stats strip + search */}
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-zinc-400 shrink-0"><span className="text-zinc-200 font-semibold">{filtered.length}</span>{invSearch ? ` of ${tradable.length}` : ''} tradable items</span>
-                      <div className="flex-1 max-w-xs">
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm bg-zinc-800 border-zinc-700">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
-                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                          </svg>
-                          <input
-                            value={invSearch}
-                            onChange={e => setInvSearch(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Escape') { setInvSearch(''); e.target.blur(); } }}
-                            placeholder="Search inventory..."
-                            className="bg-transparent outline-none flex-1 text-xs text-white placeholder-zinc-500"
-                          />
-                          {invSearch && (
-                            <button onClick={() => setInvSearch('')} className="text-zinc-500 hover:text-white transition shrink-0 text-sm leading-none">✕</button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                       {sorted.map((item, i) => (
                         <SkinCard key={i} item={item}
