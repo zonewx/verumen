@@ -262,6 +262,7 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [steamLoading, setSteamLoading] = useState(false);
   const [steamError, setSteamError] = useState('');
   const [invSort, setInvSort] = useState('default');
+  const [invSearch, setInvSearch] = useState('');
 const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory?currency=${baseCurrency}`) || []);
   const [pnl, setPnl] = useState(() => apiCache.get(`/api/cs/pnl?currency=${baseCurrency}`));
   const [showAddForm, setShowAddForm] = useState(false);
@@ -802,14 +803,31 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   Master: 7, Distinguished: 6, Exceptional: 5, Superior: 4,
 };
                 const tradable = steamInventory.items.filter(i=>i.tradable);
+                const filtered = invSearch ? tradable.filter(i => i.name.toLowerCase().includes(invSearch.toLowerCase())) : tradable;
                 const sorted = invSort === 'rarity'
-                  ? [...tradable].sort((a, b) => (RARITY_RANK[b.rarity] ?? -1) - (RARITY_RANK[a.rarity] ?? -1))
-                  : tradable;
+                  ? [...filtered].sort((a, b) => (RARITY_RANK[b.rarity] ?? -1) - (RARITY_RANK[a.rarity] ?? -1))
+                  : filtered;
                 return (
                   <>
-                    {/* Stats strip */}
-                    <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-zinc-400 px-1">
-                      <span><span className="text-zinc-200 font-semibold">{tradable.length}</span> tradable items</span>
+                    {/* Stats strip + search */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-zinc-400 shrink-0"><span className="text-zinc-200 font-semibold">{filtered.length}</span>{invSearch ? ` of ${tradable.length}` : ''} tradable items</span>
+                      <div className="flex-1 max-w-xs">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm bg-zinc-800 border-zinc-700">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                          </svg>
+                          <input
+                            value={invSearch}
+                            onChange={e => setInvSearch(e.target.value)}
+                            placeholder="Search inventory..."
+                            className="bg-transparent outline-none flex-1 text-xs text-white placeholder-zinc-500"
+                          />
+                          {invSearch && (
+                            <button onClick={() => setInvSearch('')} className="text-zinc-500 hover:text-white transition shrink-0 text-sm leading-none">✕</button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                       {sorted.map((item, i) => (
