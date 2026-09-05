@@ -1732,7 +1732,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                           </div>
                                         </div>
                                         {/* Notes */}
-                                        <div className="bg-zinc-700/20 rounded-lg px-3 py-2.5 max-w-prose">
+                                        <div className="mt-auto bg-zinc-700/20 rounded-lg px-3 py-2.5 max-w-prose">
                                           <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">Notes</p>
                                           {item.notes
                                             ? <p className="text-sm text-zinc-300 leading-relaxed">{item.notes}</p>
