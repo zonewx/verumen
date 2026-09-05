@@ -159,8 +159,8 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
               <div key={i} className="relative group">
                 <img src={s.url} alt={s.name} className="w-9 h-9 object-contain opacity-85 hover:opacity-100 transition" />
                 {s.name && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 max-w-[200px]">
-                    <p className="text-xs font-semibold text-white text-center">{s.name}</p>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-zinc-900 border border-zinc-600 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[100] whitespace-nowrap">
+                    <p className="text-xs font-semibold text-white">{s.name}</p>
                   </div>
                 )}
               </div>
