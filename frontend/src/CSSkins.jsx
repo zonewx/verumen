@@ -1720,7 +1720,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                                     <div key={i} className="relative group/sticker">
                                                       <img src={s.url} alt={s.name || ''} className="w-10 h-10 object-contain opacity-80 hover:opacity-100 transition" />
                                                       {s.name && (
-                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg text-[11px] text-white max-w-[200px] text-center opacity-0 group-hover/sticker:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-zinc-900 border border-zinc-600 rounded-lg text-[11px] text-white whitespace-nowrap opacity-0 group-hover/sticker:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
                                                           {s.name}
                                                         </div>
                                                       )}
