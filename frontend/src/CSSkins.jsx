@@ -1695,7 +1695,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                         </div>
                                         {/* Float bar (left) + Stickers (right) — same 2-col grid as above for column alignment */}
                                         {((item.float_value && !isVanilla) || item.stickers?.length > 0) && (
-                                          <div className="grid grid-cols-2 gap-2 items-start">
+                                          <div className="grid grid-cols-2 gap-2 items-center py-2">
                                             <div>
                                               {item.float_value && !isVanilla && (
                                                 <>
