@@ -1743,12 +1743,13 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                           </div>
                                         )}
                                         {/* Notes */}
-                                        {item.notes && (
-                                          <div className="bg-zinc-700/20 rounded-lg px-3 py-2.5 max-w-prose">
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">Notes</p>
-                                            <p className="text-sm text-zinc-300 leading-relaxed">{item.notes}</p>
-                                          </div>
-                                        )}
+                                        <div className="bg-zinc-700/20 rounded-lg px-3 py-2.5 max-w-prose">
+                                          <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">Notes</p>
+                                          {item.notes
+                                            ? <p className="text-sm text-zinc-300 leading-relaxed">{item.notes}</p>
+                                            : <p className="text-sm text-zinc-600 italic">No notes</p>
+                                          }
+                                        </div>
                                       </div>
                                       {/* Center: screenshot */}
                                       {screenshotUrl && (
