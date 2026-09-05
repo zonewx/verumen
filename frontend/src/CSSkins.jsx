@@ -1661,13 +1661,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                     <div className="bg-zinc-800/60 px-6 py-5 flex items-stretch gap-5" onClick={e => e.stopPropagation()}>
                                       {/* Left: content */}
                                       <div className="flex-1 min-w-0 flex flex-col gap-4">
-                                        {/* Plain icon + name — no background box */}
-                                        <div className="flex items-center gap-3">
-                                          {item.icon_url && (
-                                            <img src={item.icon_url} alt="" className="w-14 h-14 object-contain shrink-0" />
-                                          )}
-                                          {(() => { const n = withVanilla(item.skin_name.replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '')); const hasStar = n.startsWith('★'); const isST = n.startsWith('StatTrak'); const nameColor = hasStar ? 'text-violet-300' : isST ? 'text-orange-400' : 'text-white'; return <p className={`font-bold text-base ${nameColor}`}>{n}</p>; })()}
-                                        </div>
                                         {/* Stat grid */}
                                         <div className="grid grid-cols-2 gap-2">
                                           {item.float_value && !isVanilla && (
