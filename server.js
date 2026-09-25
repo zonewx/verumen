@@ -3308,10 +3308,17 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
       if (fxd?.rates?.[BC]) bcRate = fxd.rates[BC];
     } catch(e) {}
   }
-  // Vanilla knives/gloves are stored without a " | Vanilla" suffix (that's a display-only
-  // label), so sort using that same label — otherwise the bare name sorts before every
+  // Sort by the underlying item name, not the raw skin_name string: a leading "★" (knives/
+  // gloves) sorts before regular letters under locale comparison and would otherwise cluster
+  // all star items ahead of everything else. Strip ★/StatTrak™/Souvenir prefixes for ordering
+  // purposes only. Vanilla knives/gloves are stored without a " | Vanilla" suffix (that's a
+  // display-only label), so append it here too — otherwise the bare name sorts before every
   // patterned sibling as a string prefix instead of falling alphabetically among them.
-  const sortName = n => (n.includes('★') && !n.includes('|')) ? `${n} | Vanilla` : n;
+  const sortName = n => {
+    const isVanilla = n.includes('★') && !n.includes('|');
+    const stripped = n.replace(/^★\s*/, '').replace(/^StatTrak™\s*/i, '').replace(/^Souvenir\s*/i, '').trim();
+    return isVanilla ? `${stripped} | Vanilla` : stripped;
+  };
   res.json(Object.values(baseMap).sort((a, b) => sortName(a.skin_name).localeCompare(sortName(b.skin_name))).slice(0, 15).map(r => ({ ...r, price: parseFloat(((r.price_sek || 0) * bcRate).toFixed(2)) })));
 });
 
