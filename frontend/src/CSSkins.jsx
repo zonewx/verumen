@@ -511,6 +511,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       finalSkinName = (addForm.statTrak ? 'StatTrak™ ' : '') + stripped + (addForm.hasExterior ? ` (${addForm.exterior})` : '');
     }
     const payload = { ...addForm, skin_name: finalSkinName };
+    if (!addForm.hasExterior) payload.exterior = null;
     delete payload.statTrak; delete payload.hasExterior;
     const pendingAssetId = payload._assetId;
     delete payload._assetId;
@@ -1151,7 +1152,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                             {skinSearchResults.length > 0 && (
                               <div className={`absolute z-50 w-full mt-1 bg-zinc-800 border-zinc-600 border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto`}>
                                 {skinSearchResults.map((r, i) => (
-                                  <div key={i} onClick={() => { const n = withVanilla(r.skin_name); setAddForm(f => ({ ...f, skin_name: n, hasExterior: r.hasExterior ?? true, statTrak: /^StatTrak™/i.test(r.skin_name) })); setSkinSearch(n); setSkinSearchResults([]); }} className={`px-4 py-2.5 cursor-pointer hover:bg-zinc-600 border-b border-zinc-700 last:border-0`}>
+                                  <div key={i} onClick={() => { const n = withVanilla(r.skin_name); const hasExt = r.hasExterior ?? true; setAddForm(f => ({ ...f, skin_name: n, hasExterior: hasExt, statTrak: /^StatTrak™/i.test(r.skin_name), ...(hasExt ? {} : { float_value: '0.0000', exterior: 'N/A' }) })); setSkinSearch(n); setSkinSearchResults([]); }} className={`px-4 py-2.5 cursor-pointer hover:bg-zinc-600 border-b border-zinc-700 last:border-0`}>
                                     <span className="text-sm">{withVanilla(r.skin_name)}</span>
                                   </div>
                                 ))}
@@ -1159,14 +1160,18 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                             )}
                           </div>
                           <div>
-                            <label className={label}>Exterior</label>
-                            <select value={addForm.exterior} onChange={e => setAddForm(f => ({ ...f, exterior: e.target.value }))} className={input}>
-                              {EXTERIORS.map(e => <option key={e}>{e}</option>)}
-                            </select>
+                            <label className={label}>Float {addForm.hasExterior && <span className="text-red-400">*</span>}</label>
+                            {addForm.hasExterior ? (
+                              <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => { const ext = floatToExterior(e.target.value); setAddForm(f => ({ ...f, float_value: e.target.value, ...(ext ? { exterior: ext } : {}) })); }} placeholder="0.0000" className={input} />
+                            ) : (
+                              <div className={`${input} flex items-center text-zinc-500`}>0.0000</div>
+                            )}
                           </div>
                           <div>
-                            <label className={label}>Float {addForm.hasExterior && <span className="text-red-400">*</span>}</label>
-                            <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => { const ext = floatToExterior(e.target.value); setAddForm(f => ({ ...f, float_value: e.target.value, ...(ext ? { exterior: ext } : {}) })); }} placeholder="0.0000" className={input} />
+                            <label className={label}>Exterior</label>
+                            <div className={`${input} flex items-center text-zinc-500`}>
+                              {addForm.hasExterior ? (addForm.exterior || '—') : 'N/A'}
+                            </div>
                           </div>
                           <div>
                             <label className={label}>Buy price <span className="text-red-400">*</span></label>
