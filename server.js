@@ -3272,12 +3272,21 @@ app.post('/api/cs/prices/sync', requireUser, async (req, res) => {
 app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
   // Normalize query: strip CS special chars, split into words for flexible matching
-  const words = req.params.query.replace(/[|★™®]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 1);
-  if (words.length === 0) return res.json([]);
+  const rawWords = req.params.query.replace(/[|★™®]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 1);
+  // "Vanilla" is a frontend-only label (no skin_name in the DB contains it) — treat it as a
+  // filter for pattern-less knives/gloves instead of a literal search term.
+  const vanillaOnly = rawWords.some(w => w.toLowerCase() === 'vanilla');
+  const words = rawWords.filter(w => w.toLowerCase() !== 'vanilla');
+  if (words.length === 0 && !vanillaOnly) return res.json([]);
   let q = db.from('cs_price_cache').select('skin_name, price_sek').limit(200);
+  if (vanillaOnly) q = q.ilike('skin_name', '%★%');
   for (const word of words) q = q.ilike('skin_name', `%${word}%`);
-  const { data } = await q;
-  if (!data) return res.json([]);
+  const { data: rawData } = await q;
+  if (!rawData) return res.json([]);
+  const EXTS_PRE = ['Factory New','Minimal Wear','Field-Tested','Well-Worn','Battle-Scarred'];
+  const data = vanillaOnly
+    ? rawData.filter(r => !r.skin_name.includes('|') && !EXTS_PRE.some(e => r.skin_name.includes(`(${e})`)))
+    : rawData;
   // Deduplicate: strip exterior + StatTrak prefix → unique base names
   const EXTS = ['Factory New','Minimal Wear','Field-Tested','Well-Worn','Battle-Scarred'];
   const stripExt = n => { let r = n; for (const e of EXTS) r = r.replace(` (${e})`, ''); return r.trim(); };
