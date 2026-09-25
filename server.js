@@ -3289,11 +3289,11 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   const data = vanillaOnly
     ? rawData.filter(r => !r.skin_name.includes('|') && !EXTS_PRE.some(e => r.skin_name.includes(`(${e})`)))
     : rawData;
-  // Deduplicate: strip exterior + StatTrak prefix → unique base names
+  // Deduplicate: strip exterior only → unique base names. StatTrak and Souvenir stay
+  // distinct rows (like each other) so the search results themselves cover that choice.
   const EXTS = ['Factory New','Minimal Wear','Field-Tested','Well-Worn','Battle-Scarred'];
   const stripExt = n => { let r = n; for (const e of EXTS) r = r.replace(` (${e})`, ''); return r.trim(); };
-  const stripST  = n => n.replace(/^StatTrak™\s*/, '').trim();
-  const getBase  = n => stripExt(stripST(n));
+  const getBase  = n => stripExt(n);
   const baseMap = {};
   for (const r of data) {
     const base = getBase(r.skin_name);

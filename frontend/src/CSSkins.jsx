@@ -1145,31 +1145,18 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       {/* MANUAL TAB */}
                       {addModalTab === 'manual' && (
                         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="sm:col-span-2 flex gap-4">
-                            <div className="flex-[2] relative">
-                              <label className={label}>Item search <span className="text-red-400">*</span></label>
-                              <input value={skinSearch} onChange={e => { setSkinSearch(e.target.value); setAddForm(f => ({ ...f, skin_name: e.target.value })); searchSkins(e.target.value); }} placeholder="e.g. AK-47 | Redline" className={input} />
-                              {skinSearchResults.length > 0 && (
-                                <div className={`absolute z-50 w-full mt-1 bg-zinc-800 border-zinc-600 border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto`}>
-                                  {skinSearchResults.map((r, i) => (
-                                    <div key={i} onClick={() => { const n = withVanilla(r.skin_name); setAddForm(f => ({ ...f, skin_name: n, hasExterior: r.hasExterior ?? true })); setSkinSearch(n); setSkinSearchResults([]); }} className={`px-4 py-2.5 cursor-pointer hover:bg-zinc-600 border-b border-zinc-700 last:border-0`}>
-                                      <span className="text-sm">{withVanilla(r.skin_name)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-[3]">
-                              <label className={label}>StatTrak™</label>
-                              <div className="flex gap-2">
-                                {[false, true].map(val => (
-                                  <button key={String(val)} type="button" onClick={() => setAddForm(f => ({ ...f, statTrak: val }))}
-                                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition border ${addForm.statTrak === val ? (val ? 'bg-orange-600/20 border-orange-500/60 text-orange-400' : 'bg-zinc-700/80 border-zinc-500 text-zinc-200') : 'bg-zinc-800/60 border-zinc-700/60 text-zinc-500 hover:text-zinc-300'}`}>
-                                    {val ? 'StatTrak™' : 'Standard'}
-                                  </button>
+                          <div className="sm:col-span-2 relative">
+                            <label className={label}>Item search <span className="text-red-400">*</span></label>
+                            <input value={skinSearch} onChange={e => { const v = e.target.value; setSkinSearch(v); setAddForm(f => ({ ...f, skin_name: v, statTrak: /^StatTrak™/i.test(v.trim()) })); searchSkins(v); }} placeholder="e.g. AK-47 | Redline" className={input} />
+                            {skinSearchResults.length > 0 && (
+                              <div className={`absolute z-50 w-full mt-1 bg-zinc-800 border-zinc-600 border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto`}>
+                                {skinSearchResults.map((r, i) => (
+                                  <div key={i} onClick={() => { const n = withVanilla(r.skin_name); setAddForm(f => ({ ...f, skin_name: n, hasExterior: r.hasExterior ?? true, statTrak: /^StatTrak™/i.test(r.skin_name) })); setSkinSearch(n); setSkinSearchResults([]); }} className={`px-4 py-2.5 cursor-pointer hover:bg-zinc-600 border-b border-zinc-700 last:border-0`}>
+                                    <span className="text-sm">{withVanilla(r.skin_name)}</span>
+                                  </div>
                                 ))}
                               </div>
-                            </div>
+                            )}
                           </div>
                           <div>
                             <label className={label}>Exterior</label>
