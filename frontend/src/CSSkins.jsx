@@ -1151,9 +1151,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                             {skinSearchResults.length > 0 && (
                               <div className={`absolute z-50 w-full mt-1 bg-zinc-800 border-zinc-600 border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto`}>
                                 {skinSearchResults.map((r, i) => (
-                                  <div key={i} onClick={() => { const n = withVanilla(r.skin_name); setAddForm(f => ({ ...f, skin_name: n, hasExterior: r.hasExterior ?? true })); setSkinSearch(n); setSkinSearchResults([]); }} className={`flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-zinc-600 border-b border-zinc-700 last:border-0`}>
+                                  <div key={i} onClick={() => { const n = withVanilla(r.skin_name); setAddForm(f => ({ ...f, skin_name: n, hasExterior: r.hasExterior ?? true })); setSkinSearch(n); setSkinSearchResults([]); }} className={`px-4 py-2.5 cursor-pointer hover:bg-zinc-600 border-b border-zinc-700 last:border-0`}>
                                     <span className="text-sm">{withVanilla(r.skin_name)}</span>
-                                    <span className="text-xs text-green-400 font-bold">{fmtBC(r.price)}</span>
                                   </div>
                                 ))}
                               </div>
