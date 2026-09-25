@@ -3297,6 +3297,21 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
     const wordStartsToken = (name, w) => name.toLowerCase().split(/[^a-z0-9]+/i).some(t => t.startsWith(w.toLowerCase()));
     data = data.filter(r => words.every(w => wordStartsToken(r.skin_name, w)));
   }
+  // cs_price_cache has no tradable flag (it's Skinport's raw pricing feed), so drop known
+  // non-tradable entries by pattern: a bare default weapon (no skin applied, no "|") can
+  // never exist as a real inventory item, and tournament coins/service medals/badges are
+  // always account-bound. Leave "★"-only names alone — that's the legitimate vanilla
+  // knife/glove case, not a bare default weapon.
+  const BASE_WEAPONS = new Set(['AK-47','M4A4','M4A1-S','AUG','SG 553','FAMAS','Galil AR','MAC-10','MP9','MP7','MP5-SD','UMP-45','P90','PP-Bizon','Desert Eagle','Glock-18','USP-S','P250','Five-SeveN','Tec-9','CZ75-Auto','Dual Berettas','P2000','R8 Revolver','Nova','XM1014','Sawed-Off','MAG-7','Negev','M249','SSG 08','AWP','SCAR-20','G3SG1']);
+  data = data.filter(r => {
+    const n = r.skin_name;
+    if (!n.includes('|') && !n.includes('★')) {
+      const base = n.replace(/^StatTrak™\s*/i, '').replace(/^Souvenir\s*/i, '').trim();
+      if (BASE_WEAPONS.has(base)) return false;
+    }
+    if (/\b(Coin|Medal|Badge)\b/i.test(n)) return false;
+    return true;
+  });
   // Deduplicate: strip exterior only → unique base names. StatTrak and Souvenir stay
   // distinct rows (like each other) so the search results themselves cover that choice.
   const EXTS = ['Factory New','Minimal Wear','Field-Tested','Well-Worn','Battle-Scarred'];
