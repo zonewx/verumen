@@ -914,7 +914,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
               {/* Add trade modal */}
               {showAddForm && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4" onClick={closeAddModal}>
-                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full flex flex-col ${addModalTab ? 'max-w-7xl' : 'max-w-lg'}`} style={{ height: addModalTab ? '92vh' : 'auto', maxHeight: '96vh' }} onClick={e => e.stopPropagation()}>
+                  <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl shadow-2xl w-full flex flex-col ${addModalTab === 'inventory' ? 'max-w-7xl' : addModalTab === 'manual' ? 'max-w-3xl' : 'max-w-lg'}`} style={{ height: addModalTab === 'inventory' ? '92vh' : 'auto', maxHeight: '96vh' }} onClick={e => e.stopPropagation()}>
 
                     {/* Header */}
                     <div className={`flex items-center gap-3 px-6 py-4 border-b border-zinc-700 shrink-0`}>
