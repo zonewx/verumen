@@ -3274,9 +3274,11 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   // Normalize query: strip CS special chars, split into words for flexible matching
   const rawWords = req.params.query.replace(/[|★™®]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 1);
   // "Vanilla" is a frontend-only label (no skin_name in the DB contains it) — treat it as a
-  // filter for pattern-less knives/gloves instead of a literal search term.
-  const vanillaOnly = rawWords.some(w => w.toLowerCase() === 'vanilla');
-  const words = rawWords.filter(w => w.toLowerCase() !== 'vanilla');
+  // filter for pattern-less knives/gloves instead of a literal search term. Match on any
+  // prefix of "vanilla" so it activates while the user is still mid-word (e.g. "vani").
+  const isVanillaPrefix = w => w.length >= 3 && 'vanilla'.startsWith(w.toLowerCase());
+  const vanillaOnly = rawWords.some(isVanillaPrefix);
+  const words = rawWords.filter(w => !isVanillaPrefix(w));
   if (words.length === 0 && !vanillaOnly) return res.json([]);
   let q = db.from('cs_price_cache').select('skin_name, price_sek').limit(200);
   if (vanillaOnly) q = q.ilike('skin_name', '%★%');
