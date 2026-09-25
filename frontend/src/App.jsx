@@ -2427,7 +2427,7 @@ const handleUpload = async (files) => {
             {/* Glass top-edge highlight */}
             <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"/>
             {/* Title */}
-            <div className="text-center mb-6">
+            <div className="text-center mb-9">
               <h1 className="text-2xl font-bold text-white" style={{letterSpacing:'-0.02em'}}>Verumen</h1>
             </div>
             {sessionExpiredMsg && (
