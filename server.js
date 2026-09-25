@@ -3286,9 +3286,17 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   const { data: rawData } = await q;
   if (!rawData) return res.json([]);
   const EXTS_PRE = ['Factory New','Minimal Wear','Field-Tested','Well-Worn','Battle-Scarred'];
-  const data = vanillaOnly
+  let data = vanillaOnly
     ? rawData.filter(r => !r.skin_name.includes('|') && !EXTS_PRE.some(e => r.skin_name.includes(`(${e})`)))
     : rawData;
+  // The ilike filters above just narrow the DB round-trip (word can appear anywhere, even
+  // mid-word). Require each search word to actually prefix a whole token in the name — so
+  // "a" no longer matches "Ye-a-r" or "Birthd-a-y", but "scor" still matches "Scorched" since
+  // that IS a real word start.
+  if (words.length > 0) {
+    const wordStartsToken = (name, w) => name.toLowerCase().split(/[^a-z0-9]+/i).some(t => t.startsWith(w.toLowerCase()));
+    data = data.filter(r => words.every(w => wordStartsToken(r.skin_name, w)));
+  }
   // Deduplicate: strip exterior only → unique base names. StatTrak and Souvenir stay
   // distinct rows (like each other) so the search results themselves cover that choice.
   const EXTS = ['Factory New','Minimal Wear','Field-Tested','Well-Worn','Battle-Scarred'];
