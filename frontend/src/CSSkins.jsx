@@ -1169,8 +1169,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                           </div>
                           <div>
                             <label className={label}>Exterior</label>
-                            <div className={`${input} flex items-center text-zinc-500`}>
-                              {addForm.hasExterior ? (addForm.exterior || '—') : 'N/A'}
+                            <div className={`${input} flex items-center ${!addForm.hasExterior || !addForm.float_value ? 'text-zinc-500' : 'text-white'}`}>
+                              {!addForm.hasExterior ? 'N/A' : (addForm.float_value ? addForm.exterior : '—')}
                             </div>
                           </div>
                           <div>
