@@ -3278,7 +3278,7 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   // prefix of "vanilla" (down to a single "v") so it activates as the user is still typing it.
   const isVanillaPrefix = w => 'vanilla'.startsWith(w.toLowerCase());
   const vanillaOnly = rawWords.some(isVanillaPrefix);
-  const words = rawWords.filter(w => !isVanillaPrefix(w) && w.length > 1);
+  const words = rawWords.filter(w => !isVanillaPrefix(w) && w.length > 0);
   if (words.length === 0 && !vanillaOnly) return res.json([]);
   let q = db.from('cs_price_cache').select('skin_name, price_sek').limit(200);
   if (vanillaOnly) q = q.ilike('skin_name', '%★%');
@@ -3308,7 +3308,7 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
       if (fxd?.rates?.[BC]) bcRate = fxd.rates[BC];
     } catch(e) {}
   }
-  res.json(Object.values(baseMap).slice(0, 15).map(r => ({ ...r, price: parseFloat(((r.price_sek || 0) * bcRate).toFixed(2)) })));
+  res.json(Object.values(baseMap).sort((a, b) => a.skin_name.localeCompare(b.skin_name)).slice(0, 15).map(r => ({ ...r, price: parseFloat(((r.price_sek || 0) * bcRate).toFixed(2)) })));
 });
 
 app.get('/api/cs/prices/overrides', requireUser, async (req, res) => {

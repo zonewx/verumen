@@ -494,7 +494,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   };
 
   const searchSkins = async (q) => {
-    if (q.length < 2) { setSkinSearchResults([]); return; }
+    if (q.length < 1) { setSkinSearchResults([]); return; }
     try {
       const res = await fetch(`/api/cs/prices/search/${encodeURIComponent(q)}?currency=${baseCurrency}`, { headers: authHeaders() });
       setSkinSearchResults(await res.json());
