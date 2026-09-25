@@ -3205,69 +3205,37 @@ app.post('/api/cs/settings', requireUser, async (req, res) => {
   res.json({ success:true });
 });
 
-let lastPriceSyncAt = null;
 let steamPriceLookupRunning = false;
 
-async function runPriceSync() {
+// Daily automatic Steam level re-sync for linked accounts — runs 90s after boot, then every
+// 24 hours. steam_level is otherwise only fetched once, at link time (see /api/steam/callback),
+// so without this it goes stale forever even as the user's real Steam level keeps climbing.
+async function runSteamLevelSync() {
+  const STEAM_KEY = process.env.STEAM_API_KEY;
+  if (!STEAM_KEY) return;
   try {
-    const r = await fetch('https://api.skinport.com/v1/items?app_id=730&currency=SEK');
-    if (!r.ok) { log.error('cs prices sync: skinport error', { status: r.status }); return; }
-
-    const items = await r.json();
-    if (!Array.isArray(items)) { log.error('cs prices sync: unexpected skinport response'); return; }
-
-    let sekPerUsd = 10.5;
-    try {
-      const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=SEK');
-      const fxData = await fx.json();
-      sekPerUsd = fxData?.rates?.SEK || sekPerUsd;
-    } catch(e) {}
-
-    const now = new Date().toISOString();
-    const entries = items
-      .filter(i => i.market_hash_name)
-      .filter(i => (i.suggested_price || i.min_price || 0) > 0)
-      .map(i => ({
-        skin_name: i.market_hash_name,
-        price_sek: i.suggested_price || i.min_price || 0,
-        price_usd: parseFloat(((i.suggested_price || i.min_price || 0) / sekPerUsd).toFixed(2)),
-        last_updated: now,
-      }));
-
-    const CHUNK = 500;
-    await Promise.all(
-      Array.from({ length: Math.ceil(entries.length / CHUNK) }, (_, i) =>
-        db.from('cs_price_cache').upsert(entries.slice(i * CHUNK, (i + 1) * CHUNK), { onConflict: 'skin_name' })
-      )
-    );
-
-    log.info('cs prices sync completed', { count: entries.length, sekRate: sekPerUsd });
-    lastPriceSyncAt = Date.now();
+    const { data: profiles } = await db.from('profiles').select('id, steam_id').eq('steam_verified', true).not('steam_id', 'is', null);
+    if (!profiles || profiles.length === 0) return;
+    let updated = 0;
+    for (const p of profiles) {
+      try {
+        const levelData = await fetchJSON(`https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/?key=${STEAM_KEY}&steamid=${p.steam_id}`);
+        const steamLevel = levelData?.response?.player_level;
+        if (steamLevel != null) {
+          await db.from('profiles').update({ steam_level: steamLevel }).eq('id', p.id);
+          updated++;
+        }
+      } catch(e) {
+        log.error('steam level sync failed for user', { userId: p.id, error: e.message });
+      }
+    }
+    log.info('steam level sync completed', { checked: profiles.length, updated });
   } catch(e) {
-    log.error('cs prices sync failed', { error: e.message });
+    log.error('steam level sync failed', { error: e.message });
   }
 }
-
-// Daily automatic price sync — runs 1 min after boot, then every 24 hours
-setTimeout(runPriceSync, 60 * 1000);
-setInterval(runPriceSync, 24 * 60 * 60 * 1000).unref();
-
-app.get('/api/cs/prices/last-sync', requireUser, (req, res) => {
-  res.json({ lastSync: lastPriceSyncAt });
-});
-
-const SYNC_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
-
-app.post('/api/cs/prices/sync', requireUser, async (req, res) => {
-  const isPrivileged = req.role === 'admin' || req.role === 'moderator';
-  if (!isPrivileged && lastPriceSyncAt && Date.now() - lastPriceSyncAt < SYNC_COOLDOWN_MS) {
-    const minAgo = Math.floor((Date.now() - lastPriceSyncAt) / 60000);
-    return res.json({ success: false, cooldown: true, error: `Prices were synced ${minAgo} minute(s) ago. Please wait before syncing again.` });
-  }
-  // Respond immediately — upserts run in background to avoid Vercel's 10s proxy timeout
-  res.json({ success: true, count: 0, source: 'skinport', syncing: true });
-  setImmediate(runPriceSync);
-});
+setTimeout(runSteamLevelSync, 90 * 1000);
+setInterval(runSteamLevelSync, 24 * 60 * 60 * 1000).unref();
 
 app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
