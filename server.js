@@ -3276,7 +3276,7 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   // "Vanilla" is a frontend-only label (no skin_name in the DB contains it) — treat it as a
   // filter for pattern-less knives/gloves instead of a literal search term. Match on any
   // prefix of "vanilla" so it activates while the user is still mid-word (e.g. "vani").
-  const isVanillaPrefix = w => w.length >= 3 && 'vanilla'.startsWith(w.toLowerCase());
+  const isVanillaPrefix = w => w.length >= 2 && 'vanilla'.startsWith(w.toLowerCase());
   const vanillaOnly = rawWords.some(isVanillaPrefix);
   const words = rawWords.filter(w => !isVanillaPrefix(w));
   if (words.length === 0 && !vanillaOnly) return res.json([]);
