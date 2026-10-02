@@ -6,6 +6,7 @@ import apiCache from './apiCache';
 import { getToken, setToken, clearToken } from './tokenStore';
 import { EmptyState, ShortcutsModal, PieChart, LineChart, TodayCards } from './PortfolioComponents';
 import TransactionHistoryTab from './TransactionHistoryTab';
+import { IconAlert, IconSpinner, IconRefresh, IconSearch } from './icons';
 
 const CSSkins = lazy(() => import('./CSSkins'));
 const ProfilePageView = lazy(() => import('./ProfilePageView'));
@@ -752,7 +753,7 @@ const handleUpload = async (files) => {
     for (let i = 0; i < fileList.length; i++) {
       if (uploadAbortRef.current) {
         uploadAbortRef.current = false;
-        updateProgress('cancelled', 10, '✗ Upload cancelled');
+        updateProgress('cancelled', 10, 'Upload cancelled');
         setTimeout(() => setUploadProgress(null), 2000);
         setUploadLoading(false);
         return;
@@ -822,7 +823,7 @@ const handleUpload = async (files) => {
     while (remaining > 0 && failures < 3) {
       if (uploadAbortRef.current) {
         uploadAbortRef.current = false;
-        updateProgress('cancelled', 40 + Math.floor((totalResolved / data.newAdded) * 40), '✗ Upload cancelled');
+        updateProgress('cancelled', 40 + Math.floor((totalResolved / data.newAdded) * 40), 'Upload cancelled');
         setTimeout(() => setUploadProgress(null), 2000);
         setUploadLoading(false);
         return;
@@ -872,7 +873,7 @@ const handleUpload = async (files) => {
         await new Promise(r => setTimeout(r, 200));
       } catch (err) {
         if (err.name === 'AbortError') {
-          updateProgress('cancelled', 40 + Math.floor((totalResolved / data.newAdded) * 40), '✗ Upload cancelled');
+          updateProgress('cancelled', 40 + Math.floor((totalResolved / data.newAdded) * 40), 'Upload cancelled');
           setTimeout(() => setUploadProgress(null), 2000);
           setUploadLoading(false);
           return;
@@ -1210,12 +1211,12 @@ const handleUpload = async (files) => {
                           <div className="flex items-center gap-2"><span className="inline-block w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin shrink-0" /><span className="font-medium">{uploadProgress.label}</span></div>
                         </div>
                       )}
-                      {uploadStatus?.error && <div className="rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400">✗ {uploadStatus.error}</div>}
+                      {uploadStatus?.error && <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400"><IconAlert size={14} className="shrink-0" />{uploadStatus.error}</div>}
                       {!uploadProgress && uploadStatus?.results && (
                         <div className="flex flex-col gap-1.5">
                           {uploadStatus.results.map((r, i) => (
                             <div key={i} className={`bg-zinc-700/50 rounded-lg px-3 py-2 text-xs`}>
-                              {r.error ? <p className="text-red-400">✗ {r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
+                              {r.error ? <p className="text-red-400">{r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
                             </div>
                           ))}
                           <p className="text-xs text-green-400 font-semibold">+{uploadStatus.newAdded} new · {uploadStatus.total} total</p>
@@ -1290,15 +1291,15 @@ const handleUpload = async (files) => {
                       <p className={`text-xs text-zinc-400`}>Supports Montrose, Avanza and Nordnet.</p>
                       {uploadProgress && (
                         <div className={`rounded-lg px-3 py-2.5 text-sm border bg-zinc-700/40 border-zinc-600/40 text-zinc-300`}>
-                          <div className="flex items-center gap-2"><div className="animate-spin">⏳</div><span className="font-medium">{uploadProgress.label}</span></div>
+                          <div className="flex items-center gap-2"><IconSpinner size={14} className="shrink-0" /><span className="font-medium">{uploadProgress.label}</span></div>
                         </div>
                       )}
-                      {uploadStatus?.error && <div className="rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400">✗ {uploadStatus.error}</div>}
+                      {uploadStatus?.error && <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400"><IconAlert size={14} className="shrink-0" />{uploadStatus.error}</div>}
                       {!uploadProgress && uploadStatus?.results && (
                         <div className="flex flex-col gap-1.5">
                           {uploadStatus.results.map((r, i) => (
                             <div key={i} className={`bg-zinc-700/50 rounded-lg px-3 py-2 text-xs`}>
-                              {r.error ? <p className="text-red-400">✗ {r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
+                              {r.error ? <p className="text-red-400">{r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
                             </div>
                           ))}
                           <p className="text-xs text-green-400 font-semibold">+{uploadStatus.newAdded} new · {uploadStatus.total} total</p>
@@ -1364,7 +1365,7 @@ const handleUpload = async (files) => {
                         <input ref={overrideTickerRef} placeholder="Yahoo Finance ticker" className={`w-44 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
                         <button onClick={handleAddOverride} className="px-4 py-2.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-xl text-sm font-semibold transition whitespace-nowrap">Save Override</button>
                       </div>
-                      {overrideMsg && <p className={`text-xs mb-4 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg}</p>}
+                      {overrideMsg && <p className={`text-xs mb-4 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg.startsWith('✗') ? overrideMsg.slice(2) : overrideMsg}</p>}
                       {(() => {
                         const globalIsins = new Set(overrides.global?.map(o => o.isin) || []);
                         const userOverridesFiltered = overrides.user?.filter(o => !globalIsins.has(o.isin)) || [];
@@ -1647,12 +1648,12 @@ const handleUpload = async (files) => {
                               <div className="flex items-center gap-2"><span className="inline-block w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin shrink-0" /><span className="font-medium">{uploadProgress.label}</span></div>
                             </div>
                           )}
-                          {uploadStatus?.error && <div className="rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400">✗ {uploadStatus.error}</div>}
+                          {uploadStatus?.error && <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs bg-red-900/20 border border-red-800/40 text-red-400"><IconAlert size={14} className="shrink-0" />{uploadStatus.error}</div>}
                           {!uploadProgress && uploadStatus?.results && (
                             <div className="flex flex-col gap-1.5">
                               {uploadStatus.results.map((r, i) => (
                                 <div key={i} className={`bg-zinc-700/50 rounded-lg px-3 py-2 text-xs`}>
-                                  {r.error ? <p className="text-red-400">✗ {r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
+                                  {r.error ? <p className="text-red-400">{r.file}: {r.error}</p> : <p><span className="font-bold capitalize">{r.broker}</span> — {r.count} rows</p>}
                                 </div>
                               ))}
                               <p className="text-xs text-green-400 font-semibold">+{uploadStatus.newAdded} new · {uploadStatus.total} total</p>
@@ -1667,11 +1668,11 @@ const handleUpload = async (files) => {
                           {txCount.trades > 0 && (
                             <>
                               <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
-                                {syncLoading ? '⏳ Syncing…' : '⟳ Sync Portfolio'}
+                                <span className="inline-flex items-center justify-center gap-2">{syncLoading ? <><IconSpinner size={14} />Syncing…</> : <><IconRefresh size={14} />Sync Portfolio</>}</span>
                               </button>
                               {syncStatus && <p className={`text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{syncStatus.startsWith('✓') ? syncStatus.slice(2) : syncStatus}</p>}
                               <button onClick={handleResolveTickers} disabled={resolveLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200 disabled:opacity-50`}>
-                                {resolveLoading ? '⏳ Resolving...' : '🔍 Resolve Tickers'}
+                                <span className="inline-flex items-center justify-center gap-2">{resolveLoading ? <><IconSpinner size={14} />Resolving…</> : <><IconSearch size={14} />Resolve Tickers</>}</span>
                               </button>
                               {resolveStatus && <p className={`text-xs ${resolveStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{resolveStatus.startsWith('✓') ? resolveStatus.slice(2) : resolveStatus}</p>}
                             </>
@@ -2656,13 +2657,15 @@ const handleUpload = async (files) => {
               <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
               </svg>
+            ) : globalFlash.msg.startsWith('✗') ? (
+              <IconAlert size={16} className="text-red-400 shrink-0" />
             ) : (
               <svg className="w-4 h-4 text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
             )}
             <span className="text-sm font-medium text-zinc-100 whitespace-nowrap">
-              {globalFlash.msg.startsWith('✓') ? globalFlash.msg.slice(2) : globalFlash.msg}
+              {/^[✓✗] /.test(globalFlash.msg) ? globalFlash.msg.slice(2) : globalFlash.msg}
             </span>
           </div>
         </div>

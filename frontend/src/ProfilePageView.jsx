@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Fragment } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
+import { card } from './ui';
 
 const ROLE_BADGE = {
   admin: { label: 'Admin', cls: 'bg-red-900/40 text-red-400 border border-red-800' },
@@ -344,7 +345,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
     );
   }
 
-  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">

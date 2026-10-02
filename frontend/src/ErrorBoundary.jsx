@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { IconAlert } from './icons';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -20,7 +21,7 @@ export default class ErrorBoundary extends Component {
     return (
       <div className={`flex h-screen items-center justify-center bg-zinc-900 text-white`}>
         <div className={`max-w-md mx-4 p-8 rounded-2xl border text-center bg-zinc-800 border-zinc-700 shadow-xl`}>
-          <div className="text-5xl mb-4">⚠️</div>
+          <div className="flex justify-center mb-4 text-amber-400"><IconAlert size={40} strokeWidth={1.75} /></div>
           <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
           <p className={`text-sm mb-6 text-zinc-400`}>
             An unexpected error occurred. Refreshing the page usually fixes it.

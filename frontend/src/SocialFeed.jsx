@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
+import { IconX } from './icons';
 import { getToken } from './tokenStore';
 import { flash } from './flash';
 
@@ -677,7 +678,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                     {friends.incoming.map(u => (
                       <FriendRow key={u.username} user={u} actions={<>
                         <button onClick={() => acceptRequest(u.username)} className="text-[10px] px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg transition font-semibold">Accept</button>
-                        <button onClick={() => declineRequest(u.username)} className="text-[10px] px-2 py-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded-lg transition">✕</button>
+                        <button onClick={() => declineRequest(u.username)} className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded-lg transition" aria-label="Decline"><IconX size={12} /></button>
                       </>} />
                     ))}
                   </div>

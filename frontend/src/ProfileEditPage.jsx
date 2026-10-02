@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
 import { flash } from './flash';
+import { card, input } from './ui';
 
 const COUNTRIES = [
   { code: 'se', name: '🇸🇪 Sweden' }, { code: 'no', name: '🇳🇴 Norway' }, { code: 'dk', name: '🇩🇰 Denmark' },
@@ -49,8 +50,6 @@ export default function ProfileEditPage({ authUsername }) {
   const [avatarUploading, setAvatarUploading] = useState(false);
   
   const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
-  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
-  const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none transition focus:ring-2 focus:ring-zinc-500/30 focus:border-zinc-500 bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
   const labelCls = `text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-400`;
 
   useEffect(() => {
@@ -256,7 +255,7 @@ export default function ProfileEditPage({ authUsername }) {
                   onChange={e => { setNewUsername(e.target.value); setUsernameMsg(''); }}
                   placeholder="New username..."
                   maxLength={20}
-                  className={`${inputCls} flex-1`}
+                  className={`${input} flex-1`}
                 />
                 <button
                   onClick={handleUsernameChange}
@@ -277,7 +276,7 @@ export default function ProfileEditPage({ authUsername }) {
             {/* Bio */}
             <div className={`${card} p-6`}>
               <label className={labelCls}>Bio</label>
-              <textarea value={editForm.bio} onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))} rows={4} maxLength={200} placeholder="Tell the community about yourself..." className={`${inputCls} resize-none`} />
+              <textarea value={editForm.bio} onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))} rows={4} maxLength={200} placeholder="Tell the community about yourself..." className={`${input} resize-none`} />
               <p className={`text-xs mt-1 text-zinc-400`}>{editForm.bio.length}/200</p>
             </div>
 
@@ -289,7 +288,7 @@ export default function ProfileEditPage({ authUsername }) {
                 <select
                   value={editForm.country}
                   onChange={e => setEditForm(f => ({ ...f, country: e.target.value }))}
-                  className={`${inputCls} flex-1`}
+                  className={`${input} flex-1`}
                 >
                   {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
                 </select>

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
 import { flash } from './flash';
+import { card, input, btnPrimarySm, btnSecondarySm } from './ui';
+import { IconX, IconRefresh } from './icons';
 
 export default function ModeratorPanel({ authUsername, userRole }) {
   const [tab, setTab] = useState('users');
@@ -14,10 +16,6 @@ export default function ModeratorPanel({ authUsername, userRole }) {
   const [annForm, setAnnForm] = useState({ title: '', message: '', type: 'info' });
 
   const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
-  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
-  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
-  const btnBlue = 'px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white text-xs font-semibold rounded-lg transition';
-  const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const base = userRole === 'admin' ? '/api/admin' : '/api/mod';
 
@@ -92,10 +90,10 @@ export default function ModeratorPanel({ authUsername, userRole }) {
           <div className={`bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-80 shadow-2xl`} onClick={e => e.stopPropagation()}>
             <h3 className="font-bold mb-1">Reset password</h3>
             <p className={`text-sm mb-4 text-zinc-400`}>{resetModal.username}</p>
-            <input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} placeholder="New password (6+ chars)" className={`${inputCls} mb-3`} />
+            <input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} placeholder="New password (6+ chars)" className={`${input} mb-3`} />
             <div className="flex gap-2">
-              <button onClick={resetPassword} className={btnBlue + ' flex-1 py-2'}>Reset</button>
-              <button onClick={() => { setResetModal(null); setResetPw(''); }} className={btnGhost + ' flex-1 py-2'}>Cancel</button>
+              <button onClick={resetPassword} className={btnPrimarySm + ' flex-1 py-2'}>Reset</button>
+              <button onClick={() => { setResetModal(null); setResetPw(''); }} className={btnSecondarySm + ' flex-1 py-2'}>Cancel</button>
             </div>
           </div>
         </div>
@@ -118,7 +116,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <p className={`text-sm text-zinc-400`}>{users.length} user(s)</p>
-                  <button onClick={fetchAll} className={btnGhost}>↺ Refresh</button>
+                  <button onClick={fetchAll} className={`${btnSecondarySm} inline-flex items-center gap-1.5`}><IconRefresh size={12} />Refresh</button>
                 </div>
                 {users.map(u => (
                   <div key={u.username} className={`${card} p-5`}>
@@ -134,11 +132,11 @@ export default function ModeratorPanel({ authUsername, userRole }) {
                           {u.publicHoldings && <span className="text-xs text-blue-400 bg-blue-900/30 px-1.5 py-0.5 rounded-full">Pub. Portfolio</span>}
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {u.role !== 'admin' && u.role !== 'moderator' && <button onClick={() => setResetModal({ username: u.username })} className={btnBlue}>Reset Password</button>}
-                          <button onClick={() => clearBio(u.username)} className={btnGhost}>Clear Bio</button>
-                          {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnGhost}>Make CS Private</button>}
-                          {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnGhost}>Make Portfolio Private</button>}
-                          {u.role !== 'admin' && <button onClick={() => resolveUser(u.username)} className={btnGhost}>Re-resolve Tickers</button>}
+                          {u.role !== 'admin' && u.role !== 'moderator' && <button onClick={() => setResetModal({ username: u.username })} className={btnPrimarySm}>Reset Password</button>}
+                          <button onClick={() => clearBio(u.username)} className={btnSecondarySm}>Clear Bio</button>
+                          {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnSecondarySm}>Make CS Private</button>}
+                          {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnSecondarySm}>Make Portfolio Private</button>}
+                          {u.role !== 'admin' && <button onClick={() => resolveUser(u.username)} className={btnSecondarySm}>Re-resolve Tickers</button>}
                         </div>
                       </div>
                     </div>
@@ -152,10 +150,10 @@ export default function ModeratorPanel({ authUsername, userRole }) {
                 <div className={`${card} p-5`}>
                   <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Post Announcement</h2>
                   <div className="flex flex-col gap-3">
-                    <input value={annForm.title} onChange={e => setAnnForm(f => ({ ...f, title: e.target.value }))} placeholder="Title..." className={inputCls} />
-                    <textarea value={annForm.message} onChange={e => setAnnForm(f => ({ ...f, message: e.target.value }))} rows={3} placeholder="Message..." className={`${inputCls} resize-none`} />
+                    <input value={annForm.title} onChange={e => setAnnForm(f => ({ ...f, title: e.target.value }))} placeholder="Title..." className={input} />
+                    <textarea value={annForm.message} onChange={e => setAnnForm(f => ({ ...f, message: e.target.value }))} rows={3} placeholder="Message..." className={`${input} resize-none`} />
                     <div className="flex gap-3 items-center">
-                      <select value={annForm.type} onChange={e => setAnnForm(f => ({ ...f, type: e.target.value }))} className={`${inputCls} w-36`}>
+                      <select value={annForm.type} onChange={e => setAnnForm(f => ({ ...f, type: e.target.value }))} className={`${input} w-36`}>
                         <option value="info">Info</option>
                         <option value="success">Success</option>
                         <option value="warning">Warning</option>
@@ -163,7 +161,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
                       </select>
                       {annForm.title && <div className={`flex-1 px-3 py-2 rounded-lg border text-sm ${typeColors[annForm.type]}`}><span className="font-semibold">{annForm.title}</span>{annForm.message && <span className="ml-2 opacity-80 text-xs">{annForm.message}</span>}</div>}
                     </div>
-                    <button onClick={postAnn} className={btnBlue + ' self-start px-5 py-2'}>Post</button>
+                    <button onClick={postAnn} className={btnPrimarySm + ' self-start px-5 py-2'}>Post</button>
                   </div>
                 </div>
                 <div className={`${card} p-5`}>
@@ -176,7 +174,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
                             <div className="flex items-center gap-2 mb-1"><p className="font-semibold text-sm">{a.title}</p><span className="text-xs opacity-60">by {a.posted_by || a.postedBy}</span></div>
                             <p className="text-xs opacity-80">{a.message}</p>
                           </div>
-                          <button onClick={() => deleteAnn(a.id)} className="text-sm opacity-60 hover:opacity-100 hover:text-red-400 transition shrink-0">✕</button>
+                          <button onClick={() => deleteAnn(a.id)} className="opacity-60 hover:opacity-100 hover:text-red-400 transition shrink-0" aria-label="Remove"><IconX size={14} /></button>
                         </div>
                       ))}
                     </div>

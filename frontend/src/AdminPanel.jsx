@@ -3,6 +3,8 @@ import { getToken } from './tokenStore';
 import { useLocation } from 'react-router-dom';
 import apiCache from './apiCache';
 import { flash } from './flash';
+import { card, input, btnPrimarySm, btnSecondarySm, btnDangerSm } from './ui';
+import { IconX, IconRefresh } from './icons';
 
 const TAB_MAP = {
   '': 'overview', 'overview': 'overview', 'database': 'database',
@@ -73,11 +75,6 @@ export default function AdminPanel({ authUsername }) {
 
   const token = getToken();
   const h = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
-  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
-  const inputCls = `w-full px-3 py-2 rounded-lg border text-sm outline-none transition bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
-  const btnRed = 'px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition';
-  const btnBlue = 'px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white text-xs font-semibold rounded-lg transition';
-  const btnGhost = `px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const fetchStats = useCallback(async () => {
     if (!apiCache.has('/api/admin/stats')) setLoading(true);
@@ -396,11 +393,11 @@ export default function AdminPanel({ authUsername }) {
             <h3 className="font-bold mb-1">Delete user</h3>
             <p className={`text-sm mb-1 text-zinc-400`}>This will permanently delete <span className="font-semibold text-white">{deleteModal}</span> and all their data.</p>
             <p className={`text-sm mb-4 text-zinc-300`}>Enter your password to confirm.</p>
-            <input type="password" value={deletePw} onChange={e => setDeletePw(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDeleteUser()} placeholder="Your password" className={`${inputCls} mb-2`} autoFocus />
+            <input type="password" value={deletePw} onChange={e => setDeletePw(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDeleteUser()} placeholder="Your password" className={`${input} mb-2`} autoFocus />
             {deleteError && <p className="text-xs text-red-400 mb-2">{deleteError}</p>}
             <div className="flex gap-2 mt-1">
-              <button onClick={confirmDeleteUser} className={btnRed + ' flex-1 py-2'}>Delete</button>
-              <button onClick={() => setDeleteModal(null)} className={btnGhost + ' flex-1 py-2'}>Cancel</button>
+              <button onClick={confirmDeleteUser} className={btnDangerSm + ' flex-1 py-2'}>Delete</button>
+              <button onClick={() => setDeleteModal(null)} className={btnSecondarySm + ' flex-1 py-2'}>Cancel</button>
             </div>
           </div>
         </div>
@@ -418,7 +415,7 @@ export default function AdminPanel({ authUsername }) {
         ) : !stats && tab === 'overview' ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <p className={`text-sm text-zinc-400`}>Failed to load stats.</p>
-            <button onClick={fetchStats} className={btnGhost}>↺ Try again</button>
+            <button onClick={fetchStats} className={`${btnSecondarySm} inline-flex items-center gap-1.5`}><IconRefresh size={12} />Try again</button>
           </div>
         ) : (
           <>
@@ -488,7 +485,7 @@ export default function AdminPanel({ authUsername }) {
                           onKeyDown={e => e.key === 'Enter' && saveUserLimit()}
                           className={`w-20 px-2 py-1.5 rounded-lg border text-sm text-center outline-none bg-zinc-700 border-zinc-600 text-white`}
                         />
-                        <button onClick={saveUserLimit} className={btnBlue}>Save</button>
+                        <button onClick={saveUserLimit} className={btnPrimarySm}>Save</button>
                       </div>
                     </div>
                   </div>
@@ -515,7 +512,7 @@ export default function AdminPanel({ authUsername }) {
                 <div className={`${card} p-5`}>
                   <div className="flex items-center justify-between mb-4">
                     <h2 className={`text-xs font-bold uppercase tracking-wider text-zinc-400`}>Ticker Cache</h2>
-                    <button onClick={() => clearCache()} className={btnGhost}>Clear All Caches</button>
+                    <button onClick={() => clearCache()} className={btnSecondarySm}>Clear All Caches</button>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     {[
@@ -542,7 +539,7 @@ export default function AdminPanel({ authUsername }) {
                             <p className="font-semibold text-sm">{a.title}</p>
                             <p className="text-xs mt-0.5 opacity-80">{a.message}</p>
                           </div>
-                          <button onClick={() => deleteAnnouncement(a.id)} className="text-xs opacity-60 hover:opacity-100 shrink-0">✕</button>
+                          <button onClick={() => deleteAnnouncement(a.id)} className="opacity-60 hover:opacity-100 shrink-0 transition" aria-label="Remove"><IconX size={14} /></button>
                         </div>
                       ))}
                     </div>
@@ -555,9 +552,9 @@ export default function AdminPanel({ authUsername }) {
             {tab === 'users' && stats && (
               <div className="flex flex-col gap-3 max-w-2xl mx-auto">
                 <div className="flex items-center gap-3">
-                  <input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search users…" className={`${inputCls} flex-1`} />
+                  <input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search users…" className={`${input} flex-1`} />
                   <p className={`text-sm shrink-0 text-zinc-400`}>{stats.users.length} user(s)</p>
-                  <button onClick={fetchStats} className={`${btnGhost} shrink-0`}>↺ Refresh</button>
+                  <button onClick={fetchStats} className={`${btnSecondarySm} shrink-0 inline-flex items-center gap-1.5`}><IconRefresh size={12} />Refresh</button>
                 </div>
                 {[...stats.users]
                   .filter(u => !userSearch || u.username.toLowerCase().includes(userSearch.toLowerCase()))
@@ -599,8 +596,8 @@ export default function AdminPanel({ authUsername }) {
                           {isEditingEmail ? (
                             <div className="flex gap-2">
                               <input type="email" value={inlineEmailVal} onChange={e => { setInlineEmailVal(e.target.value); setInlineEmailStatus(''); }} onKeyDown={e => { if (e.key === 'Enter') saveInlineEmail(u.username); if (e.key === 'Escape') setEditingEmailFor(null); }} placeholder="email@example.com" autoFocus className={`${fieldBox} flex-1 focus:border-zinc-500/60 focus:outline-none`}/>
-                              <button onClick={() => saveInlineEmail(u.username)} disabled={inlineEmailStatus === 'Saving...'} className={`${btnBlue} disabled:opacity-50`}>Send</button>
-                              <button onClick={() => setEditingEmailFor(null)} className={btnGhost}>Cancel</button>
+                              <button onClick={() => saveInlineEmail(u.username)} disabled={inlineEmailStatus === 'Saving...'} className={`${btnPrimarySm} disabled:opacity-50`}>Send</button>
+                              <button onClick={() => setEditingEmailFor(null)} className={btnSecondarySm}>Cancel</button>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
@@ -626,7 +623,7 @@ export default function AdminPanel({ authUsername }) {
                                   </div>
                                 )}
                               </div>
-                              <button onClick={() => { setEditingEmailFor(u.username); setInlineEmailVal(u.email || u.pendingEmail?.email || ''); setInlineEmailStatus(''); }} className={`${btnGhost} shrink-0`}>Edit</button>
+                              <button onClick={() => { setEditingEmailFor(u.username); setInlineEmailVal(u.email || u.pendingEmail?.email || ''); setInlineEmailStatus(''); }} className={`${btnSecondarySm} shrink-0`}>Edit</button>
                             </div>
                           )}
                           {inlineEmailStatus && isEditingEmail && <p className={`text-xs mt-1.5 ${inlineEmailStatus.startsWith('Error') ? 'text-red-400' : 'text-zinc-400'}`}>{inlineEmailStatus}</p>}
@@ -646,8 +643,8 @@ export default function AdminPanel({ authUsername }) {
                                       : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
                                   </button>
                                 </div>
-                                <button onClick={() => setPasswordInline(u.username)} disabled={inlinePasswordStatus === 'Saving...'} className={`${btnBlue} disabled:opacity-50`}>Set</button>
-                                <button onClick={() => { setSettingPasswordFor(null); setInlinePasswordVal(''); setInlinePasswordStatus(''); }} className={btnGhost}>Cancel</button>
+                                <button onClick={() => setPasswordInline(u.username)} disabled={inlinePasswordStatus === 'Saving...'} className={`${btnPrimarySm} disabled:opacity-50`}>Set</button>
+                                <button onClick={() => { setSettingPasswordFor(null); setInlinePasswordVal(''); setInlinePasswordStatus(''); }} className={btnSecondarySm}>Cancel</button>
                               </div>
                               {inlinePasswordStatus && <p className={`text-xs ${inlinePasswordStatus.startsWith('Error') ? 'text-red-400' : 'text-zinc-400'}`}>{inlinePasswordStatus}</p>}
                             </div>
@@ -656,8 +653,8 @@ export default function AdminPanel({ authUsername }) {
                               <div className={`${fieldBox} flex-1 flex items-center text-zinc-500`}>
                                 <span className="tracking-widest">••••••••••••</span>
                               </div>
-                              <button onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className={btnBlue}>Set Password</button>
-                              <button onClick={() => sendResetLinkInline(u.username)} disabled={!u.email || resetStatus === 'sending' || resetStatus === 'sent'} className={`${btnGhost} disabled:opacity-40`} title={!u.email ? 'No email on file' : ''}>
+                              <button onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className={btnPrimarySm}>Set Password</button>
+                              <button onClick={() => sendResetLinkInline(u.username)} disabled={!u.email || resetStatus === 'sending' || resetStatus === 'sent'} className={`${btnSecondarySm} disabled:opacity-40`} title={!u.email ? 'No email on file' : ''}>
                                 {resetStatus === 'sending' ? 'Sending…' : resetStatus === 'sent' ? 'Sent' : resetStatus === 'error' ? 'Error' : 'Send Reset Link'}
                               </button>
                             </div>
@@ -677,13 +674,13 @@ export default function AdminPanel({ authUsername }) {
                                   <>
                                     {!isRootAdmin && role !== 'admin' && (
                                       role !== 'moderator'
-                                        ? <button onClick={() => setRole(u.username, 'moderator')} className={btnBlue}>Promote to Mod</button>
-                                        : <button onClick={() => setRole(u.username, 'user')} className={btnGhost}>Demote to User</button>
+                                        ? <button onClick={() => setRole(u.username, 'moderator')} className={btnPrimarySm}>Promote to Mod</button>
+                                        : <button onClick={() => setRole(u.username, 'user')} className={btnSecondarySm}>Demote to User</button>
                                     )}
                                     {authUsername?.toLowerCase() === 'admin' && !isRootAdmin && !isSelf && (
                                       role !== 'admin'
                                         ? <button onClick={() => setAdminRole(u.username, 'admin')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-red-700 hover:bg-red-600 text-white`}>Promote to Admin</button>
-                                        : <button onClick={() => setAdminRole(u.username, 'user')} className={btnGhost}>Revoke Admin</button>
+                                        : <button onClick={() => setAdminRole(u.username, 'user')} className={btnSecondarySm}>Revoke Admin</button>
                                     )}
                                     {role === 'user' && !authUsername?.toLowerCase() === 'admin' && <span className="text-xs text-zinc-500 self-center">No role changes available</span>}
                                   </>
@@ -697,13 +694,13 @@ export default function AdminPanel({ authUsername }) {
                         <div>
                           <label className={fieldLabel}>Actions</label>
                           <div className="flex gap-2 flex-wrap">
-                            <button onClick={() => clearCache(u.username)} className={btnGhost}>Clear Cache</button>
-                            <button onClick={() => resolveUser(u.username)} className={btnGhost}>Re-resolve Tickers</button>
-                            <button onClick={() => clearBio(u.username)} className={btnGhost}>Clear Bio</button>
-                            <button onClick={() => exportUser(u.username)} className={btnGhost}>Export Data</button>
-                            {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnGhost}>Make CS Private</button>}
-                            {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnGhost}>Make Stocks Private</button>}
-                            {u.username !== 'admin' && <button onClick={() => deleteUser(u.username)} className={btnRed}>Delete User</button>}
+                            <button onClick={() => clearCache(u.username)} className={btnSecondarySm}>Clear Cache</button>
+                            <button onClick={() => resolveUser(u.username)} className={btnSecondarySm}>Re-resolve Tickers</button>
+                            <button onClick={() => clearBio(u.username)} className={btnSecondarySm}>Clear Bio</button>
+                            <button onClick={() => exportUser(u.username)} className={btnSecondarySm}>Export Data</button>
+                            {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnSecondarySm}>Make CS Private</button>}
+                            {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnSecondarySm}>Make Stocks Private</button>}
+                            {u.username !== 'admin' && <button onClick={() => deleteUser(u.username)} className={btnDangerSm}>Delete User</button>}
                           </div>
                         </div>
 
@@ -725,7 +722,7 @@ export default function AdminPanel({ authUsername }) {
                     <h3 className="font-semibold text-sm">Unresolved Tickers</h3>
                     <div className="flex items-center gap-3">
                       <span className={`text-sm text-zinc-400`}>{failures.length} unique</span>
-                      <button onClick={fetchFailures} className={btnGhost}>↺ Refresh</button>
+                      <button onClick={fetchFailures} className={`${btnSecondarySm} inline-flex items-center gap-1.5`}><IconRefresh size={12} />Refresh</button>
                     </div>
                   </div>
                   {failures.length === 0 ? (
@@ -764,9 +761,9 @@ export default function AdminPanel({ authUsername }) {
                     Global overrides apply to <strong>all users</strong> and take priority over per-user overrides. Use this to pin commonly misresolved ISINs to the correct Yahoo Finance ticker.
                   </p>
                   <div className="flex gap-2 mb-3">
-                    <input value={goIsin} onChange={e => setGoIsin(e.target.value)} placeholder="ISIN (e.g. SE0025138357)" className={`${inputCls} flex-1`} />
-                    <input value={goTicker} onChange={e => setGoTicker(e.target.value)} placeholder="YF ticker (e.g. HACK.ST)" className={`${inputCls} flex-1`} />
-                    <button onClick={saveGlobalOverride} className={btnBlue}>Save</button>
+                    <input value={goIsin} onChange={e => setGoIsin(e.target.value)} placeholder="ISIN (e.g. SE0025138357)" className={`${input} flex-1`} />
+                    <input value={goTicker} onChange={e => setGoTicker(e.target.value)} placeholder="YF ticker (e.g. HACK.ST)" className={`${input} flex-1`} />
+                    <button onClick={saveGlobalOverride} className={btnPrimarySm}>Save</button>
                   </div>
                   {goMsg && <p className={`text-xs mb-3 ${goMsg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>{goMsg}</p>}
                   {goLoading ? (
@@ -780,7 +777,7 @@ export default function AdminPanel({ authUsername }) {
                         value={goSearch}
                         onChange={e => setGoSearch(e.target.value)}
                         placeholder="Search ISIN, ticker or added by…"
-                        className={inputCls}
+                        className={input}
                       />
                       <div className={`rounded-xl overflow-hidden border border-zinc-700`}>
                         <table className="w-full text-sm">
@@ -827,7 +824,7 @@ export default function AdminPanel({ authUsername }) {
                     <p className={`text-sm text-zinc-400`}>No global overrides saved yet.</p>
                   )}
                   {globalOverrides.length > 0 && (
-                    <button onClick={() => { setClearAllModal(true); setClearAllPw(''); setClearAllError(''); }} className={`mt-4 ${btnRed}`}>
+                    <button onClick={() => { setClearAllModal(true); setClearAllPw(''); setClearAllError(''); }} className={`mt-4 ${btnDangerSm}`}>
                       Clear all global overrides
                     </button>
                   )}
@@ -841,11 +838,11 @@ export default function AdminPanel({ authUsername }) {
                       <p className={`text-sm mb-4 text-zinc-300`}>
                         This will delete all global ticker overrides for every user. Enter your password to confirm.
                       </p>
-                      <input type="password" value={clearAllPw} onChange={e => setClearAllPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && clearAllGlobalOverrides()} placeholder="Your password" className={`${inputCls} mb-3`} autoFocus />
+                      <input type="password" value={clearAllPw} onChange={e => setClearAllPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && clearAllGlobalOverrides()} placeholder="Your password" className={`${input} mb-3`} autoFocus />
                       {clearAllError && <p className="text-xs text-red-400 mb-3">{clearAllError}</p>}
                       <div className="flex gap-2">
-                        <button onClick={clearAllGlobalOverrides} className={`flex-1 ${btnRed}`}>Delete all</button>
-                        <button onClick={() => setClearAllModal(false)} className={`flex-1 ${btnGhost}`}>Cancel</button>
+                        <button onClick={clearAllGlobalOverrides} className={`flex-1 ${btnDangerSm}`}>Delete all</button>
+                        <button onClick={() => setClearAllModal(false)} className={`flex-1 ${btnSecondarySm}`}>Cancel</button>
                       </div>
                     </div>
                   </div>
@@ -859,11 +856,11 @@ export default function AdminPanel({ authUsername }) {
                         Remove global override for <span className="font-mono font-bold">{removeModal}</span>?
                       </p>
                       <p className={`text-sm mb-4 text-zinc-300`}>Enter your password to confirm.</p>
-                      <input type="password" value={removePw} onChange={e => setRemovePw(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDeleteGlobalOverride()} placeholder="Your password" className={`${inputCls} mb-3`} autoFocus />
+                      <input type="password" value={removePw} onChange={e => setRemovePw(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDeleteGlobalOverride()} placeholder="Your password" className={`${input} mb-3`} autoFocus />
                       {removeError && <p className="text-xs text-red-400 mb-3">{removeError}</p>}
                       <div className="flex gap-2">
-                        <button onClick={confirmDeleteGlobalOverride} className={`flex-1 ${btnRed}`}>Remove</button>
-                        <button onClick={() => setRemoveModal(null)} className={`flex-1 ${btnGhost}`}>Cancel</button>
+                        <button onClick={confirmDeleteGlobalOverride} className={`flex-1 ${btnDangerSm}`}>Remove</button>
+                        <button onClick={() => setRemoveModal(null)} className={`flex-1 ${btnSecondarySm}`}>Cancel</button>
                       </div>
                     </div>
                   </div>
@@ -1031,7 +1028,7 @@ export default function AdminPanel({ authUsername }) {
                               {tableData.page * tableData.limit + 1}–{Math.min((tableData.page + 1) * tableData.limit, tableData.total)} of {tableData.total.toLocaleString()} rows
                             </span>
                           )}
-                          <button onClick={() => fetchTableData(selectedTable, tablePage, tableUserFilter)} className={btnGhost}>↺</button>
+                          <button onClick={() => fetchTableData(selectedTable, tablePage, tableUserFilter)} className={`${btnSecondarySm} inline-flex items-center`} aria-label="Refresh"><IconRefresh size={12} /></button>
                         </div>
                       </div>
                       {tableLoading ? (
@@ -1068,9 +1065,9 @@ export default function AdminPanel({ authUsername }) {
                           </div>
                           {tableData.total > tableData.limit && (
                             <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-700">
-                              <button disabled={tablePage === 0} onClick={() => { const p = tablePage - 1; setTablePage(p); fetchTableData(selectedTable, p, tableUserFilter); }} className={`${btnGhost} disabled:opacity-40`}>← Prev</button>
+                              <button disabled={tablePage === 0} onClick={() => { const p = tablePage - 1; setTablePage(p); fetchTableData(selectedTable, p, tableUserFilter); }} className={`${btnSecondarySm} disabled:opacity-40`}>← Prev</button>
                               <span className="text-xs text-zinc-400">Page {tablePage + 1} of {Math.ceil(tableData.total / tableData.limit)}</span>
-                              <button disabled={(tablePage + 1) * tableData.limit >= tableData.total} onClick={() => { const p = tablePage + 1; setTablePage(p); fetchTableData(selectedTable, p, tableUserFilter); }} className={`${btnGhost} disabled:opacity-40`}>Next →</button>
+                              <button disabled={(tablePage + 1) * tableData.limit >= tableData.total} onClick={() => { const p = tablePage + 1; setTablePage(p); fetchTableData(selectedTable, p, tableUserFilter); }} className={`${btnSecondarySm} disabled:opacity-40`}>Next →</button>
                             </div>
                           )}
                         </>
@@ -1095,7 +1092,7 @@ export default function AdminPanel({ authUsername }) {
                     {['welcome', 'verify', 'reset', 'admin-reset'].map(type => {
                       const labels = { welcome: 'Welcome (registration)', verify: 'Verify Email (admin)', reset: 'Password Reset (self)', 'admin-reset': 'Password Reset (admin)' };
                       return (
-                        <button key={type} className={btnGhost} onClick={async () => {
+                        <button key={type} className={btnSecondarySm} onClick={async () => {
                           const tok = getToken();
                           const res = await fetch(`/api/admin/preview-email?type=${type}`, { headers: { 'Authorization': `Bearer ${tok}` } });
                           if (!res.ok) { flash(`Email preview failed (${res.status})`); return; }
@@ -1114,8 +1111,8 @@ export default function AdminPanel({ authUsername }) {
 
                 <div className="flex items-center justify-between">
                   <p className={`text-sm text-zinc-400`}>Live connectivity test against market data APIs.</p>
-                  <button onClick={fetchDiag} disabled={diagLoading} className={`${btnGhost} disabled:opacity-50`}>
-                    {diagLoading ? 'Running...' : '↺ Run Test'}
+                  <button onClick={fetchDiag} disabled={diagLoading} className={`${btnSecondarySm} disabled:opacity-50`}>
+                    {diagLoading ? 'Running...' : 'Run Test'}
                   </button>
                 </div>
 
@@ -1211,10 +1208,10 @@ export default function AdminPanel({ authUsername }) {
                 <div className={`${card} p-5`}>
                   <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Post Announcement</h2>
                   <div className="flex flex-col gap-3">
-                    <input value={annForm.title} onChange={e => setAnnForm(f => ({ ...f, title: e.target.value }))} placeholder="Title..." className={inputCls} />
-                    <textarea value={annForm.message} onChange={e => setAnnForm(f => ({ ...f, message: e.target.value }))} rows={3} placeholder="Message..." className={`${inputCls} resize-none`} />
+                    <input value={annForm.title} onChange={e => setAnnForm(f => ({ ...f, title: e.target.value }))} placeholder="Title..." className={input} />
+                    <textarea value={annForm.message} onChange={e => setAnnForm(f => ({ ...f, message: e.target.value }))} rows={3} placeholder="Message..." className={`${input} resize-none`} />
                     <div className="flex gap-3 items-center">
-                      <select value={annForm.type} onChange={e => setAnnForm(f => ({ ...f, type: e.target.value }))} className={`${inputCls} w-36`}>
+                      <select value={annForm.type} onChange={e => setAnnForm(f => ({ ...f, type: e.target.value }))} className={`${input} w-36`}>
                         <option value="info">Info</option>
                         <option value="success">Success</option>
                         <option value="warning">Warning</option>
@@ -1228,7 +1225,7 @@ export default function AdminPanel({ authUsername }) {
                         </div>
                       )}
                     </div>
-                    <button onClick={postAnnouncement} className={btnBlue + ' self-start px-5 py-2'}>Post Announcement</button>
+                    <button onClick={postAnnouncement} className={btnPrimarySm + ' self-start px-5 py-2'}>Post Announcement</button>
                   </div>
                 </div>
 
@@ -1248,7 +1245,7 @@ export default function AdminPanel({ authUsername }) {
                             </div>
                             <p className="text-xs opacity-80">{a.message}</p>
                           </div>
-                          <button onClick={() => deleteAnnouncement(a.id)} className="text-sm opacity-60 hover:opacity-100 shrink-0 hover:text-red-400 transition">✕</button>
+                          <button onClick={() => deleteAnnouncement(a.id)} className="opacity-60 hover:opacity-100 shrink-0 hover:text-red-400 transition" aria-label="Remove"><IconX size={14} /></button>
                         </div>
                       ))}
                     </div>

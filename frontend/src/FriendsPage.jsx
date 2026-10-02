@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
+import { card } from './ui';
 
 export default function FriendsPage({ authUsername }) {
   const [friends, setFriends] = useState(() => apiCache.get('/api/friends')?.friends || []);
@@ -49,7 +50,6 @@ export default function FriendsPage({ authUsername }) {
     window.dispatchEvent(new Event('friends-updated'));
   }
 
-  const card = 'bg-zinc-800 border-zinc-700';
   const textSecondary = 'text-zinc-400';
   const divider = 'divide-zinc-700';
 
@@ -95,7 +95,7 @@ export default function FriendsPage({ authUsername }) {
                 <h2 className="text-xs font-semibold uppercase tracking-wide mb-3 text-red-400">
                   Pending Requests ({incoming.length})
                 </h2>
-                <div className={`${card} border rounded-xl divide-y ${divider}`}>
+                <div className={`${card} divide-y ${divider}`}>
                   {incoming.map(req => (
                     <div key={req.username} className="p-4 flex items-center gap-4">
                       <Avatar user={req} />
@@ -119,7 +119,7 @@ export default function FriendsPage({ authUsername }) {
                 <h2 className="text-xs font-semibold uppercase tracking-wide mb-3 text-blue-400">
                   Sent Requests ({outgoing.length})
                 </h2>
-                <div className={`${card} border rounded-xl divide-y ${divider}`}>
+                <div className={`${card} divide-y ${divider}`}>
                   {outgoing.map(username => (
                     <div key={username} className="p-4 flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full bg-zinc-600 flex items-center justify-center text-white font-bold shrink-0">
@@ -139,7 +139,7 @@ export default function FriendsPage({ authUsername }) {
                 Friends ({filteredFriends.length})
               </h2>
               {filteredFriends.length > 0 ? (
-                <div className={`${card} border rounded-xl divide-y ${divider}`}>
+                <div className={`${card} divide-y ${divider}`}>
                   {filteredFriends.map(friend => (
                     <div key={friend.username} className="p-4 flex items-center gap-4">
                       <a href={`/user/${friend.username}`} onClick={e => { e.preventDefault(); navigate(`/user/${friend.username}`); }}>
@@ -159,7 +159,7 @@ export default function FriendsPage({ authUsername }) {
                   ))}
                 </div>
               ) : (
-                <div className={`${card} border rounded-xl p-12 text-center`}>
+                <div className={`${card} p-12 text-center`}>
                   <p className={textSecondary}>{searchQuery ? 'No friends match your search' : 'No friends yet'}</p>
                 </div>
               )}

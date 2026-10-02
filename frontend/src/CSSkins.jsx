@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
+import { card, input, label, btn, btnPrimary, btnSecondary } from './ui';
+import { IconX, IconImage } from './icons';
 
 const EXTERIORS = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
 
@@ -150,7 +152,7 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
         )}
         {item.iconUrl
           ? <img src={item.iconUrl} alt={item.name} className="w-full h-24 object-contain mt-5" />
-          : <div className="w-full h-24 flex items-center justify-center text-3xl mt-5">🔫</div>
+          : <div className="w-full h-24 flex items-center justify-center mt-5 text-zinc-600"><IconImage size={32} /></div>
         }
         {/* Sticker row */}
         {item.stickers?.length > 0 && (
@@ -302,13 +304,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   });
 
   const fmtBC = n => fmtCur(n, baseCurrency);
-
-  const card = `bg-zinc-800 border-zinc-700 border rounded-xl`;
-  const input = `w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-zinc-500/30 focus:border-zinc-500 bg-zinc-700 border-zinc-600 text-white placeholder-zinc-500`;
-  const label = `text-xs font-semibold uppercase tracking-wider block mb-1.5 text-zinc-400`;
-  const btn = `px-4 py-2 text-sm font-semibold rounded-lg transition`;
-  const btnOrange = `${btn} bg-zinc-600 hover:bg-zinc-500 text-white`;
-  const btnGhost = `${btn} bg-zinc-700 hover:bg-zinc-600 text-zinc-200`;
 
   const _urlParams = new URLSearchParams(location.search);
   const expandParam = _urlParams.get('expand');
@@ -771,7 +766,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                           className="bg-transparent outline-none flex-1 text-xs text-white placeholder-zinc-500"
                         />
                         {invSearch && (
-                          <button onClick={() => setInvSearch('')} className="text-zinc-500 hover:text-white transition shrink-0 text-sm leading-none">✕</button>
+                          <button onClick={() => setInvSearch('')} className="text-zinc-500 hover:text-white transition shrink-0" aria-label="Clear search"><IconX size={14} /></button>
                         )}
                       </div>
                     </div>
@@ -939,7 +934,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       <h3 className="font-bold text-base flex-1">
                         {addModalTab === 'inventory' ? 'From Steam Inventory' : addModalTab === 'manual' ? 'Enter Manually' : 'Register Trade'}
                       </h3>
-                      <button onClick={closeAddModal} className={`text-xl leading-none text-zinc-400 hover:text-white`}>✕</button>
+                      <button onClick={closeAddModal} className="text-zinc-400 hover:text-white transition" aria-label="Close"><IconX size={18} /></button>
                     </div>
 
                     {/* Scrollable body */}
@@ -1030,7 +1025,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                     </div>
                                   ) : modalInventory === null ? (
                                     <div className="text-center py-8">
-                                      <button onClick={loadModalInventory} className={btnOrange}>Load Inventory</button>
+                                      <button onClick={loadModalInventory} className={btnPrimary}>Load Inventory</button>
                                     </div>
                                   ) : modalInventory.length === 0 ? (
                                     <p className={`text-center py-8 text-sm text-zinc-400`}>No CS items found in your inventory.</p>
@@ -1070,7 +1065,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                                 )}
                                                 {item.iconUrl
                                                   ? <img src={item.iconUrl} alt={item.name} className="w-full h-24 object-contain mt-5" />
-                                                  : <div className="w-full h-24 flex items-center justify-center text-3xl mt-5">🔫</div>
+                                                  : <div className="w-full h-24 flex items-center justify-center mt-5 text-zinc-600"><IconImage size={32} /></div>
                                                 }
                                               </div>
                                               {/* Info area */}
@@ -1220,7 +1215,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                         })()}
                         <button
                           onClick={() => addModalTab === 'inventory' ? setSelectedModalItem(null) : closeAddModal()}
-                          className={btnGhost}
+                          className={btnSecondary}
                         >
                           {addModalTab === 'inventory' ? 'Back' : 'Cancel'}
                         </button>
@@ -1241,7 +1236,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                         <h3 className="font-bold text-base">Edit Trade</h3>
                         <p className={`text-xs mt-0.5 text-zinc-400`}>{withVanilla(showEditForm.skin_name)}</p>
                       </div>
-                      <button onClick={closeEditModal} className={`text-xl leading-none text-zinc-400 hover:text-white`}>✕</button>
+                      <button onClick={closeEditModal} className="text-zinc-400 hover:text-white transition" aria-label="Close"><IconX size={18} /></button>
                     </div>
 
                     {/* Tabs */}
@@ -1310,7 +1305,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                 </div>
                               ) : modalInventory === null ? (
                                 <div className="text-center py-8">
-                                  <button onClick={loadModalInventory} className={btnOrange}>Load Inventory</button>
+                                  <button onClick={loadModalInventory} className={btnPrimary}>Load Inventory</button>
                                 </div>
                               ) : modalInventory.length === 0 ? (
                                 <p className={`text-center py-8 text-sm text-zinc-400`}>No CS items found in your inventory.</p>
@@ -1386,14 +1381,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                             <div className="flex items-center gap-3">
                               {editForm.icon_url
                                 ? <img src={editForm.icon_url} alt="" className="w-12 h-12 object-contain rounded bg-zinc-700/50 p-1 shrink-0" />
-                                : <div className="w-12 h-12 rounded bg-zinc-700 flex items-center justify-center text-xl shrink-0">🔫</div>
+                                : <div className="w-12 h-12 rounded bg-zinc-700 flex items-center justify-center shrink-0 text-zinc-500"><IconImage size={20} /></div>
                               }
                               <div>
                                 <button
                                   type="button"
                                   onClick={resetIcon}
                                   disabled={iconResetting}
-                                  className={`${btnGhost} text-xs py-1.5 disabled:opacity-40 disabled:cursor-not-allowed`}
+                                  className={`${btnSecondary} text-xs py-1.5 disabled:opacity-40 disabled:cursor-not-allowed`}
                                 >
                                   {iconResetting ? 'Fetching...' : 'Refresh Icon'}
                                 </button>
@@ -1414,11 +1409,11 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                         <button
                           onClick={saveEdit}
                           disabled={!editForm.skin_name || editForm.purchase_price === '' || !editForm.purchase_date}
-                          className={`${btnOrange} disabled:opacity-40 disabled:cursor-not-allowed`}
+                          className={`${btnPrimary} disabled:opacity-40 disabled:cursor-not-allowed`}
                         >
                           Save Changes
                         </button>
-                        <button onClick={closeEditModal} className={btnGhost}>Cancel</button>
+                        <button onClick={closeEditModal} className={btnSecondary}>Cancel</button>
                       </div>
                     </div>
                   </div>
@@ -1449,7 +1444,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                         <h3 className="font-bold text-base">Mark as Sold</h3>
                         <p className={`text-sm text-zinc-400`}>{withVanilla(showSellForm.skin_name)}</p>
                       </div>
-                      <button onClick={() => setShowSellForm(null)} className={`text-xl leading-none text-zinc-400 hover:text-white`}>✕</button>
+                      <button onClick={() => setShowSellForm(null)} className="text-zinc-400 hover:text-white transition" aria-label="Close"><IconX size={18} /></button>
                     </div>
                     <div className="p-6 grid grid-cols-2 gap-4">
                       <div>
@@ -1480,7 +1475,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                     </div>
                     <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700`}>
                       <button onClick={() => sellItem(showSellForm.id)} className={`${btn} bg-red-600 hover:bg-red-500 text-white`}>Confirm Sale</button>
-                      <button onClick={() => setShowSellForm(null)} className={btnGhost}>Cancel</button>
+                      <button onClick={() => setShowSellForm(null)} className={btnSecondary}>Cancel</button>
                     </div>
                   </div>
                 </div>
@@ -1498,7 +1493,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                   <p className={`text-sm mb-4 text-zinc-400`}>
                     {trackerSearch ? 'Try a different search term.' : filterSold === 'sold' ? 'Trades you mark as sold will appear here.' : filterSold === 'active' ? 'All your trades have been marked as sold.' : 'Register skins you\'ve bought to track their value and P&L over time.'}
                   </p>
-                  {!trackerSearch && filterSold !== 'sold' && <button onClick={() => setShowAddForm(true)} className={btnOrange}>+ Register First Trade</button>}
+                  {!trackerSearch && filterSold !== 'sold' && <button onClick={() => setShowAddForm(true)} className={btnPrimary}>+ Register First Trade</button>}
                 </div>
               ) : (
                 <div className={`${card} overflow-hidden`}>

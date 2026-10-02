@@ -1,3 +1,5 @@
+import { IconX } from './icons';
+
 const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16'];
 
 export function EmptyState({ title, desc, action }) {
@@ -16,7 +18,7 @@ export function ShortcutsModal({ onClose }) {
       <div className="bg-zinc-800 border-zinc-700 border rounded-2xl p-6 w-80 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-bold">Keyboard shortcuts</h3>
-          <button onClick={onClose} className="text-zinc-400 hover:text-white text-lg">✕</button>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white transition" aria-label="Close"><IconX size={18} /></button>
         </div>
         {[['Space / /','Focus search'],['?','Show shortcuts'],['Esc','Close / unfocus']].map(([key, desc]) => (
           <div key={key} className="flex items-center justify-between py-2 border-b border-zinc-700 last:border-0">
