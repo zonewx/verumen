@@ -540,6 +540,13 @@ export default function AdminPanel({ authUsername }) {
                   .map(u => {
                   const roleBadgeCls = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800' };
                   const isExpanded = expandedUsers.has(u.username);
+                  // Mirrors the server rule: staff can't change each other's credentials; only
+                  // 'william' may reset the root admin's password (email stays locked).
+                  const targetIsRoot = u.username.toLowerCase() === 'admin';
+                  const targetIsStaff = u.role === 'admin' || u.role === 'moderator';
+                  const canResetPassword = targetIsRoot ? authUsername?.toLowerCase() === 'william' : !targetIsStaff;
+                  const canEditEmail = !targetIsRoot && !targetIsStaff;
+                  const protectedTag = <span className="text-xs text-zinc-500 shrink-0 px-1">You do not have permission</span>;
                   const isEditingEmail = editingEmailFor === u.username;
                   const isSettingPassword = settingPasswordFor === u.username;
                   const resetStatus = sendingResetFor[u.username];
@@ -601,7 +608,9 @@ export default function AdminPanel({ authUsername }) {
                                   </div>
                                 )}
                               </div>
-                              <button onClick={() => { setEditingEmailFor(u.username); setInlineEmailVal(u.email || u.pendingEmail?.email || ''); setInlineEmailStatus(''); }} className={`${btnSecondarySm} shrink-0`}>Edit</button>
+                              {canEditEmail
+                                ? <button onClick={() => { setEditingEmailFor(u.username); setInlineEmailVal(u.email || u.pendingEmail?.email || ''); setInlineEmailStatus(''); }} className={`${btnSecondarySm} shrink-0`}>Edit</button>
+                                : protectedTag}
                             </div>
                           )}
                           {inlineEmailStatus && isEditingEmail && <p className={`text-xs mt-1.5 ${inlineEmailStatus.startsWith('Error') ? 'text-red-400' : 'text-zinc-400'}`}>{inlineEmailStatus}</p>}
@@ -631,10 +640,12 @@ export default function AdminPanel({ authUsername }) {
                               <div className={`${fieldBox} flex-1 flex items-center text-zinc-500`}>
                                 <span className="tracking-widest">••••••••••••</span>
                               </div>
-                              <button onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className={btnConfirmSm}>Set Password</button>
-                              <button onClick={() => sendResetLinkInline(u.username)} disabled={!u.email || resetStatus === 'sending' || resetStatus === 'sent'} className={`${btnSecondarySm} disabled:opacity-40`} title={!u.email ? 'No email on file' : ''}>
-                                {resetStatus === 'sending' ? 'Sending…' : resetStatus === 'sent' ? 'Sent' : resetStatus === 'error' ? 'Error' : 'Send Reset Link'}
-                              </button>
+                              {canResetPassword ? (<>
+                                <button onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className={btnConfirmSm}>Set Password</button>
+                                <button onClick={() => sendResetLinkInline(u.username)} disabled={!u.email || resetStatus === 'sending' || resetStatus === 'sent'} className={`${btnSecondarySm} disabled:opacity-40`} title={!u.email ? 'No email on file' : ''}>
+                                  {resetStatus === 'sending' ? 'Sending…' : resetStatus === 'sent' ? 'Sent' : resetStatus === 'error' ? 'Error' : 'Send Reset Link'}
+                                </button>
+                              </>) : protectedTag}
                             </div>
                           )}
                         </div>

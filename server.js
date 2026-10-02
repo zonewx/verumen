@@ -245,21 +245,32 @@ setInterval(() => {
 // Simple in-memory rate limiter for auth routes
 const rateLimitMap = new Map();
 setInterval(() => { const now = Date.now(); for (const [k, v] of rateLimitMap) if (now > v.resetAt) rateLimitMap.delete(k); }, 5 * 60 * 1000).unref();
-function rateLimit(maxRequests, windowMs) {
+// Requests arrive via Vercel's rewrite proxy, so req.ip is Vercel's address for everyone.
+// Vercel forwards the real client IP in its own headers; prefer those. They could be spoofed
+// by calling the Railway URL directly, which is why login also has a per-username limit.
+function clientIp(req) {
+  const fwd = req.headers['x-vercel-forwarded-for'] || req.headers['x-real-ip'] || req.headers['x-forwarded-for'];
+  return (typeof fwd === 'string' && fwd.split(',')[0].trim()) || req.ip || req.socket.remoteAddress;
+}
+// Counts a hit against `key`; returns true once more than `max` hits land within the window.
+function hitLimit(key, max, windowMs) {
+  const now = Date.now();
+  const record = rateLimitMap.get(key) || { count: 0, resetAt: now + windowMs };
+  if (now > record.resetAt) { record.count = 0; record.resetAt = now + windowMs; }
+  record.count++;
+  rateLimitMap.set(key, record);
+  return record.count > max;
+}
+function rateLimit(maxRequests, windowMs, label) {
   return (req, res, next) => {
-    const key = req.ip || req.socket.remoteAddress;
-    const now = Date.now();
-    const record = rateLimitMap.get(key) || { count: 0, resetAt: now + windowMs };
-    if (now > record.resetAt) { record.count = 0; record.resetAt = now + windowMs; }
-    record.count++;
-    rateLimitMap.set(key, record);
-    if (record.count > maxRequests) {
+    if (hitLimit(`${label}:${clientIp(req)}`, maxRequests, windowMs)) {
       return res.status(429).json({ error: 'Too many attempts. Please wait a minute and try again.' });
     }
     next();
   };
 }
-const authRateLimit = rateLimit(10, 60 * 1000); // 10 attempts per minute
+const authRateLimit = rateLimit(10, 60 * 1000, 'auth');          // 10 attempts per minute per IP
+const publicRateLimit = rateLimit(30, 60 * 1000, 'public');      // unauthenticated data routes
 
 const heavyRateLimitMap = new Map();
 setInterval(() => { const now = Date.now(); for (const [k, v] of heavyRateLimitMap) if (now > v) heavyRateLimitMap.delete(k); }, 5 * 60 * 1000).unref();
@@ -278,6 +289,24 @@ function heavyRateLimit(cooldownMs, label) {
   };
 }
 
+// ilike treats % and _ as wildcards, so user input must be escaped to get an exact
+// case-insensitive match (e.g. "a_b@x.com" must not match "a.b@x.com").
+const escapeLike = v => String(v).replace(/[\\%_]/g, m => '\\' + m);
+
+// PostgREST caps every response at 1000 rows by default; page through with .range() so
+// large result sets (e.g. a user's full transaction history) aren't silently truncated.
+// `build` must return a fresh query builder on each call. `tiebreak` (a unique column) is
+// appended as the last sort key so pages are stable and no row is skipped or repeated.
+async function selectAllRows(build, { pageSize = 1000, tiebreak = 'id' } = {}) {
+  const rows = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await build().order(tiebreak, { ascending: true }).range(from, from + pageSize - 1);
+    if (error) return { data: rows.length ? rows : null, error };
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) return { data: rows, error: null };
+  }
+}
+
 const app = express();
 app.set('trust proxy', 1);
 
@@ -292,8 +321,18 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(cookieParser());
 
-app.use(express.json({ limit: '100kb' }));
+// Default 100kb body limit, except routes that carry images or CSV files — those parse
+// with largeJson in the route itself. A global parser that ran first would reject their
+// bodies with 413 before the route-level limit ever applied.
+const LARGE_BODY_ROUTES = [
+  ['PUT',  /^\/api\/users\/[^/]+\/profile$/],
+  ['POST', /^\/api\/transactions\/upload$/],
+  ['POST', /^\/api\/activity\/screenshot$/],
+];
+const smallJson = express.json({ limit: '100kb' });
 const largeJson = express.json({ limit: '20mb' });
+app.use((req, res, next) =>
+  LARGE_BODY_ROUTES.some(([m, re]) => req.method === m && re.test(req.path)) ? next() : smallJson(req, res, next));
 
 // ── Structured logging ──────────────────────────────────────────────────────
 const log = {
@@ -376,6 +415,25 @@ app.get('/api/diag/yf', requireAdmin, async (req, res) => {
   res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us, nordic, finnhubProbe, yahooProbe });
 });
 
+// ── Session revocation ──────────────────────────────────────────────────────
+// A password reset stamps profiles.password_changed_at. Any session that was signed into
+// before that moment is rejected. Supabase's `amr` claim carries the original sign-in time
+// and survives token refreshes, so a refreshed old session is still recognised as old.
+function sessionStartedAt(accessToken) {
+  try {
+    const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString());
+    const times = (payload.amr || []).map(a => a.timestamp).filter(Number.isFinite);
+    return (times.length ? Math.min(...times) : payload.iat) * 1000;
+  } catch { return 0; }
+}
+const CLOCK_SKEW_MS = 10 * 1000;
+function sessionRevoked(accessToken, passwordChangedAt) {
+  if (!passwordChangedAt) return false;
+  return sessionStartedAt(accessToken) < new Date(passwordChangedAt).getTime() - CLOCK_SKEW_MS;
+}
+const markPasswordChanged = userId =>
+  db.from('profiles').update({ password_changed_at: new Date().toISOString() }).eq('id', userId);
+
 // ── Auth middleware ─────────────────────────────────────────────────────────
 async function requireUser(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -387,8 +445,11 @@ async function requireUser(req, res, next) {
   const { data: { user }, error } = await supabaseAnon.auth.getUser(token);
   if (error || !user) return res.status(401).json({ error: 'Invalid or expired session' });
   req.user = user;
-  const { data: profile } = await db.from('profiles').select('username, role').eq('id', user.id).single();
+  const { data: profile } = await db.from('profiles').select('username, role, email, email_verified, password_changed_at').eq('id', user.id).single();
   if (!profile) return res.status(401).json({ error: 'Profile not found' });
+  if (sessionRevoked(token, profile.password_changed_at)) return res.status(401).json({ error: 'Your password was reset. Please log in again.' });
+  // Same rule as /api/auth/login — a token obtained some other way mustn't skip verification
+  if (profile.email && !profile.email_verified) return res.status(403).json({ error: 'Please verify your email address before continuing.' });
   req.username = profile.username;
   req.role = profile.role;
   next();
@@ -437,9 +498,9 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(username.trim())) return res.status(400).json({ error: 'Username must be 3-20 characters, letters/numbers/underscore only.' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ error: 'A valid email address is required.' });
-  const { data: existing } = await db.from('profiles').select('id').ilike('username', username.trim()).single();
+  const { data: existing } = await db.from('profiles').select('id').ilike('username', escapeLike(username.trim())).single();
   if (existing) return res.status(400).json({ error: 'Username already taken.' });
-  const { data: existingEmail } = await db.from('profiles').select('id').ilike('email', email.trim()).single();
+  const { data: existingEmail } = await db.from('profiles').select('id').ilike('email', escapeLike(email.trim())).single();
   if (existingEmail) return res.status(400).json({ error: 'Unable to complete registration. Please check your details and try again.' });
   const [{ count }, { data: limitSetting }] = await Promise.all([
     db.from('profiles').select('*', { count: 'exact', head: true }),
@@ -490,9 +551,15 @@ const REFRESH_COOKIE_OPTS = {
 app.post('/api/auth/login', authRateLimit, async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required.' });
+  const userKey = `login-user:${username.trim().toLowerCase()}`;
+  const record = rateLimitMap.get(userKey);
+  if (record && Date.now() <= record.resetAt && record.count >= 10) {
+    return res.status(429).json({ error: 'Too many failed attempts for this account. Please wait 15 minutes and try again.' });
+  }
   const email = `${username.trim().toLowerCase()}@statera.local`;
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return res.status(401).json({ error: 'Invalid username or password.' });
+  if (error) { hitLimit(userKey, 10, 15 * 60 * 1000); return res.status(401).json({ error: 'Invalid username or password.' }); }
+  rateLimitMap.delete(userKey);
   const { data: profile } = await db.from('profiles').select('username, role, email, email_verified').eq('id', data.user.id).single();
   if (profile.email && !profile.email_verified) {
     return res.status(403).json({ error: 'Please verify your email address before signing in. Check your inbox for the verification link.' });
@@ -506,6 +573,11 @@ app.post('/api/auth/refresh', async (req, res) => {
   if (!refreshToken) return res.status(401).json({ error: 'No refresh token' });
   const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
   if (error) return res.status(401).json({ error: 'Session expired. Please log in again.' });
+  const { data: p } = await db.from('profiles').select('password_changed_at').eq('id', data.user.id).single();
+  if (sessionRevoked(data.session.access_token, p?.password_changed_at)) {
+    res.clearCookie('refresh_token', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/' });
+    return res.status(401).json({ error: 'Your password was reset. Please log in again.' });
+  }
   res.cookie('refresh_token', data.session.refresh_token, REFRESH_COOKIE_OPTS);
   res.json({ token: data.session.access_token });
 });
@@ -535,9 +607,14 @@ app.get('/api/init', async (req, res) => {
 
   const session = refreshResult.status === 'fulfilled' ? refreshResult.value?.data?.session : null;
   if (!session) return res.json({ ...baseStatus, ok: false });
+  const userId = refreshResult.value.data.user.id;
+  const { data: pwRow } = await db.from('profiles').select('password_changed_at').eq('id', userId).single();
+  if (sessionRevoked(session.access_token, pwRow?.password_changed_at)) {
+    res.clearCookie('refresh_token', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/' });
+    return res.json({ ...baseStatus, ok: false });
+  }
 
   res.cookie('refresh_token', session.refresh_token, REFRESH_COOKIE_OPTS);
-  const userId = refreshResult.value.data.user.id;
 
   // Fetch profile + friendships + announcements in parallel
   const [profileRes, friendshipsRes, announcementsRes] = await Promise.allSettled([
@@ -606,6 +683,9 @@ app.post('/api/auth/change-password', requireUser, authRateLimit, async (req, re
   if (verifyError) return res.status(401).json({ error: 'Current password is incorrect.' });
   const { error } = await supabase.auth.admin.updateUserById(req.user.id, { password: newPassword });
   if (error) return res.status(500).json({ error: error.message });
+  // Revoke every other session so a stolen session doesn't survive the password change
+  const jwt = req.headers.authorization?.replace('Bearer ', '');
+  await supabase.auth.admin.signOut(jwt, 'others').catch(e => log.warn('signOut others failed', { error: e.message }));
   res.json({ success: true });
 });
 
@@ -613,8 +693,8 @@ app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required.' });
   // Always respond with success to prevent email enumeration; add delay for non-existing emails to match timing of the full send path
-  const { data: profile } = await db.from('profiles').select('username').ilike('email', email.trim()).single();
-  if (!profile) { await new Promise(r => setTimeout(r, 400)); return res.json({ success: true }); }
+  const { data: profile } = await db.from('profiles').select('username, email').ilike('email', escapeLike(email.trim())).single();
+  if (!profile?.email) { await new Promise(r => setTimeout(r, 400)); return res.json({ success: true }); }
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
   await db.from('password_reset_tokens').insert({ username: profile.username, token, expires_at: expiresAt });
@@ -622,7 +702,7 @@ app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
     const resetUrl = `${APP_URL}/?reset_token=${token}`;
     await resend.emails.send({
       from: 'Verumen <noreply@verumen.com>',
-      to: email.trim(),
+      to: profile.email,
       subject: 'Reset your Verumen password',
       html: buildEmail({
         title: 'Reset your password',
@@ -654,6 +734,7 @@ app.post('/api/auth/reset-password', authRateLimit, async (req, res) => {
   if (!profile) return res.status(404).json({ error: 'User not found.' });
   const { error } = await supabase.auth.admin.updateUserById(profile.id, { password });
   if (error) return res.status(500).json({ error: error.message });
+  await markPasswordChanged(profile.id);
   res.json({ success: true });
 });
 
@@ -674,7 +755,7 @@ app.get('/api/users', requireUser, async (req, res) => {
 });
 
 app.get('/api/users/:username/profile', async (req, res) => {
-  const { data, error } = await db.from('profiles').select('*').ilike('username', req.params.username).single();
+  const { data, error } = await db.from('profiles').select('*').ilike('username', escapeLike(req.params.username)).single();
   if (error || !data) return res.status(404).json({ error: 'User not found' });
   if (data.is_public === false) {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -721,18 +802,45 @@ app.put('/api/users/:username/username', requireUser, async (req, res) => {
   // Validate format: 3-20 chars, letters/numbers/underscores only
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(newUsername)) return res.status(400).json({ error: 'Username must be 3-20 characters and contain only letters, numbers, and underscores.' });
   // Check uniqueness (case-insensitive)
-  const { data: existing } = await db.from('profiles').select('id').ilike('username', newUsername).single();
+  // Root admin identity is tied to the username 'admin', so it can't be renamed away (or into)
+  if (req.username.toLowerCase() === 'admin' || newUsername.toLowerCase() === 'admin') return res.status(403).json({ error: 'This username cannot be changed.' });
+  const { data: existing } = await db.from('profiles').select('id').ilike('username', escapeLike(newUsername)).single();
   if (existing && existing.id !== req.user.id) return res.status(409).json({ error: 'Username is already taken.' });
+  // Login derives the auth email from the username, so it must change in step or the user is
+  // locked out of signing in with their new name. Update auth first; only then the profile.
+  const oldUsername = req.username;
+  const { error: authErr } = await supabase.auth.admin.updateUserById(req.user.id, { email: `${newUsername.toLowerCase()}@statera.local`, email_confirm: true });
+  if (authErr) return res.status(500).json({ error: 'Could not update login: ' + authErr.message });
   const { data, error } = await db.from('profiles').update({ username: newUsername }).eq('id', req.user.id).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    await supabase.auth.admin.updateUserById(req.user.id, { email: `${oldUsername.toLowerCase()}@statera.local`, email_confirm: true });
+    return res.status(500).json({ error: error.message });
+  }
+  // Pending reset / verification links are keyed by username — carry them over
+  await Promise.all([
+    db.from('password_reset_tokens').update({ username: newUsername }).eq('username', oldUsername),
+    db.from('email_verification_tokens').update({ username: newUsername }).eq('username', oldUsername),
+  ]);
   res.json({ success: true, username: data.username });
 });
 
-app.get('/api/users/:username/holdings', async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('id, public_holdings').eq('username', req.params.username).single();
+// "Public profile" off means the profile needs a logged-in viewer. The profile route enforces
+// it; every per-profile data endpoint must too, or logged-out visitors can read around it.
+async function viewerMayAccess(req, profile) {
+  if (profile.is_public !== false) return true;
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token || !supabaseAnon) return false;
+  const { data } = await supabaseAnon.auth.getUser(token);
+  return !!data?.user;
+}
+const PRIVATE_PROFILE_ERROR = { error: 'This profile is private. Log in to view it.' };
+
+app.get('/api/users/:username/holdings', publicRateLimit, async (req, res) => {
+  const { data: profile } = await db.from('profiles').select('id, public_holdings, is_public').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
+  if (!(await viewerMayAccess(req, profile))) return res.status(403).json(PRIVATE_PROFILE_ERROR);
   if (!profile.public_holdings) return res.status(403).json({ error: "This user's holdings are private." });
-  const { data: txs } = await db.from('transactions').select('ticker, raw_ticker, quantity, price, type, name, currency').eq('user_id', profile.id).in('type', ['buy', 'sell', 'other', 'withdrawal']);
+  const { data: txs } = await selectAllRows(() => db.from('transactions').select('ticker, raw_ticker, quantity, price, type, name, currency').eq('user_id', profile.id).in('type', ['buy', 'sell', 'other', 'withdrawal']));
   const trades = (txs || []).map(t => ({ ...t, ticker: (t.ticker || t.raw_ticker || '').trim(), quantity: Math.abs(t.quantity || 0) })).filter(t => t.ticker && t.quantity > 0);
   
   const holdings = {};
@@ -750,11 +858,16 @@ app.get('/api/users/:username/holdings', async (req, res) => {
   const tickers = validHoldings.map(h => h.ticker);
   let pricesMap = {};
   if (tickers.length > 0) {
+    // Serve from the shared price cache; only hit the quote API when the cached price
+    // is due for refresh anyway, so public profile views can't burn the API quota.
     await Promise.allSettled(tickers.map(async t => {
+      const cached = _priceCache.get(t);
+      if (cached?.q?.regularMarketPrice && !shouldRefetch(t)) { pricesMap[t] = cached.q.regularMarketPrice; return; }
       try {
         const q = await finnhubQuote(t);
-        if (q?.regularMarketPrice) pricesMap[t] = q.regularMarketPrice;
-      } catch {}
+        if (q?.regularMarketPrice) { pricesMap[t] = q.regularMarketPrice; setPriceCache(t, { q, cachedAt: Date.now() }); }
+        else if (cached?.q?.regularMarketPrice) pricesMap[t] = cached.q.regularMarketPrice;
+      } catch { if (cached?.q?.regularMarketPrice) pricesMap[t] = cached.q.regularMarketPrice; }
     }));
   }
   
@@ -776,10 +889,11 @@ app.get('/api/users/:username/holdings', async (req, res) => {
   res.json({ holdings: validHoldings });
 });
 
-app.get('/api/users/:username/inventory', async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('id, public_inventory, steam_id').eq('username', req.params.username).single();
+app.get('/api/users/:username/inventory', publicRateLimit, async (req, res) => {
+  const { data: profile } = await db.from('profiles').select('id, public_inventory, steam_id, steam_verified, is_public').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
-  if (!profile.public_inventory || !profile.steam_id) return res.status(403).json({ error: "This user's inventory is private." });
+  if (!(await viewerMayAccess(req, profile))) return res.status(403).json(PRIVATE_PROFILE_ERROR);
+  if (!profile.public_inventory || !profile.steam_id || !profile.steam_verified) return res.status(403).json({ error: "This user's inventory is private." });
   try {
     const data = await fetchJSON(`https://steamcommunity.com/inventory/${profile.steam_id}/730/2?l=english&count=500`);
     if (!data?.assets) return res.status(404).json({ error: 'Inventory not found or private on Steam' });
@@ -794,7 +908,7 @@ app.get('/api/users/:username/inventory', async (req, res) => {
         : null;
       return { name, iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/128x128` : null, type: desc?.type || '', assetId: asset.assetid, inspectLink };
     }).filter(i => i.name !== 'Unknown');
-    res.json({ items, totalValue: items.reduce((s, i) => s + i.priceSEK, 0), count: items.length });
+    res.json({ items, count: items.length });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1631,7 +1745,7 @@ function detectBrokerAndParse(filename, content, forcedBroker = null) {
 // ── Transactions ────────────────────────────────────────────────────────────
 app.get('/api/transactions', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data, error } = await db.from('transactions').select('*').eq('user_id', req.user.id).order('date', { ascending: false });
+  const { data, error } = await selectAllRows(() => db.from('transactions').select('*').eq('user_id', req.user.id).order('date', { ascending: false }));
   if (error) return res.status(500).json({ error: error.message });
   let bcRate = 1;
   if (BC !== 'SEK') {
@@ -1654,7 +1768,7 @@ app.get('/api/transactions', requireUser, async (req, res) => {
 });
 
 app.get('/api/transactions/count', requireUser, async (req, res) => {
-  const { data } = await db.from('transactions').select('broker, type').eq('user_id', req.user.id);
+  const { data } = await selectAllRows(() => db.from('transactions').select('broker, type').eq('user_id', req.user.id));
   const rows = data || [];
   const total = rows.length;
   const trades = rows.filter(r => r.type === 'buy' || r.type === 'sell').length;
@@ -1700,7 +1814,7 @@ app.post('/api/transactions/upload', requireUser, largeJson, async (req, res) =>
     }
     catch(e) { results.push({ file:name, error:e.message }); }
   }
-  const { data: existing } = await db.from('transactions').select('broker, date, type, isin, quantity, price').eq('user_id', req.user.id);
+  const { data: existing } = await selectAllRows(() => db.from('transactions').select('broker, date, type, isin, quantity, price').eq('user_id', req.user.id));
   const dedupKey = t => `${t.broker||''}|${t.date||''}|${t.type||''}|${t.isin||''}|${Math.round((t.quantity||0)*10000)}|${Math.round((t.price||0)*10000)}`;
   const existingIds = new Set((existing||[]).map(dedupKey));
   const newUnique = allNew.filter(t => !existingIds.has(dedupKey(t)));
@@ -1715,7 +1829,7 @@ app.post('/api/transactions/upload', requireUser, largeJson, async (req, res) =>
     }
 
     // Log activity only when new transactions are added
-    const { data: holdingsData } = await db.from('transactions').select('ticker').eq('user_id', req.user.id).not('ticker', 'is', null);
+    const { data: holdingsData } = await selectAllRows(() => db.from('transactions').select('ticker').eq('user_id', req.user.id).not('ticker', 'is', null));
     const uniqueTickers = [...new Set((holdingsData || []).map(h => h.ticker))];
     await appendActivity(req.user.id, 'holdings_update', { holdingCount: uniqueTickers.length, tickers: uniqueTickers.slice(0, 5) });
   }
@@ -1731,7 +1845,7 @@ app.post('/api/transactions/resolve', requireUser, async (req, res) => {
     // Do NOT clear the entire ticker_cache — that forces all stocks to hit YF simultaneously
     // and triggers rate-limiting. Cache hits for already-correct tickers are free; only
     // genuinely unresolved tickers (cache miss) will make fresh YF calls.
-    const { data: allTxs } = await db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker').eq('user_id', req.user.id).in('type', ['buy','sell','other','withdrawal']);
+    const { data: allTxs } = await selectAllRows(() => db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker').eq('user_id', req.user.id).in('type', ['buy','sell','other','withdrawal']));
     const txList = allTxs || [];
     // resolveSymbolBatch loads the (now-empty) cache once and skips the rate-limit
     // sleep for repeated tickers — huge speedup when one stock has many transactions
@@ -1778,10 +1892,10 @@ app.post('/api/transactions/resolve-failed', requireUser, async (req, res) => {
 
   // Two separate safe queries: by resolved ticker and by raw_ticker (for unresolved rows where ticker='')
   const [byTicker, byRaw] = await Promise.all([
-    db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
-      .eq('user_id', req.user.id).in('ticker', failedTickers).in('type', ['buy', 'sell']),
-    db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
-      .eq('user_id', req.user.id).in('raw_ticker', failedTickers).in('type', ['buy', 'sell']),
+    selectAllRows(() => db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
+      .eq('user_id', req.user.id).in('ticker', failedTickers).in('type', ['buy', 'sell'])),
+    selectAllRows(() => db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
+      .eq('user_id', req.user.id).in('raw_ticker', failedTickers).in('type', ['buy', 'sell'])),
   ]);
   const seen = new Set();
   const txs = [...(byTicker.data || []), ...(byRaw.data || [])].filter(t => {
@@ -1816,11 +1930,11 @@ app.post('/api/transactions/resolve-failed', requireUser, async (req, res) => {
 });
 
 app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
-  const { data: txs } = await db.from('transactions')
+  const { data: txs } = await selectAllRows(() => db.from('transactions')
     .select('ticker, raw_ticker, quantity, price, isin, type, date, name')
     .eq('user_id', req.user.id)
     .in('type', ['buy', 'sell', 'other', 'withdrawal'])
-    .order('date', { ascending: true });
+    .order('date', { ascending: true }));
 
   // Normalise: use ticker if resolved, else raw_ticker
   // Group by ISIN when available (avoids duplicate holdings from re-resolves)
@@ -2144,10 +2258,10 @@ app.delete('/api/portfolio/cached', requireUser, async (req, res) => {
 // Resolves ticker-like dividend names (e.g. "Utdelning EVO 547 SEK/aktie" → stored as "Evolution")
 // and writes the resolved company name back to transactions.name so future queries are instant.
 async function resolveDividendNames(userId) {
-  const { data: divRows } = await db.from('transactions')
+  const { data: divRows } = await selectAllRows(() => db.from('transactions')
     .select('id, name, raw_ticker, isin, currency, broker, ticker')
     .eq('user_id', userId)
-    .in('type', ['dividend', 'foreign-tax']);
+    .in('type', ['dividend', 'foreign-tax']));
   if (!divRows?.length) return 0;
 
   const stripDivName = (name) => {
@@ -2176,9 +2290,9 @@ async function resolveDividendNames(userId) {
     if (!nameMap[base]) nameMap[base] = n;
     if (h.isin && !nameMap[h.isin]) nameMap[h.isin] = n;
   });
-  const { data: buyTxs } = await db.from('transactions')
+  const { data: buyTxs } = await selectAllRows(() => db.from('transactions')
     .select('isin, raw_ticker, name, ticker')
-    .eq('user_id', userId).in('type', ['buy', 'sell']).not('name', 'is', null);
+    .eq('user_id', userId).in('type', ['buy', 'sell']).not('name', 'is', null));
   (buyTxs || []).forEach(t => {
     if (!t.name || !/[a-z]/.test(t.name)) return;
     const n = cleanYFName(t.name);
@@ -2272,7 +2386,7 @@ app.post('/api/dividends/fix-names', requireUser, async (req, res) => {
 // ── Dividends ───────────────────────────────────────────────────────────────
 app.get('/api/dividends', requireUser, async (req, res) => {
   const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data: txs } = await db.from('transactions').select('date, name, total_sek, isin, broker').eq('user_id', req.user.id).eq('type', 'dividend');
+  const { data: txs } = await selectAllRows(() => db.from('transactions').select('date, name, total_sek, isin, broker').eq('user_id', req.user.id).eq('type', 'dividend'));
   const divs = (txs||[]).filter(t => t.total_sek);
   let bcRate = 1;
   if (BC !== 'SEK') {
@@ -2316,11 +2430,11 @@ app.get('/api/dividends', requireUser, async (req, res) => {
       if (h.isin && !isinToBase[h.isin]) isinToBase[h.isin] = base;
     });
   }
-  const { data: buyTxs } = await db.from('transactions')
+  const { data: buyTxs } = await selectAllRows(() => db.from('transactions')
     .select('isin, raw_ticker, name, ticker')
     .eq('user_id', req.user.id)
     .in('type', ['buy', 'sell'])
-    .not('name', 'is', null);
+    .not('name', 'is', null));
   // First pass: build maps using whatever is in _priceCache right now
   const tickersNeedingLookup = new Map(); // base → full ticker (e.g. "EVO" → "EVO.ST")
   (buyTxs || []).forEach(t => {
@@ -2449,11 +2563,12 @@ app.get('/api/dividends', requireUser, async (req, res) => {
 
 // Public dividends endpoint
 app.get('/api/users/:username/dividends', async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('id, public_dividends').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, public_dividends, is_public').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
+  if (!(await viewerMayAccess(req, profile))) return res.status(403).json(PRIVATE_PROFILE_ERROR);
   if (!profile.public_dividends) return res.status(403).json({ error: "This user's dividends are private." });
   
-  const { data: txs } = await db.from('transactions').select('date, name, total_sek').eq('user_id', profile.id).eq('type', 'dividend');
+  const { data: txs } = await selectAllRows(() => db.from('transactions').select('date, name, total_sek').eq('user_id', profile.id).eq('type', 'dividend'));
   const divs = (txs||[]).filter(t => t.total_sek);
   const thisYear = new Date().getFullYear().toString();
   const totalAllTime = divs.reduce((s,t)=>s+Math.abs(t.total_sek),0);
@@ -2468,7 +2583,7 @@ app.get('/api/users/:username/dividends', async (req, res) => {
 
 // Public single-trade endpoint — UUID acts as the access token (not guessable)
 app.get('/api/cs/trades/:id/public', async (req, res) => {
-  const { data: item, error } = await supabase
+  const { data: item, error } = await db
     .from('cs_inventory')
     .select('id, skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, sold, notes, screenshot_url, user_id, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
     .eq('share_token', req.params.id)
@@ -2639,7 +2754,7 @@ app.get('/api/cs/skin-icon', requireUser, async (req, res) => {
   const { name, exterior } = req.query;
   if (!name) return res.status(400).json({ error: 'name required' });
   // Check if user already has this skin in their inventory with an icon
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('cs_inventory')
     .select('icon_url')
     .eq('user_id', req.user.id)
@@ -2658,7 +2773,7 @@ app.get('/api/cs/skin-icon', requireUser, async (req, res) => {
 
 // Auto-fetch missing Steam market icons for user's CS inventory
 app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
-  const { data: items } = await supabase
+  const { data: items } = await db
     .from('cs_inventory')
     .select('id, skin_name, exterior, icon_url')
     .eq('user_id', req.user.id);
@@ -2761,8 +2876,9 @@ app.patch('/api/cs/inventory/:id/profile-visibility', requireUser, async (req, r
 
 // Public CS trades endpoint — requires public_cs_trades column: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS public_cs_trades BOOLEAN DEFAULT FALSE;
 app.get('/api/users/:username/cs-trades', async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('id, public_cs_trades').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, public_cs_trades, is_public').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
+  if (!(await viewerMayAccess(req, profile))) return res.status(403).json(PRIVATE_PROFILE_ERROR);
   // Allow owner to always see their own trades regardless of public setting
   const token = req.headers.authorization?.replace('Bearer ', '');
   let isOwner = false;
@@ -2799,9 +2915,10 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
   })));
 });
 
-app.get('/api/users/:username/friends', async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('id').eq('username', req.params.username).single();
+app.get('/api/users/:username/friends', publicRateLimit, async (req, res) => {
+  const { data: profile } = await db.from('profiles').select('id, is_public').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
+  if (!(await viewerMayAccess(req, profile))) return res.status(403).json(PRIVATE_PROFILE_ERROR);
   const { data: friendships } = await db
     .from('friendships')
     .select('requester_id, addressee_id')
@@ -3087,16 +3204,25 @@ app.get('/api/activity/mine', requireUser, async (req, res) => {
 
 // Get a specific user's public activity
 app.get('/api/users/:username/activity', requireUser, async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('id, username').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, username, public_cs_trades, public_holdings').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
-  const { data: activities } = await db.from('activity').select('*').eq('user_id', profile.id).order('created_at', { ascending:false }).limit(25);
+  // Respect the owner's privacy toggles: trade and holdings activity reveal the same data
+  // as the CS trades / holdings tabs, so hide it from others when those are private.
+  const hiddenTypes = [];
+  if (profile.id !== req.user.id) {
+    if (!profile.public_cs_trades) hiddenTypes.push('cs_trade', 'cs_trade_screenshot');
+    if (!profile.public_holdings) hiddenTypes.push('holdings_update');
+  }
+  let query = db.from('activity').select('*').eq('user_id', profile.id);
+  if (hiddenTypes.length) query = query.not('type', 'in', `(${hiddenTypes.join(',')})`);
+  const { data: activities } = await query.order('created_at', { ascending:false }).limit(25);
   res.json((activities || []).map(a => {
     const payload = a.payload || {};
     return { ...payload, id: a.id, type: a.type, created_at: a.created_at, username: profile.username };
   }));
 });
 
-app.post('/api/activity/screenshot', requireUser, async (req, res) => {
+app.post('/api/activity/screenshot', requireUser, largeJson, async (req, res) => {
   const { skinName, caption, imageBase64 } = req.body;
   if (!skinName) return res.status(400).json({ error: 'Skin name required.' });
   if (caption && caption.length > 500) return res.status(400).json({ error: 'Caption too long.' });
@@ -3195,11 +3321,6 @@ app.get('/api/cs/settings', requireUser, async (req, res) => {
   res.json({ steam_id:profile?.steam_id||'' });
 });
 
-app.post('/api/cs/settings', requireUser, async (req, res) => {
-  const { key, value } = req.body;
-  if (key === 'steam_id') await db.from('profiles').update({ steam_id:value }).eq('id', req.user.id);
-  res.json({ success:true });
-});
 
 // Daily automatic Steam level re-sync for linked accounts — runs 90s after boot, then every
 // 24 hours. steam_level is otherwise only fetched once, at link time (see /api/steam/callback),
@@ -3660,7 +3781,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
     // Fetch profiles and transaction counts in parallel — no N+1
     const [{ data: profiles }, { data: txCounts }, { count: totalTx }, { data: pendingTokens }] = await Promise.all([
       db.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64, email, email_verified'),
-      db.from('transactions').select('user_id').limit(100000), // capped to avoid unbounded memory usage
+      selectAllRows(() => db.from('transactions').select('user_id')),
       db.from('transactions').select('*', { count:'exact', head:true }),
       db.from('email_verification_tokens').select('username, email, expires_at').eq('used', false).gt('expires_at', new Date().toISOString()),
     ]);
@@ -3696,6 +3817,21 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   }
 });
 
+// Staff (admins/mods) may only change credentials of regular users — never of each other.
+// Sole exception: the recovery account may reset the root admin's password.
+const ROOT_ADMIN_USERNAME = 'admin';
+const ROOT_ADMIN_RECOVERY_USERNAME = 'william';
+function credentialChangeBlocked(actorUsername, target, { passwordReset = false } = {}) {
+  const isRoot = target.username?.toLowerCase() === ROOT_ADMIN_USERNAME;
+  if (isRoot) {
+    return passwordReset && actorUsername?.toLowerCase() === ROOT_ADMIN_RECOVERY_USERNAME
+      ? null
+      : "You don't have permission to change the root admin account's credentials.";
+  }
+  if (target.role === 'admin' || target.role === 'moderator') return "Staff accounts' credentials can't be changed by other staff.";
+  return null;
+}
+
 app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {
   if (req.params.username?.toLowerCase() === 'admin') return res.status(400).json({ error:'Cannot delete admin account.' });
   const { password } = req.body || {};
@@ -3713,21 +3849,26 @@ app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {
 app.post('/api/admin/users/:username/reset-password', requireAdmin, async (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword||newPassword.length<6) return res.status(400).json({ error:'Password must be at least 6 characters.' });
-  const { data: profile } = await db.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, username, role').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error:'User not found.' });
+  const blocked = credentialChangeBlocked(req.username, profile, { passwordReset: true });
+  if (blocked) return res.status(403).json({ error: blocked });
   await supabase.auth.admin.updateUserById(profile.id, { password:newPassword });
-  await appendModLog('admin', 'reset-password', req.params.username);
+  await markPasswordChanged(profile.id);
+  await appendModLog(req.username, 'reset-password', req.params.username);
   res.json({ success:true });
 });
 
 app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) => {
   const { username } = req.params;
   const { email } = req.body;
-  const { data: profile } = await db.from('profiles').select('id').eq('username', username).single();
+  const { data: profile } = await db.from('profiles').select('id, username, role').eq('username', username).single();
   if (!profile) return res.status(404).json({ error: 'User not found.' });
+  const blocked = credentialChangeBlocked(req.username, profile);
+  if (blocked) return res.status(403).json({ error: blocked });
   if (email) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format.' });
-    const { data: existing } = await db.from('profiles').select('username').ilike('email', email).single();
+    const { data: existing } = await db.from('profiles').select('username').ilike('email', escapeLike(email)).single();
     if (existing && existing.username !== username) return res.status(400).json({ error: 'Email already in use by another user.' });
   }
   // If clearing email, update profiles immediately. Otherwise, don't commit until user verifies —
@@ -3773,7 +3914,7 @@ app.post('/api/auth/verify-email', async (req, res) => {
   if (record.used) return res.status(400).json({ error: 'This link has already been used.' });
   if (new Date(record.expires_at) < new Date()) return res.status(400).json({ error: 'Verification link has expired.' });
   // Commit the email to profiles now that the user confirmed ownership
-  const { data: updatedRows, error: updateErr } = await supabase
+  const { data: updatedRows, error: updateErr } = await db
     .from('profiles')
     .update({ email: record.email, email_verified: true })
     .eq('username', record.username)
@@ -3791,8 +3932,10 @@ app.post('/api/auth/verify-email', async (req, res) => {
 });
 
 app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('email').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('email, username, role').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found.' });
+  const blocked = credentialChangeBlocked(req.username, profile, { passwordReset: true });
+  if (blocked) return res.status(403).json({ error: blocked });
   if (!profile.email) return res.status(400).json({ error: 'This user has no email address on file.' });
   if (!resend) return res.status(500).json({ error: 'Email service not configured.' });
   const token = crypto.randomBytes(32).toString('hex');
@@ -3882,10 +4025,12 @@ app.get('/api/mod/log', requireModerator, async (req, res) => {
 app.post('/api/mod/users/:username/reset-password', requireModerator, async (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
-  const { data: profile } = await db.from('profiles').select('id, role').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, username, role').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error:'User not found.' });
-  if (profile.role==='admin') return res.status(403).json({ error:'Cannot reset admin password.' });
+  const blocked = credentialChangeBlocked(req.username, profile);
+  if (blocked) return res.status(403).json({ error: blocked });
   await supabase.auth.admin.updateUserById(profile.id, { password:newPassword });
+  await markPasswordChanged(profile.id);
   await appendModLog(req.username, 'reset-password', req.params.username);
   res.json({ success:true });
 });
@@ -3956,7 +4101,7 @@ app.get('/api/steam/callback', async (req, res) => {
 
     // Extract SteamID from claimed_id (format: https://steamcommunity.com/openid/id/STEAMID64)
     const claimedId = openidParams['openid.claimed_id'] || '';
-    const steamIdMatch = claimedId.match(/\/id\/(\d+)$/);
+    const steamIdMatch = claimedId.match(/^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/);
     if (!steamIdMatch) return res.redirect(`${BASE_URL}/profile?steam_error=invalid`);
     const steamId = steamIdMatch[1];
 
