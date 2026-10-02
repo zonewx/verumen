@@ -21,6 +21,19 @@ export default function AdminPanel({ authUsername }) {
   const [failures, setFailures] = useState([]);
   const [announcements, setAnnouncements] = useState(() => apiCache.get('/api/announcements') || []);
   const [loading, setLoading] = useState(!apiCache.has('/api/admin/stats'));
+  const [emailTemplates, setEmailTemplates] = useState([]);
+  useEffect(() => {
+    const tok = getToken();
+    fetch('/api/admin/email-templates', { headers: { Authorization: `Bearer ${tok}` } })
+      .then(r => r.ok ? r.json() : []).then(list => Array.isArray(list) && setEmailTemplates(list)).catch(() => {});
+  }, []);
+  const previewEmail = async (type) => {
+    const res = await fetch(`/api/admin/preview-email?type=${encodeURIComponent(type)}`, { headers: { Authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) { flash(`✗ Email preview failed (${res.status})`); return; }
+    const url = URL.createObjectURL(new Blob([await res.text()], { type: 'text/html' }));
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
 
   // User accordion + inline editing
   const [expandedUsers, setExpandedUsers] = useState(new Set());
@@ -523,6 +536,18 @@ export default function AdminPanel({ authUsername }) {
                     </div>
                   </div>
                 )}
+
+                {/* Email previews — rendered from the same templates the server sends */}
+                <div className={`${card} p-5`}>
+                  <h2 className="text-xs font-bold uppercase tracking-wider mb-1 text-zinc-400">Email Previews</h2>
+                  <p className="text-xs text-zinc-500 mb-4">Opens each email exactly as users receive it, filled with sample values.</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {emailTemplates.map(({ type, label }) => (
+                      <button key={type} className={btnSecondarySm} onClick={() => previewEmail(type)}>{label}</button>
+                    ))}
+                    {emailTemplates.length === 0 && <p className="text-xs text-zinc-500">Loading…</p>}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1066,30 +1091,6 @@ export default function AdminPanel({ authUsername }) {
             {/* DIAGNOSTICS */}
             {tab === 'diagnostics' && (
               <div className="flex flex-col gap-5">
-
-                {/* Email previews */}
-                <div className={`${card} p-5`}>
-                  <h3 className="font-semibold text-sm mb-3">Email Previews</h3>
-                  <div className="flex gap-2 flex-wrap">
-                    {['welcome', 'verify', 'reset', 'admin-reset'].map(type => {
-                      const labels = { welcome: 'Welcome (registration)', verify: 'Verify Email (admin)', reset: 'Password Reset (self)', 'admin-reset': 'Password Reset (admin)' };
-                      return (
-                        <button key={type} className={btnSecondarySm} onClick={async () => {
-                          const tok = getToken();
-                          const res = await fetch(`/api/admin/preview-email?type=${type}`, { headers: { 'Authorization': `Bearer ${tok}` } });
-                          if (!res.ok) { flash(`Email preview failed (${res.status})`); return; }
-                          const html = await res.text();
-                          const blob = new Blob([html], { type: 'text/html' });
-                          const url = URL.createObjectURL(blob);
-                          window.open(url, '_blank');
-                          setTimeout(() => URL.revokeObjectURL(url), 60000);
-                        }}>
-                          {labels[type]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
 
                 <div className="flex items-center justify-between">
                   <p className={`text-sm text-zinc-400`}>Live connectivity test against market data APIs.</p>

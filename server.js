@@ -63,6 +63,78 @@ function buildEmail({ title, heading, body, buttonText, buttonUrl, footerNote })
 </body></html>`;
 }
 
+// ── Email templates ─────────────────────────────────────────────────────────
+// Single source for every email's wording. Real sends and the admin preview both render
+// from here, so a preview always matches what users actually receive.
+const escHtml = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const strong = v => `<strong style="color:#09090b;font-weight:600">${escHtml(v)}</strong>`;
+const EMAIL_TEMPLATES = {
+  welcome: {
+    label: 'Welcome (registration)',
+    build: ({ username, url }) => ({
+      subject: 'Verify your Verumen email address',
+      title: 'Verify your email', heading: 'Welcome to Verumen!',
+      body: `Your account (${strong(username)}) has been created. Click below to verify your email address and confirm it's yours.`,
+      buttonText: 'Verify Email', buttonUrl: url,
+      footerNote: "This link expires in 24 hours. If you didn't create this account, you can safely ignore this email.",
+    }),
+  },
+  'admin-verify': {
+    label: 'Verify Email (admin)',
+    build: ({ username, url }) => ({
+      subject: 'Verify your Verumen email address',
+      title: 'Verify your email', heading: 'Verify your email',
+      body: `An administrator has linked this email address to your Verumen account (${strong(username)}). Click below to confirm it's yours.`,
+      buttonText: 'Verify Email', buttonUrl: url,
+      footerNote: "This link expires in 24 hours. If you weren't expecting this, you can safely ignore it.",
+    }),
+  },
+  'change-email': {
+    label: 'Confirm New Email (self)',
+    build: ({ username, url }) => ({
+      subject: 'Confirm your new Verumen email address',
+      title: 'Confirm your new email', heading: 'Confirm your new email',
+      body: `You asked to use this address for your Verumen account (${strong(username)}). Click below to confirm it.`,
+      buttonText: 'Confirm Email', buttonUrl: url,
+      footerNote: "This link expires in 24 hours. If you didn't request this, you can safely ignore it — your email won't change.",
+    }),
+  },
+  'change-email-notice': {
+    label: 'Email Change Notice (old address)',
+    build: ({ username, newEmail }) => ({
+      subject: 'Your Verumen email address is being changed',
+      title: 'Email change requested', heading: 'Email change requested',
+      body: `Someone signed in to your Verumen account (${strong(username)}) and asked to change its email to ${strong(newEmail)}. Nothing changes until that address is confirmed. If this wasn't you, change your password right away.`,
+      buttonText: 'Go to Verumen', buttonUrl: APP_URL,
+      footerNote: 'If you made this request, no action is needed.',
+    }),
+  },
+  reset: {
+    label: 'Password Reset (self)',
+    build: ({ url }) => ({
+      subject: 'Reset your Verumen password',
+      title: 'Reset your password', heading: 'Reset your password',
+      body: "Someone requested a password reset for the Verumen account associated with this email. If this wasn't you, you can safely ignore this email.",
+      buttonText: 'Reset Password', buttonUrl: url,
+      footerNote: 'This link expires in 10 minutes.',
+    }),
+  },
+  'admin-reset': {
+    label: 'Password Reset (admin)',
+    build: ({ url }) => ({
+      subject: 'Reset your Verumen password',
+      title: 'Reset your password', heading: 'Reset your password',
+      body: 'An administrator has sent you a password reset link for your Verumen account.',
+      buttonText: 'Reset Password', buttonUrl: url,
+      footerNote: 'This link expires in 10 minutes.',
+    }),
+  },
+};
+function renderEmail(type, vars) {
+  const t = EMAIL_TEMPLATES[type].build(vars);
+  return { subject: t.subject, html: buildEmail(t) };
+}
+
 // In-memory price cache — populated from Supabase on startup so restarts don't force a YF burst
 const _priceCache = new Map(); // ticker -> { q: quoteObject, cachedAt: timestamp }
 const _fxRateCache = {};       // 'USDSEK=X' -> { rate, cachedAt }
@@ -525,15 +597,7 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
     resend.emails.send({
       from: 'Verumen <noreply@verumen.com>',
       to: email.trim(),
-      subject: 'Verify your Verumen email address',
-      html: buildEmail({
-        title: 'Verify your email',
-        heading: 'Welcome to Verumen!',
-        body: `Your account (<strong style="color:#09090b;font-weight:600">${username.trim()}</strong>) has been created. Click below to verify your email address and confirm it's yours.`,
-        buttonText: 'Verify Email',
-        buttonUrl: verifyUrl,
-        footerNote: 'This link expires in 24 hours. If you didn\'t create this account, you can safely ignore this email.',
-      }),
+      ...renderEmail('welcome', { username: username.trim(), url: verifyUrl }),
     }).catch(e => log.error('registration verify email failed', { error: e.message }));
   }
   // Don't log the user in — require email verification first
@@ -730,15 +794,7 @@ app.post('/api/auth/change-email', requireUser, authRateLimit, async (req, res) 
     await resend.emails.send({
       from: 'Verumen <noreply@verumen.com>',
       to: newEmail,
-      subject: 'Confirm your new Verumen email address',
-      html: buildEmail({
-        title: 'Confirm your new email',
-        heading: 'Confirm your new email',
-        body: `You asked to use this address for your Verumen account (<strong style="color:#09090b;font-weight:600">${req.username}</strong>). Click below to confirm it.`,
-        buttonText: 'Confirm Email',
-        buttonUrl: `${APP_URL}/?email_token=${token}`,
-        footerNote: "This link expires in 24 hours. If you didn't request this, you can safely ignore it — your email won't change.",
-      }),
+      ...renderEmail('change-email', { username: req.username, url: `${APP_URL}/?email_token=${token}` }),
     });
   } catch (e) {
     log.error('change-email send failed', { error: e.message });
@@ -749,15 +805,7 @@ app.post('/api/auth/change-email', requireUser, authRateLimit, async (req, res) 
     resend.emails.send({
       from: 'Verumen <noreply@verumen.com>',
       to: me.email,
-      subject: 'Your Verumen email address is being changed',
-      html: buildEmail({
-        title: 'Email change requested',
-        heading: 'Email change requested',
-        body: `Someone signed in to your Verumen account (<strong style="color:#09090b;font-weight:600">${req.username}</strong>) and asked to change its email to <strong style="color:#09090b;font-weight:600">${newEmail}</strong>. Nothing changes until that address is confirmed. If this wasn't you, change your password right away.`,
-        buttonText: 'Go to Verumen',
-        buttonUrl: APP_URL,
-        footerNote: "If you made this request, no action is needed.",
-      }),
+      ...renderEmail('change-email-notice', { username: req.username, newEmail }),
     }).catch(e => log.error('change-email notice to old address failed', { error: e.message }));
   }
   res.json({ success: true, pendingEmail: newEmail });
@@ -777,15 +825,7 @@ app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
     await resend.emails.send({
       from: 'Verumen <noreply@verumen.com>',
       to: profile.email,
-      subject: 'Reset your Verumen password',
-      html: buildEmail({
-        title: 'Reset your password',
-        heading: 'Reset your password',
-        body: 'Someone requested a password reset for the Verumen account associated with this email. If this wasn\'t you, you can safely ignore this email.',
-        buttonText: 'Reset Password',
-        buttonUrl: resetUrl,
-        footerNote: 'This link expires in 10 minutes.',
-      }),
+      ...renderEmail('reset', { url: resetUrl }),
     }).catch(e => log.error('resend failed', { error: e.message }));
   }
   res.json({ success: true });
@@ -3809,45 +3849,20 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
 // ── Admin routes ─────────────────────────────────────────────────────────────
 
 // Email preview — open in browser; accepts token as query param for convenience
-app.get('/api/admin/preview-email', requireAdmin, async (req, res) => {
-  const type = req.query.type || 'verify';
-  const templates = {
-    verify: {
-      title: 'Verify your email',
-      heading: 'Verify your email',
-      body: `An administrator has linked this email address to your Verumen account (<strong style="color:#09090b;font-weight:600">william</strong>). Click below to confirm it's yours.`,
-      buttonText: 'Verify Email',
-      buttonUrl: '#',
-      footerNote: 'This link expires in 10 minutes. If you weren\'t expecting this, you can safely ignore it.',
-    },
-    reset: {
-      title: 'Reset your password',
-      heading: 'Reset your password',
-      body: 'Someone requested a password reset for the Verumen account associated with this email. If this wasn\'t you, you can safely ignore this email.',
-      buttonText: 'Reset Password',
-      buttonUrl: '#',
-      footerNote: 'This link expires in 10 minutes.',
-    },
-    'admin-reset': {
-      title: 'Reset your password',
-      heading: 'Reset your password',
-      body: 'An administrator has sent you a password reset link for your Verumen account.',
-      buttonText: 'Reset Password',
-      buttonUrl: '#',
-      footerNote: 'This link expires in 10 minutes.',
-    },
-    'welcome': {
-      title: 'Verify your email',
-      heading: 'Welcome to Verumen!',
-      body: `Your account (<strong style="color:#09090b;font-weight:600">william</strong>) has been created. Click below to verify your email address and confirm it's yours.`,
-      buttonText: 'Verify Email',
-      buttonUrl: '#',
-      footerNote: 'This link expires in 24 hours. If you didn\'t create this account, you can safely ignore this email.',
-    },
-  };
-  const tpl = templates[type] || templates.verify;
+app.get('/api/admin/email-templates', requireAdmin, (req, res) => {
+  res.json(Object.entries(EMAIL_TEMPLATES).map(([type, t]) => ({ type, label: t.label })));
+});
+
+// Renders a template exactly as it's sent, filled with sample values
+app.get('/api/admin/preview-email', requireAdmin, (req, res) => {
+  const type = EMAIL_TEMPLATES[req.query.type] ? req.query.type : 'welcome';
+  const { html } = renderEmail(type, {
+    username: req.username,
+    newEmail: 'new.address@example.com',
+    url: `${APP_URL}/?${type.includes('reset') ? 'reset_token' : 'email_token'}=preview`,
+  });
   res.setHeader('Content-Type', 'text/html');
-  res.send(buildEmail(tpl));
+  res.send(html);
 });
 
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
@@ -3966,15 +3981,7 @@ app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) 
     await resend.emails.send({
       from: 'Verumen <noreply@verumen.com>',
       to: email,
-      subject: 'Verify your Verumen email address',
-      html: buildEmail({
-        title: 'Verify your email',
-        heading: 'Verify your email',
-        body: `An administrator has linked this email address to your Verumen account (<strong style="color:#09090b;font-weight:600">${username}</strong>). Click below to confirm it's yours.`,
-        buttonText: 'Verify Email',
-        buttonUrl: verifyUrl,
-        footerNote: 'This link expires in 10 minutes. If you weren\'t expecting this, you can safely ignore it.',
-      }),
+      ...renderEmail('admin-verify', { username, url: verifyUrl }),
     }).then(() => { emailSent = true; }).catch(e => log.error('verify email send failed', { error: e.message }));
   }
   res.json({ success: true, emailSent });
@@ -4019,15 +4026,7 @@ app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req
   await resend.emails.send({
     from: 'Verumen <noreply@verumen.com>',
     to: profile.email,
-    subject: 'Reset your Verumen password',
-    html: buildEmail({
-      title: 'Reset your password',
-      heading: 'Reset your password',
-      body: 'An administrator has sent you a password reset link for your Verumen account.',
-      buttonText: 'Reset Password',
-      buttonUrl: resetUrl,
-      footerNote: 'This link expires in 10 minutes.',
-    }),
+    ...renderEmail('admin-reset', { url: resetUrl }),
   }).catch(e => log.error('resend admin reset failed', { error: e.message }));
   res.json({ success: true });
 });
