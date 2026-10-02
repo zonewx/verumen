@@ -558,7 +558,7 @@ export default function AdminPanel({ authUsername }) {
                           {roleBadgeCls[u.role] && <span className={`text-xs px-2 py-0.5 rounded-full border ${roleBadgeCls[u.role]}`}>{u.role.charAt(0).toUpperCase() + u.role.slice(1)}</span>}
                           {u.hasSteam && <span className="text-xs text-orange-400 bg-orange-900/30 px-1.5 py-0.5 rounded-full border border-orange-800/50">Steam</span>}
                         </div>
-                        <p className="text-xs text-zinc-500 mt-0.5">{u.transactionCount.toLocaleString()} tx · Joined {new Date(u.createdAt).toLocaleDateString()}</p>
+                        <p className="text-xs text-zinc-500 mt-0.5">Joined {new Date(u.createdAt).toLocaleDateString()}</p>
                       </div>
                       <a href={`/user/${u.username}`} onClick={e => e.stopPropagation()} className="text-xs text-zinc-400 hover:text-zinc-200 bg-zinc-700 hover:bg-zinc-600 px-2.5 py-1 rounded-lg transition shrink-0">View profile</a>
                       <svg className={`w-4 h-4 text-zinc-500 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/></svg>
@@ -639,43 +639,41 @@ export default function AdminPanel({ authUsername }) {
                           )}
                         </div>
 
-                        {/* Role */}
-                        {u.username !== 'admin' && (
-                          <div>
-                            <label className={fieldLabel}>Role</label>
-                            <div className="flex gap-2 flex-wrap">
-                              {(() => {
-                                const role = u.role || 'user';
-                                const isRootAdmin = u.username === 'admin';
-                                const isSelf = u.username === authUsername;
-                                return (
-                                  <>
-                                    {!isRootAdmin && role !== 'admin' && (
-                                      role !== 'moderator'
-                                        ? <button onClick={() => setRole(u.username, 'moderator')} className={btnPrimarySm}>Promote to Mod</button>
-                                        : <button onClick={() => setRole(u.username, 'user')} className={btnSecondarySm}>Demote to User</button>
-                                    )}
-                                    {authUsername?.toLowerCase() === 'admin' && !isRootAdmin && !isSelf && (
-                                      role !== 'admin'
-                                        ? <button onClick={() => setAdminRole(u.username, 'admin')} className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition bg-red-700 hover:bg-red-600 text-white`}>Promote to Admin</button>
-                                        : <button onClick={() => setAdminRole(u.username, 'user')} className={btnSecondarySm}>Revoke Admin</button>
-                                    )}
-                                    {role === 'user' && !authUsername?.toLowerCase() === 'admin' && <span className="text-xs text-zinc-500 self-center">No role changes available</span>}
-                                  </>
-                                );
-                              })()}
+                        {/* Role (left) + Actions (right) */}
+                        {(() => {
+                          const role = u.role || 'user';
+                          const isRootAdmin = u.username.toLowerCase() === 'admin';
+                          const isSelf = u.username === authUsername;
+                          const viewerIsRoot = authUsername?.toLowerCase() === 'admin';
+                          const badgeCls = roleBadgeCls[role] || 'bg-zinc-700/50 text-zinc-300 border border-zinc-600';
+                          return (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                              <div>
+                                <label className={fieldLabel}>Role</label>
+                                <div className="flex gap-2 flex-wrap items-center">
+                                  <span className={`text-xs px-2.5 py-1 rounded-full ${badgeCls}`}>{role.charAt(0).toUpperCase() + role.slice(1)}</span>
+                                  {!isRootAdmin && role !== 'admin' && (
+                                    role !== 'moderator'
+                                      ? <button onClick={() => setRole(u.username, 'moderator')} className={btnPrimarySm}>Promote to Mod</button>
+                                      : <button onClick={() => setRole(u.username, 'user')} className={btnSecondarySm}>Demote to User</button>
+                                  )}
+                                  {viewerIsRoot && !isRootAdmin && !isSelf && (
+                                    role !== 'admin'
+                                      ? <button onClick={() => setAdminRole(u.username, 'admin')} className={btnDangerSm}>Promote to Admin</button>
+                                      : <button onClick={() => setAdminRole(u.username, 'user')} className={btnSecondarySm}>Revoke Admin</button>
+                                  )}
+                                </div>
+                              </div>
+                              <div>
+                                <label className={fieldLabel}>Actions</label>
+                                <div className="flex gap-2 flex-wrap">
+                                  <button onClick={() => clearBio(u.username)} className={btnSecondarySm}>Clear Bio</button>
+                                  {!isRootAdmin && <button onClick={() => deleteUser(u.username)} className={btnDangerSm}>Delete User</button>}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        )}
-
-                        {/* Actions */}
-                        <div>
-                          <label className={fieldLabel}>Actions</label>
-                          <div className="flex gap-2 flex-wrap">
-                            <button onClick={() => clearBio(u.username)} className={btnSecondarySm}>Clear Bio</button>
-                            {u.username !== 'admin' && <button onClick={() => deleteUser(u.username)} className={btnDangerSm}>Delete User</button>}
-                          </div>
-                        </div>
+                          );
+                        })()}
 
                       </div>
                     )}

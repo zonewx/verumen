@@ -3697,7 +3697,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
 });
 
 app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {
-  if (req.params.username === 'admin') return res.status(400).json({ error:'Cannot delete admin account.' });
+  if (req.params.username?.toLowerCase() === 'admin') return res.status(400).json({ error:'Cannot delete admin account.' });
   const { password } = req.body || {};
   if (!password) return res.status(400).json({ error: 'Password required' });
   const email = `${req.username.toLowerCase()}@statera.local`;
@@ -3818,6 +3818,11 @@ app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req
 app.post('/api/admin/users/:username/set-role', requireAdmin, async (req, res) => {
   const { role } = req.body;
   if (!['user','moderator'].includes(role)) return res.status(400).json({ error:'Invalid role.' });
+  if (req.params.username?.toLowerCase() === 'admin') return res.status(400).json({ error: 'Cannot change the root admin role.' });
+  // Admin roles are only changed via set-role-admin (root admin only), so this route can't demote an admin
+  const { data: target } = await db.from('profiles').select('role').eq('username', req.params.username).single();
+  if (!target) return res.status(404).json({ error: 'User not found.' });
+  if (target.role === 'admin') return res.status(403).json({ error: 'Only the root admin account can manage admin roles.' });
   await db.from('profiles').update({ role }).eq('username', req.params.username);
   await appendModLog('admin', `set-role:${role}`, req.params.username);
   res.json({ success:true });
