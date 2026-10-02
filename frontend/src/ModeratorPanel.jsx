@@ -53,17 +53,6 @@ export default function ModeratorPanel({ authUsername, userRole }) {
     flash(`✓ Bio cleared for ${username}`); fetchAll();
   };
 
-  const setPrivacy = async (username, key, value) => {
-    await fetch(`/api/mod/users/${username}/set-privacy`, { method: 'POST', headers: h, body: JSON.stringify({ [key]: value }) });
-    flash(`✓ Privacy updated for ${username}`); fetchAll();
-  };
-
-  const resolveUser = async (username) => {
-    flash(`Resolving tickers for ${username}...`, 30000);
-    const res = await fetch(`/api/mod/users/${username}/resolve`, { method: 'POST', headers: h });
-    const data = await res.json();
-    flash(`✓ Resolved ${data.resolved}/${data.total} for ${username}`);
-  };
 
   const postAnn = async () => {
     if (!annForm.title || !annForm.message) { flash('Title and message required'); return; }
@@ -134,9 +123,6 @@ export default function ModeratorPanel({ authUsername, userRole }) {
                         <div className="flex flex-wrap gap-2">
                           {u.role !== 'admin' && u.role !== 'moderator' && <button onClick={() => setResetModal({ username: u.username })} className={btnPrimarySm}>Reset Password</button>}
                           <button onClick={() => clearBio(u.username)} className={btnSecondarySm}>Clear Bio</button>
-                          {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnSecondarySm}>Make CS Private</button>}
-                          {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnSecondarySm}>Make Portfolio Private</button>}
-                          {u.role !== 'admin' && <button onClick={() => resolveUser(u.username)} className={btnSecondarySm}>Re-resolve Tickers</button>}
                         </div>
                       </div>
                     </div>

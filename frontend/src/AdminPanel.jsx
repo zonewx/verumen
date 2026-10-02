@@ -234,32 +234,10 @@ export default function AdminPanel({ authUsername }) {
     fetchStats();
   };
 
-  const setPrivacy = async (username, key, value) => {
-    await fetch(`/api/admin/users/${username}/set-privacy`, { method: 'POST', headers: h, body: JSON.stringify({ [key]: value }) });
-    flash(`✓ Updated privacy for ${username}`);
+  const clearCache = async () => {
+    await fetch('/api/admin/cache/clear', { method: 'POST', headers: h, body: '{}' });
+    flash('✓ Ticker cache cleared');
     fetchStats();
-  };
-
-  const clearCache = async (username = null) => {
-    const res = await fetch('/api/admin/cache/clear', { method: 'POST', headers: h, body: JSON.stringify(username ? { username } : {}) });
-    const data = await res.json();
-    flash(`✓ Cleared ${data.cleared} cache file(s)`);
-    fetchStats();
-  };
-
-  const resolveUser = async (username) => {
-    flash(`Resolving tickers for ${username}...`, 30000);
-    const res = await fetch(`/api/admin/users/${username}/resolve`, { method: 'POST', headers: h });
-    const data = await res.json();
-    flash(`✓ Resolved ${data.resolved}/${data.total} tickers for ${username}`);
-  };
-
-  const exportUser = async (username) => {
-    const data = await fetch(`/api/admin/users/${username}/export`, { headers: h }).then(r => r.json());
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `${username}-export.json`; a.click();
-    URL.revokeObjectURL(url);
   };
 
   const postAnnouncement = async () => {
@@ -694,12 +672,7 @@ export default function AdminPanel({ authUsername }) {
                         <div>
                           <label className={fieldLabel}>Actions</label>
                           <div className="flex gap-2 flex-wrap">
-                            <button onClick={() => clearCache(u.username)} className={btnSecondarySm}>Clear Cache</button>
-                            <button onClick={() => resolveUser(u.username)} className={btnSecondarySm}>Re-resolve Tickers</button>
                             <button onClick={() => clearBio(u.username)} className={btnSecondarySm}>Clear Bio</button>
-                            <button onClick={() => exportUser(u.username)} className={btnSecondarySm}>Export Data</button>
-                            {u.publicInventory && <button onClick={() => setPrivacy(u.username, 'publicInventory', false)} className={btnSecondarySm}>Make CS Private</button>}
-                            {u.publicHoldings && <button onClick={() => setPrivacy(u.username, 'publicHoldings', false)} className={btnSecondarySm}>Make Stocks Private</button>}
                             {u.username !== 'admin' && <button onClick={() => deleteUser(u.username)} className={btnDangerSm}>Delete User</button>}
                           </div>
                         </div>

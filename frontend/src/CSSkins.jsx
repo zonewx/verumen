@@ -13,44 +13,41 @@ const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | 
 const parseExteriorFromName = n => { const m = n?.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)/); return m?.[1] || null; };
 const floatToExterior = v => { const f = parseFloat(v); if (isNaN(f)) return null; if (f < 0.07) return 'Factory New'; if (f < 0.15) return 'Minimal Wear'; if (f < 0.38) return 'Field-Tested'; if (f < 0.45) return 'Well-Worn'; return 'Battle-Scarred'; };
 
-function NumInput({ value, onChange, step = 1, min, max, placeholder, disabled, className, wrapperClass = '' }) {
-  const dp = String(parseFloat(step) || 1).replace(/^[^.]*\.?/, '').length;
-  const fire = val => onChange({ target: { value: String(val) } });
-  const adj = dir => {
-    const s = parseFloat(step) || 1;
-    const next = parseFloat((parseFloat(value || 0) + dir * s).toFixed(dp));
-    if (max !== undefined && next > parseFloat(max)) return;
-    if (min !== undefined && next < parseFloat(min)) return;
-    fire(next);
-  };
-  const ChevUp = () => (
-    <svg className="w-3 h-3" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 5L5 1L9 5"/>
-    </svg>
-  );
-  const ChevDown = () => (
-    <svg className="w-3 h-3" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 1L5 5L9 1"/>
-    </svg>
-  );
+function NumInput({ value, onChange, step = 'any', min, max, placeholder, disabled, className, wrapperClass = '' }) {
   return (
-    <div className={`relative ${wrapperClass}`}>
-      <input
-        type="number" step={step} min={min} max={max}
-        value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
-        className={`${className} pr-8 [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden`}
-      />
-      <div className="absolute right-0 top-0 bottom-0 w-7 flex flex-col border-l border-zinc-600 rounded-r-lg overflow-hidden pointer-events-auto">
-        <button type="button" tabIndex={-1} onClick={() => adj(1)} disabled={disabled}
-          className="flex-1 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-600 transition disabled:opacity-30">
-          <ChevUp />
-        </button>
-        <button type="button" tabIndex={-1} onClick={() => adj(-1)} disabled={disabled}
-          className="flex-1 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-600 transition border-t border-zinc-600 disabled:opacity-30">
-          <ChevDown />
-        </button>
-      </div>
-    </div>
+    <input
+      type="number" inputMode="decimal" step={step} min={min} max={max}
+      value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
+      onWheel={e => e.currentTarget.blur()}
+      className={`${className} ${wrapperClass} [appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden`}
+    />
+  );
+}
+
+// Typed date field (no native picker): digits are formatted as "YYYY - MM - DD" while typing,
+// and onChange only receives an ISO date once all 8 digits form a real date, '' otherwise.
+const fmtDateDigits = d => [d.slice(0, 4), d.slice(4, 6), d.slice(6, 8)].filter(Boolean).join(' - ');
+const digitsToIso = d => {
+  if (d.length !== 8) return '';
+  const iso = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+  const dt = new Date(`${iso}T00:00:00Z`);
+  return !isNaN(dt) && dt.toISOString().slice(0, 10) === iso ? iso : '';
+};
+function DateInput({ value, onChange, className }) {
+  const [text, setText] = useState(() => fmtDateDigits((value || '').replace(/\D/g, '')));
+  useEffect(() => {
+    if ((value || '') !== digitsToIso(text.replace(/\D/g, ''))) setText(fmtDateDigits((value || '').replace(/\D/g, '')));
+  }, [value]);
+  return (
+    <input
+      type="text" inputMode="numeric" placeholder="YYYY - MM - DD" value={text}
+      onChange={e => {
+        const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
+        setText(fmtDateDigits(digits));
+        onChange(digitsToIso(digits));
+      }}
+      className={className}
+    />
   );
 }
 
@@ -1096,7 +1093,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                   </div>
                                   <div>
                                     <label className={label}>Buy date <span className="text-red-400">*</span></label>
-                                    <input type="date" value={addForm.purchase_date} onChange={e => setAddForm(f => ({ ...f, purchase_date: e.target.value }))} className={input} />
+                                    <DateInput value={addForm.purchase_date} onChange={v => setAddForm(f => ({ ...f, purchase_date: v }))} className={input} />
                                   </div>
                                   <div>
                                     <label className={label}>Pattern / Seed</label>
@@ -1157,7 +1154,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                           </div>
                           <div>
                             <label className={label}>Buy date <span className="text-red-400">*</span></label>
-                            <input type="date" value={addForm.purchase_date} onChange={e => setAddForm(f => ({ ...f, purchase_date: e.target.value }))} className={input} />
+                            <DateInput value={addForm.purchase_date} onChange={v => setAddForm(f => ({ ...f, purchase_date: v }))} className={input} />
                           </div>
                           <div>
                             <label className={label}>Pattern / Seed</label>
@@ -1181,8 +1178,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
                         {(() => {
                           const isDisabled = addModalTab === 'inventory'
-                            ? !selectedModalItem || !addForm.purchase_price || (addForm.hasExterior && !addForm.float_value)
-                            : !addForm.skin_name || !addForm.purchase_price || (addForm.hasExterior && !addForm.float_value);
+                            ? !selectedModalItem || !addForm.purchase_price || !addForm.purchase_date || (addForm.hasExterior && !addForm.float_value)
+                            : !addForm.skin_name || !addForm.purchase_price || !addForm.purchase_date || (addForm.hasExterior && !addForm.float_value);
                           return (
                             <button
                               onClick={addItem}
@@ -1339,7 +1336,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                           </div>
                           <div>
                             <label className={label}>Buy date <span className="text-red-400">*</span></label>
-                            <input type="date" value={editForm.purchase_date} onChange={e => setEditForm(f => ({ ...f, purchase_date: e.target.value }))} className={input} />
+                            <DateInput value={editForm.purchase_date} onChange={v => setEditForm(f => ({ ...f, purchase_date: v }))} className={input} />
                           </div>
                           <div>
                             <label className={label}>Pattern / Seed</label>
@@ -1434,7 +1431,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       </div>
                       <div>
                         <label className={label}>Sale date <span className="text-red-400">*</span></label>
-                        <input type="date" value={sellForm.sale_date} onChange={e => setSellForm(f => ({ ...f, sale_date: e.target.value }))} className={input} />
+                        <DateInput value={sellForm.sale_date} onChange={v => setSellForm(f => ({ ...f, sale_date: v }))} className={input} />
                       </div>
                       <div className="col-span-2">
                         <label className={label}>Notes</label>
@@ -1452,7 +1449,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       </div>
                     </div>
                     <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700`}>
-                      <button onClick={() => sellItem(showSellForm.id)} className={btnConfirm}>Confirm Sale</button>
+                      <button onClick={() => sellItem(showSellForm.id)} disabled={!sellForm.sale_price || !sellForm.sale_date} className={btnConfirm}>Confirm Sale</button>
                       <button onClick={() => setShowSellForm(null)} className={btnSecondary}>Cancel</button>
                     </div>
                   </div>
