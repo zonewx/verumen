@@ -7,6 +7,7 @@ import { getToken, setToken, clearToken } from './tokenStore';
 import { EmptyState, ShortcutsModal, PieChart, LineChart, TodayCards } from './PortfolioComponents';
 import TransactionHistoryTab from './TransactionHistoryTab';
 import { IconAlert, IconSpinner, IconRefresh, IconSearch } from './icons';
+import { flash } from './flash';
 
 const CSSkins = lazy(() => import('./CSSkins'));
 const ProfilePageView = lazy(() => import('./ProfilePageView'));
@@ -108,6 +109,22 @@ export default function App() {
   });
   const [resetToken] = useState(() => new URLSearchParams(window.location.search).get('reset_token') || '');
   const [emailVerifyToken] = useState(() => new URLSearchParams(window.location.search).get('email_token') || '');
+  // The verify screen only renders when logged out. If the link is opened while already
+  // logged in (typical for a self-service email change), verify in the background instead.
+  const emailVerifyHandled = useRef(false);
+  useEffect(() => {
+    if (authStatus !== 'logged-in' || !emailVerifyToken || emailVerifyHandled.current) return;
+    emailVerifyHandled.current = true;
+    window.history.replaceState({}, '', window.location.pathname);
+    setAuthMode('login');
+    fetch('/api/auth/verify-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: emailVerifyToken }) })
+      .then(r => r.json())
+      .then(d => {
+        flash(d.success ? '✓ Email address confirmed' : `✗ ${d.error || 'Email verification failed'}`, 5000);
+        if (d.success) window.dispatchEvent(new Event('email-verified'));
+      })
+      .catch(() => flash('✗ Email verification failed. Please try again.', 5000));
+  }, [authStatus, emailVerifyToken]);
   const [authForm, setAuthForm] = useState({ username: '', email: '', password: '', confirmPassword: '', newPassword: '' });
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -2595,7 +2612,7 @@ const handleUpload = async (files) => {
           <Route path="/skins/overview" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/skins/inventory" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/skins/traderegistry" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
-          <Route path="/settings" element={<PageShell {...shellProps}><SettingsPage baseCurrency={baseCurrency} onSetBaseCurrency={setBaseCurrency}/></PageShell>}/>
+          <Route path="/settings" element={<PageShell {...shellProps}><SettingsPage authUsername={authUsername}/></PageShell>}/>
           <Route path="/user/:username/edit" element={<PageShell {...shellProps}><ProfileEditPage authUsername={authUsername}/></PageShell>}/>
           <Route path="/user" element={<ProfileRoute authUsername={authUsername} authToken={authToken} shellProps={shellProps}/>}/>
           <Route path="/user/:username" element={<ProfileRoute authUsername={authUsername} authToken={authToken} shellProps={shellProps}/>}/>

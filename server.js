@@ -54,7 +54,7 @@ function buildEmail({ title, heading, body, buttonText, buttonUrl, footerNote })
 
       <!-- Card footer -->
       <tr><td style="background:#fafafa;border-top:1px solid #f0f0f0;padding:16px 44px">
-        <p style="margin:0;font-size:11px;color:#a1a1aa">© ${year} Verumen &nbsp;·&nbsp; You received this email because an admin action was taken on your account.</p>
+        <p style="margin:0;font-size:11px;color:#a1a1aa">© ${year} Verumen &nbsp;·&nbsp; You received this email because of activity on your Verumen account.</p>
       </td></tr>
     </table>
 
@@ -687,6 +687,80 @@ app.post('/api/auth/change-password', requireUser, authRateLimit, async (req, re
   const jwt = req.headers.authorization?.replace('Bearer ', '');
   await supabase.auth.admin.signOut(jwt, 'others').catch(e => log.warn('signOut others failed', { error: e.message }));
   res.json({ success: true });
+});
+
+// Own account details for the Settings page
+app.get('/api/auth/me', requireUser, async (req, res) => {
+  const [{ data: profile }, { data: pending }] = await Promise.all([
+    db.from('profiles').select('username, email, email_verified').eq('id', req.user.id).single(),
+    db.from('email_verification_tokens').select('email, expires_at').eq('username', req.username).eq('used', false)
+      .gt('expires_at', new Date().toISOString()).order('expires_at', { ascending: false }).limit(1),
+  ]);
+  res.json({
+    username: profile?.username,
+    email: profile?.email || null,
+    emailVerified: !!profile?.email_verified,
+    pendingEmail: pending?.[0]?.email || null,
+  });
+});
+
+// Self-service email change. Requires the current password (so a hijacked session can't
+// redirect the account's email and then take it over via password reset), and only takes
+// effect once the link sent to the NEW address is clicked (/api/auth/verify-email).
+app.post('/api/auth/change-email', requireUser, authRateLimit, async (req, res) => {
+  const { email, password } = req.body || {};
+  const newEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) return res.status(400).json({ error: 'Enter a valid email address.' });
+  if (!password) return res.status(400).json({ error: 'Enter your current password.' });
+  if (!resend) return res.status(500).json({ error: 'Email service is not configured.' });
+  const { error: pwErr } = await supabase.auth.signInWithPassword({ email: `${req.username.toLowerCase()}@statera.local`, password });
+  if (pwErr) return res.status(401).json({ error: 'Current password is incorrect.' });
+  const { data: me } = await db.from('profiles').select('email').eq('id', req.user.id).single();
+  if (me?.email && me.email.toLowerCase() === newEmail) return res.status(400).json({ error: 'That is already your email address.' });
+  const { data: taken } = await db.from('profiles').select('id').ilike('email', escapeLike(newEmail)).neq('id', req.user.id).limit(1);
+  if (taken?.length) return res.status(400).json({ error: 'That email address is already in use.' });
+
+  // Only one pending change at a time
+  await db.from('email_verification_tokens').update({ used: true }).eq('username', req.username).eq('used', false);
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const { error: insErr } = await db.from('email_verification_tokens').insert({ username: req.username, email: newEmail, token, expires_at: expiresAt });
+  if (insErr) return res.status(500).json({ error: 'Could not start the email change. Please try again.' });
+  try {
+    await resend.emails.send({
+      from: 'Verumen <noreply@verumen.com>',
+      to: newEmail,
+      subject: 'Confirm your new Verumen email address',
+      html: buildEmail({
+        title: 'Confirm your new email',
+        heading: 'Confirm your new email',
+        body: `You asked to use this address for your Verumen account (<strong style="color:#09090b;font-weight:600">${req.username}</strong>). Click below to confirm it.`,
+        buttonText: 'Confirm Email',
+        buttonUrl: `${APP_URL}/?email_token=${token}`,
+        footerNote: "This link expires in 24 hours. If you didn't request this, you can safely ignore it — your email won't change.",
+      }),
+    });
+  } catch (e) {
+    log.error('change-email send failed', { error: e.message });
+    return res.status(500).json({ error: 'Could not send the confirmation email. Please try again.' });
+  }
+  // Heads-up to the current address so an unexpected request is noticed before it's confirmed
+  if (me?.email) {
+    resend.emails.send({
+      from: 'Verumen <noreply@verumen.com>',
+      to: me.email,
+      subject: 'Your Verumen email address is being changed',
+      html: buildEmail({
+        title: 'Email change requested',
+        heading: 'Email change requested',
+        body: `Someone signed in to your Verumen account (<strong style="color:#09090b;font-weight:600">${req.username}</strong>) and asked to change its email to <strong style="color:#09090b;font-weight:600">${newEmail}</strong>. Nothing changes until that address is confirmed. If this wasn't you, change your password right away.`,
+        buttonText: 'Go to Verumen',
+        buttonUrl: APP_URL,
+        footerNote: "If you made this request, no action is needed.",
+      }),
+    }).catch(e => log.error('change-email notice to old address failed', { error: e.message }));
+  }
+  res.json({ success: true, pendingEmail: newEmail });
 });
 
 app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {

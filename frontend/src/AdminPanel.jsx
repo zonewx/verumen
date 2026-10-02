@@ -679,7 +679,7 @@ export default function AdminPanel({ authUsername }) {
                                 <label className={fieldLabel}>Actions</label>
                                 <div className="flex gap-2 flex-wrap">
                                   <button onClick={() => clearBio(u.username)} className={btnSecondarySm}>Clear Bio</button>
-                                  {!isRootAdmin && <button onClick={() => deleteUser(u.username)} className={btnDangerSm}>Delete User</button>}
+                                  {!isRootAdmin && !isSelf && <button onClick={() => deleteUser(u.username)} className={btnDangerSm}>Delete User</button>}
                                 </div>
                               </div>
                             </div>
