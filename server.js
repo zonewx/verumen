@@ -785,10 +785,6 @@ app.get('/api/users/:username/inventory', async (req, res) => {
     if (!data?.assets) return res.status(404).json({ error: 'Inventory not found or private on Steam' });
     const descMap = {};
     (data.descriptions || []).forEach(d => { descMap[`${d.classid}_${d.instanceid}`] = d; });
-    const names = (data.assets || []).map(a => { const d = descMap[`${a.classid}_${a.instanceid}`]; return d?.market_hash_name || d?.name || 'Unknown'; }).filter(n => n !== 'Unknown');
-    const { data: prices } = await db.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
-    const priceMap = {};
-    (prices || []).forEach(p => { priceMap[p.skin_name] = p.price_sek; });
     const items = (data.assets || []).map(asset => {
       const desc = descMap[`${asset.classid}_${asset.instanceid}`];
       const name = desc?.market_hash_name || desc?.name || 'Unknown';
@@ -796,7 +792,7 @@ app.get('/api/users/:username/inventory', async (req, res) => {
       const inspectLink = actionLink
         ? actionLink.replace('%owner_steamid%', profile.steam_id).replace('%assetid%', asset.assetid).replace('%d%', '0')
         : null;
-      return { name, iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/128x128` : null, type: desc?.type || '', priceSEK: priceMap[name] || 0, assetId: asset.assetid, inspectLink };
+      return { name, iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/128x128` : null, type: desc?.type || '', assetId: asset.assetid, inspectLink };
     }).filter(i => i.name !== 'Unknown');
     res.json({ items, totalValue: items.reduce((s, i) => s + i.priceSEK, 0), count: items.length });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -3205,8 +3201,6 @@ app.post('/api/cs/settings', requireUser, async (req, res) => {
   res.json({ success:true });
 });
 
-let steamPriceLookupRunning = false;
-
 // Daily automatic Steam level re-sync for linked accounts — runs 90s after boot, then every
 // 24 hours. steam_level is otherwise only fetched once, at link time (see /api/steam/callback),
 // so without this it goes stale forever even as the user's real Steam level keeps climbing.
@@ -3237,8 +3231,39 @@ async function runSteamLevelSync() {
 setTimeout(runSteamLevelSync, 90 * 1000);
 setInterval(runSteamLevelSync, 24 * 60 * 60 * 1000).unref();
 
+// cs_price_cache is used only as the skin-name catalog behind item search — prices are no
+// longer read anywhere. Refresh names weekly so newly released items become searchable.
+// Checked daily; the last-sync time lives in app_settings so frequent redeploys don't re-sync.
+const CATALOG_SYNC_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+async function runSkinCatalogSync() {
+  try {
+    const { data: last } = await db.from('app_settings').select('value').eq('key', 'skinCatalogSyncedAt').maybeSingle();
+    if (last?.value && Date.now() - new Date(last.value).getTime() < CATALOG_SYNC_INTERVAL_MS) return;
+
+    const r = await fetch('https://api.skinport.com/v1/items?app_id=730&currency=USD');
+    if (!r.ok) { log.error('skin catalog sync: skinport error', { status: r.status }); return; }
+    const items = await r.json();
+    if (!Array.isArray(items)) { log.error('skin catalog sync: unexpected skinport response'); return; }
+
+    const now = new Date().toISOString();
+    const names = [...new Set(items.map(i => i.market_hash_name).filter(Boolean))];
+    // price columns are legacy and unused; zeroed so the rows stay valid if they're NOT NULL
+    const rows = names.map(skin_name => ({ skin_name, price_sek: 0, price_usd: 0, last_updated: now }));
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { error } = await db.from('cs_price_cache').upsert(rows.slice(i, i + CHUNK), { onConflict: 'skin_name' });
+      if (error) { log.error('skin catalog sync: upsert failed', { error: error.message }); return; }
+    }
+    await db.from('app_settings').upsert({ key: 'skinCatalogSyncedAt', value: now }, { onConflict: 'key' });
+    log.info('skin catalog sync completed', { count: rows.length });
+  } catch(e) {
+    log.error('skin catalog sync failed', { error: e.message });
+  }
+}
+setTimeout(runSkinCatalogSync, 2 * 60 * 1000);
+setInterval(runSkinCatalogSync, 24 * 60 * 60 * 1000).unref();
+
 app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
-  const BC = (req.query.currency || 'SEK').toUpperCase();
   // Normalize query: strip CS special chars, split into words for flexible matching
   const rawWords = req.params.query.replace(/[|★™®]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 0);
   // "Vanilla" is a frontend-only label (no skin_name in the DB contains it) — treat it as a
@@ -3248,7 +3273,7 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   const vanillaOnly = rawWords.some(isVanillaPrefix);
   const words = rawWords.filter(w => !isVanillaPrefix(w) && w.length > 0);
   if (words.length === 0 && !vanillaOnly) return res.json([]);
-  let q = db.from('cs_price_cache').select('skin_name, price_sek').limit(200);
+  let q = db.from('cs_price_cache').select('skin_name').limit(200);
   if (vanillaOnly) q = q.ilike('skin_name', '%★%');
   for (const word of words) q = q.ilike('skin_name', `%${word}%`);
   const { data: rawData } = await q;
@@ -3265,7 +3290,7 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
     const wordStartsToken = (name, w) => name.toLowerCase().split(/[^a-z0-9]+/i).some(t => t.startsWith(w.toLowerCase()));
     data = data.filter(r => words.every(w => wordStartsToken(r.skin_name, w)));
   }
-  // cs_price_cache has no tradable flag (it's Skinport's raw pricing feed), so drop known
+  // cs_price_cache has no tradable flag (it's a raw Skinport name list), so drop known
   // non-tradable entries by pattern: a bare default weapon (no skin applied, no "|") can
   // never exist as a real inventory item, and tournament coins/service medals/badges are
   // always account-bound. Leave "★"-only names alone — that's the legitimate vanilla
@@ -3289,15 +3314,7 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
   for (const r of data) {
     const base = getBase(r.skin_name);
     const hadExt = EXTS.some(e => r.skin_name.includes(`(${e})`));
-    if (!baseMap[base]) baseMap[base] = { skin_name: base, price_sek: r.price_sek, hasExterior: hadExt };
-  }
-  let bcRate = 1;
-  if (BC !== 'SEK') {
-    try {
-      const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${BC}`);
-      const fxd = await fx.json();
-      if (fxd?.rates?.[BC]) bcRate = fxd.rates[BC];
-    } catch(e) {}
+    if (!baseMap[base]) baseMap[base] = { skin_name: base, hasExterior: hadExt };
   }
   // Sort by the underlying item name, not the raw skin_name string: a leading "★" (knives/
   // gloves) sorts before regular letters under locale comparison and would otherwise cluster
@@ -3310,42 +3327,15 @@ app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
     const stripped = n.replace(/^★\s*/, '').replace(/^StatTrak™\s*/i, '').replace(/^Souvenir\s*/i, '').trim();
     return isVanilla ? `${stripped} | Vanilla` : stripped;
   };
-  res.json(Object.values(baseMap).sort((a, b) => sortName(a.skin_name).localeCompare(sortName(b.skin_name))).slice(0, 15).map(r => ({ ...r, price: parseFloat(((r.price_sek || 0) * bcRate).toFixed(2)) })));
+  res.json(Object.values(baseMap).sort((a, b) => sortName(a.skin_name).localeCompare(sortName(b.skin_name))).slice(0, 15));
 });
 
-app.get('/api/cs/prices/overrides', requireUser, async (req, res) => {
-  const { data, error } = await db.from('cs_price_overrides').select('skin_name, price_sek').eq('user_id', req.user.id);
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data || []);
-});
-
-app.post('/api/cs/prices/override', requireUser, async (req, res) => {
-  const { skin_name, price, currency } = req.body;
-  if (!skin_name || price == null || isNaN(price)) return res.status(400).json({ error: 'skin_name and numeric price required' });
-  const price_sek = await toSEK(parseFloat(price), currency || 'SEK');
-  const { error } = await db.from('cs_price_overrides').upsert(
-    { user_id: req.user.id, skin_name, price_sek },
-    { onConflict: 'user_id,skin_name' }
-  );
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ ok: true });
-});
-
-app.delete('/api/cs/prices/override/:skinName', requireUser, async (req, res) => {
-  const { error } = await db.from('cs_price_overrides').delete()
-    .eq('user_id', req.user.id).eq('skin_name', decodeURIComponent(req.params.skinName));
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ ok: true });
-});
-
-
-const steamInvCache = new Map(); // steamId:BC → { payload, ts }
+const steamInvCache = new Map(); // steamId → { payload, ts }
 const STEAM_INV_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, 'steam-inv'), async (req, res) => {
   if (!/^\d{17}$/.test(req.params.steamId)) return res.status(400).json({ error: 'Invalid Steam ID' });
-  const BC = (req.query.currency || 'SEK').toUpperCase();
-  const cacheKey = `v2:${req.params.steamId}:${BC}`;
+  const cacheKey = `v3:${req.params.steamId}`;
   const cached = steamInvCache.get(cacheKey);
 
   // Serve from server-side cache if fresh (avoids hammering Steam on every tab visit)
@@ -3358,182 +3348,12 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
     if (!data?.assets) return res.status(404).json({ error:'Inventory not found or private' });
     const descMap = {};
     (data.descriptions||[]).forEach(d=>{ descMap[`${d.classid}_${d.instanceid}`]=d; });
-    const names = (data.assets||[]).map(a=>{ const d=descMap[`${a.classid}_${a.instanceid}`]; return d?.market_hash_name||d?.name||'Unknown'; }).filter(n=>n!=='Unknown');
-    const [{ data: prices }, { data: overrideRows }] = await Promise.all([
-      db.from('cs_price_cache').select('skin_name, price_sek, last_updated').in('skin_name', names),
-      db.from('cs_price_overrides').select('skin_name, price_sek').eq('user_id', req.user.id),
-    ]);
-    const priceMap = {};
-    (prices||[]).forEach(p=>{ priceMap[p.skin_name] = p; });
-    const overrideMap = {};
-    (overrideRows||[]).forEach(o=>{ overrideMap[o.skin_name] = o.price_sek; });
 
-    const uniqueNames = [...new Set(names)];
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const allMissing = uniqueNames.filter(n =>
-      !overrideMap[n] &&
-      (!priceMap[n] || new Date(priceMap[n].last_updated).getTime() < sevenDaysAgo)
-    );
-
-    // Shared Steam Market fetch helpers
-    const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-    let usdToSek = 10.5;
-    let bcRate = 1; // SEK→BC conversion rate
-    if (allMissing.length > 0 || BC !== 'SEK') {
-      try {
-        // Query from=SEK so USD (and any other BC) appear in rates — Frankfurter
-        // excludes the base currency from results, so querying from=USD means
-        // rates.USD is absent and bcRate would silently stay at 1.
-        const targets = BC !== 'SEK' ? `USD,${BC}` : 'USD';
-        const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${targets}`);
-        const fxd = await fx.json();
-        if (fxd?.rates?.USD) usdToSek = 1 / fxd.rates.USD;
-        if (BC !== 'SEK' && fxd?.rates?.[BC]) bcRate = fxd.rates[BC];
-      } catch(e) {}
-    }
-
-    const steamPrice = async (name) => {
-      const encoded = encodeURIComponent(name);
-
-      // 1. priceoverview — median of recent sales, fast, works for most items
-      try {
-        const r = await fetch(
-          `https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encoded}`,
-          { headers: { 'User-Agent': UA } }
-        );
-        if (r.ok) {
-          let d; try { d = JSON.parse(await r.text()); } catch(e) {}
-          if (d?.success) {
-            const raw = d.median_price || d.lowest_price;
-            if (raw) { const usd = parseFloat(raw.replace(/[^0-9.]/g, '')); if (usd > 0) return usd; }
-          }
-        }
-      } catch(e) {}
-
-      await new Promise(r => setTimeout(r, 300));
-
-      // 2. pricehistory — actual completed sales
-      // Works unauthenticated for popular items; rare items may require a Steam session.
-      // High volume (5+ recent sales): average last 10 to smooth anomalies.
-      // Low volume (<5 sales): use only the most recent sale — averaging old sparse
-      // sales gives a worse estimate than the latest transaction price.
-      try {
-        const r = await fetch(
-          `https://steamcommunity.com/market/pricehistory/?appid=730&currency=1&market_hash_name=${encoded}`,
-          { headers: { 'User-Agent': UA } }
-        );
-        if (r.ok) {
-          let d; try { d = JSON.parse(await r.text()); } catch(e) {}
-          if (d?.success && Array.isArray(d.prices) && d.prices.length > 0) {
-            const recent = d.prices.slice(-10);
-            const price = recent.length >= 5
-              ? recent.reduce((s, p) => s + parseFloat(p[1]), 0) / recent.length
-              : parseFloat(recent[recent.length - 1][1]);
-            if (price > 0) return price;
-          }
-        }
-      } catch(e) {}
-
-      await new Promise(r => setTimeout(r, 300));
-
-      // 3. listings/render — lowest current ask
-      try {
-        const r = await fetch(
-          `https://steamcommunity.com/market/listings/730/${encoded}/render/?start=0&count=1&currency=1&language=english&format=json`,
-          { headers: { 'User-Agent': UA } }
-        );
-        if (r.ok) {
-          let d; try { d = JSON.parse(await r.text()); } catch(e) {}
-          if (d?.success && d.listinginfo) {
-            const listing = Object.values(d.listinginfo)[0];
-            if (listing) { const usd = (listing.converted_price + listing.converted_fee) / 100; if (usd > 0) return usd; }
-          }
-        }
-      } catch(e) {}
-
-      await new Promise(r => setTimeout(r, 300));
-
-      // 4. HTML listing page — extract var line1 graph data (last recorded sale price).
-      // Steam embeds historical sale prices as inline JS on the public listing page,
-      // accessible without auth. currency=1 forces USD so the value is directly usable.
-      try {
-        const r = await fetch(
-          `https://steamcommunity.com/market/listings/730/${encoded}?currency=1&l=english`,
-          { headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' } }
-        );
-        if (r.ok) {
-          const html = await r.text();
-          const match = html.match(/var line1\s*=\s*(\[[\s\S]*?\]);?/);
-          if (match) {
-            const data = JSON.parse(match[1]);
-            if (Array.isArray(data) && data.length > 0) {
-              const price = parseFloat(data[data.length - 1][1]);
-              if (price > 0) return price;
-            }
-          }
-        }
-      } catch(e) {}
-
-      await new Promise(r => setTimeout(r, 300));
-
-      // 5. CSFloat marketplace — lowest current ask, no API key required.
-      // Covers items above Steam's ~$1,800 price cap (Dragon Lore, Howl, etc.)
-      // where all Steam Market endpoints return nothing.
-      try {
-        const r = await fetch(
-          `https://csfloat.com/api/v1/listings?market_hash_name=${encoded}&limit=1&sort_by=price&order=asc`,
-          { headers: { 'User-Agent': UA } }
-        );
-        if (r.ok) {
-          let d; try { d = JSON.parse(await r.text()); } catch(e) {}
-          if (Array.isArray(d?.data) && d.data.length > 0) {
-            const usd = d.data[0].price / 100;
-            if (usd > 0) return usd;
-          }
-        }
-      } catch(e) {}
-
-      return null;
-    };
-
-    const cacheEntries = async (entries) => {
-      if (!entries.length) return;
-      const now = new Date().toISOString();
-      await db.from('cs_price_cache').upsert(
-        entries.map(e => ({ skin_name: e.name, price_sek: e.sek, price_usd: e.usd, last_updated: now })),
-        { onConflict: 'skin_name' }
-      );
-    };
-
-    // Sync: fetch first 5 missing items before responding so prices show on first load
-    const syncBatch = allMissing.slice(0, 5);
-    const bgBatch = allMissing.slice(5);
-
-    if (syncBatch.length > 0) {
-      const syncEntries = [];
-      const syncFailed = [];
-      for (const name of syncBatch) {
-        const usd = await steamPrice(name);
-        if (usd) { const sek = parseFloat((usd * usdToSek).toFixed(2)); syncEntries.push({ name, usd, sek }); priceMap[name] = { price_sek: sek }; }
-        else { syncFailed.push(name); }
-        await new Promise(r => setTimeout(r, 500));
-      }
-      const syncNow = new Date().toISOString();
-      setImmediate(async () => {
-        await cacheEntries(syncEntries);
-        if (syncFailed.length > 0) await db.from('cs_price_cache').upsert(
-          syncFailed.map(n => ({ skin_name: n, price_sek: 0, price_usd: 0, last_updated: syncNow })),
-          { onConflict: 'skin_name' }
-        );
-      });
-    }
-
-    const buildItems = () => (data.assets||[]).map(asset => {
+    const items = (data.assets||[]).map(asset => {
       const desc = descMap[`${asset.classid}_${asset.instanceid}`];
       const name = desc?.market_hash_name || desc?.name || 'Unknown';
       const tags = parseSteamTags(desc?.tags);
       const stickers = parseSteamStickers(desc?.descriptions);
-      const priceSEK = overrideMap[name] ?? priceMap[name]?.price_sek ?? 0;
       const actionLink = desc?.actions?.[0]?.link;
       const inspectLink = actionLink
         ? actionLink.replace('%owner_steamid%', req.params.steamId).replace('%assetid%', asset.assetid).replace('%d%', '0')
@@ -3542,44 +3362,15 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
         assetId: asset.assetid, name,
         iconUrl: desc?.icon_url ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}/360x360` : null,
         tradable: desc?.tradable === 1, type: desc?.type || '',
-        price: parseFloat((priceSEK * bcRate).toFixed(2)),
-        isOverride: name in overrideMap,
         exterior: tags.exterior || null, quality: tags.quality || null,
         rarity: tags.rarity || null, rarityColor: tags.rarityColor || null, stickers,
         inspectLink,
       };
     }).filter(i => i.name !== 'Unknown');
 
-    const items = buildItems();
-    const payload = { items, totalValue: items.reduce((s,i)=>s+i.price,0), count: items.length, pricingPending: bgBatch.length > 0, display_currency: BC };
+    const payload = { items, count: items.length };
     steamInvCache.set(cacheKey, { payload, ts: Date.now() });
     res.json(payload);
-
-    // Background: fetch remaining items after response — skip if a job is already running
-    if (bgBatch.length > 0 && !steamPriceLookupRunning) {
-      setImmediate(async () => {
-        steamPriceLookupRunning = true;
-        try {
-          const bgEntries = [];
-          const bgFailed = [];
-          for (const name of bgBatch) {
-            const usd = await steamPrice(name);
-            if (usd) bgEntries.push({ name, usd, sek: parseFloat((usd * usdToSek).toFixed(2)) });
-            else bgFailed.push(name);
-            await new Promise(r => setTimeout(r, 700));
-          }
-          await cacheEntries(bgEntries);
-          if (bgEntries.length > 0) log.info('steam bg price fallback cached', { count: bgEntries.length });
-          if (bgFailed.length > 0) {
-            const bgNow = new Date().toISOString();
-            await db.from('cs_price_cache').upsert(
-              bgFailed.map(n => ({ skin_name: n, price_sek: 0, price_usd: 0, last_updated: bgNow })),
-              { onConflict: 'skin_name' }
-            );
-          }
-        } finally { steamPriceLookupRunning = false; }
-      });
-    }
   } catch(e) {
     // On Steam error (rate-limit, private, etc.) serve stale cache rather than a hard failure
     if (cached) {
@@ -3595,12 +3386,6 @@ app.get('/api/cs/inventory', requireUser, async (req, res) => {
   const { data, error } = await db.from('cs_inventory').select('*, cs_sales(*)').eq('user_id', req.user.id).order('purchase_date', { ascending:false });
   if (error) { log.error('cs_inventory GET failed', { error: error.message, userId: req.user.id }); return res.status(500).json({ error: error.message }); }
   const items = data || [];
-  const names = [...new Set(items.map(i => normSkinName(i.skin_name)))];
-  let priceMap = {};
-  if (names.length > 0) {
-    const { data: prices } = await db.from('cs_price_cache').select('skin_name, price_sek, price_usd').in('skin_name', names);
-    (prices || []).forEach(p => { priceMap[p.skin_name] = p; });
-  }
   // Build FX: sale currencies + BC if not SEK. fxFromSEK[cur] = how many `cur` per 1 SEK.
   const saleCurrencies = [...new Set(items.map(i => i.cs_sales?.[0]?.sale_currency).filter(c => c && c !== 'SEK'))];
   const needFX = [...new Set([...saleCurrencies, ...(BC !== 'SEK' ? [BC] : [])])];
@@ -3623,7 +3408,6 @@ app.get('/api/cs/inventory', requireUser, async (req, res) => {
   };
   res.json(items.map(item => ({
     ...item,
-    current_price: sekToBC(priceMap[normSkinName(item.skin_name)]?.price_sek || 0),
     purchase_price_display: sekToBC(item.purchase_price_sek || item.purchase_price),
     sale_price_display: salePriceBC(item),
     sale_price: item.cs_sales?.[0]?.sale_price,
@@ -3633,7 +3417,6 @@ app.get('/api/cs/inventory', requireUser, async (req, res) => {
   })));
 });
 
-const normSkinName = n => (n || '').replace(' | Vanilla', '');
 
 async function toSEK(amount, currency) {
   if (!amount) return 0;
@@ -3798,12 +3581,6 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
     db.from('cs_inventory').select('id, skin_name, purchase_price, purchase_price_sek').eq('user_id', req.user.id).eq('sold', false),
   ]);
   const holdingItems = holding || [];
-  let priceMap = {};
-  if (holdingItems.length > 0) {
-    const names = [...new Set(holdingItems.map(i => normSkinName(i.skin_name)))];
-    const { data: prices } = await db.from('cs_price_cache').select('skin_name, price_sek').in('skin_name', names);
-    (prices || []).forEach(p => { priceMap[p.skin_name] = p.price_sek; });
-  }
   const saleCurrencies = [...new Set((sold||[]).map(r => r.cs_sales?.[0]?.sale_currency).filter(Boolean).filter(c => c !== 'SEK'))];
   const needFX = [...new Set([...saleCurrencies, ...(BC !== 'SEK' ? [BC] : [])])];
   const fxFromSEK = { SEK: 1 };
@@ -3826,13 +3603,9 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
     const sale = r.cs_sales?.[0];
     return s + (saleToBC(sale?.sale_price, sale?.sale_currency) - sekToBC(costOf(r)));
   }, 0);
-  const unrealised = holdingItems.reduce((s,r) => s + (sekToBC(priceMap[normSkinName(r.skin_name)]||0) - sekToBC(costOf(r))), 0);
   res.json({
     realised: parseFloat(realised.toFixed(2)),
-    unrealised: parseFloat(unrealised.toFixed(2)),
     totalInvested: sekToBC(holdingItems.reduce((s,r) => s + costOf(r), 0)),
-    currentValue: sekToBC(holdingItems.reduce((s,r) => s + (priceMap[normSkinName(r.skin_name)]||0), 0)),
-    totalPnl: parseFloat((realised + unrealised).toFixed(2)),
     soldCount: (sold||[]).length, holdingCount: holdingItems.length,
     display_currency: BC,
   });

@@ -13,9 +13,12 @@ const sm = 'px-3 py-1.5 text-xs';
 const primary = 'bg-zinc-600 hover:bg-zinc-500 text-white';
 const secondary = 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200';
 const danger = 'bg-red-600 hover:bg-red-500 text-white';
+export const confirmColors = 'bg-emerald-600 hover:bg-emerald-500 text-white';
 
 export const btnPrimary = `${base} ${md} ${primary}`;
 export const btnSecondary = `${base} ${md} ${secondary}`;
 export const btnPrimarySm = `${base} ${sm} ${primary}`;
 export const btnSecondarySm = `${base} ${sm} ${secondary}`;
 export const btnDangerSm = `${base} ${sm} ${danger}`;
+export const btnConfirm = `${base} ${md} ${confirmColors}`;
+export const btnConfirmSm = `${base} ${sm} ${confirmColors}`;

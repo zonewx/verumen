@@ -811,7 +811,7 @@ function ActivityItem({ activity, isOwn, onDelete, onSaveEdit, profileAvatar }) 
               <button
                 onClick={async () => { setSaving(true); await onSaveEdit(activity.id, editCaption); setSaving(false); setEditing(false); }}
                 disabled={saving}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-zinc-600 hover:bg-zinc-500 text-white transition disabled:opacity-40"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition disabled:opacity-40"
               >{saving ? 'Saving…' : 'Save'}</button>
               <button onClick={() => { setEditing(false); setEditCaption(activity.caption || ''); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition">Cancel</button>
             </div>

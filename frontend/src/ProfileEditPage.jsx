@@ -30,7 +30,7 @@ function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl
 
 const Toggle = ({ value, onChange }) => (
   <button type="button" onClick={() => onChange(!value)}
-    className={`relative w-11 h-6 rounded-full transition ${value ? 'bg-zinc-400' : 'bg-zinc-700'}`}>
+    className={`relative w-11 h-6 rounded-full transition ${value ? 'bg-emerald-500' : 'bg-zinc-700'}`}>
     <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition transform ${value ? 'translate-x-5' : ''}`} />
   </button>
 );
@@ -326,7 +326,7 @@ export default function ProfileEditPage({ authUsername }) {
         <div className={`sticky bottom-0 mt-6 p-6 bg-zinc-900/95 border-zinc-700 border-t backdrop-blur-sm`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button onClick={saveProfile} disabled={saving} className="px-6 py-2.5 bg-zinc-600 hover:bg-zinc-500 text-white font-semibold rounded-lg transition disabled:opacity-50">
+              <button onClick={saveProfile} disabled={saving} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save Profile'}
               </button>
             </div>

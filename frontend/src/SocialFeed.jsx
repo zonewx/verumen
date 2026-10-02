@@ -287,7 +287,7 @@ function ActivityCard({ item, onDelete, onSaveEdit, isOwn }) {
               className="w-full bg-zinc-900/60 border border-zinc-600 rounded-xl px-3 py-2 text-sm text-zinc-200 resize-none outline-none focus:border-zinc-400 transition"
             />
             <div className="flex gap-2 mt-2">
-              <button onClick={handleSave} disabled={saving} className="text-xs px-3 py-1.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-lg transition disabled:opacity-50">
+              <button onClick={handleSave} disabled={saving} className="text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition disabled:opacity-50">
                 {saving ? 'Saving…' : 'Save'}
               </button>
               <button onClick={() => { setEditing(false); setEditCaption(item.caption || ''); }} className="text-xs px-3 py-1.5 bg-zinc-700/50 text-zinc-400 hover:bg-zinc-700 rounded-lg transition">
@@ -587,7 +587,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                     </button>
                   )}
                   <div className="flex gap-2 pt-1">
-                    <button onClick={postScreenshot} disabled={uploading || !uploadForm.skinName.trim()} className="px-4 py-2 bg-zinc-600 hover:bg-zinc-500 text-white text-sm font-semibold rounded-xl transition disabled:opacity-40">
+                    <button onClick={postScreenshot} disabled={uploading || !uploadForm.skinName.trim()} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition disabled:opacity-40">
                       {uploading ? 'Posting…' : 'Post'}
                     </button>
                     <button onClick={() => { setShowUpload(false); setUploadForm({ skinName: '', caption: '', imageBase64: null }); }} className="px-3 py-2 text-sm font-semibold rounded-xl bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition">
@@ -677,7 +677,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                   <div className="flex flex-col">
                     {friends.incoming.map(u => (
                       <FriendRow key={u.username} user={u} actions={<>
-                        <button onClick={() => acceptRequest(u.username)} className="text-[10px] px-2 py-1 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg transition font-semibold">Accept</button>
+                        <button onClick={() => acceptRequest(u.username)} className="text-[10px] px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition font-semibold">Accept</button>
                         <button onClick={() => declineRequest(u.username)} className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded-lg transition" aria-label="Decline"><IconX size={12} /></button>
                       </>} />
                     ))}

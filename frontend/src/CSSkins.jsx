@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
-import { card, input, label, btn, btnPrimary, btnSecondary } from './ui';
+import { card, input, label, btn, btnPrimary, btnSecondary, btnConfirm } from './ui';
 import { IconX, IconImage } from './icons';
 
 const EXTERIORS = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
@@ -283,6 +283,13 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const [iconResetting, setIconResetting] = useState(false);
   const [skinSearch, setSkinSearch] = useState('');
   const [skinSearchResults, setSkinSearchResults] = useState([]);
+  const skinSearchRef = useRef(null);
+  useEffect(() => {
+    if (skinSearchResults.length === 0) return;
+    const close = e => { if (!skinSearchRef.current?.contains(e.target)) setSkinSearchResults([]); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [skinSearchResults.length]);
   const [filterSold, setFilterSold] = useState('all');
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [openActionMenu, setOpenActionMenu] = useState(null);
@@ -453,33 +460,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     setSkinSearchResults([]);
     setSkinSearch('');
     setModalInvSearch('');
-  };
-
-  const saveOverride = async (name, price) => {
-    const res = await fetch('/api/cs/prices/override', {
-      method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ skin_name: name, price, currency: baseCurrency }),
-    });
-    if (!res.ok) return;
-    setSteamInventory(prev => {
-      if (!prev) return prev;
-      const items = prev.items.map(i => i.name === name ? { ...i, price, isOverride: true } : i);
-      return { ...prev, items, totalValue: items.reduce((s, i) => s + i.price, 0) };
-    });
-  };
-
-  const clearOverride = async (name) => {
-    const res = await fetch(`/api/cs/prices/override/${encodeURIComponent(name)}`, {
-      method: 'DELETE',
-      headers: authHeaders(),
-    });
-    if (!res.ok) return;
-    setSteamInventory(prev => {
-      if (!prev) return prev;
-      const items = prev.items.map(i => i.name === name ? { ...i, price: 0, isOverride: false } : i);
-      return { ...prev, items, totalValue: items.reduce((s, i) => s + i.price, 0) };
-    });
   };
 
   const selectModalSkin = (item) => {
@@ -1141,7 +1121,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       {/* MANUAL TAB */}
                       {addModalTab === 'manual' && (
                         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="sm:col-span-2 relative">
+                          <div ref={skinSearchRef} className="sm:col-span-2 relative">
                             <label className={label}>Item search <span className="text-red-400">*</span></label>
                             <input value={skinSearch} onChange={e => { const v = e.target.value; setSkinSearch(v); setAddForm(f => ({ ...f, skin_name: v, statTrak: /^StatTrak™/i.test(v.trim()) })); searchSkins(v); }} placeholder="e.g. AK-47 | Redline" className={input} />
                             {skinSearchResults.length > 0 && (
@@ -1207,7 +1187,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                             <button
                               onClick={addItem}
                               disabled={isDisabled}
-                              className={`${btn} transition ${isDisabled ? 'bg-zinc-600 text-zinc-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}
+                              className={`${btn} transition ${isDisabled ? 'bg-zinc-600 text-zinc-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
                             >
                               Add to Registry
                             </button>
@@ -1273,7 +1253,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                       <div className="flex-1 min-w-0">
                                         <p className="font-semibold text-sm truncate">{selectedEditItem.name}</p>
                                         <p className={`text-xs text-zinc-400`}>{selectedEditItem.type}</p>
-                                        {selectedEditItem.price > 0 && <p className="text-xs text-green-400 font-bold mt-0.5">Market: {fmtBC(selectedEditItem.price)}</p>}
                                       </div>
                                     </>
                                   ) : (
@@ -1323,7 +1302,6 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                         >
                                           <img src={item.iconUrl} alt={item.name} className="w-full aspect-square object-contain mb-1" />
                                           <p className={`text-xs truncate text-zinc-300`}>{item.name}</p>
-                                          {item.price > 0 && <p className="text-xs text-green-400 font-bold">{fmtBC(item.price)}</p>}
                                         </button>
                                       );
                                     })
@@ -1409,7 +1387,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                         <button
                           onClick={saveEdit}
                           disabled={!editForm.skin_name || editForm.purchase_price === '' || !editForm.purchase_date}
-                          className={`${btnPrimary} disabled:opacity-40 disabled:cursor-not-allowed`}
+                          className={btnConfirm}
                         >
                           Save Changes
                         </button>
@@ -1474,7 +1452,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       </div>
                     </div>
                     <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700`}>
-                      <button onClick={() => sellItem(showSellForm.id)} className={`${btn} bg-red-600 hover:bg-red-500 text-white`}>Confirm Sale</button>
+                      <button onClick={() => sellItem(showSellForm.id)} className={btnConfirm}>Confirm Sale</button>
                       <button onClick={() => setShowSellForm(null)} className={btnSecondary}>Cancel</button>
                     </div>
                   </div>

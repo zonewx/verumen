@@ -3,7 +3,7 @@ import { getToken } from './tokenStore';
 import { useLocation } from 'react-router-dom';
 import apiCache from './apiCache';
 import { flash } from './flash';
-import { card, input, btnPrimarySm, btnSecondarySm, btnDangerSm } from './ui';
+import { card, input, btnPrimarySm, btnSecondarySm, btnDangerSm, btnConfirmSm } from './ui';
 import { IconX, IconRefresh } from './icons';
 
 const TAB_MAP = {
@@ -468,7 +468,7 @@ export default function AdminPanel({ authUsername }) {
                         <p className={`text-xs mt-0.5 text-zinc-400`}>When disabled, the sign up form is hidden and new accounts cannot be created.</p>
                       </div>
                       <button type="button" onClick={toggleRegistration}
-                        className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${settings.allowRegistration ? 'bg-zinc-400' : 'bg-zinc-700'}`}
+                        className={`relative inline-flex items-center h-6 rounded-full transition-colors shrink-0 ${settings.allowRegistration ? 'bg-emerald-500' : 'bg-zinc-700'}`}
                         style={{ width: '44px' }}>
                         <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${settings.allowRegistration ? 'translate-x-5' : 'translate-x-0'}`}/>
                       </button>
@@ -485,7 +485,7 @@ export default function AdminPanel({ authUsername }) {
                           onKeyDown={e => e.key === 'Enter' && saveUserLimit()}
                           className={`w-20 px-2 py-1.5 rounded-lg border text-sm text-center outline-none bg-zinc-700 border-zinc-600 text-white`}
                         />
-                        <button onClick={saveUserLimit} className={btnPrimarySm}>Save</button>
+                        <button onClick={saveUserLimit} className={btnConfirmSm}>Save</button>
                       </div>
                     </div>
                   </div>
@@ -596,7 +596,7 @@ export default function AdminPanel({ authUsername }) {
                           {isEditingEmail ? (
                             <div className="flex gap-2">
                               <input type="email" value={inlineEmailVal} onChange={e => { setInlineEmailVal(e.target.value); setInlineEmailStatus(''); }} onKeyDown={e => { if (e.key === 'Enter') saveInlineEmail(u.username); if (e.key === 'Escape') setEditingEmailFor(null); }} placeholder="email@example.com" autoFocus className={`${fieldBox} flex-1 focus:border-zinc-500/60 focus:outline-none`}/>
-                              <button onClick={() => saveInlineEmail(u.username)} disabled={inlineEmailStatus === 'Saving...'} className={`${btnPrimarySm} disabled:opacity-50`}>Send</button>
+                              <button onClick={() => saveInlineEmail(u.username)} disabled={inlineEmailStatus === 'Saving...'} className={`${btnConfirmSm} disabled:opacity-50`}>Send</button>
                               <button onClick={() => setEditingEmailFor(null)} className={btnSecondarySm}>Cancel</button>
                             </div>
                           ) : (
@@ -643,7 +643,7 @@ export default function AdminPanel({ authUsername }) {
                                       : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
                                   </button>
                                 </div>
-                                <button onClick={() => setPasswordInline(u.username)} disabled={inlinePasswordStatus === 'Saving...'} className={`${btnPrimarySm} disabled:opacity-50`}>Set</button>
+                                <button onClick={() => setPasswordInline(u.username)} disabled={inlinePasswordStatus === 'Saving...'} className={`${btnConfirmSm} disabled:opacity-50`}>Set</button>
                                 <button onClick={() => { setSettingPasswordFor(null); setInlinePasswordVal(''); setInlinePasswordStatus(''); }} className={btnSecondarySm}>Cancel</button>
                               </div>
                               {inlinePasswordStatus && <p className={`text-xs ${inlinePasswordStatus.startsWith('Error') ? 'text-red-400' : 'text-zinc-400'}`}>{inlinePasswordStatus}</p>}
@@ -653,7 +653,7 @@ export default function AdminPanel({ authUsername }) {
                               <div className={`${fieldBox} flex-1 flex items-center text-zinc-500`}>
                                 <span className="tracking-widest">••••••••••••</span>
                               </div>
-                              <button onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className={btnPrimarySm}>Set Password</button>
+                              <button onClick={() => { setSettingPasswordFor(u.username); setInlinePasswordVal(''); setInlinePasswordStatus(''); setShowInlinePassword(false); }} className={btnConfirmSm}>Set Password</button>
                               <button onClick={() => sendResetLinkInline(u.username)} disabled={!u.email || resetStatus === 'sending' || resetStatus === 'sent'} className={`${btnSecondarySm} disabled:opacity-40`} title={!u.email ? 'No email on file' : ''}>
                                 {resetStatus === 'sending' ? 'Sending…' : resetStatus === 'sent' ? 'Sent' : resetStatus === 'error' ? 'Error' : 'Send Reset Link'}
                               </button>
@@ -763,7 +763,7 @@ export default function AdminPanel({ authUsername }) {
                   <div className="flex gap-2 mb-3">
                     <input value={goIsin} onChange={e => setGoIsin(e.target.value)} placeholder="ISIN (e.g. SE0025138357)" className={`${input} flex-1`} />
                     <input value={goTicker} onChange={e => setGoTicker(e.target.value)} placeholder="YF ticker (e.g. HACK.ST)" className={`${input} flex-1`} />
-                    <button onClick={saveGlobalOverride} className={btnPrimarySm}>Save</button>
+                    <button onClick={saveGlobalOverride} className={btnConfirmSm}>Save</button>
                   </div>
                   {goMsg && <p className={`text-xs mb-3 ${goMsg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>{goMsg}</p>}
                   {goLoading ? (
@@ -1225,7 +1225,7 @@ export default function AdminPanel({ authUsername }) {
                         </div>
                       )}
                     </div>
-                    <button onClick={postAnnouncement} className={btnPrimarySm + ' self-start px-5 py-2'}>Post Announcement</button>
+                    <button onClick={postAnnouncement} className={btnConfirmSm + ' self-start px-5 py-2'}>Post Announcement</button>
                   </div>
                 </div>
 

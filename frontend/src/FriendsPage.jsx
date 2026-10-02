@@ -104,7 +104,7 @@ export default function FriendsPage({ authUsername }) {
                         {req.bio && <p className={`text-sm truncate ${textSecondary}`}>{req.bio}</p>}
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button onClick={() => handleAccept(req.username)} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">Accept</button>
+                        <button onClick={() => handleAccept(req.username)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition">Accept</button>
                         <button onClick={() => handleDecline(req.username)} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition bg-zinc-700 hover:bg-zinc-600`}>Decline</button>
                       </div>
                     </div>

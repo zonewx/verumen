@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
 import { flash } from './flash';
-import { card, input, btnPrimarySm, btnSecondarySm } from './ui';
+import { card, input, btnPrimarySm, btnSecondarySm, btnConfirmSm } from './ui';
 import { IconX, IconRefresh } from './icons';
 
 export default function ModeratorPanel({ authUsername, userRole }) {
@@ -92,7 +92,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
             <p className={`text-sm mb-4 text-zinc-400`}>{resetModal.username}</p>
             <input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} placeholder="New password (6+ chars)" className={`${input} mb-3`} />
             <div className="flex gap-2">
-              <button onClick={resetPassword} className={btnPrimarySm + ' flex-1 py-2'}>Reset</button>
+              <button onClick={resetPassword} className={btnConfirmSm + ' flex-1 py-2'}>Reset</button>
               <button onClick={() => { setResetModal(null); setResetPw(''); }} className={btnSecondarySm + ' flex-1 py-2'}>Cancel</button>
             </div>
           </div>
@@ -161,7 +161,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
                       </select>
                       {annForm.title && <div className={`flex-1 px-3 py-2 rounded-lg border text-sm ${typeColors[annForm.type]}`}><span className="font-semibold">{annForm.title}</span>{annForm.message && <span className="ml-2 opacity-80 text-xs">{annForm.message}</span>}</div>}
                     </div>
-                    <button onClick={postAnn} className={btnPrimarySm + ' self-start px-5 py-2'}>Post</button>
+                    <button onClick={postAnn} className={btnConfirmSm + ' self-start px-5 py-2'}>Post</button>
                   </div>
                 </div>
                 <div className={`${card} p-5`}>

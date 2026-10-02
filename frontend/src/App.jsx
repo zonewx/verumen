@@ -1352,7 +1352,7 @@ const handleUpload = async (files) => {
                         <p className="text-xs text-zinc-400 mt-0.5">Masks all currency amounts across the portfolio. Percentages remain visible.</p>
                       </div>
                       <button onClick={toggleHideValues}
-                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${hideValues ? 'bg-zinc-400' : 'bg-zinc-700'}`}>
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${hideValues ? 'bg-emerald-500' : 'bg-zinc-700'}`}>
                         <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${hideValues ? 'translate-x-5' : 'translate-x-0'}`}/>
                       </button>
                     </div>
@@ -1363,7 +1363,7 @@ const handleUpload = async (files) => {
                       <div className="flex gap-3 mb-6">
                         <input ref={overrideIsinRef} placeholder="ISIN" className={`w-32 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
                         <input ref={overrideTickerRef} placeholder="Yahoo Finance ticker" className={`w-44 px-3 py-2.5 rounded-xl border text-sm outline-none bg-zinc-700 border-zinc-600 text-white`} />
-                        <button onClick={handleAddOverride} className="px-4 py-2.5 bg-zinc-600 hover:bg-zinc-500 text-white rounded-xl text-sm font-semibold transition whitespace-nowrap">Save Override</button>
+                        <button onClick={handleAddOverride} className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold transition whitespace-nowrap">Save Override</button>
                       </div>
                       {overrideMsg && <p className={`text-xs mb-4 ${overrideMsg.startsWith('✗') ? 'text-red-400' : 'text-green-400'}`}>{overrideMsg.startsWith('✗') ? overrideMsg.slice(2) : overrideMsg}</p>}
                       {(() => {
@@ -1667,7 +1667,7 @@ const handleUpload = async (files) => {
                           )}
                           {txCount.trades > 0 && (
                             <>
-                              <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed' : 'bg-green-700 hover:bg-green-600 text-white'}`}>
+                              <button onClick={handleSyncPortfolio} disabled={syncLoading} className={`py-2.5 rounded-xl font-semibold text-sm transition ${syncLoading ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}>
                                 <span className="inline-flex items-center justify-center gap-2">{syncLoading ? <><IconSpinner size={14} />Syncing…</> : <><IconRefresh size={14} />Sync Portfolio</>}</span>
                               </button>
                               {syncStatus && <p className={`text-xs ${syncStatus.startsWith('✓') ? 'text-green-400' : 'text-zinc-400'}`}>{syncStatus.startsWith('✓') ? syncStatus.slice(2) : syncStatus}</p>}
@@ -2322,7 +2322,7 @@ const handleUpload = async (files) => {
                 <input type="email" value={authForm.email} onChange={e=>setAuthForm(f=>({...f,email:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleForgotPassword()} autoFocus placeholder="Enter your email"
                   className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-zinc-500/60 focus:ring-2 focus:ring-zinc-500/15"/>
               </div>
-              <button onClick={handleForgotPassword} disabled={authLoading} className="w-full bg-zinc-600 hover:bg-zinc-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
+              <button onClick={handleForgotPassword} disabled={authLoading} className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
                 {authLoading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Sending...</span> : 'Send Reset Link'}
               </button>
               <button onClick={()=>{setAuthMode('login');setAuthError('');}} className="text-sm text-center text-zinc-400 hover:text-zinc-200 transition">Back to sign in</button>
@@ -2394,7 +2394,7 @@ const handleUpload = async (files) => {
                 <input type="password" value={authForm.confirmPassword} onChange={e=>setAuthForm(f=>({...f,confirmPassword:e.target.value}))} onKeyDown={e=>e.key==='Enter'&&handleResetPassword()} placeholder="Confirm new password"
                   className="w-full pl-9 pr-4 py-3 rounded-xl border text-sm outline-none transition bg-zinc-800/60 border-zinc-700/60 text-white placeholder-zinc-600 focus:border-zinc-500/60 focus:ring-2 focus:ring-zinc-500/15"/>
               </div>
-              <button onClick={handleResetPassword} disabled={authLoading} className="w-full bg-zinc-600 hover:bg-zinc-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
+              <button onClick={handleResetPassword} disabled={authLoading} className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm">
                 {authLoading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Updating...</span> : 'Set New Password'}
               </button>
             </div>
@@ -2499,7 +2499,7 @@ const handleUpload = async (files) => {
                 </div>
               )}
               <button onClick={handleAuth} disabled={authLoading}
-                className="w-full bg-zinc-600 hover:bg-zinc-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1">
+                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition text-sm mt-1">
                 {authLoading?<span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Signing in...</span>:isSignup?'Create Account':'Sign In'}
               </button>
               <div className="flex flex-col items-center gap-1">
