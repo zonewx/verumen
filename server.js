@@ -2726,7 +2726,7 @@ app.get('/api/cs/trades/:id/public', async (req, res) => {
 // Server-rendered trade share page — handles og: meta tags for link previews (Discord, etc.)
 function buildTradePageHtml(opts) {
   if (opts.error) {
-    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Trade not found — Verumen</title>
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Trade not found — Verumen</title><link rel="icon" type="image/png" href="${process.env.APP_URL||'https://verumen.com'}/logo.png">
 <style>*{box-sizing:border-box;margin:0;padding:0}body{background:#09090b;color:#f4f4f5;font-family:-apple-system,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}</style>
 </head><body>
 <a href="${process.env.APP_URL||'https://verumen.com'}" style="display:flex;align-items:center;gap:8px;text-decoration:none;opacity:.7;margin-bottom:8px;">
@@ -2794,6 +2794,7 @@ function buildTradePageHtml(opts) {
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${e(fullTitle)}</title>
+  <link rel="icon" type="image/png" href="${e(BASE)}/logo.png">
   <meta property="og:title" content="${e(fullTitle)}">
   <meta property="og:description" content="${sold?'Sold':'Holding'} · Owned by ${e(username||'Verumen')}, shared via Verumen">
   <meta property="og:site_name" content="Verumen">
