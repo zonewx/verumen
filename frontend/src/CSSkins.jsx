@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
-import { card, input, label, btn, btnPrimary, btnSecondary, btnConfirm } from './ui';
+import { card, input, label, btn, btnPrimary, btnSecondary, btnConfirm, contentColumn } from './ui';
 import { IconX, IconImage } from './icons';
 
 const EXTERIORS = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
@@ -649,7 +649,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
 
   return (
     <div className={`flex flex-col flex-1 min-h-0 overflow-y-auto bg-zinc-900 text-white`}>
-      <div className="max-w-7xl mx-auto px-6 py-8 w-full">
+      <div className={`${contentColumn} px-6 py-8 w-full`}>
 
           {/* OVERVIEW */}
           {tab === 'overview' && (

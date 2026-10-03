@@ -22,3 +22,9 @@ export const btnSecondarySm = `${base} ${sm} ${secondary}`;
 export const btnDangerSm = `${base} ${sm} ${danger}`;
 export const btnConfirm = `${base} ${md} ${confirmColors}`;
 export const btnConfirmSm = `${base} ${sm} ${confirmColors}`;
+
+// Shared page layout: the top nav bar's height (used as an inline offset by every page shell)
+// and the centered content column that both the bar and wide pages align to.
+export const TOPBAR_H = 64;
+export const contentColumn = 'max-w-[1400px] mx-auto';
+export const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60';

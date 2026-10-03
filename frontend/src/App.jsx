@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import GlobalBar from './GlobalBar';
-import Sidebar from './Sidebar';
+import { TOPBAR_H, contentColumn } from './ui';
 import apiCache from './apiCache';
 import { getToken, setToken, clearToken } from './tokenStore';
 import { EmptyState, ShortcutsModal, PieChart, LineChart, TodayCards } from './PortfolioComponents';
@@ -43,7 +43,7 @@ function ProfileRoute({ authUsername, authToken, shellProps }) {
 
 function PageShell({ title, children }) {
   return (
-    <div className="flex flex-col h-screen bg-zinc-900 text-white overflow-hidden" style={{ paddingTop: '40px' }}>
+    <div className="flex flex-col h-screen bg-zinc-900 text-white overflow-hidden" style={{ paddingTop: TOPBAR_H }}>
       {title && <div className={`px-8 py-3 border-b shrink-0 border-zinc-700 bg-zinc-900`}><h1 className="text-base font-bold">{title}</h1></div>}
       {children}
     </div>
@@ -173,7 +173,6 @@ export default function App() {
     return apiCache.get('/api/portfolio-fingerprint') === fp ? apiCache.get('/api/portfolio-dashboard') : null;
   });
   const [activeTab, setActiveTab] = useState('overview');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedForRemoval, setSelectedForRemoval] = useState([]);
   const [dividends, setDividends] = useState(() => apiCache.get(`/api/dividends?currency=${baseCurrency}`));
   const [overrides, setOverrides] = useState(() => apiCache.get('/api/overrides') || { global: [], user: [] });
@@ -470,7 +469,7 @@ export default function App() {
   };
 
   const handleNavigate = (dest, param = null) => {
-    const map = { home:'/', portfolio:'/portfolio/overview', skins:'/skins/overview', social:'/home', friends:'/friends', profile:'/user', admin:'/adminpanel', moderator:'/moderatorpanel' };
+    const map = { home:'/', portfolio:'/portfolio/overview', skins:'/skins/overview', social:'/feed', friends:'/friends', profile:'/user', admin:'/adminpanel', moderator:'/moderatorpanel' };
     if (dest === 'view-profile' && param) navigate(`/user/${param}`);
     else navigate(map[dest] || '/');
   };
@@ -1185,11 +1184,11 @@ const handleUpload = async (files) => {
 
     return (
       <>
-      <div className="flex flex-col h-screen overflow-hidden bg-zinc-900 text-white" style={{ paddingTop: '40px' }}>
+      <div className="flex flex-col h-screen overflow-hidden bg-zinc-900 text-white" style={{ paddingTop: TOPBAR_H }}>
         {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
 
         <div ref={portfolioScrollRef} className="flex-1 min-h-0 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className={`${contentColumn} px-6 py-6`}>
             {isAppLoading ? (
               <div className="flex flex-col items-center justify-center mt-32 space-y-4">
                 <div className="w-10 h-10 border-4 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
@@ -2283,11 +2282,12 @@ const handleUpload = async (files) => {
     const viewUsername = location.pathname.split('/').pop().replace('@', '');
     return (
       <div className="fixed inset-0 bg-zinc-950 text-white overflow-y-auto">
-        <div className="fixed inset-x-0 top-0 h-10 bg-zinc-900 border-b border-zinc-800 flex items-center px-4 z-50 gap-2">
-          <img src="/logo.png" className="w-6 h-6 object-contain" alt="" />
-          <span className="text-sm font-semibold text-zinc-300">Verumen</span>
-        </div>
-        <div style={{ paddingTop: '40px' }}>
+        <header className="fixed inset-x-0 top-0 bg-zinc-900 border-b border-zinc-800 z-50" style={{ height: TOPBAR_H }}>
+          <div className={`${contentColumn} h-full px-6 flex items-center`}>
+            <a href="/" className="text-[19px] font-bold text-white" style={{ fontFamily: "'Geist', sans-serif", letterSpacing: '-0.03em' }}>Verumen</a>
+          </div>
+        </header>
+        <div style={{ paddingTop: TOPBAR_H }}>
           <ProfilePageView authUsername={authUsername} viewUsername={viewUsername} authToken={authToken} />
         </div>
       </div>
@@ -2552,40 +2552,9 @@ const handleUpload = async (files) => {
   // ── Main App Return with Routes ─────────────────────────────────────────────
   return (
     <div className="fixed inset-0 flex overflow-hidden">
-      {/* Sidebar */}
-      <Sidebar 
-      currentUser={{ username: authUsername, role: userRole }}
-      onLogout={handleLogout}
-      selectedBroker={selectedBroker}
-      onBrokerChange={setSelectedBroker}
-      portfolioActions={{
-        txCount, uploadLoading, uploadStatus, uploadProgress,
-        syncLoading, syncStatus, resolveLoading, resolveStatus,
-        onUpload: handleUpload,
-        onSync: handleSyncPortfolio,
-        onResolve: handleResolveTickers,
-        portfolio, selectedForRemoval,
-        onToggleRemoval: toggleRemoval,
-        onRemoveSelected: handleRemoveSelected,
-        onForceResolve: handleForceResolve,
-        baseCurrency, onSetBaseCurrency: setBaseCurrency,
-        overrides, overrideMsg,
-        onAddOverride: handleAddOverride,
-        onDeleteOverride: handleDeleteOverride,
-        authForm, authError, authLoading,
-        onAuthFormChange: (field, val) => setAuthForm(f => ({ ...f, [field]: val })),
-        onChangePassword: handleChangePassword,
-        onClearPortfolio: () => { apiFetch('/api/portfolio/cached', { method: 'DELETE' }); setPortfolio([]); setDashboardData(null); apiCache.del('/api/portfolio-dashboard'); apiCache.del('/api/portfolio-fingerprint'); },
-        onClearTransactions: handleClearTransactions,
-        onClearAll: handleClearAll,
-        onClearTickerCache: handleClearTickerCache,
-        onClearBroker: handleClearBroker,
-        onCancelUpload: () => { uploadAbortRef.current = true; uploadAbortControllerRef.current?.abort(); },
-      }}
-    />
       
       {/* GlobalBar rendered once here so it never remounts on navigation */}
-      <GlobalBar authUsername={authUsername} onNavigate={handleNavigate} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
+      <GlobalBar authUsername={authUsername} onLogout={handleLogout} userRole={userRole} searchInputRef={globalSearchRef} />
 
       {/* Stable file input — lives outside PortfolioView so it's never destroyed by re-renders */}
       <input
@@ -2601,8 +2570,9 @@ const handleUpload = async (files) => {
       <div className="flex-1 overflow-hidden">
         <Suspense fallback={null}>
         <Routes>
-          <Route path="/" element={<Navigate to="/home" replace/>}/>
-          <Route path="/home" element={<PageShell {...shellProps}><SocialFeed authUsername={authUsername} onViewProfile={u=>navigate(`/user/${u}`)}/></PageShell>}/>
+          <Route path="/" element={<Navigate to="/feed" replace/>}/>
+          <Route path="/home" element={<Navigate to="/feed" replace/>}/>
+          <Route path="/feed" element={<PageShell {...shellProps}><SocialFeed authUsername={authUsername} onViewProfile={u=>navigate(`/user/${u}`)}/></PageShell>}/>
           <Route path="/friends" element={<PageShell {...shellProps}><FriendsPage authUsername={authUsername}/></PageShell>}/>
           
           {/* Portfolio routes — single wildcard so React reconciles in place (no remount = scroll preserved) */}
@@ -2665,7 +2635,7 @@ const handleUpload = async (files) => {
 
       {/* Global flash notification — centered in content area */}
       {globalFlash && (
-        <div className="fixed z-[9998] pointer-events-none flex justify-center" style={{ top: '52px', left: 'var(--sidebar-w, 240px)', right: 0 }}>
+        <div className="fixed z-[9998] pointer-events-none flex justify-center" style={{ top: TOPBAR_H + 12, left: 0, right: 0 }}>
           <div
             className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 shadow-[0_4px_24px_rgba(0,0,0,0.6)]"
             style={{ animation: `flash-toast ${globalFlash.ms}ms ease forwards` }}

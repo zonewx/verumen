@@ -3,7 +3,7 @@ import { getToken } from './tokenStore';
 import { useLocation } from 'react-router-dom';
 import apiCache from './apiCache';
 import { flash } from './flash';
-import { card, input, btnPrimarySm, btnSecondarySm, btnDangerSm, btnConfirmSm } from './ui';
+import { card, input, btnPrimarySm, btnSecondarySm, btnDangerSm, btnConfirmSm, contentColumn } from './ui';
 import { IconX, IconRefresh } from './icons';
 
 const TAB_MAP = {
@@ -395,7 +395,7 @@ export default function AdminPanel({ authUsername }) {
       )}
 
 
-      <div className={`max-w-7xl mx-auto px-6 py-8`}>
+      <div className={`${contentColumn} px-6 py-8`}>
 
 
         {loading && tab === 'overview' ? (
