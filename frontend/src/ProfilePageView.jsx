@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
@@ -8,6 +8,8 @@ const ROLE_BADGE = {
   admin: { label: 'Admin', cls: 'bg-red-900/40 text-red-400 border border-red-800' },
   moderator: { label: 'Moderator', cls: 'bg-blue-900/40 text-blue-400 border border-blue-800' },
 };
+
+const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | Vanilla` : (n || '');
 
 function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl' }) {
   if (src) return <img src={src} alt={username} className={`${size} rounded-full object-cover border-4 border-zinc-600`} />;
@@ -90,11 +92,20 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
   const [dividends, setDividends] = useState(null);
   const [loadingDividends, setLoadingDividends] = useState(false);
   const [csTrades, setCsTrades] = useState(null);
+  const [rowMenu, setRowMenu] = useState(null); // { id, hidden, top, right } for the open holdings row menu
+  useEffect(() => {
+    if (!rowMenu) return;
+    const close = () => setRowMenu(null);
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('click', close);
+    document.addEventListener('scroll', close, true);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('scroll', close, true); document.removeEventListener('keydown', onKey); };
+  }, [rowMenu]);
   const [loadingCsTrades, setLoadingCsTrades] = useState(false);
   const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [activeTab, setActiveTab] = useState('activity');
-  const [expandedTradeIds, setExpandedTradeIds] = useState(new Set());
 
   const h = { 'Content-Type': 'application/json', ...(getToken() ? { 'Authorization': `Bearer ${getToken()}` } : {}) };
 
@@ -546,92 +557,78 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                   <div className="flex items-center justify-center py-12">
                     <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
                   </div>
-                ) : csTrades && csTrades.filter(t => !t.sold && !t.hiddenFromProfile).length > 0 ? (
-                  <div className="divide-y divide-zinc-700/40">
-                    {csTrades.filter(t => !t.sold && !t.hiddenFromProfile).map(t => {
-                      const hasScreenshot = !!t.screenshotUrl;
-                      const isExpanded = expandedTradeIds.has(t.id);
-                      return (
-                        <Fragment key={t.id}>
-                          <div
-                            onClick={() => hasScreenshot && setExpandedTradeIds(prev => { const next = new Set(prev); isExpanded ? next.delete(t.id) : next.add(t.id); return next; })}
-                            className={`flex items-center gap-3 px-4 py-3 transition ${hasScreenshot ? 'cursor-pointer hover:bg-zinc-700/20' : ''}`}
-                          >
-                            {/* Chevron */}
-                            <svg className={`w-3 h-3 shrink-0 text-zinc-500 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''} ${!hasScreenshot ? 'opacity-0 pointer-events-none' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
-                            </svg>
-
-                            {/* Item icon */}
-                            {t.iconUrl
-                              ? <img src={t.iconUrl} alt="" className="w-10 h-10 object-contain shrink-0"/>
-                              : <div className="w-10 h-10 shrink-0 rounded bg-zinc-700/50 flex items-center justify-center">
-                                  <svg className="w-5 h-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
-                                </div>
-                            }
-
-                            {/* Name + exterior */}
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-semibold truncate ${t.hasStar ? 'text-violet-300' : t.skinName?.includes('StatTrak') ? 'text-orange-400' : 'text-white'}`}>
-                                {t.skinName}
-                              </p>
-                              <p className="text-xs text-zinc-400 mt-0.5">{t.exterior || '—'}{t.purchaseDate ? ` · ${t.purchaseDate}` : ''}</p>
+                ) : (() => {
+                  // Owners see hidden items in place (dimmed); everyone else never receives them
+                  const rows = (csTrades || []).filter(t => !t.sold && (isOwnProfile || !t.hiddenFromProfile));
+                  if (!rows.length) return <p className="text-center py-10 text-sm text-zinc-400">No current holdings</p>;
+                  return (
+                    <div className="divide-y divide-zinc-700/40">
+                      {rows.map(t => {
+                        const hidden = !!t.hiddenFromProfile;
+                        return (
+                          <div key={t.id} className="flex items-center gap-3 px-4 py-3">
+                            <div className={`flex items-center gap-3 flex-1 min-w-0 ${hidden ? 'opacity-40' : ''}`}>
+                              {t.iconUrl
+                                ? <img src={t.iconUrl} alt="" className="w-10 h-10 object-contain shrink-0"/>
+                                : <div className="w-10 h-10 shrink-0 rounded bg-zinc-700/50 flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+                                  </div>
+                              }
+                              {/* Name (includes wear) + purchase date */}
+                              <div className="min-w-0">
+                                <p className={`text-sm font-semibold truncate ${t.hasStar ? 'text-violet-300' : t.skinName?.includes('StatTrak') ? 'text-orange-400' : 'text-white'}`}>
+                                  {withVanilla(t.skinName)}
+                                </p>
+                                {t.purchaseDate && <p className="text-xs text-zinc-400 mt-0.5">{t.purchaseDate}</p>}
+                              </div>
                             </div>
 
-                            {/* Hide toggle — own profile only */}
-                            {isOwnProfile && (
-                              <button
-                                onClick={e => { e.stopPropagation(); toggleHideFromProfile(t.id, false); }}
-                                className="group shrink-0 flex items-center gap-1 px-1.5 py-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700 transition"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/>
-                                </svg>
-                                <span className="text-xs hidden group-hover:inline">Hide</span>
-                              </button>
+                            {hidden && (
+                              <span className="flex items-center gap-1 text-xs text-zinc-500 shrink-0" title="Only you can see this item">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/></svg>
+                                Hidden
+                              </span>
                             )}
 
-                            {/* Share */}
+                            {/* View — opens the full trade page */}
                             {t.shareToken && (
                               <a href={`/trade/${t.shareToken}`} target="_blank" rel="noopener noreferrer"
-                                onClick={e => e.stopPropagation()}
                                 className="text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition shrink-0">
-                                Share
+                                View
                               </a>
                             )}
-                          </div>
 
-                          {/* Expanded screenshot */}
-                          {isExpanded && hasScreenshot && (
-                            <div className="px-4 pb-4 pt-1 bg-zinc-800/30">
-                              <TradeScreenshot url={t.screenshotUrl} />
-                            </div>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                    {/* Hidden items row — own profile only */}
-                    {isOwnProfile && csTrades.filter(t => !t.sold && t.hiddenFromProfile).length > 0 && (
-                      <div className="px-4 py-3">
-                        <p className="text-xs text-zinc-500">{csTrades.filter(t => !t.sold && t.hiddenFromProfile).length} hidden from profile —{' '}
-                          {csTrades.filter(t => !t.sold && t.hiddenFromProfile).map(t => (
-                            <button key={t.id} onClick={() => toggleHideFromProfile(t.id, true)} className="text-zinc-400 hover:text-zinc-200 transition mr-2 underline text-xs">{t.skinName}</button>
-                          ))}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ) : isOwnProfile && csTrades && csTrades.filter(t => !t.sold && t.hiddenFromProfile).length > 0 ? (
-                  <div className="px-4 py-6 text-center">
-                    <p className="text-sm text-zinc-400 mb-2">All holdings are hidden from profile.</p>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      {csTrades.filter(t => !t.sold && t.hiddenFromProfile).map(t => (
-                        <button key={t.id} onClick={() => toggleHideFromProfile(t.id, true)} className="text-xs px-2 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition">{t.skinName}</button>
-                      ))}
+                            {/* Row menu — own profile only */}
+                            {isOwnProfile && (
+                              <button
+                                aria-label="Item options" aria-haspopup="menu" aria-expanded={rowMenu?.id === t.id}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  if (rowMenu?.id === t.id) { setRowMenu(null); return; }
+                                  const r = e.currentTarget.getBoundingClientRect();
+                                  setRowMenu({ id: t.id, hidden, top: r.bottom + 4, right: window.innerWidth - r.right });
+                                }}
+                                className={`p-1.5 rounded transition shrink-0 ${rowMenu?.id === t.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-700'}`}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
+                  );
+                })()}
+                {rowMenu && (
+                  <div role="menu" onClick={e => e.stopPropagation()}
+                    style={{ position: 'fixed', top: rowMenu.top, right: rowMenu.right, zIndex: 60 }}
+                    className="w-max rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl shadow-black/40 p-1.5">
+                    <button role="menuitem"
+                      onClick={() => { toggleHideFromProfile(rowMenu.id, rowMenu.hidden); setRowMenu(null); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left whitespace-nowrap text-zinc-300 hover:bg-zinc-800 hover:text-white transition">
+                      {rowMenu.hidden ? 'Display on profile' : 'Do not display'}
+                    </button>
                   </div>
-                ) : (
-                  <p className="text-center py-10 text-sm text-zinc-400">No current holdings</p>
                 )}
               </div>
             )}
@@ -694,33 +691,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
   );
 }
 
-const _screenshotCache = {};
-
-function TradeScreenshot({ url }) {
-  const match = url?.match(/id=(\d+)/);
-  const cacheKey = match?.[1];
-  const [preview, setPreview] = useState(() => cacheKey ? _screenshotCache[cacheKey] ?? null : null);
-  const [loading, setLoading] = useState(!preview && !!cacheKey);
-
-  useEffect(() => {
-    if (!cacheKey || _screenshotCache[cacheKey]) return;
-    setLoading(true);
-    const token = getToken();
-    fetch(`/api/cs/steam/screenshot/${cacheKey}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      .then(r => r.json())
-      .then(d => { if (d.previewUrl) { _screenshotCache[cacheKey] = d.previewUrl; setPreview(d.previewUrl); } })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [cacheKey]);
-
-  if (loading) return (
-    <div className="flex items-center justify-center py-6">
-      <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-    </div>
-  );
-  if (!preview) return null;
-  return <img src={preview} alt="Trade screenshot" className="w-full rounded-lg object-contain max-h-80" />;
-}
 
 function skinNameColor(name) {
   if (!name) return 'text-zinc-100';

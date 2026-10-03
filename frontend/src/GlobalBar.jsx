@@ -58,7 +58,7 @@ const iconBtn = active => `relative w-9 h-9 flex items-center justify-center rou
 function MenuItem({ item, active, onSelect }) {
   return (
     <button role="menuitem" onClick={() => onSelect(item.path)}
-      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left transition ${active ? 'bg-zinc-800 text-white' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'} ${focusRing}`}>
+      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-left whitespace-nowrap transition ${active ? 'bg-zinc-800 text-white' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'} ${focusRing}`}>
       <span className={active ? 'text-emerald-400' : 'text-zinc-500'}>{item.icon}</span>
       {item.label}
     </button>
@@ -161,7 +161,7 @@ export default function GlobalBar({ authUsername, onLogout, userRole, searchInpu
                   {active && <ActiveMark />}
                 </button>
                 {isOpen && (
-                  <div role="menu" className={`${panel} left-0 top-full w-56`}>
+                  <div role="menu" className={`${panel} left-0 top-full w-max`}>
                     {item.menu.map(m => <MenuItem key={m.path} item={m} active={pathname === m.path} onSelect={go} />)}
                   </div>
                 )}
@@ -222,7 +222,7 @@ export default function GlobalBar({ authUsername, onLogout, userRole, searchInpu
               {avatar('w-8 h-8')}
             </button>
             {open === 'avatar' && (
-              <div role="menu" className={`${panel} right-0 top-full w-60`}>
+              <div role="menu" className={`${panel} right-0 top-full w-max min-w-48`}>
                 <div className="flex items-center gap-3 px-3 py-2.5 mb-1 border-b border-zinc-800">
                   {avatar('w-9 h-9')}
                   <div className="min-w-0">

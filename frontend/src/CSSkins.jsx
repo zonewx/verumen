@@ -871,7 +871,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                     {holding.length > 0 && (
                       <span>
                         <span className="text-zinc-200 font-semibold">{holding.length}</span> holding
-                        {' · '}Invested {fmtBC(invested)}
+                        <span className="ml-3 text-zinc-200 font-semibold">{fmtBC(invested)}</span>
                       </span>
                     )}
                     {sold.length > 0 && (
