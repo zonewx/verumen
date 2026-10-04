@@ -139,6 +139,14 @@ function ProfileLink({ username, avatar }) {
   );
 }
 
+// Short phrase after the author's name saying what the post is about
+function postAction(item) {
+  if (item.isUpdate) return 'updated a holding';
+  if (item.type === 'cs_trade' || item.type === 'cs_trade_screenshot' || item.type === 'skin_trade') return item.action === 'sell' ? 'sold a holding' : 'added a holding';
+  if (item.type === 'skin_screenshot') return 'shared a screenshot';
+  return null;
+}
+
 function PostHeader({ item, onDelete, onEdit, isOwn }) {
   const navigate = useNavigate();
   const isOnline = useIsOnline();
@@ -161,7 +169,7 @@ function PostHeader({ item, onDelete, onEdit, isOwn }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           <a href={`/user/${item.username}`} onClick={e => { e.preventDefault(); navigate(`/user/${item.username}`); }} className="font-semibold text-sm text-zinc-100 hover:underline">{item.username}</a>
-          {item.isUpdate && <span className="text-xs text-zinc-100">updated a holding</span>}
+          {postAction(item) && <span className="text-xs text-zinc-100">{postAction(item)}</span>}
         </div>
       </div>
       <span className="text-xs text-zinc-500 shrink-0">{timeAgo(item.createdAt)}</span>

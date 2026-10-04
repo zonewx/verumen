@@ -3721,8 +3721,10 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
   const { data, error } = await db.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value:safeFloat, pattern:safePattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'USD', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null, share_token:crypto.randomUUID(), stickers:safeStickerList(stickers) }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   const safeStickers = safeStickerList(stickers);
-  await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior, floatValue: safeFloat, iconUrl: safeIconUrl || null, stickers: safeStickers });
-  if (safeScreenshotUrl) {
+  // One post per new trade: the screenshot version when there's a screenshot, otherwise the plain one
+  if (!safeScreenshotUrl) {
+    await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior, floatValue: safeFloat, iconUrl: safeIconUrl || null, stickers: safeStickers });
+  } else {
     const idMatch = safeScreenshotUrl.match(/id=(\d+)/);
     let screenshotImgUrl = null;
     if (idMatch) {
