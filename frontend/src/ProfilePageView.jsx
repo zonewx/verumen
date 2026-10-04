@@ -463,7 +463,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                     );
                     return (
                       <button disabled={relationBusy} onClick={() => friendAction('remove')} className={`group ${base} ${grey} hover:bg-red-600/20 hover:border-red-500/50 hover:text-red-300`}>
-                        <svg className="w-3.5 h-3.5 group-hover:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>
                         <span className="group-hover:hidden">Friends</span><span className="hidden group-hover:inline">Remove friend</span>
                       </button>
                     );
