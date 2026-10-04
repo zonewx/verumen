@@ -26,7 +26,11 @@ function UsernameSection({ authUsername }) {
   const [newUsername, setNewUsername] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
-  const isRootAdmin = authUsername?.toLowerCase() === 'admin';
+  // Root status comes from the server (decided by account id, not by name)
+  const [isRootAdmin, setIsRootAdmin] = useState(false);
+  useEffect(() => {
+    fetch('/api/auth/me', { headers: authHeaders() }).then(r => r.json()).then(d => setIsRootAdmin(!!d.isRootAdmin)).catch(() => {});
+  }, []);
 
   const submit = async () => {
     const name = newUsername.trim();

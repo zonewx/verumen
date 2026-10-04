@@ -82,6 +82,19 @@ function EmailVerifyView({ token, onDone }) {
   );
 }
 
+// Per-user data kept in localStorage. Wiped whenever a session ends or a different user's
+// session is found, so the next person on a shared browser never starts from someone else's data.
+const USER_STORAGE_KEYS = ['auth_user', 'auth_role', 'portfolio'];
+const USER_STORAGE_PREFIXES = ['steam_inv_cache'];
+function clearUserStorage() {
+  try {
+    USER_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
+    Object.keys(localStorage)
+      .filter(k => USER_STORAGE_PREFIXES.some(p => k.startsWith(p)))
+      .forEach(k => localStorage.removeItem(k));
+  } catch {}
+}
+
 // Stable fingerprint of the current portfolio + currency — used as cache key discriminator
 const portfolioFingerprint = (p, c) =>
   (c || '') + ':' + (p || []).map(h => `${h.ticker}:${h.quantity}`).sort().join('|');
@@ -349,10 +362,17 @@ export default function App() {
       localStorage.setItem('verumen_allowRegistration', String(val));
       if (!d.hasUsers) { setAuthStatus('no-user'); setAuthMode('signup'); return; }
       if (!d.ok) {
-        localStorage.removeItem('auth_user');
-        localStorage.removeItem('auth_role');
+        // Session gone (expired / revoked) — drop the previous user's cached data too,
+        // including what was already loaded into state from localStorage at mount
+        clearUserStorage();
+        setPortfolio([]); setDashboardData(null);
         setAuthStatus('logged-out');
         return;
+      }
+      // Cookie belongs to a different user than the cached data (e.g. left over from before this fix)
+      if (localStorage.getItem('auth_user') && localStorage.getItem('auth_user') !== d.username) {
+        clearUserStorage();
+        setPortfolio([]); setDashboardData(null);
       }
       setToken(d.token);
       setAuthToken(d.token);
@@ -460,8 +480,7 @@ export default function App() {
   const handleLogout = (msg = '') => {
     clearToken();
     setAuthToken(null);
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('auth_role');
+    clearUserStorage();
     setAuthStatus('logged-out'); setAuthUsername('');
     setAuthMode('login');
     setAuthForm({ username: '', password: '', confirmPassword: '', newPassword: '' });

@@ -565,11 +565,11 @@ export default function AdminPanel({ authUsername }) {
                   .map(u => {
                   const roleBadgeCls = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800' };
                   const isExpanded = expandedUsers.has(u.username);
-                  // Mirrors the server rule: staff can't change each other's credentials; only
-                  // 'william' may reset the root admin's password (email stays locked).
-                  const targetIsRoot = u.username.toLowerCase() === 'admin';
+                  // Mirrors the server rule: staff can't change each other's credentials; only the
+                  // recovery account may reset the root admin's password (email stays locked).
+                  const targetIsRoot = !!u.isRoot;
                   const targetIsStaff = u.role === 'admin' || u.role === 'moderator';
-                  const canResetPassword = targetIsRoot ? authUsername?.toLowerCase() === 'william' : !targetIsStaff;
+                  const canResetPassword = targetIsRoot ? !!stats.viewer?.isRecovery : !targetIsStaff;
                   const canEditEmail = !targetIsRoot && !targetIsStaff;
                   const protectedTag = <span className="text-xs text-zinc-500 shrink-0 px-1">You do not have permission</span>;
                   const isEditingEmail = editingEmailFor === u.username;
@@ -678,9 +678,10 @@ export default function AdminPanel({ authUsername }) {
                         {/* Role (left) + Actions (right) */}
                         {(() => {
                           const role = u.role || 'user';
-                          const isRootAdmin = u.username.toLowerCase() === 'admin';
+                          const isRootAdmin = !!u.isRoot;
                           const isSelf = u.username === authUsername;
-                          const viewerIsRoot = authUsername?.toLowerCase() === 'admin';
+                          const viewerIsRoot = !!stats.viewer?.isRoot;
+                          const isStaff = role === 'admin' || role === 'moderator';
                           const badgeCls = roleBadgeCls[role] || 'bg-zinc-700/50 text-zinc-300 border border-zinc-600';
                           return (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -704,7 +705,7 @@ export default function AdminPanel({ authUsername }) {
                                 <label className={fieldLabel}>Actions</label>
                                 <div className="flex gap-2 flex-wrap">
                                   <button onClick={() => clearBio(u.username)} className={btnSecondarySm}>Clear Bio</button>
-                                  {!isRootAdmin && !isSelf && <button onClick={() => deleteUser(u.username)} className={btnDangerSm}>Delete User</button>}
+                                  {!isRootAdmin && !isSelf && (viewerIsRoot || !isStaff) && <button onClick={() => deleteUser(u.username)} className={btnDangerSm}>Delete User</button>}
                                 </div>
                               </div>
                             </div>

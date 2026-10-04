@@ -406,7 +406,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     if (!id) { setSteamError('No Steam ID linked — set it in your profile settings'); return; }
     if (!force) {
       try {
-        const cached = localStorage.getItem('steam_inv_cache');
+        const cached = localStorage.getItem(`steam_inv_cache:${id}`);
         if (cached) {
           const { data, ts, v } = JSON.parse(cached);
           if (v === INVENTORY_CACHE_VERSION && Date.now() - ts < INVENTORY_CACHE_TTL) { setSteamInventory(data); return; }
@@ -420,7 +420,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       if (!res.ok) { setSteamError(data.error || 'Failed to fetch inventory'); }
       else {
         setSteamInventory(data);
-        try { localStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION })); } catch(e) {}
+        try { localStorage.setItem(`steam_inv_cache:${id}`, JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION })); } catch(e) {}
       }
     } catch(e) { setSteamError('Network error: ' + e.message); }
     setSteamLoading(false);
@@ -432,7 +432,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     if (!id) return;
     // Use the same localStorage cache as the inventory tab
     try {
-      const cached = localStorage.getItem('steam_inv_cache');
+      const cached = localStorage.getItem(`steam_inv_cache:${id}`);
       if (cached) {
         const { data, ts, v } = JSON.parse(cached);
         if (v === INVENTORY_CACHE_VERSION && Date.now() - ts < INVENTORY_CACHE_TTL) { setModalInventory((data.items || []).filter(i => i.tradable)); return; }
@@ -444,7 +444,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       const data = await res.json();
       if (res.ok) {
         setModalInventory((data.items || []).filter(i => i.tradable));
-        try { localStorage.setItem('steam_inv_cache', JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION })); } catch(e) {}
+        try { localStorage.setItem(`steam_inv_cache:${id}`, JSON.stringify({ data, ts: Date.now(), v: INVENTORY_CACHE_VERSION })); } catch(e) {}
       }
     } catch(e) {}
     setModalInvLoading(false);

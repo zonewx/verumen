@@ -70,6 +70,10 @@ RESEND_API_KEY=your-resend-api-key
 PORT=3000
 APP_URL=https://verumen.com   # used for CORS and email links
 BASE_URL=https://verumen.com  # used for Steam OAuth callbacks
+
+# Root admin (auth user ids — printed by `npm run setup`, or: select id, username from profiles;)
+ROOT_ADMIN_ID=uuid-of-the-admin-account        # required for root-only actions (managing admins)
+RECOVERY_ADMIN_ID=uuid-of-the-recovery-account # optional: may reset the root admin's password
 ```
 
 ---
@@ -100,8 +104,8 @@ The backend runs on `http://localhost:3000` and the Vite dev server on `http://l
 
 The `railway.json` is already configured. Push to your Railway service — it builds with Nixpacks and starts with `node server.js`.
 
-Required env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `FINNHUB_API_KEY`, `APP_URL`, `BASE_URL`.
-Optional: `STEAM_API_KEY`, `RESEND_API_KEY`.
+Required env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `FINNHUB_API_KEY`, `APP_URL`, `BASE_URL`, `ROOT_ADMIN_ID`.
+Optional: `STEAM_API_KEY`, `RESEND_API_KEY`, `RECOVERY_ADMIN_ID`.
 Set `NODE_ENV=production` so the refresh token cookie is issued with the `Secure` flag.
 
 **Frontend → Vercel**

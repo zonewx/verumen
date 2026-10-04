@@ -39,9 +39,10 @@ async function main() {
   }
 
   // Check if admin already exists
-  const { data: existing } = await supabase.from('profiles').select('username').eq('username', 'admin').single();
+  const { data: existing } = await supabase.from('profiles').select('id, username').eq('username', 'admin').single();
   if (existing) {
     console.log('✓ Admin account already exists. Nothing to do.\n');
+    console.log(`If not done yet, set ROOT_ADMIN_ID=${existing.id} in .env and on Railway.\n`);
     console.log('Run: npm run dev\n');
     process.exit(0);
   }
@@ -69,6 +70,7 @@ async function main() {
   if (profileError) { console.error('\n✗ Failed to create profile:', profileError.message, '\n'); process.exit(1); }
 
   console.log('\n✓ Admin account created successfully!');
+  console.log(`\nSet ROOT_ADMIN_ID=${authData.user.id} in .env and on Railway.`);
   console.log('\nYou can now run: npm run dev\n');
   process.exit(0);
 }

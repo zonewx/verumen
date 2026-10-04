@@ -507,6 +507,18 @@ function sessionRevoked(accessToken, passwordChangedAt) {
 const markPasswordChanged = userId =>
   db.from('profiles').update({ password_changed_at: new Date().toISOString() }).eq('id', userId);
 
+// ── Root admin identity ─────────────────────────────────────────────────────
+// The root admin and its recovery account are identified by their immutable auth user id,
+// never by username — usernames can be changed, so a name-based check could be claimed just
+// by renaming an account. If an id isn't configured, nobody matches (fails closed).
+const ROOT_ADMIN_ID = process.env.ROOT_ADMIN_ID || null;
+const RECOVERY_ADMIN_ID = process.env.RECOVERY_ADMIN_ID || null;
+if (!ROOT_ADMIN_ID) log.warn('ROOT_ADMIN_ID not set — root-admin-only actions are disabled');
+const isRootAdmin = id => !!ROOT_ADMIN_ID && id === ROOT_ADMIN_ID;
+const isRecoveryAdmin = id => !!RECOVERY_ADMIN_ID && id === RECOVERY_ADMIN_ID;
+// Display name reserved for the root admin, so no other account can pose as it
+const RESERVED_USERNAME = 'admin';
+
 // ── Auth middleware ─────────────────────────────────────────────────────────
 async function requireUser(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -569,6 +581,7 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   const { data: regSetting } = await db.from('app_settings').select('value').eq('key', 'allowRegistration').single();
   if (regSetting && regSetting.value === 'false') return res.status(403).json({ error: 'Registration is currently disabled.' });
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(username.trim())) return res.status(400).json({ error: 'Username must be 3-20 characters, letters/numbers/underscore only.' });
+  if (username.trim().toLowerCase() === RESERVED_USERNAME) return res.status(400).json({ error: 'Username already taken.' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ error: 'A valid email address is required.' });
   const { data: existing } = await db.from('profiles').select('id').ilike('username', escapeLike(username.trim())).single();
@@ -584,8 +597,8 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   const fakeEmail = `${username.trim().toLowerCase()}@statera.local`;
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email: fakeEmail, password, email_confirm: true });
   if (authError) return res.status(400).json({ error: authError.message });
-  const role = username.trim().toLowerCase() === 'admin' ? 'admin' : 'user';
-  const { error: profileError } = await db.from('profiles').insert({ id: authData.user.id, username: username.trim(), role, bio: '', steam_id: '', public_inventory: false, public_holdings: false, country: country || 'se', email: email.trim().toLowerCase(), email_verified: false });
+  // Registration never grants staff roles — the admin account is created by `npm run setup`
+  const { error: profileError } = await db.from('profiles').insert({ id: authData.user.id, username: username.trim(), role: 'user', bio: '', steam_id: '', public_inventory: false, public_holdings: false, country: country || 'se', email: email.trim().toLowerCase(), email_verified: false });
   if (profileError) return res.status(500).json({ error: profileError.message });
   const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email: fakeEmail, password });
   if (signInError) return res.status(500).json({ error: signInError.message });
@@ -763,6 +776,7 @@ app.get('/api/auth/me', requireUser, async (req, res) => {
   ]);
   res.json({
     username: profile?.username,
+    isRootAdmin: isRootAdmin(req.user.id),
     email: profile?.email || null,
     emailVerified: !!profile?.email_verified,
     pendingEmail: pending?.[0]?.email || null,
@@ -917,8 +931,9 @@ app.put('/api/users/:username/username', requireUser, async (req, res) => {
   // Validate format: 3-20 chars, letters/numbers/underscores only
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(newUsername)) return res.status(400).json({ error: 'Username must be 3-20 characters and contain only letters, numbers, and underscores.' });
   // Check uniqueness (case-insensitive)
-  // Root admin identity is tied to the username 'admin', so it can't be renamed away (or into)
-  if (req.username.toLowerCase() === 'admin' || newUsername.toLowerCase() === 'admin') return res.status(403).json({ error: 'This username cannot be changed.' });
+  // The root admin keeps its name, and nobody else may take the reserved one
+  if (isRootAdmin(req.user.id)) return res.status(403).json({ error: 'This username cannot be changed.' });
+  if (newUsername.toLowerCase() === RESERVED_USERNAME) return res.status(409).json({ error: 'Username is already taken.' });
   const { data: existing } = await db.from('profiles').select('id').ilike('username', escapeLike(newUsername)).single();
   if (existing && existing.id !== req.user.id) return res.status(409).json({ error: 'Username is already taken.' });
   // Login derives the auth email from the username, so it must change in step or the user is
@@ -3923,6 +3938,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
 
     const usersStats = (profiles || []).map(p => ({
       username: p.username, role: p.role, createdAt: p.created_at,
+      isRoot: isRootAdmin(p.id),
       transactionCount: txCountMap[p.id] || 0,
       publicInventory: p.public_inventory, publicHoldings: p.public_holdings,
       avatarBase64: p.avatar_base64 || null,
@@ -3935,6 +3951,8 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
     res.json({
       system: { uptime: Math.floor(process.uptime()), nodeVersion: process.version, memoryMB: Math.round(mem.rss/1024/1024), heapUsedMB: Math.round(mem.heapUsed/1024/1024), platform: process.platform },
       users: usersStats,
+      // Lets the admin panel show only the actions the server will actually allow
+      viewer: { isRoot: isRootAdmin(req.user.id), isRecovery: isRecoveryAdmin(req.user.id) },
       totals: { userCount: (profiles||[]).length, totalTx: totalTx||0 },
       tickerCache: { total: 0, resolved: 0, failed: 0 },
     });
@@ -3946,12 +3964,10 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
 
 // Staff (admins/mods) may only change credentials of regular users — never of each other.
 // Sole exception: the recovery account may reset the root admin's password.
-const ROOT_ADMIN_USERNAME = 'admin';
-const ROOT_ADMIN_RECOVERY_USERNAME = 'william';
-function credentialChangeBlocked(actorUsername, target, { passwordReset = false } = {}) {
-  const isRoot = target.username?.toLowerCase() === ROOT_ADMIN_USERNAME;
-  if (isRoot) {
-    return passwordReset && actorUsername?.toLowerCase() === ROOT_ADMIN_RECOVERY_USERNAME
+// `target` must include its `id`.
+function credentialChangeBlocked(actorId, target, { passwordReset = false } = {}) {
+  if (isRootAdmin(target.id)) {
+    return passwordReset && isRecoveryAdmin(actorId)
       ? null
       : "You don't have permission to change the root admin account's credentials.";
   }
@@ -3960,15 +3976,20 @@ function credentialChangeBlocked(actorUsername, target, { passwordReset = false 
 }
 
 app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {
-  if (req.params.username?.toLowerCase() === 'admin') return res.status(400).json({ error:'Cannot delete admin account.' });
   const { password } = req.body || {};
   if (!password) return res.status(400).json({ error: 'Password required' });
   const email = `${req.username.toLowerCase()}@statera.local`;
   const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
   if (authError) return res.status(401).json({ error: 'Incorrect password' });
-  const { data: profile } = await db.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, role').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error:'User not found.' });
-  await supabase.auth.admin.deleteUser(profile.id);
+  if (isRootAdmin(profile.id)) return res.status(400).json({ error:'Cannot delete admin account.' });
+  if (profile.id === req.user.id) return res.status(400).json({ error:'You cannot delete your own account.' });
+  // Same rule as credential changes: staff can't remove each other — only the root admin can
+  if ((profile.role === 'admin' || profile.role === 'moderator') && !isRootAdmin(req.user.id))
+    return res.status(403).json({ error: 'Only the root admin can delete staff accounts.' });
+  const { error: delError } = await supabase.auth.admin.deleteUser(profile.id);
+  if (delError) return res.status(500).json({ error: 'Failed to delete user: ' + delError.message });
   await appendModLog('admin', 'delete-user', req.params.username);
   res.json({ success:true });
 });
@@ -3978,7 +3999,7 @@ app.post('/api/admin/users/:username/reset-password', requireAdmin, async (req, 
   if (!newPassword||newPassword.length<6) return res.status(400).json({ error:'Password must be at least 6 characters.' });
   const { data: profile } = await db.from('profiles').select('id, username, role').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error:'User not found.' });
-  const blocked = credentialChangeBlocked(req.username, profile, { passwordReset: true });
+  const blocked = credentialChangeBlocked(req.user.id, profile, { passwordReset: true });
   if (blocked) return res.status(403).json({ error: blocked });
   await supabase.auth.admin.updateUserById(profile.id, { password:newPassword });
   await markPasswordChanged(profile.id);
@@ -3991,7 +4012,7 @@ app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) 
   const { email } = req.body;
   const { data: profile } = await db.from('profiles').select('id, username, role').eq('username', username).single();
   if (!profile) return res.status(404).json({ error: 'User not found.' });
-  const blocked = credentialChangeBlocked(req.username, profile);
+  const blocked = credentialChangeBlocked(req.user.id, profile);
   if (blocked) return res.status(403).json({ error: blocked });
   if (email) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format.' });
@@ -4051,9 +4072,9 @@ app.post('/api/auth/verify-email', async (req, res) => {
 });
 
 app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('email, username, role').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, email, username, role').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found.' });
-  const blocked = credentialChangeBlocked(req.username, profile, { passwordReset: true });
+  const blocked = credentialChangeBlocked(req.user.id, profile, { passwordReset: true });
   if (blocked) return res.status(403).json({ error: blocked });
   if (!profile.email) return res.status(400).json({ error: 'This user has no email address on file.' });
   if (!resend) return res.status(500).json({ error: 'Email service not configured.' });
@@ -4072,10 +4093,10 @@ app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req
 app.post('/api/admin/users/:username/set-role', requireAdmin, async (req, res) => {
   const { role } = req.body;
   if (!['user','moderator'].includes(role)) return res.status(400).json({ error:'Invalid role.' });
-  if (req.params.username?.toLowerCase() === 'admin') return res.status(400).json({ error: 'Cannot change the root admin role.' });
   // Admin roles are only changed via set-role-admin (root admin only), so this route can't demote an admin
-  const { data: target } = await db.from('profiles').select('role').eq('username', req.params.username).single();
+  const { data: target } = await db.from('profiles').select('id, role').eq('username', req.params.username).single();
   if (!target) return res.status(404).json({ error: 'User not found.' });
+  if (isRootAdmin(target.id)) return res.status(400).json({ error: 'Cannot change the root admin role.' });
   if (target.role === 'admin') return res.status(403).json({ error: 'Only the root admin account can manage admin roles.' });
   await db.from('profiles').update({ role }).eq('username', req.params.username);
   await appendModLog('admin', `set-role:${role}`, req.params.username);
@@ -4083,13 +4104,15 @@ app.post('/api/admin/users/:username/set-role', requireAdmin, async (req, res) =
 });
 
 app.post('/api/admin/users/:username/set-role-admin', requireAdmin, async (req, res) => {
-  // Only the root "admin" account can grant or revoke admin role
-  if (req.username?.toLowerCase() !== 'admin') return res.status(403).json({ error: 'Only the root admin account can manage admin roles.' });
+  // Only the root admin account can grant or revoke admin role
+  if (!isRootAdmin(req.user.id)) return res.status(403).json({ error: 'Only the root admin account can manage admin roles.' });
   const { role } = req.body;
   if (!['user','moderator','admin'].includes(role)) return res.status(400).json({ error: 'Invalid role.' });
+  const { data: target } = await db.from('profiles').select('id').eq('username', req.params.username).single();
+  if (!target) return res.status(404).json({ error: 'User not found.' });
   // Protect the root admin account from being demoted
-  if (req.params.username?.toLowerCase() === 'admin') return res.status(400).json({ error: 'Cannot change the root admin role.' });
-  await db.from('profiles').update({ role }).eq('username', req.params.username);
+  if (isRootAdmin(target.id)) return res.status(400).json({ error: 'Cannot change the root admin role.' });
+  await db.from('profiles').update({ role }).eq('id', target.id);
   await appendModLog('admin', `set-role-admin:${role}`, req.params.username);
   res.json({ success: true });
 });
@@ -4138,7 +4161,7 @@ app.post('/api/mod/users/:username/reset-password', requireModerator, async (req
   if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
   const { data: profile } = await db.from('profiles').select('id, username, role').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error:'User not found.' });
-  const blocked = credentialChangeBlocked(req.username, profile);
+  const blocked = credentialChangeBlocked(req.user.id, profile);
   if (blocked) return res.status(403).json({ error: blocked });
   await supabase.auth.admin.updateUserById(profile.id, { password:newPassword });
   await markPasswordChanged(profile.id);
