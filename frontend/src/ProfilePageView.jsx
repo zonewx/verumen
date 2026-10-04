@@ -15,7 +15,8 @@ const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | 
 
 // `online` (optional): true turns the ring green to show the user is online
 function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl', online }) {
-  const border = `border-4 ${online ? 'border-emerald-500' : 'border-zinc-600'}`;
+  // Presence avatars (friend lists) get a thin ring; the large profile avatar keeps its thick frame
+  const border = online === undefined ? 'border-4 border-zinc-600' : `border-2 ${online ? 'border-emerald-500' : 'border-zinc-600'}`;
   const title = online ? 'Online' : undefined;
   if (src) return <img src={src} alt={username} title={title} className={`${size} rounded-full object-cover ${border}`} />;
   const initial = username?.[0]?.toUpperCase() || '?';
