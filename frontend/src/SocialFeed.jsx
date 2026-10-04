@@ -107,7 +107,7 @@ const ROLE_BADGE = {
 function Avatar({ src, username, size = 'w-8 h-8', text = 'text-xs', online }) {
   const ring = online === undefined ? '' : `ring-2 ${online ? 'ring-emerald-500' : 'ring-zinc-600'}`;
   return (
-    <div className={`${size} rounded-full bg-zinc-700 flex items-center justify-center text-white font-bold ${text} overflow-hidden shrink-0 ${ring}`} title={online ? 'Online' : undefined}>
+    <div className={`${size} rounded-full bg-zinc-700 flex items-center justify-center text-white font-bold ${text} overflow-hidden shrink-0 ${ring}`}>
       {src ? <img src={src} alt={username} className="w-full h-full object-cover" /> : username?.[0]?.toUpperCase()}
     </div>
   );
@@ -334,7 +334,7 @@ function ActivityCard({ item, onDelete, onSaveEdit, isOwn }) {
     const { requester, addressee } = friendPair(item);
     const avatars = item.avatarsByUser || { [item.username]: item.avatarBase64 };
     return (
-      <div className="bg-zinc-800/40 border border-zinc-700/40 rounded-2xl px-4 py-3 flex items-center gap-3">
+      <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl px-4 py-4 flex items-center gap-3">
         <p className="flex-1 min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-zinc-400">
           <ProfileLink username={requester} avatar={avatars[requester] ?? null} />
           <span>and</span>

@@ -17,10 +17,9 @@ const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | 
 function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl', online }) {
   // Presence avatars (friend lists) get a thin ring; the large profile avatar keeps its thick frame
   const border = online === undefined ? 'border-4 border-zinc-600' : `border-2 ${online ? 'border-emerald-500' : 'border-zinc-600'}`;
-  const title = online ? 'Online' : undefined;
-  if (src) return <img src={src} alt={username} title={title} className={`${size} rounded-full object-cover ${border}`} />;
+  if (src) return <img src={src} alt={username} className={`${size} rounded-full object-cover ${border}`} />;
   const initial = username?.[0]?.toUpperCase() || '?';
-  return <div title={title} className={`${size} rounded-full bg-zinc-600 flex items-center justify-center ${textSize} font-bold text-white ${border}`}>{initial}</div>;
+  return <div className={`${size} rounded-full bg-zinc-600 flex items-center justify-center ${textSize} font-bold text-white ${border}`}>{initial}</div>;
 }
 
 // Get Steam level badge colors based on level tier
