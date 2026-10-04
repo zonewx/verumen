@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
 import { card } from './ui';
+import { flash } from './flash';
 
 const ROLE_BADGE = {
   admin: { label: 'Admin', cls: 'bg-red-900/40 text-red-400 border border-red-800' },
@@ -81,6 +82,45 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
   const navigate = useNavigate();
   const isOwnProfile = !viewUsername || viewUsername === authUsername;
   const targetUser = viewUsername || authUsername;
+
+  // Your friendship with the profile being viewed: 'none' | 'outgoing' | 'incoming' | 'friends'
+  const [relation, setRelation] = useState(null);
+  const [relationBusy, setRelationBusy] = useState(false);
+  useEffect(() => {
+    setRelation(null);
+    const token = getToken();
+    if (!authUsername || isOwnProfile || !token) return;
+    fetch('/api/friends', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        const me = targetUser.toLowerCase();
+        const has = list => (list || []).some(x => (typeof x === 'string' ? x : x.username).toLowerCase() === me);
+        setRelation(has(d.friends) ? 'friends' : has(d.incoming) ? 'incoming' : has(d.outgoing) ? 'outgoing' : 'none');
+      })
+      .catch(() => {});
+  }, [targetUser, authUsername]);
+
+  async function friendAction(action) {
+    if (action === 'remove' && !confirm(`Remove ${targetUser} from your friends?`)) return;
+    const token = getToken();
+    if (!token) return;
+    setRelationBusy(true);
+    try {
+      const res = await fetch(`/api/friends/${action}/${encodeURIComponent(targetUser)}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) { flash(`✗ ${data.error || 'Something went wrong. Please try again.'}`); return; }
+      if (action === 'request') {
+        const accepted = data.status === 'accepted';
+        setRelation(accepted ? 'friends' : 'outgoing');
+        flash(accepted ? `✓ You and ${targetUser} are now friends` : `✓ Friend request sent to ${targetUser}`);
+      } else if (action === 'accept') { setRelation('friends'); flash(`✓ You and ${targetUser} are now friends`); }
+      else if (action === 'decline') { setRelation('none'); flash('Friend request declined'); }
+      else { setRelation('none'); flash(relation === 'outgoing' ? 'Friend request cancelled' : `Removed ${targetUser} from your friends`); }
+      loadFriends();
+      window.dispatchEvent(new Event('friends-updated'));
+    } finally { setRelationBusy(false); }
+  }
 
   const [profile, setProfile] = useState(() => apiCache.get(`/api/users/${targetUser}/profile`));
   const [loadingProfile, setLoadingProfile] = useState(!apiCache.has(`/api/users/${targetUser}/profile`));
@@ -405,8 +445,29 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                   </div>
                 );
               })()}
-              {(profile.steamVerified || isOwnProfile) && (
+              {(profile.steamVerified || isOwnProfile || relation) && (
                 <div className="flex items-center gap-2">
+                  {relation && (() => {
+                    const base = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border disabled:opacity-50';
+                    const grey = 'bg-zinc-700 hover:bg-zinc-600 border-zinc-600 text-zinc-200';
+                    const green = 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500/40 text-white';
+                    if (relation === 'none') return <button disabled={relationBusy} onClick={() => friendAction('request')} className={`${base} ${green}`}>Add friend</button>;
+                    if (relation === 'incoming') return (<>
+                      <button disabled={relationBusy} onClick={() => friendAction('accept')} className={`${base} ${green}`}>Accept request</button>
+                      <button disabled={relationBusy} onClick={() => friendAction('decline')} className={`${base} ${grey}`}>Decline</button>
+                    </>);
+                    if (relation === 'outgoing') return (
+                      <button disabled={relationBusy} onClick={() => friendAction('remove')} className={`group ${base} ${grey}`}>
+                        <span className="group-hover:hidden">Request sent</span><span className="hidden group-hover:inline">Cancel request</span>
+                      </button>
+                    );
+                    return (
+                      <button disabled={relationBusy} onClick={() => friendAction('remove')} className={`group ${base} ${grey} hover:bg-red-600/20 hover:border-red-500/50 hover:text-red-300`}>
+                        <svg className="w-3.5 h-3.5 group-hover:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>
+                        <span className="group-hover:hidden">Friends</span><span className="hidden group-hover:inline">Remove friend</span>
+                      </button>
+                    );
+                  })()}
                   {profile.steamVerified && (
                     <a
                       href={`https://steamcommunity.com/profiles/${profile.steamId}`}
