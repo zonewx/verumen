@@ -68,6 +68,7 @@ function SteamScreenshotEmbed({ url }) {
   const cacheKey = match?.[1];
   const [preview, setPreview] = useState(() => (cacheKey ? _screenshotCache[cacheKey] ?? null : null));
   const [loading, setLoading] = useState(!preview && !!cacheKey);
+  const [notPublic, setNotPublic] = useState(false);
 
   useEffect(() => {
     if (!cacheKey || _screenshotCache[cacheKey]) return;
@@ -75,12 +76,18 @@ function SteamScreenshotEmbed({ url }) {
     const token = getToken();
     fetch(`/api/cs/steam/screenshot/${cacheKey}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       .then(r => r.json())
-      .then(d => { if (d.previewUrl) { _screenshotCache[cacheKey] = d.previewUrl; setPreview(d.previewUrl); } })
+      .then(d => { if (d.previewUrl) { _screenshotCache[cacheKey] = d.previewUrl; setPreview(d.previewUrl); } else if (d.notPublic) setNotPublic(true); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [cacheKey]);
 
   if (!url) return null;
+  if (!loading && !preview && notPublic) return (
+    <div className="mt-2 flex items-center gap-2 p-3 rounded-xl border bg-zinc-700/30 border-zinc-700 text-sm text-zinc-400">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500 shrink-0" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Screenshot not public
+    </div>
+  );
   return (
     <a href={url} target="_blank" rel="noreferrer" className="block mt-2 rounded-xl overflow-hidden group">
       {loading && (

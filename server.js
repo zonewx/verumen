@@ -3799,12 +3799,13 @@ app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
   res.json({ id:data?.id, success:true });
 });
 
-// Full-resolution image for a Steam screenshot, or null. Only `file_url` is the real image —
-// `preview_url` is a ~200px thumbnail that looks blurry when shown at post size, so it's never
-// used; callers fall back to a "View on Steam" link instead. Screenshots that aren't public on
-// Steam (result 9) return nothing here.
-async function fetchSteamScreenshotPreview(id) {
+// Full-resolution image for a Steam screenshot. Only `file_url` is the real image —
+// `preview_url` is a ~200px thumbnail that looks blurry at post size, so it's never used.
+// Returns { url, notPublic }: notPublic is true only when Steam answered but exposes no image
+// (screenshot private, friends-only or deleted — result 9), never on a network failure.
+async function steamScreenshotInfo(id) {
   const STEAM_KEY = process.env.STEAM_API_KEY;
+  let answered = false;
   if (STEAM_KEY) {
     try {
       const r = await fetch(
@@ -3812,7 +3813,8 @@ async function fetchSteamScreenshotPreview(id) {
         { signal: AbortSignal.timeout(8000) }
       );
       const detail = (await r.json())?.response?.publishedfiledetails?.[0];
-      if (detail?.file_url) return detail.file_url;
+      if (detail?.file_url) return { url: detail.file_url, notPublic: false };
+      if (detail) answered = true;
     } catch {}
   }
   try {
@@ -3822,17 +3824,22 @@ async function fetchSteamScreenshotPreview(id) {
       body: `itemcount=1&publishedfileids[0]=${id}`,
       signal: AbortSignal.timeout(8000),
     });
-    return (await r.json())?.response?.publishedfiledetails?.[0]?.file_url || null;
-  } catch { return null; }
+    const detail = (await r.json())?.response?.publishedfiledetails?.[0];
+    if (detail?.file_url) return { url: detail.file_url, notPublic: false };
+    if (detail) answered = true;
+  } catch {}
+  return { url: null, notPublic: answered };
 }
+const fetchSteamScreenshotPreview = async id => (await steamScreenshotInfo(id)).url;
 
 app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
   const { id } = req.params;
   if (!/^\d+$/.test(id)) return res.status(400).json({ error: 'Invalid screenshot ID' });
   try {
-    const previewUrl = await fetchSteamScreenshotPreview(id);
-    if (!previewUrl) return res.status(404).json({ error: 'Screenshot not found' });
-    res.json({ previewUrl });
+    const { url, notPublic } = await steamScreenshotInfo(id);
+    if (url) return res.json({ previewUrl: url });
+    if (notPublic) return res.json({ previewUrl: null, notPublic: true });
+    res.status(502).json({ error: 'Steam is unavailable right now' });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
