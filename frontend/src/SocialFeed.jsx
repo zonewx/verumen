@@ -126,12 +126,16 @@ function timeAgo(dateStr) {
 function ProfileLink({ username, avatar }) {
   const navigate = useNavigate();
   const isOnline = useIsOnline();
+  const go = e => { e.preventDefault(); navigate(`/user/${username}`); };
   return (
-    <a href={`/user/${username}`} onClick={e => { e.preventDefault(); navigate(`/user/${username}`); }}
-      className="inline-flex items-center gap-1.5 align-middle font-semibold text-zinc-200 hover:underline">
-      {avatar !== undefined && <Avatar src={avatar} username={username} size="w-6 h-6" text="text-[10px]" online={isOnline({ username })} />}
-      {username}
-    </a>
+    <span className="inline-flex items-center gap-1.5 align-middle">
+      {avatar !== undefined && (
+        <a href={`/user/${username}`} onClick={go} aria-label={`${username}'s profile`}>
+          <Avatar src={avatar} username={username} size="w-6 h-6" text="text-[10px]" online={isOnline({ username })} />
+        </a>
+      )}
+      <a href={`/user/${username}`} onClick={go} className="font-semibold text-zinc-200 hover:underline">{username}</a>
+    </span>
   );
 }
 
