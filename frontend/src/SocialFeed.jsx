@@ -315,13 +315,30 @@ function ActivityCard({ item, onDelete, onSaveEdit, isOwn }) {
       <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
         <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
         <p className="text-sm text-zinc-400">
-          Became friends with <span className="font-semibold text-zinc-200">{item.targetUser}</span>
+          <span className="font-semibold text-zinc-200">{friendPair(item).requester}</span> and <span className="font-semibold text-zinc-200">{friendPair(item).addressee}</span> became friends
         </p>
       </div>
     );
   }
 
   return null;
+}
+
+// A friendship writes one activity row per person (so each side's friends see it). Show the
+// pair as a single post: rows for the same two users within a few minutes are merged, keeping
+// the requester's row. Older rows without requester info fall back to author + target.
+const friendPair = i => ({ requester: i.requester || i.username, addressee: i.addressee || i.targetUser });
+const pairKey = i => { const p = friendPair(i); return [p.requester, p.addressee].map(n => (n || '').toLowerCase()).sort().join('|'); };
+const postTime = i => new Date(i.createdAt || i.created_at).getTime();
+function mergeFriendPosts(items) {
+  const out = [];
+  for (const it of items) {
+    if (it.type !== 'friend_added') { out.push(it); continue; }
+    const dup = out.findIndex(o => o.type === 'friend_added' && pairKey(o) === pairKey(it) && Math.abs(postTime(o) - postTime(it)) < 5 * 60 * 1000);
+    if (dup === -1) out.push(it);
+    else if (it.requester && it.username === it.requester) out[dup] = it;
+  }
+  return out;
 }
 
 export default function SocialFeed({ authUsername, onViewProfile }) {
@@ -600,7 +617,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                 <div className="w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
               </div>
             ) : (() => {
-              const items = feed.filter(i => i.type !== 'holdings_update');
+              const items = mergeFriendPosts(feed.filter(i => i.type !== 'holdings_update'));
 
               if (items.length === 0) return (
                 <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-2xl p-12 text-center">

@@ -3243,21 +3243,24 @@ app.get('/api/friends/pending-count', requireUser, async (req, res) => {
 });
 
 app.post('/api/friends/request/:username', requireUser, async (req, res) => {
-  const { data: target } = await db.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: target } = await db.from('profiles').select('id, username').eq('username', req.params.username).single();
   if (!target) return res.status(404).json({ error: 'User not found.' });
   if (target.id === req.user.id) return res.status(400).json({ error: 'Cannot friend yourself.' });
   const { data: reverse } = await db.from('friendships').select('id').eq('requester_id', target.id).eq('addressee_id', req.user.id).eq('status', 'pending').single();
-  if (reverse) { await db.from('friendships').update({ status:'accepted' }).eq('id', reverse.id); await Promise.all([appendActivity(req.user.id,'friend_added',{ targetUser:req.params.username }),appendActivity(target.id,'friend_added',{ targetUser:req.username })]); return res.json({ success:true, status:'accepted' }); }
+  if (reverse) { await db.from('friendships').update({ status:'accepted' }).eq('id', reverse.id); const pair = { requester: target.username, addressee: req.username }; await Promise.all([appendActivity(req.user.id,'friend_added',{ targetUser:target.username, ...pair }),appendActivity(target.id,'friend_added',{ targetUser:req.username, ...pair })]); return res.json({ success:true, status:'accepted' }); }
   const { error } = await db.from('friendships').insert({ requester_id:req.user.id, addressee_id:target.id, status:'pending' });
   if (error) return res.status(400).json({ error:error.message });
   res.json({ success:true, status:'requested' });
 });
 
 app.post('/api/friends/accept/:username', requireUser, async (req, res) => {
-  const { data: sender } = await db.from('profiles').select('id').eq('username', req.params.username).single();
+  const { data: sender } = await db.from('profiles').select('id, username').eq('username', req.params.username).single();
   if (!sender) return res.status(404).json({ error: 'User not found.' });
-  await db.from('friendships').update({ status:'accepted' }).eq('requester_id', sender.id).eq('addressee_id', req.user.id).eq('status', 'pending');
-  await Promise.all([appendActivity(req.user.id,'friend_added',{ targetUser:req.params.username }),appendActivity(sender.id,'friend_added',{ targetUser:req.username })]);
+  const { data: accepted } = await db.from('friendships').update({ status:'accepted' }).eq('requester_id', sender.id).eq('addressee_id', req.user.id).eq('status', 'pending').select('id');
+  if (!accepted?.length) return res.status(404).json({ error: 'No pending friend request from this user.' });
+  // Both sides get a row so each person's friends see it; the feed merges the pair into one post
+  const pair = { requester: sender.username, addressee: req.username };
+  await Promise.all([appendActivity(req.user.id,'friend_added',{ targetUser:sender.username, ...pair }),appendActivity(sender.id,'friend_added',{ targetUser:req.username, ...pair })]);
   res.json({ success:true });
 });
 
