@@ -8,6 +8,7 @@ import { EmptyState, ShortcutsModal, PieChart, LineChart, TodayCards } from './P
 import TransactionHistoryTab from './TransactionHistoryTab';
 import { IconAlert, IconSpinner, IconRefresh, IconSearch } from './icons';
 import { flash } from './flash';
+import { startPresence, stopPresence } from './presence';
 
 const CSSkins = lazy(() => import('./CSSkins'));
 const ProfilePageView = lazy(() => import('./ProfilePageView'));
@@ -111,6 +112,24 @@ export default function App() {
   const [emailVerifyToken] = useState(() => new URLSearchParams(window.location.search).get('email_token') || '');
   // The verify screen only renders when logged out. If the link is opened while already
   // logged in (typical for a self-service email change), verify in the background instead.
+  // Online presence: live via Supabase Realtime when it's available, plus a heartbeat ping
+  // (server treats <2 min as online) that keeps status working if realtime can't connect.
+  useEffect(() => {
+    if (authStatus === 'logged-in' && authToken && authUsername) startPresence(authUsername);
+    else if (authStatus !== 'logged-in') stopPresence();
+  }, [authStatus, authToken, authUsername]);
+  useEffect(() => {
+    if (authStatus !== 'logged-in') return;
+    const beat = () => {
+      const token = getToken();
+      if (token && document.visibilityState === 'visible') fetch('/api/users/heartbeat', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    };
+    beat();
+    const id = setInterval(beat, 60 * 1000);
+    document.addEventListener('visibilitychange', beat);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', beat); };
+  }, [authStatus]);
+
   const emailVerifyHandled = useRef(false);
   useEffect(() => {
     if (authStatus !== 'logged-in' || !emailVerifyToken || emailVerifyHandled.current) return;

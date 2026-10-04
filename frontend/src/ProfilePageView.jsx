@@ -4,6 +4,7 @@ import apiCache from './apiCache';
 import { getToken } from './tokenStore';
 import { card } from './ui';
 import { flash } from './flash';
+import { useIsOnline, isRealtimeLive } from './presence';
 
 const ROLE_BADGE = {
   admin: { label: 'Admin', cls: 'bg-red-900/40 text-red-400 border border-red-800' },
@@ -12,10 +13,13 @@ const ROLE_BADGE = {
 
 const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | Vanilla` : (n || '');
 
-function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl' }) {
-  if (src) return <img src={src} alt={username} className={`${size} rounded-full object-cover border-4 border-zinc-600`} />;
+// `online` (optional): true turns the ring green to show the user is online
+function AvatarDisplay({ src, username, size = 'w-24 h-24', textSize = 'text-4xl', online }) {
+  const border = `border-4 ${online ? 'border-emerald-500' : 'border-zinc-600'}`;
+  const title = online ? 'Online' : undefined;
+  if (src) return <img src={src} alt={username} title={title} className={`${size} rounded-full object-cover ${border}`} />;
   const initial = username?.[0]?.toUpperCase() || '?';
-  return <div className={`${size} rounded-full bg-zinc-600 flex items-center justify-center ${textSize} font-bold text-white border-4 border-zinc-600`}>{initial}</div>;
+  return <div title={title} className={`${size} rounded-full bg-zinc-600 flex items-center justify-center ${textSize} font-bold text-white ${border}`}>{initial}</div>;
 }
 
 // Get Steam level badge colors based on level tier
@@ -86,6 +90,16 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
   // Your friendship with the profile being viewed: 'none' | 'outgoing' | 'incoming' | 'friends'
   const [relation, setRelation] = useState(null);
   const [relationBusy, setRelationBusy] = useState(false);
+  const [friendMenuOpen, setFriendMenuOpen] = useState(false);
+  const friendMenuRef = useRef(null);
+  useEffect(() => {
+    if (!friendMenuOpen) return;
+    const onDown = e => { if (!friendMenuRef.current?.contains(e.target)) setFriendMenuOpen(false); };
+    const onKey = e => { if (e.key === 'Escape') setFriendMenuOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [friendMenuOpen]);
   useEffect(() => {
     setRelation(null);
     const token = getToken();
@@ -102,7 +116,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
   }, [targetUser, authUsername]);
 
   async function friendAction(action) {
-    if (action === 'remove' && !confirm(`Remove ${targetUser} from your friends?`)) return;
+    if (action === 'remove' && relation === 'friends' && !confirm(`Unfriend ${targetUser}?`)) return;
     const token = getToken();
     if (!token) return;
     setRelationBusy(true);
@@ -116,7 +130,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
         flash(accepted ? `✓ You and ${targetUser} are now friends` : `✓ Friend request sent to ${targetUser}`);
       } else if (action === 'accept') { setRelation('friends'); flash(`✓ You and ${targetUser} are now friends`); }
       else if (action === 'decline') { setRelation('none'); flash('Friend request declined'); }
-      else { setRelation('none'); flash(relation === 'outgoing' ? 'Friend request cancelled' : `Removed ${targetUser} from your friends`); }
+      else { setRelation('none'); flash(relation === 'outgoing' ? 'Friend request cancelled' : `Unfriended ${targetUser}`); }
       loadFriends();
       window.dispatchEvent(new Event('friends-updated'));
     } finally { setRelationBusy(false); }
@@ -326,13 +340,21 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
     setLoadingCsTrades(false);
   }
 
-  async function loadFriends() {
-    setLoadingFriends(true);
+  const isOnline = useIsOnline();
+  // When live presence isn't connected, refresh the friends list each minute so rings stay current
+  useEffect(() => {
+    if (!profile) return;
+    const id = setInterval(() => { if (!isRealtimeLive() && document.visibilityState === 'visible') loadFriends(true); }, 60 * 1000);
+    return () => clearInterval(id);
+  }, [profile, targetUser]);
+
+  async function loadFriends(silent = false) {
+    if (!silent) setLoadingFriends(true);
     try {
       const res = await fetch(`/api/users/${targetUser}/friends`, { headers: h });
       if (res.ok) setFriends(await res.json());
     } catch(e) {}
-    setLoadingFriends(false);
+    if (!silent) setLoadingFriends(false);
   }
 
   function formatDate(d) {
@@ -446,7 +468,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                 );
               })()}
               {(profile.steamVerified || isOwnProfile || relation) && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-auto">
                   {relation && (() => {
                     const base = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border disabled:opacity-50';
                     const grey = 'bg-zinc-700 hover:bg-zinc-600 border-zinc-600 text-zinc-200';
@@ -456,15 +478,23 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                       <button disabled={relationBusy} onClick={() => friendAction('accept')} className={`${base} ${green}`}>Accept request</button>
                       <button disabled={relationBusy} onClick={() => friendAction('decline')} className={`${base} ${grey}`}>Decline</button>
                     </>);
-                    if (relation === 'outgoing') return (
-                      <button disabled={relationBusy} onClick={() => friendAction('remove')} className={`group ${base} ${grey}`}>
-                        <span className="group-hover:hidden">Request sent</span><span className="hidden group-hover:inline">Cancel request</span>
-                      </button>
-                    );
+                    if (relation === 'outgoing') return <button disabled={relationBusy} onClick={() => friendAction('remove')} className={`${base} ${grey}`}>Cancel request</button>;
                     return (
-                      <button disabled={relationBusy} onClick={() => friendAction('remove')} className={`group ${base} ${grey} hover:bg-red-600/20 hover:border-red-500/50 hover:text-red-300`}>
-                        <span className="group-hover:hidden">Friends</span><span className="hidden group-hover:inline">Remove friend</span>
-                      </button>
+                      <div ref={friendMenuRef} className="relative">
+                        <button disabled={relationBusy} onClick={() => setFriendMenuOpen(o => !o)} aria-haspopup="menu" aria-expanded={friendMenuOpen}
+                          className={`${base} ${grey} ${friendMenuOpen ? 'bg-zinc-600' : ''}`}>
+                          More
+                          <svg className={`w-3 h-3 transition-transform ${friendMenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        {friendMenuOpen && (
+                          <div role="menu" className="absolute right-0 top-full mt-2 w-max min-w-36 rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl shadow-black/40 p-1.5 z-30">
+                            <button role="menuitem" onClick={() => { setFriendMenuOpen(false); friendAction('remove'); }}
+                              className="w-full px-3 py-2 rounded-lg text-sm text-left whitespace-nowrap text-red-400 hover:bg-red-500/10 transition">
+                              Unfriend
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     );
                   })()}
                   {profile.steamVerified && (
@@ -731,7 +761,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                       onClick={e => { e.preventDefault(); navigate(`/user/${friend.username}`); }}
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-700/50 transition"
                     >
-                      <AvatarDisplay src={friend.avatarBase64} username={friend.username} size="w-8 h-8" textSize="text-sm" />
+                      <AvatarDisplay src={friend.avatarBase64} username={friend.username} size="w-8 h-8" textSize="text-sm" online={isOnline(friend)} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{friend.username}</p>
                       </div>

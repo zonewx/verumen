@@ -309,6 +309,7 @@ const FX_PAIRS = ['USDSEK=X','EURSEK=X','GBPSEK=X','NOKSEK=X','DKKSEK=X'];
 
 // In-memory presence map — userId → last heartbeat timestamp
 const _presence = new Map();
+const isOnline = id => _presence.has(id) && Date.now() - _presence.get(id) < 2 * 60 * 1000;
 setInterval(() => {
   const cutoff = Date.now() - 3 * 60 * 1000;
   for (const [id, ts] of _presence) if (ts < cutoff) _presence.delete(id);
@@ -715,7 +716,7 @@ app.get('/api/init', async (req, res) => {
     return { ...(a.payload || {}), id: a.id, type: a.type, createdAt: a.created_at, username: p.username, avatarBase64: p.avatar_base64, role: p.role };
   });
 
-  const fmt = p => ({ username: p.username, avatarBase64: p.avatar_base64, bio: p.bio, role: p.role });
+  const fmt = p => ({ username: p.username, avatarBase64: p.avatar_base64, bio: p.bio, role: p.role, isOnline: isOnline(p.id) });
   const friends = {
     friends: friendIds.map(id => profileMap[id]).filter(Boolean).map(fmt),
     incoming: incoming.map(f => profileMap[f.requester_id]).filter(Boolean).map(fmt),
@@ -3041,8 +3042,11 @@ app.get('/api/users/:username/friends', publicRateLimit, async (req, res) => {
     .eq('status', 'accepted');
   const friendIds = (friendships || []).map(f => f.requester_id === profile.id ? f.addressee_id : f.requester_id);
   if (!friendIds.length) return res.json([]);
-  const { data: friends } = await db.from('profiles').select('username, avatar_base64, role').in('id', friendIds);
-  res.json((friends || []).map(p => ({ username: p.username, avatarBase64: p.avatar_base64, role: p.role })));
+  const { data: friends } = await db.from('profiles').select('id, username, avatar_base64, role').in('id', friendIds);
+  // Online status is only shared with logged-in viewers
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const viewerLoggedIn = !!(token && supabaseAnon && (await supabaseAnon.auth.getUser(token)).data?.user);
+  res.json((friends || []).map(p => ({ username: p.username, avatarBase64: p.avatar_base64, role: p.role, ...(viewerLoggedIn ? { isOnline: isOnline(p.id) } : {}) })));
 });
 
 // ── Overrides ───────────────────────────────────────────────────────────────
@@ -3229,8 +3233,7 @@ app.get('/api/friends', requireUser, async (req, res) => {
   const getProfiles = async (ids) => { if(!ids.length) return []; const { data } = await db.from('profiles').select('id, username, avatar_base64, bio, role').in('id', ids); return data||[]; };
   const friendIds=accepted.map(f=>f.requester_id===userId?f.addressee_id:f.requester_id);
   const [fp, ip, op] = await Promise.all([getProfiles(friendIds), getProfiles(incoming.map(f=>f.requester_id)), getProfiles(outgoing.map(f=>f.addressee_id))]);
-  const now = Date.now();
-  const fmt = p => ({ username: p.username, avatarBase64: p.avatar_base64, role: p.role, isOnline: _presence.has(p.id) && now - _presence.get(p.id) < 2 * 60 * 1000 });
+  const fmt = p => ({ username: p.username, avatarBase64: p.avatar_base64, role: p.role, isOnline: isOnline(p.id) });
   res.json({ friends: fp.map(fmt), incoming: ip.map(fmt), outgoing: op.map(p => p.username) });
 });
 
@@ -3440,26 +3443,58 @@ app.get('/api/cs/settings', requireUser, async (req, res) => {
 // Daily automatic Steam level re-sync for linked accounts — runs 90s after boot, then every
 // 24 hours. steam_level is otherwise only fetched once, at link time (see /api/steam/callback),
 // so without this it goes stale forever even as the user's real Steam level keeps climbing.
+// Resolve a Steam account's level. Tries the Web API first, then the public profile page
+// (works without a key and when the API returns an empty response), retrying a few times.
+// Returns a number (0 is a real level for brand-new accounts) or null if it couldn't be read.
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function fetchSteamLevel(steamId, attempts = 3) {
+  const KEY = process.env.STEAM_API_KEY;
+  for (let i = 0; i < attempts; i++) {
+    if (KEY) {
+      try {
+        const r = await fetch(`https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/?key=${KEY}&steamid=${steamId}`, { signal: AbortSignal.timeout(8000) });
+        const lvl = (await r.json())?.response?.player_level;
+        if (Number.isFinite(lvl)) return lvl;
+      } catch {}
+    }
+    try {
+      const r = await fetch(`https://steamcommunity.com/profiles/${steamId}`, { headers: { 'Accept-Language': 'en-US,en;q=0.9' }, signal: AbortSignal.timeout(8000) });
+      const m = (await r.text()).match(/friendPlayerLevelNum">\s*(\d+)\s*</);
+      if (m) return parseInt(m[1], 10);
+    } catch {}
+    if (i < attempts - 1) await sleep(i === 0 ? 1000 : 3000);
+  }
+  return null;
+}
+
+// After linking, if the level couldn't be read yet (Steam hiccup, privacy just changed),
+// try again a couple of times in the background instead of waiting for the daily sync.
+function retrySteamLevelLater(userId, steamId) {
+  for (const delay of [2 * 60 * 1000, 10 * 60 * 1000]) {
+    setTimeout(async () => {
+      const { data: p } = await db.from('profiles').select('steam_id, steam_level').eq('id', userId).single();
+      if (!p || p.steam_id !== steamId || p.steam_level > 0) return; // relinked, or already resolved
+      const lvl = await fetchSteamLevel(steamId);
+      if (lvl != null) await db.from('profiles').update({ steam_level: lvl }).eq('id', userId);
+      else log.warn('steam level still unavailable after link', { userId });
+    }, delay).unref();
+  }
+}
+
 async function runSteamLevelSync() {
-  const STEAM_KEY = process.env.STEAM_API_KEY;
-  if (!STEAM_KEY) return;
   try {
     const { data: profiles } = await db.from('profiles').select('id, steam_id').eq('steam_verified', true).not('steam_id', 'is', null);
     if (!profiles || profiles.length === 0) return;
-    let updated = 0;
+    let updated = 0, failed = 0;
     for (const p of profiles) {
-      try {
-        const levelData = await fetchJSON(`https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/?key=${STEAM_KEY}&steamid=${p.steam_id}`);
-        const steamLevel = levelData?.response?.player_level;
-        if (steamLevel != null) {
-          await db.from('profiles').update({ steam_level: steamLevel }).eq('id', p.id);
-          updated++;
-        }
-      } catch(e) {
-        log.error('steam level sync failed for user', { userId: p.id, error: e.message });
-      }
+      if (!/^\d{17}$/.test(p.steam_id || '')) continue;
+      const lvl = await fetchSteamLevel(p.steam_id);
+      // Never overwrite a known level with 0 just because a lookup failed
+      if (lvl == null) { failed++; continue; }
+      await db.from('profiles').update({ steam_level: lvl }).eq('id', p.id);
+      updated++;
     }
-    log.info('steam level sync completed', { checked: profiles.length, updated });
+    log.info('steam level sync completed', { checked: profiles.length, updated, failed });
   } catch(e) {
     log.error('steam level sync failed', { error: e.message });
   }
@@ -4189,13 +4224,15 @@ app.get('/api/steam/callback', async (req, res) => {
         const player = data?.response?.players?.[0];
         if (player) { steamName = player.personaname; steamAvatar = player.avatarmedium; }
 
-        // Fetch Steam level
-        const levelData = await fetchJSON(`https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/?key=${STEAM_KEY}&steamid=${steamId}`);
-        steamLevel = levelData?.response?.player_level || 0;
       } catch(e) {
-        log.error('Steam API fetch failed', { error: e.message });
+        log.error('Steam player summary fetch failed', { error: e.message });
       }
     }
+    // Level is looked up separately (with retries + a public-page fallback) so a failed
+    // name lookup can't leave the account stuck at level 0
+    const resolvedLevel = await fetchSteamLevel(steamId);
+    if (resolvedLevel != null) steamLevel = resolvedLevel;
+    else { log.warn('steam level unavailable at link time', { userId }); retrySteamLevelLater(userId, steamId); }
 
     // Save verified Steam ID and level
     await db.from('profiles').update({

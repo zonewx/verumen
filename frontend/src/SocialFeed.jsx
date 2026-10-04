@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
 import { IconX } from './icons';
+import { useIsOnline, isRealtimeLive } from './presence';
 import { getToken } from './tokenStore';
 import { flash } from './flash';
 
@@ -95,9 +96,11 @@ const ROLE_BADGE = {
   moderator: { label: 'Mod', cls: 'bg-blue-900/40 text-blue-400 border border-blue-800' },
 };
 
-function Avatar({ src, username, size = 'w-8 h-8', text = 'text-xs' }) {
+// `online` (optional): true/false draws a presence ring — green when online, grey otherwise
+function Avatar({ src, username, size = 'w-8 h-8', text = 'text-xs', online }) {
+  const ring = online === undefined ? '' : `ring-2 ${online ? 'ring-emerald-500' : 'ring-zinc-600'}`;
   return (
-    <div className={`${size} rounded-full bg-zinc-700 flex items-center justify-center text-white font-bold ${text} overflow-hidden shrink-0`}>
+    <div className={`${size} rounded-full bg-zinc-700 flex items-center justify-center text-white font-bold ${text} overflow-hidden shrink-0 ${ring}`} title={online ? 'Online' : undefined}>
       {src ? <img src={src} alt={username} className="w-full h-full object-cover" /> : username?.[0]?.toUpperCase()}
     </div>
   );
@@ -356,14 +359,14 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
     setRefreshing(false);
   }, [authUsername]);
 
-  const fetchFriends = useCallback(async () => {
-    setFriendsLoading(true);
+  const fetchFriends = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setFriendsLoading(true);
     try {
       const data = await fetch('/api/friends', { headers: h }).then(r => r.json());
       apiCache.set('/api/friends', data);
       setFriends(data);
     } catch(e) {}
-    setFriendsLoading(false);
+    if (!silent) setFriendsLoading(false);
   }, [authUsername]);
 
   useEffect(() => {
@@ -374,19 +377,11 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
     }).catch(() => {});
   }, []);
 
-  // Heartbeat — updates online presence while this tab is open
+  // When live presence isn't connected, poll so friends' online status stays fresh
   useEffect(() => {
-    const beat = () => {
-      const token = getToken();
-      if (!token) return;
-      fetch('/api/users/heartbeat', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
-    };
-    beat();
-    const id = setInterval(() => { if (document.visibilityState === 'visible') beat(); }, 60 * 1000);
-    const onVisibility = () => { if (document.visibilityState === 'visible') beat(); };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisibility); };
-  }, []);
+    const id = setInterval(() => { if (!isRealtimeLive() && document.visibilityState === 'visible') fetchFriends({ silent: true }); }, 60 * 1000);
+    return () => clearInterval(id);
+  }, [fetchFriends]);
 
   const searchUsers = async (q) => {
     setSearchQuery(q);
@@ -475,10 +470,11 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
     setUploading(false);
   };
 
-  const FriendRow = ({ user, actions }) => (
+  const isOnline = useIsOnline();
+  const FriendRow = ({ user, actions, showPresence }) => (
     <div className="flex items-center gap-2.5 py-2 group/row">
       <button onClick={() => onViewProfile(user.username)} className="shrink-0 opacity-90 group-hover/row:opacity-100 transition">
-        <Avatar src={user.avatarBase64} username={user.username} />
+        <Avatar src={user.avatarBase64} username={user.username} online={showPresence ? isOnline(user) : undefined} />
       </button>
       <div className="flex-1 min-w-0">
         <button onClick={() => onViewProfile(user.username)} className="font-medium text-sm text-zinc-200 hover:underline truncate text-left block w-full">
@@ -712,11 +708,7 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
                   )}
                   <div className="flex flex-col divide-y divide-zinc-700/30">
                     {friends.friends.map(u => (
-                      <FriendRow key={u.username} user={u} actions={
-                        u.isOnline
-                          ? <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Online" />
-                          : null
-                      } />
+                      <FriendRow key={u.username} user={u} showPresence />
                     ))}
                   </div>
                 </div>
