@@ -116,8 +116,21 @@ function timeAgo(dateStr) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + year;
 }
 
+function ProfileLink({ username, avatar }) {
+  const navigate = useNavigate();
+  const isOnline = useIsOnline();
+  return (
+    <a href={`/user/${username}`} onClick={e => { e.preventDefault(); navigate(`/user/${username}`); }}
+      className="inline-flex items-center gap-1.5 align-middle font-semibold text-zinc-200 hover:underline">
+      {avatar !== undefined && <Avatar src={avatar} username={username} size="w-6 h-6" text="text-[10px]" online={isOnline({ username })} />}
+      {username}
+    </a>
+  );
+}
+
 function PostHeader({ item, onDelete, onEdit, isOwn }) {
   const navigate = useNavigate();
+  const isOnline = useIsOnline();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const menuRef = useRef(null);
@@ -132,7 +145,7 @@ function PostHeader({ item, onDelete, onEdit, isOwn }) {
   return (
     <div className="flex items-center gap-2.5 mb-3">
       <a href={`/user/${item.username}`} onClick={e => { e.preventDefault(); navigate(`/user/${item.username}`); }}>
-        <Avatar src={item.avatarBase64} username={item.username} />
+        <Avatar src={item.avatarBase64} username={item.username} online={isOnline({ username: item.username })} />
       </a>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -311,12 +324,17 @@ function ActivityCard({ item, onDelete, onSaveEdit, isOwn }) {
   }
 
   if (item.type === 'friend_added') {
+    const { requester, addressee } = friendPair(item);
+    const avatars = item.avatarsByUser || { [item.username]: item.avatarBase64 };
     return (
-      <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-4 hover:border-zinc-600/80 transition-colors">
-        <PostHeader item={item} onDelete={() => onDelete(item.id)} isOwn={isOwn} />
-        <p className="text-sm text-zinc-400">
-          <span className="font-semibold text-zinc-200">{friendPair(item).requester}</span> and <span className="font-semibold text-zinc-200">{friendPair(item).addressee}</span> became friends
+      <div className="bg-zinc-800/40 border border-zinc-700/40 rounded-2xl px-4 py-3 flex items-center gap-3">
+        <p className="flex-1 min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-zinc-400">
+          <ProfileLink username={requester} avatar={avatars[requester] ?? null} />
+          <span>and</span>
+          <ProfileLink username={addressee} avatar={avatars[addressee] ?? null} />
+          <span>became friends</span>
         </p>
+        <span className="text-xs text-zinc-500 shrink-0">{timeAgo(item.createdAt)}</span>
       </div>
     );
   }
@@ -335,8 +353,9 @@ function mergeFriendPosts(items) {
   for (const it of items) {
     if (it.type !== 'friend_added') { out.push(it); continue; }
     const dup = out.findIndex(o => o.type === 'friend_added' && pairKey(o) === pairKey(it) && Math.abs(postTime(o) - postTime(it)) < 5 * 60 * 1000);
-    if (dup === -1) out.push(it);
-    else if (it.requester && it.username === it.requester) out[dup] = it;
+    const avatarsByUser = { ...(dup === -1 ? {} : out[dup].avatarsByUser), [it.username]: it.avatarBase64 };
+    if (dup === -1) out.push({ ...it, avatarsByUser });
+    else out[dup] = { ...(it.requester && it.username === it.requester ? it : out[dup]), avatarsByUser };
   }
   return out;
 }

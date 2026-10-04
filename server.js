@@ -2826,18 +2826,8 @@ app.get('/trade/:token', async (req, res) => {
   let screenshotImgUrl = null;
   if (screenshotPageUrl) {
     const idMatch = screenshotPageUrl.match(/id=(\d+)/);
-    if (idMatch) {
-      try {
-        const r = await fetch(`https://steamcommunity.com/sharedfiles/filedetails/?id=${idMatch[1]}`, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36' },
-          signal: AbortSignal.timeout(5000),
-        });
-        const html = await r.text();
-        const m = html.match(/property="og:image"[^>]*content="([^"]+)"/i)
-               || html.match(/content="([^"]+)"[^>]*property="og:image"/i);
-        screenshotImgUrl = m?.[1] || null;
-      } catch {}
-    }
+    // Full-resolution image (the page's og:image is only a 512px preview)
+    if (idMatch) screenshotImgUrl = await fetchSteamScreenshotPreview(idMatch[1]);
   }
   const sale = item.cs_sales?.[0] ?? null;
   const cleaned = (item.skin_name || '').replace(/\s*\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$/i, '');
@@ -3809,31 +3799,31 @@ app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
   res.json({ id:data?.id, success:true });
 });
 
+// Full-resolution image for a Steam screenshot, or null. Only `file_url` is the real image —
+// `preview_url` is a ~200px thumbnail that looks blurry when shown at post size, so it's never
+// used; callers fall back to a "View on Steam" link instead. Screenshots that aren't public on
+// Steam (result 9) return nothing here.
 async function fetchSteamScreenshotPreview(id) {
   const STEAM_KEY = process.env.STEAM_API_KEY;
-
   if (STEAM_KEY) {
     try {
       const r = await fetch(
         `https://api.steampowered.com/IPublishedFileService/GetDetails/v1/?key=${STEAM_KEY}&publishedfileids[0]=${id}`,
         { signal: AbortSignal.timeout(8000) }
       );
-      const json = await r.json();
-      const detail = json?.response?.publishedfiledetails?.[0];
+      const detail = (await r.json())?.response?.publishedfiledetails?.[0];
       if (detail?.file_url) return detail.file_url;
-      if (detail?.preview_url) return detail.preview_url.split('?')[0];
     } catch {}
   }
-
-  // Fallback: no API key — use GetPublishedFileDetails (no auth required)
-  const r = await fetch('https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `itemcount=1&publishedfileids[0]=${id}`,
-    signal: AbortSignal.timeout(8000),
-  });
-  const json = await r.json();
-  return json?.response?.publishedfiledetails?.[0]?.preview_url?.split('?')[0] || null;
+  try {
+    const r = await fetch('https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `itemcount=1&publishedfileids[0]=${id}`,
+      signal: AbortSignal.timeout(8000),
+    });
+    return (await r.json())?.response?.publishedfiledetails?.[0]?.file_url || null;
+  } catch { return null; }
 }
 
 app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
