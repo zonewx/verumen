@@ -4400,7 +4400,7 @@ app.get('/api/steam/callback', async (req, res) => {
     // Extract SteamID from claimed_id (format: https://steamcommunity.com/openid/id/STEAMID64)
     const claimedId = openidParams['openid.claimed_id'] || '';
     const steamIdMatch = claimedId.match(/^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/);
-    if (!steamIdMatch) return res.redirect(`${BASE_URL}/profile?steam_error=invalid`);
+    if (!steamIdMatch) return res.redirect(`${BASE_URL}/profile/edit?steam_error=invalid`);
     const steamId = steamIdMatch[1];
 
     // Get Steam profile info and level

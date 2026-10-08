@@ -92,7 +92,9 @@ function clearUserStorage() {
     Object.keys(localStorage)
       .filter(k => USER_STORAGE_PREFIXES.some(p => k.startsWith(p)))
       .forEach(k => localStorage.removeItem(k));
-  } catch {}
+  } catch {
+    // Storage unavailable (e.g. blocked by the browser) — then there's nothing stored to clear
+  }
 }
 
 // Stable fingerprint of the current portfolio + currency — used as cache key discriminator
@@ -2621,6 +2623,9 @@ const handleUpload = async (files) => {
           <Route path="/skins/inventory" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/skins/traderegistry" element={<PageShell {...shellProps}><CSSkins authUsername={authUsername} baseCurrency={baseCurrency}/></PageShell>}/>
           <Route path="/settings" element={<PageShell {...shellProps}><SettingsPage authUsername={authUsername}/></PageShell>}/>
+          {/* The Steam link callback returns here; forward to the user's own edit page, keeping
+              the steam_success / steam_error params so the result is shown */}
+          <Route path="/profile/edit" element={<Navigate to={`/user/${authUsername}/edit${location.search}`} replace/>}/>
           <Route path="/user/:username/edit" element={<PageShell {...shellProps}><ProfileEditPage authUsername={authUsername}/></PageShell>}/>
           <Route path="/user" element={<ProfileRoute authUsername={authUsername} authToken={authToken} shellProps={shellProps}/>}/>
           <Route path="/user/:username" element={<ProfileRoute authUsername={authUsername} authToken={authToken} shellProps={shellProps}/>}/>

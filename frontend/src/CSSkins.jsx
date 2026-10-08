@@ -362,9 +362,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
 
   const [addError, setAddError] = useState('');
   const [sellError, setSellError] = useState('');
-  // A fresh open of either modal starts without the previous attempt's error
-  useEffect(() => { setAddError(''); }, [showAddForm]);
-  useEffect(() => { setSellError(''); }, [showSellForm]);
+  // Closing a modal clears its error, so the next open starts fresh
+  const closeSellModal = () => { setShowSellForm(null); setSellError(''); };
 
   // Sends a JSON request; returns null on success or a message to show the user on failure
   const sendJson = async (url, method, body) => {
@@ -483,6 +482,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
 
   const closeAddModal = () => {
     setShowAddForm(false);
+    setAddError('');
     setSelectedModalItem(null);
     setSkinSearchResults([]);
     setSkinSearch('');
@@ -542,7 +542,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     setSellError('');
     const err = await sendJson(`/api/cs/inventory/${id}/sell`, 'POST', sellForm);
     if (err) { setSellError(err); return; }
-    setShowSellForm(null);
+    closeSellModal();
     setSellForm({
       sale_price: '', sale_currency: 'USD',
       sale_date: new Date().toISOString().split('T')[0],
@@ -1449,7 +1449,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                         <h3 className="font-bold text-base">Mark as Sold</h3>
                         <p className={`text-sm text-zinc-400`}>{withVanilla(showSellForm.skin_name)}</p>
                       </div>
-                      <button onClick={() => setShowSellForm(null)} className="text-zinc-400 hover:text-white transition" aria-label="Close"><IconX size={18} /></button>
+                      <button onClick={closeSellModal} className="text-zinc-400 hover:text-white transition" aria-label="Close"><IconX size={18} /></button>
                     </div>
                     <div className="p-6 grid grid-cols-2 gap-4">
                       <div>
@@ -1481,7 +1481,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                     <div className={`flex flex-wrap items-center gap-2 px-6 py-4 border-t border-zinc-700`}>
                       {sellError && <p className="basis-full text-xs text-red-400">{sellError}</p>}
                       <button onClick={() => sellItem(showSellForm.id)} disabled={!sellForm.sale_price || !sellForm.sale_date} className={btnConfirm}>Confirm Sale</button>
-                      <button onClick={() => setShowSellForm(null)} className={btnSecondary}>Cancel</button>
+                      <button onClick={closeSellModal} className={btnSecondary}>Cancel</button>
                     </div>
                   </div>
                 </div>
