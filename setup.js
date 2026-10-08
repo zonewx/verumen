@@ -39,7 +39,7 @@ async function main() {
   }
 
   // Check if admin already exists
-  const { data: existing } = await supabase.from('profiles').select('id, username').eq('username', 'admin').single();
+  const { data: existing } = await supabase.from('profiles').select('id, username').ilike('username', 'admin').single();
   if (existing) {
     console.log('✓ Admin account already exists. Nothing to do.\n');
     console.log(`If not done yet, set ROOT_ADMIN_ID=${existing.id} in .env and on Railway.\n`);

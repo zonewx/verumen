@@ -320,7 +320,9 @@ const rateLimitMap = new Map();
 setInterval(() => { const now = Date.now(); for (const [k, v] of rateLimitMap) if (now > v.resetAt) rateLimitMap.delete(k); }, 5 * 60 * 1000).unref();
 // Requests arrive via Vercel's rewrite proxy, so req.ip is Vercel's address for everyone.
 // Vercel forwards the real client IP in its own headers; prefer those. They could be spoofed
-// by calling the Railway URL directly, which is why login also has a per-username limit.
+// by calling the Railway URL directly, so per-IP limits are only a first line: anything that
+// sends email or can lock an account is also limited by a key the caller can't fake
+// (email address, username, account id, or a global cap).
 function clientIp(req) {
   const fwd = req.headers['x-vercel-forwarded-for'] || req.headers['x-real-ip'] || req.headers['x-forwarded-for'];
   return (typeof fwd === 'string' && fwd.split(',')[0].trim()) || req.ip || req.socket.remoteAddress;
@@ -333,6 +335,11 @@ function hitLimit(key, max, windowMs) {
   record.count++;
   rateLimitMap.set(key, record);
   return record.count > max;
+}
+// True when `key` already has `max` hits in its current window (checks without counting)
+function isLimited(key, max) {
+  const record = rateLimitMap.get(key);
+  return !!record && Date.now() <= record.resetAt && record.count >= max;
 }
 function rateLimit(maxRequests, windowMs, label) {
   return (req, res, next) => {
@@ -359,6 +366,36 @@ function heavyRateLimit(cooldownMs, label) {
     }
     heavyRateLimitMap.set(key, now + cooldownMs);
     next();
+  };
+}
+
+// Per-account limit for logged-in routes that call external services (Steam, CSFloat).
+// Keyed by user id rather than IP, so faking forwarding headers doesn't get around it.
+function userRateLimit(max, windowMs, label) {
+  return (req, res, next) => {
+    if (hitLimit(`${label}:${req.user.id}`, max, windowMs)) {
+      return res.status(429).json({ error: 'Too many requests. Please wait a minute and try again.' });
+    }
+    next();
+  };
+}
+
+// Map with a size cap and per-entry TTL — the oldest entry is evicted once it's full,
+// so caches keyed by user-supplied values can't grow without bound.
+function boundedCache(maxEntries, ttlMs) {
+  const m = new Map();
+  return {
+    get(k) {
+      const e = m.get(k);
+      if (!e) return undefined;
+      if (Date.now() - e.ts > ttlMs) { m.delete(k); return undefined; }
+      return e.v;
+    },
+    set(k, v) {
+      m.delete(k);
+      m.set(k, { v, ts: Date.now() });
+      if (m.size > maxEntries) m.delete(m.keys().next().value);
+    },
   };
 }
 
@@ -594,6 +631,9 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   ]);
   const userLimit = parseInt(limitSetting?.value || '0', 10);
   if (userLimit > 0 && count >= userLimit) return res.status(400).json({ error: `User limit of ${userLimit} reached.` });
+  // Site-wide cap: each sign-up sends a verification email, so per-IP limits alone (spoofable)
+  // would let someone mass-register accounts or spam arbitrary inboxes from our domain
+  if (hitLimit('register:global', 20, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-ups right now. Please try again in a while.' });
   const fakeEmail = `${username.trim().toLowerCase()}@statera.local`;
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email: fakeEmail, password, email_confirm: true });
   if (authError) return res.status(400).json({ error: authError.message });
@@ -629,14 +669,24 @@ const REFRESH_COOKIE_OPTS = {
 app.post('/api/auth/login', authRateLimit, async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required.' });
-  const userKey = `login-user:${username.trim().toLowerCase()}`;
-  const record = rateLimitMap.get(userKey);
-  if (record && Date.now() <= record.resetAt && record.count >= 10) {
+  // Failed logins are counted per username+IP (tight) and per username across all IPs (looser).
+  // A single source gets locked out after 10 misses without locking the real owner out; it
+  // takes 50 misses from anywhere — i.e. a deliberate attack — before the account itself pauses.
+  const name = username.trim().toLowerCase();
+  const pairKey = `login-pair:${name}:${clientIp(req)}`;
+  const userKey = `login-user:${name}`;
+  const LOGIN_WINDOW = 15 * 60 * 1000;
+  if (isLimited(pairKey, 10) || isLimited(userKey, 50)) {
     return res.status(429).json({ error: 'Too many failed attempts for this account. Please wait 15 minutes and try again.' });
   }
-  const email = `${username.trim().toLowerCase()}@statera.local`;
+  const email = `${name}@statera.local`;
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) { hitLimit(userKey, 10, 15 * 60 * 1000); return res.status(401).json({ error: 'Invalid username or password.' }); }
+  if (error) {
+    hitLimit(pairKey, 10, LOGIN_WINDOW);
+    hitLimit(userKey, 50, LOGIN_WINDOW);
+    return res.status(401).json({ error: 'Invalid username or password.' });
+  }
+  rateLimitMap.delete(pairKey);
   rateLimitMap.delete(userKey);
   const { data: profile } = await db.from('profiles').select('username, role, email, email_verified').eq('id', data.user.id).single();
   if (profile.email && !profile.email_verified) {
@@ -716,7 +766,7 @@ app.get('/api/init', async (req, res) => {
 
   // Fetch activity + all needed profiles in parallel
   const [activityRes, profilesRes] = await Promise.allSettled([
-    db.from('activity').select('id, user_id, type, payload, created_at').in('user_id', feedIds).order('created_at', { ascending: false }).limit(50),
+    db.from('activity').select('id, user_id, type, payload, created_at').in('user_id', feedIds).order('created_at', { ascending: false }).limit(FEED_FETCH),
     db.from('profiles').select('id, username, avatar_base64, bio, role').in('id', allProfileIds),
   ]);
 
@@ -724,10 +774,9 @@ app.get('/api/init', async (req, res) => {
   const profiles = profilesRes.value?.data || [];
   const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
 
-  const feed = activity.map(a => {
-    const p = profileMap[a.user_id] || {};
-    return { ...(a.payload || {}), id: a.id, type: a.type, createdAt: a.created_at, username: p.username, avatarBase64: p.avatar_base64, role: p.role };
-  });
+  // Same visibility and formatting as /api/feed, so the first load shows exactly what a refresh would
+  const visibleActivity = (await visibleToViewer(activity, userId).catch(() => [])).slice(0, FEED_SIZE);
+  const feed = visibleActivity.map(a => formatFeedItem(a, profileMap[a.user_id]));
 
   const fmt = p => ({ username: p.username, avatarBase64: p.avatar_base64, bio: p.bio, role: p.role, isOnline: isOnline(p.id) });
   const friends = {
@@ -829,6 +878,12 @@ app.post('/api/auth/change-email', requireUser, authRateLimit, async (req, res) 
 app.post('/api/auth/forgot-password', authRateLimit, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required.' });
+  // At most 3 reset emails per address per hour, however many IPs ask. Over the limit we still
+  // answer "success" so the response doesn't reveal whether the address has an account.
+  if (hitLimit(`reset-email:${String(email).trim().toLowerCase()}`, 3, 60 * 60 * 1000)) {
+    await new Promise(r => setTimeout(r, 400));
+    return res.json({ success: true });
+  }
   // Always respond with success to prevent email enumeration; add delay for non-existing emails to match timing of the full send path
   const { data: profile } = await db.from('profiles').select('username, email').ilike('email', escapeLike(email.trim())).single();
   if (!profile?.email) { await new Promise(r => setTimeout(r, 400)); return res.json({ success: true }); }
@@ -1025,7 +1080,7 @@ app.get('/api/users/:username/inventory', publicRateLimit, async (req, res) => {
   if (!(await viewerMayAccess(req, profile))) return res.status(403).json(PRIVATE_PROFILE_ERROR);
   if (!profile.public_inventory || !profile.steam_id || !profile.steam_verified) return res.status(403).json({ error: "This user's inventory is private." });
   try {
-    const data = await fetchJSON(`https://steamcommunity.com/inventory/${profile.steam_id}/730/2?l=english&count=500`);
+    const data = await fetchSteamInventory(profile.steam_id);
     if (!data?.assets) return res.status(404).json({ error: 'Inventory not found or private on Steam' });
     const descMap = {};
     (data.descriptions || []).forEach(d => { descMap[`${d.classid}_${d.instanceid}`] = d; });
@@ -1043,7 +1098,7 @@ app.get('/api/users/:username/inventory', publicRateLimit, async (req, res) => {
 });
 
 // ── CS float lookup (proxy to CSFloat API) ──────────────────────────────────
-app.get('/api/cs/float', requireUser, async (req, res) => {
+app.get('/api/cs/float', requireUser, userRateLimit(20, 60 * 1000, 'cs-float'), async (req, res) => {
   const { link } = req.query;
   if (!link) return res.status(400).json({ error: 'Missing link' });
   try {
@@ -2854,11 +2909,16 @@ app.get('/trade/:token', async (req, res) => {
   res.send(buildTradePageHtml({ skinName: item.skin_name, displayName, hasStar, isST, exterior: item.exterior, floatValue: item.float_value, pattern: item.pattern, purchaseDate: item.purchase_date, purchasePrice: item.purchase_price, purchaseCurrency: item.purchase_currency, sold: item.sold, salePrice: sale?.sale_price, saleCurrency: sale?.sale_currency, saleDate: sale?.sale_date, notes: item.notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl: item.icon_url, stickers: item.stickers || [], username: profile?.username, avatarBase64: profile?.avatar_base64 }));
 });
 
+// A skin's market icon never changes, so found icons are shared across users and requests.
+// Misses aren't cached — they're usually Steam rate limits, not a missing item.
+const steamIconCache = boundedCache(5000, 24 * 60 * 60 * 1000);
 async function fetchSteamIcon(skinName, exterior) {
   // Vanilla items (e.g. "★ Butterfly Knife | Vanilla") have no exterior in their market hash name
   const isVanilla = /\|\s*Vanilla\s*$/i.test(skinName);
   const name = skinName.replace(/\s*\|\s*Vanilla\s*$/i, '');
   const marketHashName = (!isVanilla && exterior && exterior !== 'Vanilla') ? `${name} (${exterior})` : name;
+  const cached = steamIconCache.get(marketHashName);
+  if (cached) return cached;
   // Use market_hash_name for exact matching instead of fuzzy query=
   const r = await fetch(
     `https://steamcommunity.com/market/search/render/?appid=730&norender=1&count=1&market_hash_name=${encodeURIComponent(marketHashName)}`,
@@ -2867,11 +2927,14 @@ async function fetchSteamIcon(skinName, exterior) {
   if (!r.ok) return null;
   const data = await r.json();
   const iconPath = data?.results?.[0]?.asset_description?.icon_url;
-  return iconPath ? `https://community.cloudflare.steamstatic.com/economy/image/${iconPath}` : null;
+  const iconUrl = iconPath ? `https://community.cloudflare.steamstatic.com/economy/image/${iconPath}` : null;
+  if (iconUrl) steamIconCache.set(marketHashName, iconUrl);
+  return iconUrl;
 }
 
-// Look up a single skin icon by name — checks user's inventory first, falls back to Steam Market
-app.get('/api/cs/skin-icon', requireUser, async (req, res) => {
+// Look up a single skin icon by name — checks user's inventory first, falls back to Steam Market.
+// The feed calls this once per post, so the limit leaves room for a full page of posts.
+app.get('/api/cs/skin-icon', requireUser, userRateLimit(120, 60 * 1000, 'skin-icon'), async (req, res) => {
   const { name, exterior } = req.query;
   if (!name) return res.status(400).json({ error: 'name required' });
   // Check if user already has this skin in their inventory with an icon
@@ -2892,16 +2955,20 @@ app.get('/api/cs/skin-icon', requireUser, async (req, res) => {
   }
 });
 
-// Auto-fetch missing Steam market icons for user's CS inventory
-app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
+// Auto-fetch missing Steam market icons for user's CS inventory. Runs at most every 2 minutes
+// per user and handles up to 25 items per run (paced), so a large registry can't turn one
+// request into hundreds of back-to-back Steam calls; the rest fill in on later visits.
+const SYNC_ICONS_PER_RUN = 25;
+app.post('/api/cs/sync-icons', requireUser, heavyRateLimit(2 * 60 * 1000, 'sync-icons'), async (req, res) => {
   const { data: items } = await db
     .from('cs_inventory')
     .select('id, skin_name, exterior, icon_url')
     .eq('user_id', req.user.id);
-  const needsIcon = (items || []).filter(i => !i.icon_url);
+  const needsIcon = (items || []).filter(i => !i.icon_url).slice(0, SYNC_ICONS_PER_RUN);
   if (!needsIcon.length) return res.json({ updated: 0 });
   let updated = 0;
-  for (const item of needsIcon) {
+  for (const [i, item] of needsIcon.entries()) {
+    if (i > 0) await sleep(300);
     try {
       const iconUrl = await fetchSteamIcon(item.skin_name, item.exterior);
       if (!iconUrl) continue;
@@ -2920,7 +2987,7 @@ app.post('/api/cs/sync-icons', requireUser, async (req, res) => {
 });
 
 // Reset and re-fetch icon for a single inventory item
-app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
+app.post('/api/cs/inventory/:id/reset-icon', requireUser, userRateLimit(10, 60 * 1000, 'reset-icon'), async (req, res) => {
   const { data: item } = await db.from('cs_inventory')
     .select('id, skin_name, exterior, steam_asset_id')
     .eq('id', req.params.id)
@@ -2934,8 +3001,8 @@ app.post('/api/cs/inventory/:id/reset-icon', requireUser, async (req, res) => {
   if (item.steam_asset_id) {
     try {
       const { data: profile } = await db.from('profiles').select('steam_id').eq('id', req.user.id).single();
-      if (profile?.steam_id) {
-        const invData = await fetchJSON(`https://steamcommunity.com/inventory/${profile.steam_id}/730/2?l=english&count=500`);
+      if (/^\d{17}$/.test(profile?.steam_id || '')) { // unverified IDs are free text — only fetch real SteamID64s
+        const invData = await fetchSteamInventory(profile.steam_id);
         if (invData?.assets && invData?.descriptions) {
           const descMap = {};
           (invData.descriptions || []).forEach(d => { descMap[`${d.classid}_${d.instanceid}`] = d; });
@@ -3284,6 +3351,51 @@ app.post('/api/friends/remove/:username', requireUser, async (req, res) => {
 });
 
 // ── Activity feed ───────────────────────────────────────────────────────────
+// ── Feed visibility ─────────────────────────────────────────────────────────
+// Trade and holdings posts reveal the same data as the CS trades / holdings tabs, so other
+// viewers only see them when the owner has made that tab public — and never for a trade the
+// owner has hidden from their profile. Owners always see their own posts. Every feed (home
+// feed, initial load, profile activity tab) goes through this one rule. Share links
+// (/trade/...) are deliberately separate and keep working regardless.
+const TRADE_POST_TYPES = new Set(['cs_trade', 'cs_trade_screenshot']);
+const FEED_SIZE = 50;
+const FEED_FETCH = 100; // over-fetch so hidden posts don't leave the feed short
+async function visibleToViewer(activity, viewerId) {
+  const foreign = activity.filter(a => a.user_id !== viewerId);
+  if (!foreign.length) return activity;
+  const ownerIds = [...new Set(foreign.map(a => a.user_id))];
+  const itemIds = [...new Set(foreign
+    .filter(a => TRADE_POST_TYPES.has(a.type) && a.payload?.inventoryId != null)
+    .map(a => a.payload.inventoryId))];
+  const [{ data: owners }, { data: hiddenItems }] = await Promise.all([
+    db.from('profiles').select('id, public_cs_trades, public_holdings').in('id', ownerIds),
+    itemIds.length
+      ? db.from('cs_inventory').select('id').in('id', itemIds).eq('hidden_from_profile', true)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const ownerMap = Object.fromEntries((owners || []).map(p => [p.id, p]));
+  const hiddenIds = new Set((hiddenItems || []).map(i => String(i.id)));
+  return activity.filter(a => {
+    if (a.user_id === viewerId) return true;
+    const owner = ownerMap[a.user_id];
+    if (!owner) return false; // lookup failed — fail closed
+    if (TRADE_POST_TYPES.has(a.type)) return !!owner.public_cs_trades && !hiddenIds.has(String(a.payload?.inventoryId));
+    if (a.type === 'holdings_update') return !!owner.public_holdings;
+    return true;
+  });
+}
+// Shapes a feed row for the client. Prices stored in a non-USD currency are dropped so they
+// aren't displayed as dollars.
+function formatFeedItem(a, profile = {}) {
+  const payload = { ...(a.payload || {}) };
+  if (payload.currency && payload.currency !== 'USD') {
+    delete payload.price;
+    delete payload.sellPrice;
+    delete payload.buyPrice;
+  }
+  return { ...payload, id: a.id, type: a.type, createdAt: a.created_at, username: profile.username, avatarBase64: profile.avatar_base64, role: profile.role };
+}
+
 app.get('/api/feed', requireUser, async (req, res) => {
   try {
     // Fetch all friendships involving this user, filter accepted in JS
@@ -3299,24 +3411,14 @@ app.get('/api/feed', requireUser, async (req, res) => {
 
     const allIds = [...new Set([...friendIds, req.user.id])];
     const [{ data: activity }, { data: profiles }] = await Promise.all([
-      db.from('activity').select('id, user_id, type, payload, created_at').in('user_id', allIds).order('created_at', { ascending:false }).limit(50),
+      db.from('activity').select('id, user_id, type, payload, created_at').in('user_id', allIds).order('created_at', { ascending:false }).limit(FEED_FETCH),
       db.from('profiles').select('id, username, avatar_base64, role').in('id', allIds),
     ]);
     const profileMap = {};
     (profiles||[]).forEach(p => { profileMap[p.id] = p; });
 
-    res.json((activity || []).map(a => {
-      const profile = profileMap[a.user_id] || {};
-      const payload = a.payload || {};
-      // Strip prices stored in non-USD currency to avoid displaying misleading values
-      const normalized = { ...payload };
-      if (normalized.currency && normalized.currency !== 'USD') {
-        delete normalized.price;
-        delete normalized.sellPrice;
-        delete normalized.buyPrice;
-      }
-      return { ...normalized, id: a.id, type: a.type, createdAt: a.created_at, username: profile.username, avatarBase64: profile.avatar_base64, role: profile.role };
-    }));
+    const visible = (await visibleToViewer(activity || [], req.user.id)).slice(0, FEED_SIZE);
+    res.json(visible.map(a => formatFeedItem(a, profileMap[a.user_id])));
   } catch(e) {
     log.error('feed failed', { error: e.message });
     res.status(500).json({ error: e.message });
@@ -3330,19 +3432,12 @@ app.get('/api/activity/mine', requireUser, async (req, res) => {
 
 // Get a specific user's public activity
 app.get('/api/users/:username/activity', requireUser, async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('id, username, public_cs_trades, public_holdings').eq('username', req.params.username).single();
+  const { data: profile } = await db.from('profiles').select('id, username').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
-  // Respect the owner's privacy toggles: trade and holdings activity reveal the same data
-  // as the CS trades / holdings tabs, so hide it from others when those are private.
-  const hiddenTypes = [];
-  if (profile.id !== req.user.id) {
-    if (!profile.public_cs_trades) hiddenTypes.push('cs_trade', 'cs_trade_screenshot');
-    if (!profile.public_holdings) hiddenTypes.push('holdings_update');
-  }
-  let query = db.from('activity').select('*').eq('user_id', profile.id);
-  if (hiddenTypes.length) query = query.not('type', 'in', `(${hiddenTypes.join(',')})`);
-  const { data: activities } = await query.order('created_at', { ascending:false }).limit(25);
-  res.json((activities || []).map(a => {
+  // Privacy toggles and hidden trades are applied by the shared feed rule (visibleToViewer)
+  const { data: rows } = await db.from('activity').select('*').eq('user_id', profile.id).order('created_at', { ascending:false }).limit(FEED_FETCH);
+  const activities = (await visibleToViewer(rows || [], req.user.id)).slice(0, 25);
+  res.json(activities.map(a => {
     const payload = a.payload || {};
     return { ...payload, id: a.id, type: a.type, created_at: a.created_at, username: profile.username };
   }));
@@ -3439,6 +3534,17 @@ function fetchJSON(url) {
       let data=''; res.on('data',d=>data+=d); res.on('end',()=>{ try { resolve(JSON.parse(data)); } catch(e) { reject(new Error('Steam returned an unexpected response — may be rate-limited, try again shortly')); } });
     }).on('error', reject);
   });
+}
+
+// Raw Steam inventory JSON, shared for 10 minutes. Public profile views and icon resets would
+// otherwise download the full inventory from Steam on every request.
+const steamInvRawCache = boundedCache(500, 10 * 60 * 1000);
+async function fetchSteamInventory(steamId) {
+  const cached = steamInvRawCache.get(steamId);
+  if (cached) return cached;
+  const data = await fetchJSON(`https://steamcommunity.com/inventory/${steamId}/730/2?l=english&count=500`);
+  if (data?.assets) steamInvRawCache.set(steamId, data);
+  return data;
 }
 
 // ── CS routes ───────────────────────────────────────────────────────────────
@@ -3648,7 +3754,10 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
     }).filter(i => i.name !== 'Unknown');
 
     const payload = { items, count: items.length };
+    steamInvCache.delete(cacheKey);
     steamInvCache.set(cacheKey, { payload, ts: Date.now() });
+    // Keep stale entries for the Steam-outage fallback below, but cap how many are held
+    if (steamInvCache.size > 1000) steamInvCache.delete(steamInvCache.keys().next().value);
     res.json(payload);
   } catch(e) {
     // On Steam error (rate-limit, private, etc.) serve stale cache rather than a hard failure
@@ -3671,7 +3780,7 @@ app.get('/api/cs/inventory', requireUser, async (req, res) => {
   const fxFromSEK = { SEK: 1 };
   if (needFX.length > 0) {
     try {
-      const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${needFX.join(',')}`);
+      const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${needFX.map(encodeURIComponent).join(',')}`, { signal: AbortSignal.timeout(8000) });
       const fxd = await fx.json();
       Object.entries(fxd.rates || {}).forEach(([cur, rate]) => { fxFromSEK[cur] = rate; });
     } catch(e) {}
@@ -3701,7 +3810,7 @@ async function toSEK(amount, currency) {
   if (!amount) return 0;
   if (!currency || currency === 'SEK') return parseFloat(amount);
   try {
-    const r = await fetch(`https://api.frankfurter.app/latest?from=${currency}&to=SEK`);
+    const r = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(currency)}&to=SEK`, { signal: AbortSignal.timeout(8000) });
     const d = await r.json();
     const rate = d?.rates?.SEK;
     return rate ? parseFloat(amount) * rate : parseFloat(amount);
@@ -3715,10 +3824,21 @@ function validateScreenshotUrl(url) {
   return url;
 }
 
-const STICKER_URL_RE = /^https:\/\/[^/]*\.(steamstatic\.com|akamaihd\.net|steamcommunity\.com)\//;
+// Sticker images must be served by Steam. The host is checked on the parsed URL — a regex on
+// the raw string can be fooled (e.g. "https://evil.com?.steamstatic.com/" has host evil.com).
+// akamaihd.net is shared by every Akamai customer, so only Steam's own host there is allowed.
+const STICKER_HOST_SUFFIXES = ['.steamstatic.com', '.steamcommunity.com'];
+const STICKER_HOSTS_EXACT = ['steamcdn-a.akamaihd.net'];
+function isSteamImageUrl(raw) {
+  let u;
+  try { u = new URL(raw); } catch { return false; }
+  if (u.protocol !== 'https:' || u.username || u.password || u.port) return false;
+  const host = u.hostname.toLowerCase();
+  return STICKER_HOSTS_EXACT.includes(host) || STICKER_HOST_SUFFIXES.some(s => host.endsWith(s));
+}
 function safeStickerList(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(s => s && typeof s.url === 'string' && STICKER_URL_RE.test(s.url))
+  return raw.filter(s => s && typeof s.url === 'string' && isSteamImageUrl(s.url))
             .map(s => ({ url: s.url, name: typeof s.name === 'string' ? s.name.slice(0, 100) : '' }))
             .slice(0, 8);
 }
@@ -3738,7 +3858,7 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
   const safeStickers = safeStickerList(stickers);
   // One post per new trade: the screenshot version when there's a screenshot, otherwise the plain one
   if (!safeScreenshotUrl) {
-    await appendActivity(req.user.id, 'cs_trade', { action:'buy', skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior, floatValue: safeFloat, iconUrl: safeIconUrl || null, stickers: safeStickers });
+    await appendActivity(req.user.id, 'cs_trade', { action:'buy', inventoryId: data.id, skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior, floatValue: safeFloat, iconUrl: safeIconUrl || null, stickers: safeStickers });
   } else {
     const idMatch = safeScreenshotUrl.match(/id=(\d+)/);
     let screenshotImgUrl = null;
@@ -3746,6 +3866,7 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
       try { screenshotImgUrl = await fetchSteamScreenshotPreview(idMatch[1]); } catch(e) {}
     }
     await appendActivity(req.user.id, 'cs_trade_screenshot', {
+      inventoryId: data.id,
       skinName: skin_name, exterior, floatValue: safeFloat,
       screenshotUrl: safeScreenshotUrl, screenshotImgUrl,
       iconUrl: safeIconUrl || null,
@@ -3763,12 +3884,17 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
-  const { data: existing } = await db.from('cs_inventory').select('skin_name, screenshot_url, sold, purchase_price, purchase_currency, stickers').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  const { data: existing } = await db.from('cs_inventory').select('skin_name, screenshot_url, sold, purchase_price, purchase_currency, stickers, icon_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  if (!existing) return res.status(404).json({ error: 'Item not found.' });
   const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
   const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
-  const updateFields = { skin_name, exterior, float_value: safeFloat, pattern: safePattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'USD', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl, steam_asset_id: steam_asset_id || null, icon_url: safeIconUrl || null };
+  const updateFields = { skin_name, exterior, float_value: safeFloat, pattern: safePattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'USD', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl };
+  // Only touch fields the client actually sent — leaving one out must keep the stored value,
+  // not wipe it (an omitted icon_url used to erase the item's icon)
+  if (steam_asset_id !== undefined) updateFields.steam_asset_id = steam_asset_id || null;
+  if (icon_url !== undefined) updateFields.icon_url = safeIconUrl;
   if (stickers !== undefined) updateFields.stickers = safeStickerList(stickers);
   const { error } = await db.from('cs_inventory')
     .update(updateFields)
@@ -3783,13 +3909,14 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
     }
     const isSold = existing?.sold ?? false;
     await appendActivity(req.user.id, 'cs_trade_screenshot', {
+      inventoryId: req.params.id,
       skinName: skin_name, exterior, floatValue: safeFloat,
       screenshotUrl: safeScreenshotUrl, screenshotImgUrl,
-      iconUrl: safeIconUrl || null,
+      iconUrl: (icon_url !== undefined ? safeIconUrl : existing.icon_url) || null,
       action: isSold ? 'sell' : 'buy',
-      price: purchase_price ?? existing?.purchase_price,
-      currency: purchase_currency || existing?.purchase_currency,
-      stickers: safeStickerList(stickers) ?? existing?.stickers,
+      price: purchase_price ?? existing.purchase_price,
+      currency: purchase_currency || existing.purchase_currency,
+      stickers: stickers !== undefined ? safeStickerList(stickers) : (existing.stickers || []),
       isUpdate: true,
     });
   }
@@ -3810,9 +3937,21 @@ app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
   const { data: item } = await db.from('cs_inventory').select('skin_name, exterior, float_value, purchase_price, sold, icon_url, stickers').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (!item) return res.status(404).json({ error: 'Item not found.' });
   if (item.sold) return res.status(409).json({ error: 'Item already marked as sold.' });
-  await db.from('cs_inventory').update({ sold:true }).eq('id', req.params.id).eq('user_id', req.user.id);
-  const { data } = await db.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price, sale_currency:sale_currency||'USD', sale_date, notes, screenshot_url:safeScreenshotUrl }).select().single();
-  await appendActivity(req.user.id, 'cs_trade', { action:'sell', skinName:item.skin_name, exterior: item.exterior, floatValue: item.float_value, buyPrice:item.purchase_price, sellPrice:sale_price, currency:sale_currency, iconUrl: item.icon_url || null, stickers: item.stickers || [] });
+  // Claim the item in one conditional update: only a request that flips it from unsold to sold
+  // proceeds, so two quick "Confirm Sale" clicks can't both record a sale
+  const { data: claimed, error: claimErr } = await db.from('cs_inventory')
+    .update({ sold: true })
+    .eq('id', req.params.id).eq('user_id', req.user.id).not('sold', 'is', true)
+    .select('id');
+  if (claimErr) return res.status(500).json({ error: claimErr.message });
+  if (!claimed?.length) return res.status(409).json({ error: 'Item already marked as sold.' });
+  const { data, error: saleErr } = await db.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price, sale_currency:sale_currency||'USD', sale_date, notes, screenshot_url:safeScreenshotUrl }).select().single();
+  if (saleErr) {
+    // Undo the claim so the item isn't left "sold" with no sale recorded
+    await db.from('cs_inventory').update({ sold: false }).eq('id', req.params.id).eq('user_id', req.user.id);
+    return res.status(500).json({ error: 'Could not save the sale. Please try again.' });
+  }
+  await appendActivity(req.user.id, 'cs_trade', { action:'sell', inventoryId: req.params.id, skinName:item.skin_name, exterior: item.exterior, floatValue: item.float_value, buyPrice:item.purchase_price, sellPrice:sale_price, currency:sale_currency, iconUrl: item.icon_url || null, stickers: item.stickers || [] });
   res.json({ id:data?.id, success:true });
 });
 
@@ -3847,13 +3986,23 @@ async function steamScreenshotInfo(id) {
   } catch {}
   return { url: null, notPublic: answered };
 }
-const fetchSteamScreenshotPreview = async id => (await steamScreenshotInfo(id)).url;
+// Every feed post and every public /trade page view asks for its screenshot, so answers are
+// cached. Only definite answers (an image, or "not public") — network failures are retried.
+const screenshotCache = boundedCache(5000, 6 * 60 * 60 * 1000);
+async function cachedScreenshotInfo(id) {
+  const cached = screenshotCache.get(id);
+  if (cached) return cached;
+  const info = await steamScreenshotInfo(id);
+  if (info.url || info.notPublic) screenshotCache.set(id, info);
+  return info;
+}
+const fetchSteamScreenshotPreview = async id => (await cachedScreenshotInfo(id)).url;
 
 app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
   const { id } = req.params;
   if (!/^\d+$/.test(id)) return res.status(400).json({ error: 'Invalid screenshot ID' });
   try {
-    const { url, notPublic } = await steamScreenshotInfo(id);
+    const { url, notPublic } = await cachedScreenshotInfo(id);
     if (url) return res.json({ previewUrl: url });
     if (notPublic) return res.json({ previewUrl: null, notPublic: true });
     res.status(502).json({ error: 'Steam is unavailable right now' });
@@ -3874,7 +4023,7 @@ app.get('/api/cs/pnl', requireUser, async (req, res) => {
   const fxFromSEK = { SEK: 1 };
   if (needFX.length > 0) {
     try {
-      const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${needFX.join(',')}`);
+      const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${needFX.map(encodeURIComponent).join(',')}`, { signal: AbortSignal.timeout(8000) });
       const fxd = await fx.json();
       Object.entries(fxd.rates || {}).forEach(([cur, rate]) => { fxFromSEK[cur] = rate; });
     } catch(e) {}
@@ -4224,10 +4373,25 @@ app.get('/api/steam/callback', async (req, res) => {
   }
   const userId = pending.userId;
 
+  // Before asking Steam, make sure this response was issued for *this* login: by Steam, back
+  // to this exact callback + state, with those fields covered by the signature. Steam's
+  // signature check alone only proves the response is genuine — a login made on another site
+  // that uses Steam sign-in is genuine too, and could otherwise be replayed here to link
+  // someone else's Steam account.
+  const signedFields = typeof openidParams['openid.signed'] === 'string' ? openidParams['openid.signed'].split(',') : [];
+  const responseIsForUs =
+    Object.values(openidParams).every(v => typeof v === 'string') &&
+    openidParams['openid.mode'] === 'id_res' &&
+    openidParams['openid.op_endpoint'] === STEAM_OPENID_URL &&
+    openidParams['openid.return_to'] === `${BASE_URL}/api/steam/callback?state=${state}` &&
+    openidParams['openid.claimed_id'] === openidParams['openid.identity'] &&
+    ['op_endpoint', 'return_to', 'claimed_id', 'identity', 'response_nonce'].every(f => signedFields.includes(f));
+  if (!responseIsForUs) return res.redirect(`${BASE_URL}/profile/edit?steam_error=invalid`);
+
   // Verify the OpenID response with Steam
   try {
     const verifyParams = new URLSearchParams({ ...openidParams, 'openid.mode': 'check_authentication' });
-    const verifyRes = await fetch(`${STEAM_OPENID_URL}?${verifyParams.toString()}`);
+    const verifyRes = await fetch(`${STEAM_OPENID_URL}?${verifyParams.toString()}`, { signal: AbortSignal.timeout(10000) });
     const verifyText = await verifyRes.text();
     if (!verifyText.includes('is_valid:true')) {
       return res.redirect(`${BASE_URL}/profile/edit?steam_error=invalid`);
@@ -4281,7 +4445,7 @@ app.delete('/api/steam/unlink', requireUser, async (req, res) => {
 });
 
 // Keep lookup for profile display
-app.get('/api/steam/lookup/:steamId', requireUser, async (req, res) => {
+app.get('/api/steam/lookup/:steamId', requireUser, userRateLimit(10, 60 * 1000, 'steam-lookup'), async (req, res) => {
   const STEAM_KEY = process.env.STEAM_API_KEY;
   if (!STEAM_KEY) return res.status(500).json({ error: 'Steam API not configured.' });
   const { steamId } = req.params;

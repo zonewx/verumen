@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiCache from './apiCache';
 import { getToken } from './tokenStore';
+import { flash } from './flash';
 import { card, input, label, btn, btnPrimary, btnSecondary, btnConfirm, contentColumn } from './ui';
 import { IconX, IconImage } from './icons';
 
@@ -359,6 +360,28 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   }, [addSkinParam]);
 
 
+  const [addError, setAddError] = useState('');
+  const [sellError, setSellError] = useState('');
+  // A fresh open of either modal starts without the previous attempt's error
+  useEffect(() => { setAddError(''); }, [showAddForm]);
+  useEffect(() => { setSellError(''); }, [showSellForm]);
+
+  // Sends a JSON request; returns null on success or a message to show the user on failure
+  const sendJson = async (url, method, body) => {
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: authHeaders(body ? { 'Content-Type': 'application/json' } : {}),
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+      if (res.ok) return null;
+      const d = await res.json().catch(() => ({}));
+      return d.error || `Server error ${res.status}`;
+    } catch {
+      return 'Network error — please try again.';
+    }
+  };
+
   const fetchAll = useCallback(async () => {
     try {
       const h = authHeaders();
@@ -500,11 +523,10 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     } else if (pendingAssetId) {
       payload.steam_asset_id = pendingAssetId;
     }
-    await fetch('/api/cs/inventory', {
-      method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload)
-    });
+    setAddError('');
+    // On failure keep the modal open with the form intact so nothing has to be re-entered
+    const err = await sendJson('/api/cs/inventory', 'POST', payload);
+    if (err) { setAddError(err); return; }
     closeAddModal();
     setAddForm({
       skin_name: '', statTrak: false, hasExterior: true, exterior: 'Factory New', float_value: '', pattern: '',
@@ -517,11 +539,9 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
 
   const sellItem = async (id) => {
     if (!sellForm.sale_price || !sellForm.sale_date) return;
-    await fetch(`/api/cs/inventory/${id}/sell`, {
-      method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(sellForm)
-    });
+    setSellError('');
+    const err = await sendJson(`/api/cs/inventory/${id}/sell`, 'POST', sellForm);
+    if (err) { setSellError(err); return; }
     setShowSellForm(null);
     setSellForm({
       sale_price: '', sale_currency: 'USD',
@@ -532,8 +552,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   };
 
   const deleteItem = async (id) => {
-    if (!confirm('Remove this trade from your registry?')) return;
-    await fetch(`/api/cs/inventory/${id}`, { method: 'DELETE', headers: authHeaders() });
+    const err = await sendJson(`/api/cs/inventory/${id}`, 'DELETE');
+    if (err) flash(`✗ Could not delete trade: ${err}`, 5000);
     await fetchAll();
   };
 
@@ -547,8 +567,10 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
       exterior: item.exterior || 'Factory New',
       float_value: item.float_value || '',
       pattern: item.pattern || '',
-      purchase_price: item.purchase_price_display != null ? parseFloat(item.purchase_price_display).toFixed(2) : (item.purchase_price ?? ''),
-      purchase_currency: 'USD',
+      // The stored price in its own currency — not the display value, which is converted to the
+      // user's base currency and would be re-saved under the wrong currency label
+      purchase_price: item.purchase_price ?? '',
+      purchase_currency: item.purchase_currency || 'USD',
       purchase_date: item.purchase_date || new Date().toISOString().split('T')[0],
       notes: item.notes || '',
       screenshot_url: item.screenshot_url || '',
@@ -1182,7 +1204,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
 
                     {/* Footer — only shown when in a mode and a skin is selected (inventory) or any time (manual) */}
                     {(addModalTab === 'manual' || (addModalTab === 'inventory' && selectedModalItem)) && (
-                      <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
+                      <div className={`flex flex-wrap items-center gap-2 px-6 py-4 border-t border-zinc-700 shrink-0`}>
+                        {addError && <p className="basis-full text-xs text-red-400">{addError}</p>}
                         {(() => {
                           const isDisabled = addModalTab === 'inventory'
                             ? !selectedModalItem || !addForm.purchase_price || !addForm.purchase_date || (addForm.hasExterior && !addForm.float_value)
@@ -1455,7 +1478,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                         <p className={`text-xs mt-1.5 text-zinc-400`}>Link a Steam screenshot of the sale (optional)</p>
                       </div>
                     </div>
-                    <div className={`flex gap-2 px-6 py-4 border-t border-zinc-700`}>
+                    <div className={`flex flex-wrap items-center gap-2 px-6 py-4 border-t border-zinc-700`}>
+                      {sellError && <p className="basis-full text-xs text-red-400">{sellError}</p>}
                       <button onClick={() => sellItem(showSellForm.id)} disabled={!sellForm.sale_price || !sellForm.sale_date} className={btnConfirm}>Confirm Sale</button>
                       <button onClick={() => setShowSellForm(null)} className={btnSecondary}>Cancel</button>
                     </div>
