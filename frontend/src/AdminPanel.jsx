@@ -93,6 +93,7 @@ export default function AdminPanel({ authUsername }) {
     setLoading(false);
   }, []);
 
+  useEffect(() => { fetchStats(); fetchDbSize(); }, []);
   useEffect(() => { if (tab === 'database') { fetchDbTables(); fetchDbSize(); } }, [tab]);
 
   useEffect(() => {
