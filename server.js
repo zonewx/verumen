@@ -631,9 +631,6 @@ app.post('/api/auth/register', authRateLimit, async (req, res) => {
   ]);
   const userLimit = parseInt(limitSetting?.value || '0', 10);
   if (userLimit > 0 && count >= userLimit) return res.status(400).json({ error: `User limit of ${userLimit} reached.` });
-  // Site-wide cap: each sign-up sends a verification email, so per-IP limits alone (spoofable)
-  // would let someone mass-register accounts or spam arbitrary inboxes from our domain
-  if (hitLimit('register:global', 20, 60 * 60 * 1000)) return res.status(429).json({ error: 'Too many sign-ups right now. Please try again in a while.' });
   const fakeEmail = `${username.trim().toLowerCase()}@statera.local`;
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({ email: fakeEmail, password, email_confirm: true });
   if (authError) return res.status(400).json({ error: authError.message });
@@ -2959,19 +2956,22 @@ app.get('/api/cs/skin-icon', requireUser, userRateLimit(120, 60 * 1000, 'skin-ic
 // per user and handles up to 25 items per run (paced), so a large registry can't turn one
 // request into hundreds of back-to-back Steam calls; the rest fill in on later visits.
 const SYNC_ICONS_PER_RUN = 25;
+// Items whose icon wasn't found are skipped for a day, so a few unresolvable items can't
+// occupy every run and keep the rest of a large registry from ever getting icons
+const iconMissCache = boundedCache(20000, 24 * 60 * 60 * 1000);
 app.post('/api/cs/sync-icons', requireUser, heavyRateLimit(2 * 60 * 1000, 'sync-icons'), async (req, res) => {
   const { data: items } = await db
     .from('cs_inventory')
     .select('id, skin_name, exterior, icon_url')
     .eq('user_id', req.user.id);
-  const needsIcon = (items || []).filter(i => !i.icon_url).slice(0, SYNC_ICONS_PER_RUN);
+  const needsIcon = (items || []).filter(i => !i.icon_url && !iconMissCache.get(String(i.id))).slice(0, SYNC_ICONS_PER_RUN);
   if (!needsIcon.length) return res.json({ updated: 0 });
   let updated = 0;
   for (const [i, item] of needsIcon.entries()) {
     if (i > 0) await sleep(300);
     try {
       const iconUrl = await fetchSteamIcon(item.skin_name, item.exterior);
-      if (!iconUrl) continue;
+      if (!iconUrl) { iconMissCache.set(String(item.id), true); continue; }
       // .is('icon_url', null) prevents overwriting an icon the user manually set
       // while this background loop was still running (race condition guard)
       const { data: upd } = await db.from('cs_inventory')
@@ -3924,7 +3924,16 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
 });
 
 app.delete('/api/cs/inventory/:id', requireUser, async (req, res) => {
-  await db.from('cs_inventory').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  const { data: deleted, error } = await db.from('cs_inventory').delete().eq('id', req.params.id).eq('user_id', req.user.id).select('id');
+  if (error) { log.error('cs_inventory delete failed', { error: error.message, userId: req.user.id }); return res.status(500).json({ error: 'Could not delete the trade. Please try again.' }); }
+  if (!deleted?.length) return res.status(404).json({ error: 'Item not found.' });
+  // Remove the trade's feed posts too. Posts store inventoryId as a number or a string,
+  // and ->> compares as text, so one filter catches both
+  const { error: actErr } = await db.from('activity').delete()
+    .eq('user_id', req.user.id)
+    .in('type', [...TRADE_POST_TYPES])
+    .eq('payload->>inventoryId', String(req.params.id));
+  if (actErr) log.warn('trade post cleanup failed', { error: actErr.message, userId: req.user.id });
   res.json({ success:true });
 });
 

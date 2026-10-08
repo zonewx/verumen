@@ -618,7 +618,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     setEditSaveError('');
     const payload = {
       ...editForm,
-      ...(selectedEditItem ? { steam_asset_id: selectedEditItem.assetId, icon_url: selectedEditItem.iconUrl || '' } : {}),
+      // A linked inventory item without an icon keeps the trade's current icon instead of clearing it
+      ...(selectedEditItem ? { steam_asset_id: selectedEditItem.assetId, ...(selectedEditItem.iconUrl ? { icon_url: selectedEditItem.iconUrl } : {}) } : {}),
     };
     const res = await fetch(`/api/cs/inventory/${showEditForm.id}`, {
       method: 'PUT',
