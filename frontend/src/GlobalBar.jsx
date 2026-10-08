@@ -16,6 +16,7 @@ const Icons = {
   users: svg(<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>),
   bell: svg(<><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>),
   pulse: svg(<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>),
+  list: svg(<><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></>),
   user: svg(<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>),
   pencil: svg(<path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>),
   logout: svg(<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>),
@@ -36,6 +37,7 @@ const ADMIN_MENU = [
   { label: 'Database', path: '/adminpanel/database', icon: Icons.db },
   { label: 'User Management', path: '/adminpanel/users', icon: Icons.users },
   { label: 'Announcements', path: '/adminpanel/announcements', icon: Icons.bell },
+  { label: 'Log', path: '/adminpanel/log', icon: Icons.list },
   { label: 'Diagnostics', path: '/adminpanel/diagnostics', icon: Icons.pulse },
 ];
 

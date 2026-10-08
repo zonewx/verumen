@@ -5,12 +5,14 @@ import apiCache from './apiCache';
 import { flash } from './flash';
 import { card, input, btnPrimarySm, btnSecondarySm, btnDangerSm, btnConfirmSm, contentColumn } from './ui';
 import { IconX, IconRefresh } from './icons';
+import ModLog from './ModLog';
 
 const TAB_MAP = {
   '': 'overview', 'overview': 'overview', 'database': 'database',
   'users': 'users', 'ticker-management': 'ticker-mgmt',
   'ticker-failures': 'ticker-mgmt', 'global-overrides': 'ticker-mgmt',
   'announcements': 'announcements',
+  'log': 'log',
   'diagnostics': 'diagnostics',
 };
 
@@ -1090,6 +1092,13 @@ export default function AdminPanel({ authUsername }) {
             )}
 
             {/* DIAGNOSTICS */}
+            {tab === 'log' && (
+              <div className="flex flex-col gap-5">
+                <p className="text-sm text-zinc-400">Every action taken by admins and moderators — who did it, to whom, and when.</p>
+                <ModLog />
+              </div>
+            )}
+
             {tab === 'diagnostics' && (
               <div className="flex flex-col gap-5">
 

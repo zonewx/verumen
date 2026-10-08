@@ -4139,7 +4139,7 @@ app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {
     return res.status(403).json({ error: 'Only the root admin can delete staff accounts.' });
   const { error: delError } = await supabase.auth.admin.deleteUser(profile.id);
   if (delError) return res.status(500).json({ error: 'Failed to delete user: ' + delError.message });
-  await appendModLog('admin', 'delete-user', req.params.username);
+  await appendModLog(req.username, 'delete-user', req.params.username);
   res.json({ success:true });
 });
 
@@ -4172,6 +4172,7 @@ app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) 
   // so if the link expires unused, profiles.email stays unchanged.
   if (!email) {
     await db.from('profiles').update({ email: null, email_verified: false }).eq('username', username);
+    await appendModLog(req.username, 'set-email', username, 'cleared');
     return res.json({ success: true, emailSent: false });
   }
   // Invalidate any prior pending tokens for this user
@@ -4192,6 +4193,8 @@ app.post('/api/admin/users/:username/set-email', requireAdmin, async (req, res) 
       ...renderEmail('admin-verify', { username, url: verifyUrl }),
     }).then(() => { emailSent = true; }).catch(e => log.error('verify email send failed', { error: e.message }));
   }
+  // The address itself isn't logged — moderators can read this log but not users' emails
+  await appendModLog(req.username, 'set-email', username, emailSent ? 'verification link sent' : 'verification email not sent');
   res.json({ success: true, emailSent });
 });
 
@@ -4236,6 +4239,7 @@ app.post('/api/admin/users/:username/send-reset-email', requireAdmin, async (req
     to: profile.email,
     ...renderEmail('admin-reset', { url: resetUrl }),
   }).catch(e => log.error('resend admin reset failed', { error: e.message }));
+  await appendModLog(req.username, 'send-reset-email', req.params.username);
   res.json({ success: true });
 });
 
@@ -4248,7 +4252,7 @@ app.post('/api/admin/users/:username/set-role', requireAdmin, async (req, res) =
   if (isRootAdmin(target.id)) return res.status(400).json({ error: 'Cannot change the root admin role.' });
   if (target.role === 'admin') return res.status(403).json({ error: 'Only the root admin account can manage admin roles.' });
   await db.from('profiles').update({ role }).eq('username', req.params.username);
-  await appendModLog('admin', `set-role:${role}`, req.params.username);
+  await appendModLog(req.username, `set-role:${role}`, req.params.username);
   res.json({ success:true });
 });
 
@@ -4262,13 +4266,13 @@ app.post('/api/admin/users/:username/set-role-admin', requireAdmin, async (req, 
   // Protect the root admin account from being demoted
   if (isRootAdmin(target.id)) return res.status(400).json({ error: 'Cannot change the root admin role.' });
   await db.from('profiles').update({ role }).eq('id', target.id);
-  await appendModLog('admin', `set-role-admin:${role}`, req.params.username);
+  await appendModLog(req.username, `set-role-admin:${role}`, req.params.username);
   res.json({ success: true });
 });
 
 app.post('/api/admin/users/:username/clear-bio', requireAdmin, async (req, res) => {
   await db.from('profiles').update({ bio:'' }).eq('username', req.params.username);
-  await appendModLog('admin', 'clear-bio', req.params.username);
+  await appendModLog(req.username, 'clear-bio', req.params.username);
   res.json({ success:true });
 });
 
@@ -4291,18 +4295,29 @@ app.post('/api/admin/announcements', requireAdmin, async (req, res) => {
   if (!title||!message) return res.status(400).json({ error:'title and message required.' });
   const { data, error } = await db.from('announcements').insert({ title, message, type:type||'info', posted_by:req.username }).select().single();
   if (error) return res.status(500).json({ error:error.message });
+  await appendModLog(req.username, 'post-announcement', '-', title);
   res.json({ success:true, announcement:data });
 });
 
 app.delete('/api/admin/announcements/:id', requireAdmin, async (req, res) => {
   await db.from('announcements').delete().eq('id', req.params.id);
+  await appendModLog(req.username, 'delete-announcement', '-', req.params.id);
   res.json({ success:true });
 });
 
 // ── Moderator routes ─────────────────────────────────────────────────────────
+// Staff action log for the admin and moderator panels, newest first
 app.get('/api/mod/log', requireModerator, async (req, res) => {
-  const { data } = await db.from('moderation_log').select('*').order('created_at', { ascending:false }).limit(100);
-  res.json(data||[]);
+  const { data, error } = await db.from('moderation_log').select('*').order('created_at', { ascending:false }).limit(200);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data || []).map(r => ({
+    id: r.id ?? null,
+    createdAt: r.created_at,
+    moderator: r.moderator,
+    action: r.action,
+    targetUser: r.target_user,
+    details: r.details || '',
+  })));
 });
 
 app.post('/api/mod/users/:username/reset-password', requireModerator, async (req, res) => {
@@ -4505,6 +4520,7 @@ app.post('/api/admin/settings', requireAdmin, async (req, res) => {
     if (error) return res.status(500).json({ error: error.message });
   }
   if (key === 'allowRegistration') _allowRegistrationCached = String(value) !== 'false';
+  await appendModLog(req.username, 'update-setting', '-', `${key} = ${String(value)}`);
   res.json({ success: true });
 });
 

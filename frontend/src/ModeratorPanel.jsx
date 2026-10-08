@@ -4,11 +4,11 @@ import { getToken } from './tokenStore';
 import { flash } from './flash';
 import { card, input, btnPrimarySm, btnSecondarySm, btnConfirmSm } from './ui';
 import { IconX, IconRefresh } from './icons';
+import ModLog from './ModLog';
 
 export default function ModeratorPanel({ authUsername, userRole }) {
   const [tab, setTab] = useState('users');
   const [users, setUsers] = useState(() => apiCache.get('/api/users') || []);
-  const [modLog, setModLog] = useState(() => apiCache.get('/api/mod/log') || []);
   const [announcements, setAnnouncements] = useState(() => apiCache.get('/api/announcements') || []);
   const [loading, setLoading] = useState(!apiCache.has('/api/users'));
   const [resetModal, setResetModal] = useState(null);
@@ -22,17 +22,15 @@ export default function ModeratorPanel({ authUsername, userRole }) {
   const fetchAll = useCallback(async () => {
     if (!apiCache.has('/api/users')) setLoading(true);
     try {
-      const [usersRes, logRes, annRes] = await Promise.all([
+      // The log tab loads its own data (ModLog)
+      const [usersRes, annRes] = await Promise.all([
         fetch('/api/users', { headers: h }).then(r => r.json()),
-        fetch('/api/mod/log', { headers: h }).then(r => r.json()),
         fetch('/api/announcements', { headers: h }).then(r => r.json()),
       ]);
       const filtered = usersRes.filter(u => u.username !== authUsername);
       apiCache.set('/api/users', filtered);
-      apiCache.set('/api/mod/log', logRes);
       apiCache.set('/api/announcements', annRes);
       setUsers(filtered);
-      setModLog(logRes);
       setAnnouncements(annRes);
     } catch(e) {}
     setLoading(false);
@@ -70,7 +68,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
   const typeColors ={ info: 'bg-blue-900/40 text-blue-400 border-blue-800', warning: 'bg-yellow-900/40 text-yellow-400 border-yellow-800', success: 'bg-green-900/40 text-green-400 border-green-800', error: 'bg-red-900/40 text-red-400 border-red-800' };
   const roleBadge = { admin: 'bg-red-900/40 text-red-400 border border-red-800', moderator: 'bg-blue-900/40 text-blue-400 border border-blue-800', user: '' };
 
-  const TABS = [{ id: 'users', label: 'Users' }, { id: 'announcements', label: 'Announcements' }, { id: 'log', label: 'Mod Log' }];
+  const TABS = [{ id: 'users', label: 'Users' }, { id: 'announcements', label: 'Announcements' }, { id: 'log', label: 'Log' }];
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
@@ -169,30 +167,7 @@ export default function ModeratorPanel({ authUsername, userRole }) {
               </div>
             )}
 
-            {tab === 'log' && (
-              <div className={`${card} overflow-hidden`}>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
-                      <tr>{['Time', 'Moderator', 'Action', 'Target', 'Details'].map(h => <th key={h} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400`}>{h}</th>)}</tr>
-                    </thead>
-                    <tbody>
-                      {modLog.length === 0 ? (
-                        <tr><td colSpan="5" className={`px-4 py-8 text-center text-sm text-zinc-400`}>No actions logged yet.</td></tr>
-                      ) : modLog.map((entry, i) => (
-                        <tr key={i} className={`border-t border-zinc-700 hover:bg-zinc-700/20`}>
-                          <td className={`px-4 py-3 text-xs font-mono text-zinc-400`}>{new Date(entry.createdAt).toLocaleString()}</td>
-                          <td className="px-4 py-3 text-xs font-bold text-blue-400">{entry.moderator}</td>
-                          <td className={`px-4 py-3 text-xs text-zinc-300`}>{entry.action}</td>
-                          <td className="px-4 py-3 text-xs font-mono">{entry.targetUser}</td>
-                          <td className={`px-4 py-3 text-xs text-zinc-400`}>{entry.details}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+            {tab === 'log' && <ModLog />}
           </>
         )}
       </div>
