@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-function fmt(n, currency) {
+// All prices are in USD
+function fmt(n) {
   if (n == null) return '—';
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + (currency || '');
+  const v = Number(n);
+  return `${v < 0 ? '-' : ''}$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function withVanilla(name) {
@@ -97,12 +99,12 @@ export default function TradeSharePage() {
               ['Float', trade.floatValue ? parseFloat(trade.floatValue).toFixed(4) : '—'],
               ['Pattern', trade.pattern || '—'],
               ['Buy date', trade.purchaseDate || '—'],
-              ['Buy price', fmt(trade.purchasePrice, trade.purchaseCurrency)],
+              ['Buy price', fmt(trade.purchasePrice)],
               trade.sold
                 ? ['Sale date', trade.saleDate || '—']
                 : ['Status', 'Holding'],
               trade.sold
-                ? ['Sale price', fmt(trade.salePrice, trade.saleCurrency)]
+                ? ['Sale price', fmt(trade.salePrice)]
                 : ['Current price', '—'],
             ].map(([label, value]) => (
               <div key={label} className="bg-zinc-900 px-5 py-4">
@@ -117,7 +119,7 @@ export default function TradeSharePage() {
             <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
               <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">P&L</p>
               <p className={`text-lg font-bold ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>
-                {pnlPos ? '+' : ''}{fmt(pnl, trade.purchaseCurrency)}
+                {pnlPos ? '+' : ''}{fmt(pnl)}
               </p>
             </div>
           )}

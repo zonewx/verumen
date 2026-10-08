@@ -6,9 +6,6 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
-const zlib = require('zlib');
-const { promisify } = require('util');
-const brotliDecompress = promisify(zlib.brotliDecompress);
 const { Resend } = require('resend');
 const { supabase, db, supabaseAnon } = require('./supabase');
 
@@ -135,178 +132,6 @@ function renderEmail(type, vars) {
   return { subject: t.subject, html: buildEmail(t) };
 }
 
-// In-memory price cache — populated from Supabase on startup so restarts don't force a YF burst
-const _priceCache = new Map(); // ticker -> { q: quoteObject, cachedAt: timestamp }
-const _fxRateCache = {};       // 'USDSEK=X' -> { rate, cachedAt }
-const PRICE_CACHE_TTL      = 6  * 60 * 60 * 1000; // 6h — stale threshold for live display
-const PRICE_CACHE_WARM_TTL = 24 * 60 * 60 * 1000; // 24h — how far back to load from Supabase on cold start
-
-// ── Market close times ────────────────────────────────────────────────────────
-// Used to skip YF fetches when we already hold a post-close price for a market
-// that hasn't re-opened yet (price cannot have changed).
-const MARKET_HOURS = {
-  // Exchange suffix (uppercase after last '.') → { tz, h: closeHour, m: closeMinute }
-  ST:  { tz: 'Europe/Stockholm',  h: 17, m: 30 },
-  OL:  { tz: 'Europe/Oslo',       h: 16, m: 25 },
-  HE:  { tz: 'Europe/Helsinki',   h: 18, m: 30 },
-  CO:  { tz: 'Europe/Copenhagen', h: 17, m:  0 },
-  L:   { tz: 'Europe/London',     h: 16, m: 30 },
-  DE:  { tz: 'Europe/Berlin',     h: 17, m: 30 },
-  F:   { tz: 'Europe/Berlin',     h: 17, m: 30 },
-  PA:  { tz: 'Europe/Paris',      h: 17, m: 35 },
-  AS:  { tz: 'Europe/Amsterdam',  h: 17, m: 35 },
-  MI:  { tz: 'Europe/Rome',       h: 17, m: 35 },
-  MC:  { tz: 'Europe/Madrid',     h: 17, m: 35 },
-  SW:  { tz: 'Europe/Zurich',     h: 17, m: 30 },
-  TO:  { tz: 'America/Toronto',   h: 16, m:  0 },
-  AX:  { tz: 'Australia/Sydney',  h: 16, m:  0 },
-  T:   { tz: 'Asia/Tokyo',        h: 15, m: 30 },
-  HK:  { tz: 'Asia/Hong_Kong',    h: 16, m:  0 },
-  US:  { tz: 'America/New_York',  h: 16, m:  0 }, // default for bare tickers
-};
-
-// Returns UTC ms of the most recent regular-session close for this ticker's exchange.
-// Returns 0 if the market is currently inside its regular session (→ always fetch).
-function lastMarketCloseUTC(ticker) {
-  const dot = ticker.lastIndexOf('.');
-  const suffix = dot >= 0 ? ticker.substring(dot + 1).toUpperCase() : null;
-  const sched = (suffix && MARKET_HOURS[suffix]) || MARKET_HOURS.US;
-  const { tz, h: ch, m: cm } = sched;
-  const now = Date.now();
-
-  for (let back = 0; back <= 4; back++) {
-    const probe = new Date(now - back * 86400000);
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz, weekday: 'short',
-      year: 'numeric', month: 'numeric', day: 'numeric', hour12: false,
-    }).formatToParts(probe);
-    const p = {};
-    parts.forEach(({ type, value }) => { p[type] = value; });
-    if (p.weekday === 'Sat' || p.weekday === 'Sun') continue;
-
-    const y = +p.year, mo = +p.month - 1, d = +p.day;
-    // Find UTC ms of ch:cm on this local date via the formatToParts offset trick
-    const guessUTC = Date.UTC(y, mo, d, ch, cm, 0);
-    const fmtParts = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz, hour: 'numeric', minute: 'numeric', hour12: false,
-    }).formatToParts(new Date(guessUTC));
-    const fp = {};
-    fmtParts.forEach(({ type, value }) => { fp[type] = +value || 0; });
-    const offsetMs = (fp.hour * 60 + fp.minute - ch * 60 - cm) * 60000;
-    const closeUTC = guessUTC - offsetMs;
-
-    if (closeUTC <= now) return closeUTC;
-  }
-  return 0;
-}
-
-// Returns true when the cached price is already from after the last market close —
-// meaning the price cannot have changed and a YF fetch would return identical data.
-function priceIsFresh(ticker, cached) {
-  if (!cached?.q?.regularMarketTime) return false;
-  const mktTimeMs = cached.q.regularMarketTime instanceof Date
-    ? cached.q.regularMarketTime.getTime()
-    : typeof cached.q.regularMarketTime === 'number'
-      ? cached.q.regularMarketTime * 1000
-      : new Date(cached.q.regularMarketTime).getTime();
-  const lastClose = lastMarketCloseUTC(ticker);
-  return lastClose > 0 && mktTimeMs >= lastClose;
-}
-
-// ── Scheduled price fetch windows ──────────────────────────────────────────
-// Prices are only fetched from the API during 4 windows per trading day.
-// Between windows the stale cache is served, keeping API usage minimal.
-
-const PRICE_SCHEDULES = {
-  NORDIC: { tz: 'Europe/Stockholm', hours: [9,  12, 15, 17] },
-  US:     { tz: 'America/New_York',  hours: [10, 12, 14, 15] },
-  LONDON: { tz: 'Europe/London',     hours: [8,  10, 13, 16] },
-  EUROPE: { tz: 'Europe/Paris',      hours: [9,  12, 14, 17] },
-  TOKYO:  { tz: 'Asia/Tokyo',        hours: [9,  11, 13, 15] },
-  HK:     { tz: 'Asia/Hong_Kong',    hours: [10, 12, 14, 15] },
-  AUS:    { tz: 'Australia/Sydney',  hours: [10, 12, 14, 15] },
-};
-
-function getPriceSchedule(yfTicker) {
-  if (['.ST','.OL','.CO','.HE'].some(s => yfTicker.endsWith(s))) return PRICE_SCHEDULES.NORDIC;
-  if (['.L','.IL'].some(s => yfTicker.endsWith(s))) return PRICE_SCHEDULES.LONDON;
-  if (['.PA','.DE','.F','.MI','.AS','.MC','.SW','.VX'].some(s => yfTicker.endsWith(s))) return PRICE_SCHEDULES.EUROPE;
-  if (yfTicker.endsWith('.T'))  return PRICE_SCHEDULES.TOKYO;
-  if (yfTicker.endsWith('.HK')) return PRICE_SCHEDULES.HK;
-  if (yfTicker.endsWith('.AX')) return PRICE_SCHEDULES.AUS;
-  return PRICE_SCHEDULES.US;
-}
-
-// Returns the UTC timestamp when the most recent scheduled fetch window opened.
-// Steps backwards one hour at a time (max 48h) until it finds a matching local hour.
-function lastWindowOpenedAt(tz, hours) {
-  const now = Date.now();
-  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
-  for (let minsBack = 0; minsBack <= 48 * 60; minsBack += 60) {
-    const t = new Date(now - minsBack * 60000);
-    const parts = fmt.formatToParts(t);
-    const localHour = parseInt(parts.find(p => p.type === 'hour').value, 10);
-    const localMin  = parseInt(parts.find(p => p.type === 'minute').value, 10);
-    if (hours.includes(localHour)) {
-      // Snap to the exact start of this local hour (remove sub-hour offset)
-      return t.getTime() - localMin * 60000 - (t.getSeconds() * 1000) - t.getMilliseconds();
-    }
-  }
-  return 0; // fallback: always allow refetch
-}
-
-// Returns true when the ticker's cached price predates the current scheduled window —
-// meaning a fresh fetch is warranted. Returns false to serve stale cache instead.
-function shouldRefetch(yfTicker) {
-  const cached = _priceCache.get(yfTicker);
-  if (!cached) return true; // cold cache → always fetch
-  const { tz, hours } = getPriceSchedule(yfTicker);
-  return cached.cachedAt < lastWindowOpenedAt(tz, hours);
-}
-
-// Write-through helper: keeps _priceCache and Supabase price_cache in sync
-function setPriceCache(ticker, data) {
-  _priceCache.set(ticker, data);
-  db.from('price_cache').upsert(
-    { ticker, quote: data.q, cached_at: new Date(data.cachedAt).toISOString() },
-    { onConflict: 'ticker' }
-  ).then(() => {}).catch(() => {});
-}
-
-const FX_PAIRS = ['USDSEK=X','EURSEK=X','GBPSEK=X','NOKSEK=X','DKKSEK=X'];
-
-// Load persisted prices from Supabase on startup — avoids a cold-cache YF burst after restart
-;(async () => {
-  try {
-    const cutoff = new Date(Date.now() - PRICE_CACHE_WARM_TTL).toISOString();
-    const { data } = await db.from('price_cache').select('ticker, quote, cached_at').gt('cached_at', cutoff);
-    if (data?.length) {
-      const fxSet = new Set(FX_PAIRS);
-      data.forEach(({ ticker, quote, cached_at }) => {
-        const cachedAt = new Date(cached_at).getTime();
-        _priceCache.set(ticker, { q: quote, cachedAt });
-        // Also restore FX rates into _fxRateCache so they survive restarts
-        if (fxSet.has(ticker) && quote?.regularMarketPrice)
-          _fxRateCache[ticker] = { rate: quote.regularMarketPrice, cachedAt };
-      });
-      console.log(`[price_cache] Loaded ${data.length} entries from Supabase`);
-    }
-  } catch(e) { console.warn('[price_cache] Failed to load from Supabase:', e.message); }
-
-  // Bootstrap FX rates via Frankfurter on startup if not already cached.
-  const missingFx = FX_PAIRS.filter(s => !_fxRateCache[s]);
-  if (missingFx.length > 0) {
-    try {
-      const rates = await frankfurterFxRates();
-      Object.entries(rates).forEach(([sym, rate]) => {
-        _fxRateCache[sym] = { rate, cachedAt: Date.now() };
-        setPriceCache(sym, { q: { symbol: sym, regularMarketPrice: rate }, cachedAt: Date.now() });
-      });
-      console.log(`[fx_rates] Bootstrapped ${Object.keys(rates).length} FX rates at startup`);
-    } catch(e) { console.warn('[fx_rates] Startup FX bootstrap failed — will retry on first request:', e.message); }
-  }
-})();
-
 // In-memory presence map — userId → last heartbeat timestamp
 const _presence = new Map();
 const isOnline = id => _presence.has(id) && Date.now() - _presence.get(id) < 2 * 60 * 1000;
@@ -403,20 +228,6 @@ function boundedCache(maxEntries, ttlMs) {
 // case-insensitive match (e.g. "a_b@x.com" must not match "a.b@x.com").
 const escapeLike = v => String(v).replace(/[\\%_]/g, m => '\\' + m);
 
-// PostgREST caps every response at 1000 rows by default; page through with .range() so
-// large result sets (e.g. a user's full transaction history) aren't silently truncated.
-// `build` must return a fresh query builder on each call. `tiebreak` (a unique column) is
-// appended as the last sort key so pages are stable and no row is skipped or repeated.
-async function selectAllRows(build, { pageSize = 1000, tiebreak = 'id' } = {}) {
-  const rows = [];
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await build().order(tiebreak, { ascending: true }).range(from, from + pageSize - 1);
-    if (error) return { data: rows.length ? rows : null, error };
-    rows.push(...(data || []));
-    if (!data || data.length < pageSize) return { data: rows, error: null };
-  }
-}
-
 const app = express();
 app.set('trust proxy', 1);
 
@@ -431,12 +242,11 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(cookieParser());
 
-// Default 100kb body limit, except routes that carry images or CSV files — those parse
+// Default 100kb body limit, except routes that carry images — those parse
 // with largeJson in the route itself. A global parser that ran first would reject their
 // bodies with 413 before the route-level limit ever applied.
 const LARGE_BODY_ROUTES = [
   ['PUT',  /^\/api\/users\/[^/]+\/profile$/],
-  ['POST', /^\/api\/transactions\/upload$/],
   ['POST', /^\/api\/activity\/screenshot$/],
 ];
 const smallJson = express.json({ limit: '100kb' });
@@ -480,49 +290,6 @@ db.from('app_settings').select('value').eq('key', 'allowRegistration').single()
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()), ts: new Date().toISOString() });
-});
-
-// Connectivity diagnostic — tests US (Finnhub) + Nordic (Tiingo fallback)
-app.get('/api/diag/yf', requireAdmin, async (req, res) => {
-  const US_SYMBOLS     = ['AAPL', 'MSFT', 'NVDA'];
-  const NORDIC_SYMBOLS = ['VOLV-B.ST', 'ERIC-B.ST', 'EVO.ST'];
-  const test = async (symbol) => {
-    try {
-      const q = await finnhubQuote(symbol);
-      if (!q) return { symbol, ok: false, error: 'No data returned' };
-      return { symbol, ok: !!q?.regularMarketPrice, price: q?.regularMarketPrice ?? null };
-    } catch(e) { return { symbol, ok: false, error: e?.message }; }
-  };
-
-  // Raw Finnhub probe — reveals HTTP status + actual response body for a US ticker
-  let finnhubProbe = null;
-  if (FINNHUB_KEY) {
-    try {
-      const r = await fetch(
-        `https://finnhub.io/api/v1/quote?symbol=AAPL&token=${FINNHUB_KEY}`,
-        { signal: AbortSignal.timeout(8000) }
-      );
-      const body = await r.text();
-      finnhubProbe = { status: r.status, body: body.slice(0, 300) };
-    } catch(e) { finnhubProbe = { error: e.message }; }
-  }
-
-  // Raw Yahoo Finance probe — reveals HTTP status + response for a Nordic ticker
-  let yahooProbe = null;
-  try {
-    const r = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/VOLV-B.ST?interval=1d&range=5d`,
-      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' }, signal: AbortSignal.timeout(8000) }
-    );
-    const body = await r.text();
-    yahooProbe = { status: r.status, body: body.slice(0, 300) };
-  } catch(e) { yahooProbe = { error: e.message }; }
-
-  const [us, nordic] = await Promise.all([
-    Promise.all(US_SYMBOLS.map(test)),
-    Promise.all(NORDIC_SYMBOLS.map(test)),
-  ]);
-  res.json({ finnhubKeySet: !!FINNHUB_KEY, tiingoKeySet: !!TIINGO_KEY, us, nordic, finnhubProbe, yahooProbe });
 });
 
 // ── Session revocation ──────────────────────────────────────────────────────
@@ -930,9 +697,9 @@ app.post('/api/auth/verify-password', requireUser, authRateLimit, async (req, re
 
 // ── Profile routes ──────────────────────────────────────────────────────────
 app.get('/api/users', requireUser, async (req, res) => {
-  const { data, error } = await db.from('profiles').select('username, role, bio, public_inventory, public_holdings, public_dividends, avatar_base64, created_at, steam_id');
+  const { data, error } = await db.from('profiles').select('username, role, bio, public_inventory, avatar_base64, created_at, steam_id');
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data.map(p => ({ username: p.username, role: p.role, bio: p.bio, publicInventory: p.public_inventory, publicHoldings: p.public_holdings, publicDividends: p.public_dividends, steamId: p.public_inventory ? p.steam_id : null, steamLevel: p.public_inventory ? (p.steam_level || 0) : null, showcaseItems: p.public_inventory ? (p.showcase_items || []) : [], avatarBase64: p.avatar_base64 || null, createdAt: p.created_at })));
+  res.json(data.map(p => ({ username: p.username, role: p.role, bio: p.bio, publicInventory: p.public_inventory, steamId: p.public_inventory ? p.steam_id : null, steamLevel: p.public_inventory ? (p.steam_level || 0) : null, showcaseItems: p.public_inventory ? (p.showcase_items || []) : [], avatarBase64: p.avatar_base64 || null, createdAt: p.created_at })));
 });
 
 app.get('/api/users/:username/profile', async (req, res) => {
@@ -944,22 +711,19 @@ app.get('/api/users/:username/profile', async (req, res) => {
     if (token && supabaseAnon) { const { data: { user } } = await supabaseAnon.auth.getUser(token); if (user) authenticated = true; }
     if (!authenticated) return res.json({ username: data.username, avatarBase64: data.avatar_base64, isPrivate: true });
   }
-  res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', isPublic: data.is_public !== false, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, publicCsTrades: data.public_cs_trades || false, showPortfolioValue: data.show_portfolio_value, steamId: data.steam_verified ? (data.steam_id || null) : null, steamVerified: data.steam_verified || false, steamLevel: data.steam_verified ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
+  res.json({ username: data.username, role: data.role, bio: data.bio, country: data.country || 'se', isPublic: data.is_public !== false, publicInventory: data.public_inventory, publicCsTrades: data.public_cs_trades || false, steamId: data.steam_verified ? (data.steam_id || null) : null, steamVerified: data.steam_verified || false, steamLevel: data.steam_verified ? (data.steam_level || 0) : 0, showcaseItems: data.showcase_items || [], avatarBase64: data.avatar_base64, createdAt: data.created_at });
 });
 
 app.put('/api/users/:username/profile', requireUser, largeJson, async (req, res) => {
   if (req.username !== req.params.username) return res.status(403).json({ error: "Cannot edit another user's profile." });
-  const { bio, steamId, publicInventory, publicHoldings, publicDividends, publicCsTrades, showPortfolioValue, avatarBase64, showcaseItems, country, isPublic } = req.body;
+  const { bio, steamId, publicInventory, publicCsTrades, avatarBase64, showcaseItems, country, isPublic } = req.body;
   const update = {};
   if (bio !== undefined) { if (typeof bio === 'string' && bio.length > 500) return res.status(400).json({ error: 'Bio must be 500 characters or fewer.' }); update.bio = bio; }
   if (country !== undefined) { if (!/^[a-z]{2}$/.test(country)) return res.status(400).json({ error: 'Invalid country code.' }); update.country = country; }
   if (steamId !== undefined) { update.steam_id = steamId; if (steamId !== (await db.from('profiles').select('steam_id').eq('id', req.user.id).single()).data?.steam_id) update.steam_verified = false; }
   if (publicInventory !== undefined) update.public_inventory = publicInventory;
-  if (publicHoldings !== undefined) update.public_holdings = publicHoldings;
-  if (publicDividends !== undefined) update.public_dividends = publicDividends;
   if (publicCsTrades !== undefined) update.public_cs_trades = publicCsTrades;
   if (isPublic !== undefined) update.is_public = !!isPublic;
-  if (showPortfolioValue !== undefined) update.show_portfolio_value = showPortfolioValue;
   if (avatarBase64 !== undefined) {
     if (avatarBase64 && avatarBase64.length > 1.5 * 1024 * 1024) return res.status(400).json({ error: 'Avatar too large. Maximum 1.5 MB.' });
     const ALLOWED_IMG = ['data:image/jpeg;', 'data:image/jpg;', 'data:image/png;', 'data:image/webp;', 'data:image/gif;'];
@@ -972,7 +736,7 @@ app.put('/api/users/:username/profile', requireUser, largeJson, async (req, res)
   }
   const { data, error } = await db.from('profiles').update(update).eq('id', req.user.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true, profile: { username: data.username, bio: data.bio, country: data.country, steamId: data.steam_id, publicInventory: data.public_inventory, publicHoldings: data.public_holdings, publicDividends: data.public_dividends, showPortfolioValue: data.show_portfolio_value, avatarBase64: data.avatar_base64, showcaseItems: data.showcase_items, steamLevel: data.steam_level } });
+  res.json({ success: true, profile: { username: data.username, bio: data.bio, country: data.country, steamId: data.steam_id, publicInventory: data.public_inventory, publicCsTrades: data.public_cs_trades || false, avatarBase64: data.avatar_base64, showcaseItems: data.showcase_items, steamLevel: data.steam_level } });
 });
 
 // Change username
@@ -1017,60 +781,6 @@ async function viewerMayAccess(req, profile) {
 }
 const PRIVATE_PROFILE_ERROR = { error: 'This profile is private. Log in to view it.' };
 
-app.get('/api/users/:username/holdings', publicRateLimit, async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('id, public_holdings, is_public').eq('username', req.params.username).single();
-  if (!profile) return res.status(404).json({ error: 'User not found' });
-  if (!(await viewerMayAccess(req, profile))) return res.status(403).json(PRIVATE_PROFILE_ERROR);
-  if (!profile.public_holdings) return res.status(403).json({ error: "This user's holdings are private." });
-  const { data: txs } = await selectAllRows(() => db.from('transactions').select('ticker, raw_ticker, quantity, price, type, name, currency').eq('user_id', profile.id).in('type', ['buy', 'sell', 'other', 'withdrawal']));
-  const trades = (txs || []).map(t => ({ ...t, ticker: (t.ticker || t.raw_ticker || '').trim(), quantity: Math.abs(t.quantity || 0) })).filter(t => t.ticker && t.quantity > 0);
-  
-  const holdings = {};
-  for (const tx of trades) {
-    if (!holdings[tx.ticker]) holdings[tx.ticker] = { ticker: tx.ticker, name: tx.name, currency: tx.currency, quantity: 0, totalCost: 0 };
-    const h = holdings[tx.ticker];
-    if (tx.type === 'buy') { h.totalCost += tx.quantity * (tx.price || 0); h.quantity += tx.quantity; }
-    else if (tx.type === 'sell') { const avg = h.quantity > 0 ? h.totalCost / h.quantity : 0; h.totalCost = Math.max(0, h.totalCost - tx.quantity * avg); h.quantity -= tx.quantity; }
-    else if ((tx.type === 'other' || tx.type === 'withdrawal') && tx.price === 0) { h.quantity += (tx.type === 'other' ? tx.quantity : -tx.quantity); }
-  }
-  
-  const validHoldings = Object.values(holdings).filter(h => h.quantity > 0.001).map(h => ({ ...h, quantity: Math.floor(h.quantity) }));
-  
-  // Fetch current prices for all holdings
-  const tickers = validHoldings.map(h => h.ticker);
-  let pricesMap = {};
-  if (tickers.length > 0) {
-    // Serve from the shared price cache; only hit the quote API when the cached price
-    // is due for refresh anyway, so public profile views can't burn the API quota.
-    await Promise.allSettled(tickers.map(async t => {
-      const cached = _priceCache.get(t);
-      if (cached?.q?.regularMarketPrice && !shouldRefetch(t)) { pricesMap[t] = cached.q.regularMarketPrice; return; }
-      try {
-        const q = await finnhubQuote(t);
-        if (q?.regularMarketPrice) { pricesMap[t] = q.regularMarketPrice; setPriceCache(t, { q, cachedAt: Date.now() }); }
-        else if (cached?.q?.regularMarketPrice) pricesMap[t] = cached.q.regularMarketPrice;
-      } catch { if (cached?.q?.regularMarketPrice) pricesMap[t] = cached.q.regularMarketPrice; }
-    }));
-  }
-  
-  // Calculate values and weights
-  let totalValue = 0;
-  validHoldings.forEach(h => {
-    const price = pricesMap[h.ticker] || 0;
-    h.value = price > 0 ? Math.round(price * h.quantity) : null;
-    if (h.value) totalValue += h.value;
-  });
-  
-  validHoldings.forEach(h => {
-    h.weight = totalValue > 0 && h.value ? (h.value / totalValue) * 100 : 0;
-  });
-  
-  // Sort by weight descending
-  validHoldings.sort((a, b) => b.weight - a.weight);
-  
-  res.json({ holdings: validHoldings });
-});
-
 app.get('/api/users/:username/inventory', publicRateLimit, async (req, res) => {
   const { data: profile } = await db.from('profiles').select('id, public_inventory, steam_id, steam_verified, is_public').eq('username', req.params.username).single();
   if (!profile) return res.status(404).json({ error: 'User not found' });
@@ -1106,1668 +816,11 @@ app.get('/api/cs/float', requireUser, userRateLimit(20, 60 * 1000, 'cs-float'), 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Global ISIN cache ────────────────────────────────────────────────────────
-// Shared across all users. Any successful ISIN→ticker resolution is stored here
-// so future imports by any user skip Yahoo Finance entirely for that ISIN.
-//
-// One-time Supabase SQL (run in the SQL editor):
-//   CREATE TABLE IF NOT EXISTS global_isin_cache (
-//     isin TEXT PRIMARY KEY,
-//     ticker TEXT NOT NULL,
-//     updated_at TIMESTAMPTZ DEFAULT NOW()
-//   );
-async function loadGlobalIsinCache(isins) {
-  if (!isins?.length) return {};
-  try {
-    const { data } = await db.from('global_isin_cache').select('isin, ticker').in('isin', isins);
-    const map = {};
-    (data || []).forEach(r => { if (r.ticker) map[r.isin] = r.ticker; });
-    return map;
-  } catch { return {}; }
-}
-async function saveGlobalIsinCache(isin, ticker) {
-  if (!isin || !ticker) return;
-  try {
-    await db.from('global_isin_cache')
-      .upsert({ isin, ticker, updated_at: new Date().toISOString() }, { onConflict: 'isin' });
-  } catch {}
-}
-
-// ── Ticker cache/overrides helpers ──────────────────────────────────────────
-async function loadTickerCache(userId) {
-  const { data } = await db.from('ticker_cache').select('cache_key, ticker').eq('user_id', userId);
-  const cache = {};
-  (data || []).forEach(r => { cache[r.cache_key] = r.ticker; });
-  return cache;
-}
-async function saveTickerCacheEntry(userId, key, ticker) {
-  if (!ticker) return;
-  await db.from('ticker_cache').upsert({ user_id: userId, cache_key: key, ticker, updated_at: new Date().toISOString() });
-}
-async function loadOverrides(userId) {
-  const [{ data: global }, { data: user }] = await Promise.all([
-    db.from('global_ticker_overrides').select('isin, ticker').eq('active', true),
-    db.from('ticker_overrides').select('isin, ticker').eq('user_id', userId),
-  ]);
-  const overrides = {};
-  // Per-user loaded first, then global overwrites — global always wins
-  (user || []).forEach(r => { overrides[r.isin] = r.ticker; });
-  (global || []).forEach(r => { overrides[r.isin] = r.ticker; });
-  return overrides;
-}
-
-// ── Shared name cleaner (used by portfolio builder and dividend resolver) ────
-const cleanYFName = (name) => {
-  if (!name) return name;
-  return name
-    .replace(/\s*\(publ\.?\)/gi, '')
-    .replace(/\s*\(AB\)/gi, '')
-    .replace(/\bAB\b(?!\w)/gi, '')
-    .replace(/\bpubl\.?\b/gi, '')
-    .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
-    .replace(/\s*[.,;]\s*$/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-};
-
-// ── Ticker resolution ───────────────────────────────────────────────────────
-
-// Currency suffix priority lists for Yahoo Finance
-const CURRENCY_SUFFIX_MAP = {
-  SEK: ['.ST', '-B.ST', '-A.ST', '-C.ST', '-D.ST', '-PREF.ST', '-BTF.ST'],
-  NOK: ['.OL'],
-  DKK: ['.CO'],
-  EUR: ['.HE', '.AS', '.PA', '.DE', '.F', '.MI', '.MC', '.BR', '.LS', '.VI', '.WA'],
-  GBP: ['.L', '.IL'],
-  CHF: ['.SW', '.VX'],
-  CAD: ['.TO', '.V', '.CN'],
-  AUD: ['.AX'],
-  HKD: ['.HK'],
-  JPY: ['.T'],
-  SGD: ['.SI'],
-};
-
-// ISIN country prefix → currency (expanded)
-const ISIN_CURRENCY_MAP = {
-  SE: 'SEK', NO: 'NOK', DK: 'DKK', FI: 'EUR', IS: 'EUR',
-  DE: 'EUR', FR: 'EUR', NL: 'EUR', BE: 'EUR', IT: 'EUR',
-  ES: 'EUR', PT: 'EUR', AT: 'EUR', IE: 'EUR', LU: 'EUR',
-  GB: 'GBP', CH: 'CHF', US: 'USD', CA: 'CAD', AU: 'AUD',
-  HK: 'HKD', JP: 'JPY', SG: 'SGD', CN: 'CNY',
-};
-
-// ── Finnhub (US prices) + Yahoo Finance (international) + Frankfurter (FX) ──
-const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
-if (!FINNHUB_KEY) log.warn('FINNHUB_API_KEY not set — live price fetching will fail');
-const TIINGO_KEY = process.env.TIINGO_API_KEY || ''; // kept for env compat, no longer used
-
-// Yahoo Finance exchange suffix → Finnhub MIC exchange code
-const YF_TO_FH_EXCHANGE = {
-  '.ST':':XSTO', '.OL':':XOSL', '.CO':':XCSE', '.HE':':XHEL',
-  '.L':':XLON',  '.IL':':XLON', '.PA':':XPAR', '.DE':':XETR',
-  '.F':':XFRA',  '.MI':':XMIL', '.AS':':XAMS', '.MC':':XMAD',
-  '.SW':':XSWX', '.VX':':XSWX', '.TO':':XTSE', '.V':':XTSE',
-  '.AX':':XASX', '.HK':':XHKG', '.T':':XTKS',  '.SI':':XSES',
-};
-const FH_TO_YF_EXCHANGE = Object.fromEntries(
-  Object.entries(YF_TO_FH_EXCHANGE).map(([yf, fh]) => [fh, yf])
-);
-
-function toFinnhubSymbol(yfTicker) {
-  if (!yfTicker) return yfTicker;
-  if (yfTicker.startsWith('^')) return yfTicker; // index symbols pass through
-  for (const [yfSfx, fhSfx] of Object.entries(YF_TO_FH_EXCHANGE)) {
-    if (yfTicker.endsWith(yfSfx)) return yfTicker.slice(0, -yfSfx.length) + fhSfx;
-  }
-  return yfTicker;
-}
-
-function toYFSymbol(fhSymbol) {
-  if (!fhSymbol) return fhSymbol;
-  for (const [fhSfx, yfSfx] of Object.entries(FH_TO_YF_EXCHANGE)) {
-    if (fhSymbol.endsWith(fhSfx)) return fhSymbol.slice(0, -fhSfx.length) + yfSfx;
-  }
-  return fhSymbol;
-}
-
-function currencyFromTicker(ticker) {
-  if (!ticker) return 'USD';
-  for (const [currency, suffixes] of Object.entries(CURRENCY_SUFFIX_MAP)) {
-    if (suffixes.some(s => ticker.endsWith(s))) return currency;
-  }
-  return 'USD';
-}
-
-async function finnhubFetch(path) {
-  const sep = path.includes('?') ? '&' : '?';
-  const r = await fetch(`https://finnhub.io/api/v1${path}${sep}token=${FINNHUB_KEY}`, {
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!r.ok) throw Object.assign(new Error(`Finnhub HTTP ${r.status}`), { status: r.status });
-  return r.json();
-}
-
-// Fallback for exchanges Finnhub free tier doesn't cover (Nordic, European, etc.)
-// Uses the unofficial Yahoo Finance chart API — no key, no rate cap, same ticker format.
-async function yahooQuote(yfTicker) {
-  const r = await fetch(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfTicker)}?interval=1d&range=5d`,
-    { headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' }, signal: AbortSignal.timeout(8000) }
-  );
-  if (r.status === 429) { log.warn('Yahoo Finance rate limit hit', { ticker: yfTicker }); return null; }
-  if (!r.ok) throw new Error(`Yahoo Finance HTTP ${r.status}`);
-  const data = await r.json();
-  const meta = data?.chart?.result?.[0]?.meta;
-  if (!meta?.regularMarketPrice) return null;
-  const price = meta.regularMarketPrice;
-  const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? null;
-  const change = meta.regularMarketChange != null ? meta.regularMarketChange
-    : (prevClose != null ? price - prevClose : null);
-  const changePct = meta.regularMarketChangePercent != null ? meta.regularMarketChangePercent
-    : (change != null && prevClose ? (change / prevClose) * 100 : null);
-  const cached = _priceCache.get(yfTicker);
-  return {
-    symbol: yfTicker,
-    regularMarketPrice: price,
-    regularMarketPreviousClose: prevClose,
-    regularMarketTime: meta.regularMarketTime ?? null,
-    regularMarketChangePercent: changePct,
-    regularMarketChange: change,
-    currency: meta.currency ?? currencyFromTicker(yfTicker),
-    longName:  meta.longName  ?? cached?.q?.longName  ?? null,
-    shortName: meta.shortName ?? cached?.q?.shortName ?? null,
-    sector:    cached?.q?.sector ?? null,
-    quoteType: meta.instrumentType ?? cached?.q?.quoteType ?? 'EQUITY',
-  };
-}
-
-// Returns a YF-compatible quote object. Preserves name/sector from existing cache
-// so repeated fetches don't lose metadata that Finnhub's /quote doesn't return.
-// Falls back to Yahoo Finance when Finnhub returns no data (free tier covers US only).
-async function finnhubQuote(yfTicker) {
-  const fhSymbol = toFinnhubSymbol(yfTicker);
-  const data = await finnhubFetch(`/quote?symbol=${encodeURIComponent(fhSymbol)}`);
-  if (!data?.c) return yahooQuote(yfTicker); // Finnhub no-data → try Yahoo Finance
-  const cached = _priceCache.get(yfTicker);
-  return {
-    symbol: yfTicker,
-    regularMarketPrice: data.c,
-    regularMarketPreviousClose: data.pc,
-    regularMarketTime: data.t,
-    regularMarketChangePercent: data.dp,
-    regularMarketChange: data.d,
-    currency: currencyFromTicker(yfTicker),
-    longName:  cached?.q?.longName  || null,
-    shortName: cached?.q?.shortName || null,
-    sector:    cached?.q?.sector    || null,
-    quoteType: cached?.q?.quoteType || 'EQUITY',
-  };
-}
-
-// Returns company name for a YF-format ticker.
-// Tries Finnhub profile2 first; falls back to Yahoo Finance chart meta (covers
-// international stocks that Finnhub free tier doesn't serve via profile2).
-async function finnhubName(yfTicker) {
-  try {
-    const fhSymbol = toFinnhubSymbol(yfTicker);
-    const p = await finnhubFetch(`/stock/profile2?symbol=${encodeURIComponent(fhSymbol)}`);
-    if (p?.name) return cleanYFName(p.name);
-  } catch {}
-  try {
-    const q = await yahooQuote(yfTicker);
-    if (q?.longName) return cleanYFName(q.longName);
-    if (q?.shortName) return cleanYFName(q.shortName);
-  } catch {}
-  return null;
-}
-
-// Batch ISIN → company name via OpenFIGI (free, no key required, global coverage).
-// Returns map of { isin: displayName }.
-async function openFigiNames(isins) {
-  if (!isins.length) return {};
-  try {
-    const r = await fetch('https://api.openfigi.com/v3/mapping', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(isins.map(isin => ({ idType: 'ID_ISIN', idValue: isin }))),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!r.ok) return {};
-    const results = await r.json();
-    const map = {};
-    results.forEach((result, i) => {
-      const raw = result?.data?.[0]?.name;
-      if (!raw) return;
-      // OpenFIGI returns all-caps; title-case multi-char words for readability
-      const cased = raw.split(' ').map(w =>
-        w.length > 1 ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w
-      ).join(' ');
-      map[isins[i]] = cleanYFName(cased);
-    });
-    return map;
-  } catch { return {}; }
-}
-
-// Returns { 'USDSEK=X': 10.93, 'EURSEK=X': 11.52, ... }
-async function frankfurterFxRates() {
-  const r = await fetch('https://api.frankfurter.app/latest?base=SEK&symbols=USD,EUR,GBP,NOK,DKK', {
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!r.ok) throw new Error(`Frankfurter HTTP ${r.status}`);
-  const data = await r.json();
-  const result = {};
-  for (const [cur, rate] of Object.entries(data.rates || {})) {
-    if (rate) result[`${cur}SEK=X`] = parseFloat((1 / rate).toFixed(6));
-  }
-  return result;
-}
-
-async function finnhubSearch(query) {
-  const data = await finnhubFetch(`/search?q=${encodeURIComponent(query)}`);
-  return (data?.result || []);
-}
-
-function getEffectiveCurrency(currency, isin, broker) {
-  // For Avanza/Nordnet, the currency column IS the instrument currency — trust it
-  if (broker === 'avanza' || broker === 'nordnet') return currency || (isin ? ISIN_CURRENCY_MAP[isin.substring(0, 2)] : null) || 'USD';
-  
-  // For Montrose: kursvaluta is the trading currency
-  // Swedish stocks have SEK, US stocks have USD, etc.
-  // Only fall back to ISIN if currency is missing
-  if (broker === 'montrose') {
-    if (currency && currency !== 'SEK') return currency; // USD, EUR, etc. → use it
-    return 'SEK'; // Default to SEK for Swedish trading
-  }
-  
-  // Generic fallback
-  if (currency && currency !== '-') return currency;
-  if (isin) {
-    const prefix = isin.substring(0, 2).toUpperCase();
-    if (ISIN_CURRENCY_MAP[prefix]) return ISIN_CURRENCY_MAP[prefix];
-  }
-  return currency || 'SEK';
-}
-
-// Wraps an async factory fn with timeout + one retry for transient failures.
-// Never retries 429s — those need a full cooldown pause at the batch level.
-async function withYFRetry(fn, ms = 8000, retries = 1) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      let timer;
-      return await Promise.race([
-        Promise.resolve().then(fn),
-        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('YF timeout')), ms); }),
-      ]).finally(() => clearTimeout(timer));
-    } catch(e) {
-      const isRateLimit = e?.status === 429 || /429|Too Many Requests/i.test(e?.message || '');
-      if (isRateLimit || attempt >= retries) throw e;
-      await new Promise(r => setTimeout(r, 700 * (attempt + 1)));
-    }
-  }
-}
-
-function cleanRawTicker(raw) {
-  if (!raw) return null;
-  let cleaned = raw.trim().toUpperCase();
-  // Strip Reuters exchange codes (.N=NYSE, .O/.OQ=NASDAQ, .K=AMEX) and Nordnet-style .US
-  // These don't exist on Yahoo Finance; valid YF suffixes (.ST, .OL, .L, .HE etc.) are kept
-  cleaned = cleaned.replace(/\.(?:N|O|OQ|NQ|NY|K|US)$/, '');
-  cleaned = cleaned.replace(/\s+/g, '-').replace(/[^A-Z0-9\-\.]/g, '');
-  return cleaned || null;
-}
-
-// Batch resolver — loads cache/overrides once, resolves many tickers
-async function resolveSymbolBatch(transactions, userId) {
-  const [cache, overrides] = await Promise.all([
-    loadTickerCache(userId),
-    loadOverrides(userId),
-  ]);
-
-  const results = {};
-  // Deduplicate: group by cache key so each unique stock makes YF calls only once.
-  const pending = new Map(); // cacheKey → { tx, ids[] }
-
-  // Pre-load global ISIN cache for all ISINs in this batch in a single round-trip
-  const allIsins = [...new Set(transactions.map(t => t.isin).filter(Boolean))];
-  const globalIsins = await loadGlobalIsinCache(allIsins);
-
-  for (const tx of transactions) {
-    const overrideKey = tx.isin || tx.raw_ticker;
-    if (overrideKey && overrides[overrideKey]) { results[tx.id] = overrides[overrideKey]; continue; }
-    const cacheKey = `${tx.broker || ''}|${tx.currency || ''}|${tx.isin || tx.raw_ticker || tx.name}`;
-    if (cache[cacheKey] !== undefined) { results[tx.id] = cache[cacheKey]; continue; }
-    // Global ISIN cache hit — no YF call needed; backfill per-user cache for next import
-    if (tx.isin && globalIsins[tx.isin]) {
-      results[tx.id] = globalIsins[tx.isin];
-      cache[cacheKey] = globalIsins[tx.isin];
-      saveTickerCacheEntry(userId, cacheKey, globalIsins[tx.isin]).catch(() => {});
-      continue;
-    }
-    if (!pending.has(cacheKey)) pending.set(cacheKey, { tx, ids: [] });
-    pending.get(cacheKey).ids.push(tx.id);
-  }
-
-  console.log(`[resolveSymbolBatch] ${transactions.length} txs → ${pending.size} need YF (${transactions.length - pending.size} pre-resolved)`);
-
-  let delayMs = 350;
-  let yfBackoff = 0; // extra ms added after rate-limited tickers; compounds on bursts, recovers on success
-  let resolved = 0;
-  const pendingList = Array.from(pending.entries());
-
-  for (const [, { tx, ids }] of pendingList) {
-    const ctx = { apiCalls: 0, rateLimited: false };
-    const ticker = await resolveSymbolWithContext(
-      tx.raw_ticker || null, tx.isin, tx.name, tx.currency, tx.broker,
-      userId, cache, overrides, ctx, globalIsins
-    );
-    for (const id of ids) results[id] = ticker;
-    resolved++;
-
-    if (ctx.rateLimited) {
-      // Compound backoff: 5s → 10s → 20s → 30s cap. Applies as extra delay after the current
-      // ticker so the next request waits longer — avoids stacking a fixed 30s per-ticker pause.
-      yfBackoff = Math.min(30000, Math.max(yfBackoff * 2, 5000));
-      delayMs = Math.min(2000, delayMs * 3);
-      console.log(`[resolveSymbolBatch] Rate limited — backoff=${yfBackoff}ms, delay=${delayMs}ms`);
-    } else if (ctx.apiCalls > 0 && yfBackoff > 0) {
-      yfBackoff = Math.max(0, yfBackoff - 2000); // slowly recover after successful calls
-    }
-
-    if (resolved % 10 === 0 || resolved === pendingList.length) {
-      console.log(`[resolveSymbolBatch] Progress: ${resolved}/${pendingList.length}`);
-    }
-
-    // Only pace when we actually called Yahoo Finance; instant cache hits need no delay
-    if (ctx.apiCalls > 0) {
-      await new Promise(r => setTimeout(r, delayMs + yfBackoff));
-    }
-  }
-
-  return results;
-}
-
-async function resolveSymbol(rawTicker, isin, name, currency, broker, userId) {
-  const [cache, overrides] = await Promise.all([loadTickerCache(userId), loadOverrides(userId)]);
-  const globalIsins = await loadGlobalIsinCache(isin ? [isin] : []);
-  return resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides, null, globalIsins);
-}
-
-// ctx = { apiCalls: number, rateLimited: boolean } — tracks YF calls made so the batch
-// loop knows whether to insert a pacing delay. globalIsins is the pre-loaded shared cache.
-async function resolveSymbolWithContext(rawTicker, isin, name, currency, broker, userId, cache, overrides, ctx = null, globalIsins = {}) {
-  // 1. Manual override wins always
-  const overrideKey = isin || rawTicker;
-  if (overrideKey && overrides[overrideKey]) return overrides[overrideKey];
-
-  // 2. Per-user cache hit
-  const cacheKey = `${broker || ''}|${currency || ''}|${isin || rawTicker || name}`;
-  if (cache[cacheKey] !== undefined) return cache[cacheKey];
-
-  const save = async (symbol) => {
-    if (symbol) {
-      await saveTickerCacheEntry(userId, cacheKey, symbol);
-      cache[cacheKey] = symbol;
-      // Propagate to global ISIN cache so future users skip YF entirely for this ISIN
-      if (isin) {
-        globalIsins[isin] = symbol;
-        saveGlobalIsinCache(isin, symbol).catch(() => {});
-      }
-    }
-    return symbol;
-  };
-
-  // 3. Global ISIN cache — resolved by any user previously, zero YF calls needed
-  if (isin && globalIsins[isin]) return save(globalIsins[isin]);
-
-  const effectiveCurrency = getEffectiveCurrency(currency, isin, broker);
-  const isinPrefix = isin ? isin.substring(0, 2).toUpperCase() : null;
-
-  // Dual-listing detection: CA companies often dual-list on TSX and NYSE
-  const rawCurrency = (currency || '').toUpperCase();
-  const isCanadianInUS = isinPrefix === 'CA' && (rawCurrency === 'USD' || effectiveCurrency === 'USD');
-  const preferUSListing = effectiveCurrency === 'USD' || isinPrefix === 'US' || isCanadianInUS;
-  const preferredSuffixes = preferUSListing ? [] : (CURRENCY_SUFFIX_MAP[effectiveCurrency] || []);
-
-  // For Avanza/Nordnet: probe .ST first for cross-listed internationals (e.g. AZN, BRK)
-  const nordicNativeIsin = ['SE', 'NO', 'DK', 'FI'].includes(isinPrefix);
-  const nordicProbe = (broker === 'avanza' || broker === 'nordnet')
-    && !isCanadianInUS && isinPrefix !== 'US' && !nordicNativeIsin
-    && !preferredSuffixes.includes('.ST');
-
-  const cleaned = cleanRawTicker(rawTicker);
-  const rawFirstWord = rawTicker ? rawTicker.trim().split(/\s+/)[0] : null;
-  const firstWord = rawFirstWord ? cleanRawTicker(rawFirstWord) : null;
-  const variants = [...new Set([cleaned, firstWord].filter(Boolean))];
-
-  const verifyQuote = async (symbol) => {
-    if (ctx) ctx.apiCalls++;
-    try {
-      const q = await finnhubQuote(symbol);
-      if (q?.regularMarketPrice != null) {
-        setPriceCache(symbol, { q, cachedAt: Date.now() });
-        return symbol;
-      }
-    } catch(e) {
-      if (e?.status === 429 || e?.status === 403) { if (ctx) ctx.rateLimited = true; return null; }
-    }
-    return null;
-  };
-
-  // 4a. Avanza/Nordnet: probe .ST before trusting the CSV currency
-  if (nordicProbe && variants.length) {
-    for (const v of variants) {
-      const result = await verifyQuote(`${v}.ST`);
-      if (result) return save(result);
-    }
-  }
-
-  // 4b. Fast path: ticker + preferred suffixes.
-  // When an ISIN is available, only try the primary suffix — if it doesn't match exactly
-  // (e.g. "VOLVO B" vs "VOLV-B.ST") the ISIN search below is more reliable.
-  if (!preferUSListing && variants.length && preferredSuffixes.length) {
-    const suffixesToTry = isin ? preferredSuffixes.slice(0, 1) : preferredSuffixes;
-    for (const suffix of suffixesToTry) {
-      for (const v of variants) {
-        const result = await verifyQuote(`${v}${suffix}`);
-        if (result) return save(result);
-      }
-    }
-  }
-
-  // 4c. US direct ticker
-  if (preferUSListing && variants.length) {
-    for (const v of variants) {
-      const result = await verifyQuote(v);
-      if (result) return save(result);
-    }
-  }
-
-  // 5. ISIN search — unambiguous, scores candidates by preferred exchange
-  if (isin && !ctx?.rateLimited) {
-    try {
-      if (ctx) ctx.apiCalls++;
-      const fhResults = await finnhubSearch(isin);
-      const quotes = fhResults.filter(r => r.symbol).map(r => ({ symbol: toYFSymbol(r.symbol) }));
-      if (quotes.length) {
-        const scored = quotes.map(q => {
-          let score = 0;
-          if (preferredSuffixes.some(s => q.symbol.endsWith(s))) score += 100;
-          if (nordicProbe && q.symbol.endsWith('.ST')) score += 200;
-          if (preferUSListing && !q.symbol.includes('.')) score += 50;
-          if (isCanadianInUS && !q.symbol.includes('.')) score += 200;
-          if (isCanadianInUS && q.symbol.endsWith('.TO')) score -= 100;
-          if (preferUSListing && q.symbol.includes('.') && !(nordicProbe && q.symbol.endsWith('.ST'))) score -= 100;
-          return { symbol: q.symbol, score };
-        }).sort((a, b) => b.score - a.score);
-        const best = scored[0];
-        const hasPreference = preferredSuffixes.length > 0 || preferUSListing;
-        if (!hasPreference || best.score > 0) return save(best.symbol);
-
-        // 5b. ISIN search found listings on other exchanges but not the preferred one.
-        // Derive the base ticker from what was found (e.g. AZN from AZN.L) and probe
-        // with the preferred suffix (e.g. AZN.ST). Handles stocks like AstraZeneca where
-        // the Swedish SDR has a different ISIN from the underlying share.
-        if (preferredSuffixes.length > 0 && !ctx?.rateLimited) {
-          for (const hit of quotes.slice(0, 3)) {
-            const base = hit.symbol.replace(/\.[A-Z0-9]{1,4}$/, '');
-            if (!base || base.length < 2) continue;
-            for (const suffix of preferredSuffixes.slice(0, 1)) {
-              const probed = await verifyQuote(`${base}${suffix}`);
-              if (probed) return save(probed);
-            }
-          }
-        }
-      }
-    } catch(e) {
-      if (e?.status === 429 || e?.status === 403) { if (ctx) ctx.rateLimited = true; }
-    }
-  }
-
-  // 6. Ticker-string search (e.g. Nordnet exports "HACKSAW" but Finnhub symbol is "HACK:XSTO")
-  if (cleaned?.length >= 3 && !ctx?.rateLimited) {
-    try {
-      if (ctx) ctx.apiCalls++;
-      const fhResults = await finnhubSearch(cleaned);
-      const quotes = fhResults.filter(r => r.symbol).map(r => ({ symbol: toYFSymbol(r.symbol) }));
-      if (quotes.length) {
-        const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
-        if (preferred) return save(preferred.symbol);
-        if (preferUSListing) {
-          const first = quotes[0];
-          if (!first.symbol.includes('.')) return save(first.symbol);
-        }
-      }
-    } catch(e) {
-      if (e?.status === 429 || e?.status === 403) { if (ctx) ctx.rateLimited = true; }
-    }
-  }
-
-  // 7. Name-based search as last resort
-  if (name?.length > 2 && !ctx?.rateLimited) {
-    try {
-      if (ctx) ctx.apiCalls++;
-      const searchName = name.split(/\s+/).slice(0, 3).join(' ');
-      const fhResults = await finnhubSearch(searchName);
-      const quotes = fhResults.filter(r => r.symbol).map(r => ({ symbol: toYFSymbol(r.symbol) }));
-      if (quotes.length) {
-        const preferred = quotes.find(q => preferredSuffixes.some(s => q.symbol.endsWith(s)));
-        if (preferred) return save(preferred.symbol);
-        const first = quotes[0];
-        if (preferUSListing && !first.symbol.includes('.')) return save(first.symbol);
-        if (!preferUSListing && preferredSuffixes.some(s => first.symbol.endsWith(s))) return save(first.symbol);
-      }
-    } catch(e) {
-      if (e?.status === 429 || e?.status === 403) { if (ctx) ctx.rateLimited = true; }
-    }
-  }
-
-  // 8. Last resort for US/CA listings: if cleaned ticker is a bare alphanumeric symbol
-  // (e.g. "BN" from "BN.N" after Reuters-suffix strip), store it without YF verification.
-  // fetchQuote in /api/portfolio will confirm the price; better than returning null which
-  // leaves ticker='' and forces the client to fall back to the raw Reuters-suffixed form.
-  if (preferUSListing && cleaned && /^[A-Z][A-Z0-9]{0,6}$/.test(cleaned)) {
-    return save(cleaned);
-  }
-
-  return save(null);
-}
-
-// ── CSV parsers ─────────────────────────────────────────────────────────────
-function parseMontrose(content) {
-  // Fix common encoding issues: Latin-1 interpreted as UTF-8
-  const fixEncoding = (str) => {
-    if (!str) return str;
-    return str
-      .replace(/Ã¤/g, 'ä').replace(/Ã¶/g, 'ö').replace(/Ã©/g, 'é')
-      .replace(/Ã /g, 'à').replace(/Ã¡/g, 'á').replace(/Ã¥/g, 'å')
-      .replace(/Ã½/g, 'ý').replace(/Ã£/g, 'ã').replace(/Ã§/g, 'ç')
-      .replace(/Â»/g, '»').replace(/ð¼/g, 'æ');
-  };
-
-  const lines = content.replace(/^﻿/, '').split('\n').filter(l => l.trim()).map(fixEncoding);
-  if (lines.length < 2) return [];
-
-  // Proper quoted-field CSV split — handles company names containing commas
-  const splitCSV = (line) => {
-    const fields = [];
-    let cur = '', inQ = false;
-    for (const ch of line) {
-      if (ch === '"') inQ = !inQ;
-      else if (ch === ',' && !inQ) { fields.push(cur.trim()); cur = ''; }
-      else cur += ch;
-    }
-    fields.push(cur.trim());
-    return fields;
-  };
-
-  const headers = splitCSV(lines[0]);
-  const idx = (name) => headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
-  const iDatum=idx('datum'), iTyp=idx('typ'), iNamn=idx('rdepapper')!==-1?idx('rdepapper'):idx('eskr');
-  const iIsin=idx('isin'), iTicker=idx('ticker'), iAntal=idx('antal'), iKurs=idx('kurs'), iKursvaluta=idx('kursvaluta'), iTotalt=idx('totalt'), iKonto=idx('konto');
-  const parseNum = (s) => parseFloat((s||'').replace(/\s/g,'').replace(',','.')) || 0;
-  const TYPE_MAP = {
-    'köp':'buy','kop':'buy','sälj':'sell','salj':'sell',
-    'utdelning':'dividend',
-    'utländsk skatt':'foreign-tax','utlandsk skatt':'foreign-tax',
-    'insättning':'deposit','insattning':'deposit',
-    'uttag':'withdrawal',
-    'vp-överföring in':'buy','vp-overforing in':'buy',
-    'vp-överföring ut':'sell','vp-overforing ut':'sell',
-    'övrigt':'other','ovrigt':'other',
-    'ränta':'other','ranta':'other',
-  };
-  console.log('[parseMontrose] headers:', headers);
-  console.log('[parseMontrose] col indices:', { iDatum, iTyp, iNamn, iIsin, iTicker, iAntal });
-  const rows = lines.slice(1).filter(l => l.trim()).map(line => {
-    const cols = splitCSV(line);
-    if (!cols[iDatum]) return null;
-    const rawType = (cols[iTyp]||'').trim().toLowerCase();
-    const txType = TYPE_MAP[rawType] ||
-      (Object.entries(TYPE_MAP).find(([k]) => rawType.includes(k))?.[1]) ||
-      'other';
-    const qty = Math.abs(parseNum(cols[iAntal]));
-    if (txType === 'other' && !cols[iIsin]?.trim()) return null; // skip empty rows
-    const name = cols[iNamn]?.trim() || '';
-    const isin = cols[iIsin]?.trim() || '';
-    let rawTicker = cols[iTicker]?.trim() || '';
-    // Montrose omits Ticker/ISIN for some dividend and foreign-tax rows, embedding the
-    // ticker in the name instead (e.g. "Utdelning ADDT B 3.2 SEK/aktie" → rawTicker "ADDT B").
-    if (!rawTicker && !isin && (txType === 'dividend' || txType === 'foreign-tax')) {
-      const stripped = name.replace(/^Utdelning\s+/i, '').replace(/^Källskatt\s+/i, '');
-      // Match ticker patterns: can be ticker alone, ticker + share class, or ticker with dots/dashes
-      // Examples: "ADDT B 3.2", "SAGA D", "VIT B", "NOVOB.CO", "LVMH.PA", "Evotec"
-      let m = stripped.match(/^([A-ZÅÄÖ][A-ZÅÄÖ0-9]*(?:[.\-][A-ZÅÄÖ0-9]+)*(?:\s+[A-Z])?)\s+[\d,.]/);
-      // Fallback: if no amount follows, just grab the ticker/share class at the start
-      if (!m) {
-        m = stripped.match(/^([A-ZÅÄÖ][A-ZÅÄÖ0-9]*(?:[.\-][A-ZÅÄÖ0-9]+)*(?:\s+[A-Z])?)(?:\s|$)/);
-      }
-      if (m) rawTicker = m[1].trim();
-    }
-    return { broker:'montrose', date:cols[iDatum]?.trim()||'', type:txType, name, isin, rawTicker, ticker:'', quantity:qty, price:parseNum(cols[iKurs]), currency:cols[iKursvaluta]?.trim()||'SEK', totalSEK:parseNum(cols[iTotalt]), account:cols[iKonto]?.trim()||'' };
-  }).filter(Boolean);
-  const typeCounts = rows.reduce((acc, r) => { acc[r.type] = (acc[r.type]||0)+1; return acc; }, {});
-  console.log('[parseMontrose] parsed', rows.length, 'rows, types:', typeCounts);
-  if (rows.length > 0) console.log('[parseMontrose] sample row[0] rawType was from col', iTyp, ':', rows[0]);
-  return rows;
-}
-function parseAvanza(content) {
-  // Fix common encoding issues: Latin-1 interpreted as UTF-8
-  const fixEncoding = (str) => {
-    if (!str) return str;
-    return str
-      .replace(/\u00C3\u00A4/g, '\u00E4').replace(/\u00C3\u00B6/g, '\u00F6').replace(/\u00C3\u00A9/g, '\u00E9')
-      .replace(/\u00C3 /g, '\u00E0').replace(/\u00C3\u00A1/g, '\u00E1').replace(/\u00C3\u00A5/g, '\u00E5')
-      .replace(/\u00C3\u00BD/g, '\u00FD').replace(/\u00C3\u00A3/g, '\u00E3').replace(/\u00C3\u00A7/g, '\u00E7')
-      .replace(/\u00C2\u00BB/g, '\u00BB').replace(/\u00F0\u00BC/g, '\u00E6');
-  };
-
-  const lines = content.replace(/^\uFEFF/, '').split('\n').filter(l => l.trim()).map(fixEncoding);
-  if (lines.length < 2) return [];
-  // Auto-detect delimiter: old Avanza uses ';', new export format uses ','
-  const firstLine = lines[0];
-  const delimiter = (firstLine.match(/;/g)||[]).length > (firstLine.match(/,/g)||[]).length ? ';' : ',';
-
-  const splitLine = (line) => {
-    if (delimiter === ';') return line.split(';').map(c => c.trim().replace(/"/g,''));
-    // Comma delimiter: handle quoted fields (Avanza may quote numbers containing commas)
-    const fields = [];
-    let cur = '', inQ = false;
-    for (const ch of line) {
-      if (ch === '"') inQ = !inQ;
-      else if (ch === ',' && !inQ) { fields.push(cur.trim()); cur = ''; }
-      else cur += ch;
-    }
-    fields.push(cur.trim());
-    return fields;
-  };
-
-  const headers = splitLine(lines[0]);
-  // Prefer exact column match to avoid Kurs vs Kursvaluta, Totalt vs Totalvaluta collisions
-  const col = (row, name) => {
-    const nl = name.toLowerCase();
-    let i = headers.findIndex(h => h.toLowerCase() === nl);
-    if (i < 0) i = headers.findIndex(h => h.toLowerCase().includes(nl));
-    return i >= 0 ? (row[i]||'').trim().replace(/"/g,'') : '';
-  };
-  const parseNum = (s) => parseFloat((s||'').replace(/\s/g,'').replace(',','.')) || 0;
-
-  const TYPE_MAP = {
-    'koopt':'buy','köpt':'buy','köp':'buy','kop':'buy',
-    'salt':'sell','sålt':'sell','sälj':'sell','salj':'sell',
-    'utdelning':'dividend',
-    'utlandsk kallskatt':'foreign-tax','utländsk källskatt':'foreign-tax',
-    'utlandsk skatt':'foreign-tax','utländsk skatt':'foreign-tax',
-    'insattning':'deposit','insättning':'deposit',
-    'uttag':'withdrawal',
-    'vp-overforing in':'buy','vp-överföring in':'buy',
-    'vp-overforing ut':'sell','vp-överföring ut':'sell',
-    'ovrigt':'other','övrigt':'other',
-  };
-
-  return lines.slice(1).map(line => {
-    const cols = splitLine(line);
-    if (cols.length < 4) return null;
-    const typRaw = col(cols,'typ').toLowerCase().trim();
-    if (!typRaw) return null;
-    const txType = TYPE_MAP[typRaw] || 'other';
-    const qty = Math.abs(parseNum(col(cols,'antal')));
-    const currency = col(cols,'instrumentvaluta') || col(cols,'kursvaluta') || col(cols,'valuta') || 'SEK';
-    const totalRaw = col(cols,'totalt') || col(cols,'belopp');
-    return {
-      broker: 'avanza',
-      date: col(cols,'datum'),
-      type: txType,
-      name: col(cols,'värdepapper') || col(cols,'beskrivning') || col(cols,'beskr'),
-      isin: col(cols,'isin'),
-      rawTicker: '',
-      ticker: '',
-      quantity: qty,
-      price: parseNum(col(cols,'kurs')),
-      currency,
-      totalSEK: parseNum(totalRaw),
-      account: col(cols,'konto'),
-    };
-  }).filter(r => r && r.date);
-}
-
-function parseNordnet(content) {
-  // Fix common encoding issues: Latin-1 interpreted as UTF-8
-  const fixEncoding = (str) => {
-    if (!str) return str;
-    return str
-      .replace(/Ã¤/g, 'ä').replace(/Ã¶/g, 'ö').replace(/Ã©/g, 'é')
-      .replace(/Ã /g, 'à').replace(/Ã¡/g, 'á').replace(/Ã¥/g, 'å')
-      .replace(/Ã½/g, 'ý').replace(/Ã£/g, 'ã').replace(/Ã§/g, 'ç')
-      .replace(/Â»/g, '»').replace(/ð¼/g, 'æ');
-  };
-
-  const bom = content.charCodeAt(0) === 0xFEFF;
-  const lines = (bom ? content.slice(1) : content).split('\n').filter(l => l.trim()).map(fixEncoding);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split('\t').map(h => h.trim().replace(/"/g,''));
-  const col = (row, name) => { const i = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase())); return i >= 0 ? (row[i]||'').trim().replace(/"/g,'') : ''; };
-
-  // Nordnet exports two 'Valuta' columns: the first is the account/transaction currency (SEK),
-  // the second (after 'Inköpsvärde') is the instrument currency (USD, GBP, etc.).
-  // We want the instrument currency so the resolver picks the right exchange.
-  const inkopsvardeIdx = headers.findIndex(h => /ink.p/i.test(h));
-  const allValutaIdxs = headers.reduce((acc, h, i) => h.toLowerCase().includes('valuta') ? [...acc, i] : acc, []);
-  const instrumentValutaIdx = inkopsvardeIdx >= 0
-    ? (allValutaIdxs.find(i => i > inkopsvardeIdx) ?? allValutaIdxs[0] ?? -1)
-    : (allValutaIdxs[0] ?? -1);
-
-  const TYPE_MAP = { 'købt':'buy','köpt':'buy','solgt':'sell','sålt':'sell','udbytte':'dividend','utdelning':'dividend','udenlandsk skat':'foreign-tax','utenlandsk kildeskatt':'foreign-tax' };
-  return lines.slice(1).map(line => {
-    const cols = line.split('\t');
-    if (cols.length < 4) return null;
-    const txType = TYPE_MAP[(col(cols,'transaktionstyp')||col(cols,'transaktionstype')).toLowerCase()] || 'other';
-    const rawQty = parseFloat(col(cols,'antal').replace(',','.').replace(/\s/g,''));
-    const qty = isNaN(rawQty) ? 0 : Math.abs(rawQty);
-    const currency = (instrumentValutaIdx >= 0 ? (cols[instrumentValutaIdx]||'').trim().replace(/"/g,'') : '') || col(cols,'valuta') || 'SEK';
-    return { broker:'nordnet', date:col(cols,'afviklingsdato')||col(cols,'bokföringsdag'), type:txType, name:col(cols,'värdepapper')||col(cols,'verdipapir'), isin:col(cols,'isin'), rawTicker:col(cols,'värdepappersbeteckning')||'', ticker:'', quantity:qty, price:parseFloat(col(cols,'kurs').replace(',','.').replace(/\s/g,''))||0, currency, totalSEK:parseFloat((col(cols,'belopp')||col(cols,'totalt')).replace(',','.').replace(/\s/g,''))||0, account:col(cols,'depå')||col(cols,'depot') };
-  }).filter(Boolean);
-}
-
-function detectBrokerAndParse(filename, content, forcedBroker = null) {
-  console.log('[detect] filename:', filename, 'contentLen:', content?.length, 'forcedBroker:', forcedBroker);
-  if (forcedBroker && forcedBroker !== 'auto') {
-    if (forcedBroker === 'montrose') return { broker:'montrose', rows:parseMontrose(content) };
-    if (forcedBroker === 'avanza')   return { broker:'avanza',   rows:parseAvanza(content) };
-    if (forcedBroker === 'nordnet')  return { broker:'nordnet',  rows:parseNordnet(content) };
-  }
-  const lower = filename.toLowerCase();
-
-  // Step 1: Encoding check — Nordnet uses UTF-16 LE with BOM
-  const hasBOM = content.charCodeAt(0) === 0xFEFF;
-
-  // Step 2: Detect separator from first line
-  const firstLine = content.replace(/^﻿/, '').split('\n')[0] || '';
-  const tabCount = (firstLine.match(/\t/g) || []).length;
-  const semicolonCount = (firstLine.match(/;/g) || []).length;
-  const commaCount = (firstLine.match(/,/g) || []).length;
-
-  // Step 3: Header-based detection (most reliable)
-  const headerLower = firstLine.toLowerCase();
-
-  // Nordnet: tab-separated with unique headers. hasBOM alone is NOT sufficient —
-  // Montrose also exports UTF-8 with BOM, so both produce charCode 0xFEFF at pos 0.
-  const isNordnet = tabCount > 3 ||
-    headerLower.includes('transaktionstype') ||
-    headerLower.includes('afviklingsdato') ||
-    headerLower.includes('bokföringsdag') ||
-    lower.includes('nordnet');
-
-  // Avanza: 'typ av transaktion' is unique to Avanza (Montrose uses just 'Typ')
-  const isAvanza = !isNordnet && (
-    headerLower.includes('typ av transaktion') ||
-    lower.includes('avanza')
-  );
-
-  // Montrose: has 'ticker' column (unique to Montrose) — checked after Avanza
-  const isMontrose = !isNordnet && !isAvanza && (
-    headerLower.includes('ticker') ||
-    headerLower.includes('kursvaluta') ||
-    lower.includes('montrose')
-  );
-
-  if (isNordnet) return { broker:'nordnet', rows:parseNordnet(content) };
-  if (isMontrose) return { broker:'montrose', rows:parseMontrose(content) };
-  if (isAvanza) return { broker:'avanza', rows:parseAvanza(content) };
-
-  // Last resort: try each parser and return the one that produces the most valid rows
-  const attempts = [
-    { broker:'montrose', rows:parseMontrose(content) },
-    { broker:'avanza', rows:parseAvanza(content) },
-    { broker:'nordnet', rows:parseNordnet(content) },
-  ];
-  const best = attempts.reduce((a, b) => a.rows.length >= b.rows.length ? a : b);
-  return best.rows.length > 0 ? best : { broker:'unknown', rows:[] };
-}
-
-// ── Transactions ────────────────────────────────────────────────────────────
-app.get('/api/transactions', requireUser, async (req, res) => {
-  const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data, error } = await selectAllRows(() => db.from('transactions').select('*').eq('user_id', req.user.id).order('date', { ascending: false }));
-  if (error) return res.status(500).json({ error: error.message });
-  let bcRate = 1;
-  if (BC !== 'SEK') {
-    try {
-      const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${BC}`);
-      const fxd = await fx.json();
-      if (fxd?.rates?.[BC]) bcRate = fxd.rates[BC];
-    } catch(e) {}
-  }
-  const rows = data || [];
-  // Backfill tickers onto dividend/foreign-tax rows by matching ISIN from buy/sell rows.
-  // Dividends are excluded from the resolve step so they never get a ticker written to the DB.
-  const isinToTicker = {};
-  rows.forEach(t => { if (t.ticker && t.isin) isinToTicker[t.isin] = t.ticker; });
-  res.json(rows.map(t => ({
-    ...t,
-    ticker: t.ticker || (t.isin ? isinToTicker[t.isin] : null) || null,
-    total: parseFloat(((t.total_sek || 0) * bcRate).toFixed(2)),
-  })));
-});
-
-app.get('/api/transactions/count', requireUser, async (req, res) => {
-  const { data } = await selectAllRows(() => db.from('transactions').select('broker, type').eq('user_id', req.user.id));
-  const rows = data || [];
-  const total = rows.length;
-  const trades = rows.filter(r => r.type === 'buy' || r.type === 'sell').length;
-  const byBroker = {};
-  rows.forEach(r => {
-    const b = r.broker || 'unknown';
-    if (!byBroker[b]) byBroker[b] = { total: 0, types: {} };
-    byBroker[b].total++;
-    byBroker[b].types[r.type] = (byBroker[b].types[r.type] || 0) + 1;
-  });
-  res.json({ total, trades, byBroker });
-});
-
-app.delete('/api/transactions', requireUser, async (req, res) => {
-  const { broker } = req.query;
-  let query = db.from('transactions').delete().eq('user_id', req.user.id);
-  if (broker) query = query.eq('broker', broker);
-  await query;
-  res.json({ success: true });
-});
-
-app.delete('/api/ticker-cache', requireUser, async (req, res) => {
-  await db.from('ticker_cache').delete().eq('user_id', req.user.id);
-  res.json({ success: true });
-});
-
-app.post('/api/transactions/upload', requireUser, largeJson, async (req, res) => {
-  const { files, broker: brokerKey, forceBroker, dividendsOnly } = req.body;
-  console.log('[upload] received files:', files?.length, 'forceBroker:', forceBroker, 'brokerKey:', brokerKey, 'dividendsOnly:', dividendsOnly);
-  if (files?.length) console.log('[upload] file[0] name:', files[0]?.name, 'content length:', files[0]?.content?.length, 'content start:', (files[0]?.content||'').substring(0,80));
-  const forcedBroker = brokerKey || forceBroker || null;
-  if (!files?.length) return res.status(400).json({ error: 'No files provided' });
-  const results = [];
-  let allNew = [];
-  for (const { name, content } of files) {
-    try {
-      const { broker, rows: allRows } = detectBrokerAndParse(name, content, forcedBroker);
-      const rows = dividendsOnly ? allRows.filter(r => r.type === 'dividend' || r.type === 'foreign-tax') : allRows;
-      const typeCounts = rows.reduce((a, r) => { a[r.type]=(a[r.type]||0)+1; return a; }, {});
-      const sampleTypes = rows.slice(0,5).map(r => r.type+'('+r.name.slice(0,15)+')');
-      results.push({ file:name, broker, count:rows.length, typeCounts, sampleTypes });
-      allNew = allNew.concat(rows);
-    }
-    catch(e) { results.push({ file:name, error:e.message }); }
-  }
-  const { data: existing } = await selectAllRows(() => db.from('transactions').select('broker, date, type, isin, quantity, price').eq('user_id', req.user.id));
-  const dedupKey = t => `${t.broker||''}|${t.date||''}|${t.type||''}|${t.isin||''}|${Math.round((t.quantity||0)*10000)}|${Math.round((t.price||0)*10000)}`;
-  const existingIds = new Set((existing||[]).map(dedupKey));
-  const newUnique = allNew.filter(t => !existingIds.has(dedupKey(t)));
-  if (newUnique.length > 0) {
-    const rows = newUnique.map(t => ({ user_id:req.user.id, broker:t.broker, date:t.date, type:t.type, name:t.name, isin:t.isin, raw_ticker:t.rawTicker, ticker:t.ticker, quantity:t.quantity, price:t.price, currency:t.currency, total_sek:t.totalSEK, account:t.account }));
-    await db.from('transactions').insert(rows);
-
-    // If any dividend rows were inserted, resolve their names in the background
-    const hasDividends = newUnique.some(t => t.type === 'dividend' || t.type === 'foreign-tax');
-    if (hasDividends) {
-      resolveDividendNames(req.user.id).catch(() => {});
-    }
-
-    // Log activity only when new transactions are added
-    const { data: holdingsData } = await selectAllRows(() => db.from('transactions').select('ticker').eq('user_id', req.user.id).not('ticker', 'is', null));
-    const uniqueTickers = [...new Set((holdingsData || []).map(h => h.ticker))];
-    await appendActivity(req.user.id, 'holdings_update', { holdingCount: uniqueTickers.length, tickers: uniqueTickers.slice(0, 5) });
-  }
-  const { count: total } = await db.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id);
-  res.json({ results, newAdded:newUnique.length, total:total||0 });
-});
-
-app.post('/api/transactions/resolve', requireUser, async (req, res) => {
-  const { force, limit } = req.body;
-  const batchSize = (limit && Number.isFinite(+limit)) ? Math.min(+limit, 100) : null;
-
-  if (force) {
-    // Do NOT clear the entire ticker_cache — that forces all stocks to hit YF simultaneously
-    // and triggers rate-limiting. Cache hits for already-correct tickers are free; only
-    // genuinely unresolved tickers (cache miss) will make fresh YF calls.
-    const { data: allTxs } = await selectAllRows(() => db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker').eq('user_id', req.user.id).in('type', ['buy','sell','other','withdrawal']));
-    const txList = allTxs || [];
-    // resolveSymbolBatch loads the (now-empty) cache once and skips the rate-limit
-    // sleep for repeated tickers — huge speedup when one stock has many transactions
-    const tickerMap = await resolveSymbolBatch(txList, req.user.id);
-    let resolved = 0;
-    await Promise.all(txList.map(async tx => {
-      const ticker = tickerMap[tx.id];
-      if (ticker && ticker !== tx.ticker) {
-        await db.from('transactions').update({ ticker }).eq('id', tx.id);
-        resolved++;
-      }
-    }));
-    return res.json({ resolved, total: txList.length, remaining: 0, forced: true });
-  }
-
-  // Normal mode: resolve up to `limit` unresolved transactions per call
-  let q = db.from('transactions').select('id, raw_ticker, isin, name, currency, broker').eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
-  if (batchSize) q = q.limit(batchSize);
-  const { data: unresolved } = await q;
-  await db.from('ticker_cache').delete().eq('user_id', req.user.id).is('ticker', null);
-  const txList = unresolved || [];
-  const tickerMap = await resolveSymbolBatch(txList, req.user.id);
-  let resolved = 0;
-  await Promise.all(txList.map(async tx => {
-    const ticker = tickerMap[tx.id];
-    if (ticker) {
-      await db.from('transactions').update({ ticker }).eq('id', tx.id);
-      resolved++;
-    }
-    // Unresolved transactions stay with ticker = '' — the client's no-progress counter
-    // handles the infinite-loop case. Committing raw_ticker would set a wrong exchange.
-  }));
-  const { count: remaining } = await db.from('transactions').select('*', { count:'exact', head:true }).eq('user_id', req.user.id).in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.');
-  res.json({ resolved, total: txList.length, remaining: remaining || 0 });
-});
-
-// Re-resolve specific tickers that failed price fetch — called by client after portfolio load
-app.post('/api/transactions/resolve-failed', requireUser, async (req, res) => {
-  const { failedTickers } = req.body;
-  if (!Array.isArray(failedTickers) || !failedTickers.length) return res.json({ resolved: 0 });
-  // Safety cap: if many holdings are failing it's a systemic issue — mass-reset would wipe all
-  // resolved tickers and trigger YF rate-limiting. Use force-resolve instead.
-  if (failedTickers.length > 5) return res.status(400).json({ error: 'too_many', count: failedTickers.length });
-
-  // Two separate safe queries: by resolved ticker and by raw_ticker (for unresolved rows where ticker='')
-  const [byTicker, byRaw] = await Promise.all([
-    selectAllRows(() => db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
-      .eq('user_id', req.user.id).in('ticker', failedTickers).in('type', ['buy', 'sell'])),
-    selectAllRows(() => db.from('transactions').select('id, raw_ticker, isin, name, currency, broker, ticker')
-      .eq('user_id', req.user.id).in('raw_ticker', failedTickers).in('type', ['buy', 'sell'])),
-  ]);
-  const seen = new Set();
-  const txs = [...(byTicker.data || []), ...(byRaw.data || [])].filter(t => {
-    if (seen.has(t.id)) return false;
-    seen.add(t.id);
-    return true;
-  });
-
-  if (!txs?.length) return res.json({ resolved: 0 });
-
-  // Delete ticker_cache entries for these so resolver tries YF fresh
-  const cacheKeys = txs.map(tx => `${tx.broker||''}|${tx.currency||''}|${tx.isin||tx.raw_ticker||tx.name}`);
-  await Promise.all(cacheKeys.map(k =>
-    db.from('ticker_cache').delete().eq('user_id', req.user.id).eq('cache_key', k)
-  ));
-
-  // Reset tickers to '' so they're treated as unresolved (update by id to avoid mis-matching on raw_ticker)
-  const txIds = txs.map(t => t.id);
-  await db.from('transactions').update({ ticker: '' }).eq('user_id', req.user.id).in('id', txIds);
-
-  // Re-resolve
-  const tickerMap = await resolveSymbolBatch(txs.map(tx => ({ ...tx, ticker: '' })), req.user.id);
-  let resolved = 0;
-  await Promise.all(txs.map(async tx => {
-    const ticker = tickerMap[tx.id];
-    if (ticker) {
-      await db.from('transactions').update({ ticker }).eq('id', tx.id);
-      resolved++;
-    }
-  }));
-  res.json({ resolved, total: txs.length });
-});
-
-app.get('/api/transactions/reconstruct', requireUser, async (req, res) => {
-  const { data: txs } = await selectAllRows(() => db.from('transactions')
-    .select('ticker, raw_ticker, quantity, price, isin, type, date, name')
-    .eq('user_id', req.user.id)
-    .in('type', ['buy', 'sell', 'other', 'withdrawal'])
-    .order('date', { ascending: true }));
-
-  // Normalise: use ticker if resolved, else raw_ticker
-  // Group by ISIN when available (avoids duplicate holdings from re-resolves)
-  const normalised = (txs||[])
-    .map(t => ({ 
-      ...t, 
-      ticker: (t.ticker||t.raw_ticker||'').trim(),
-      // Handle old data with negative sell quantities - normalize to positive
-      quantity: Math.abs(t.quantity || 0)
-    }))
-    .filter(t => t.ticker && t.quantity > 0); // skip zero-quantity rows
-  
-  // Sort same-day transactions: BUYS before SELLS
-  // Montrose CSV exports same-day transactions in reverse chronological order
-  // Example: April 8 in CSV shows Sell then Buy, but actual order was Buy then Sell
-  normalised.sort((a, b) => {
-    if (a.date === b.date) {
-      const typeOrder = { buy: 1, other: 2, withdrawal: 3, sell: 4 };
-      return (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99);
-    }
-    return 0; // Already sorted by date from query
-  });
-
-  // Build ISIN → best ticker mapping; overrides always win over stored tickers
-  const overrides = await loadOverrides(req.user.id);
-  const isinToTicker = {};
-  normalised.forEach(t => {
-    if (!t.isin) return;
-    if (overrides[t.isin]) {
-      isinToTicker[t.isin] = overrides[t.isin];
-    } else if (t.ticker) {
-      const existing = isinToTicker[t.isin];
-      // Prefer proper YF exchange-suffixed tickers (e.g. EVO.ST) over bare or Reuters tickers.
-      // Reuters suffixes (.N .O .OQ .K .US) are NOT valid YF tickers — don't let them
-      // overwrite already-resolved clean tickers like BN → BN.N would wrongly win otherwise.
-      const isReutersTicker = /\.(N|O|OQ|NQ|NY|K|US)$/i.test(t.ticker);
-      const isProperSuffix = t.ticker.includes('.') && !isReutersTicker;
-      if (!existing || (isProperSuffix && !existing.includes('.'))) {
-        isinToTicker[t.isin] = t.ticker;
-      }
-    }
-  });
-
-  const holdings = {};
-  for (const tx of normalised) {
-    // Use ISIN-canonical ticker when available to avoid splits
-    const canonicalTicker = (tx.isin && isinToTicker[tx.isin]) ? isinToTicker[tx.isin] : tx.ticker;
-
-    if (!holdings[canonicalTicker]) {
-      holdings[canonicalTicker] = { ticker: canonicalTicker, isin: tx.isin||null, quantity: 0, totalCost: 0, name: tx.name||'' };
-    }
-    const h = holdings[canonicalTicker];
-    if (tx.isin && !h.isin) h.isin = tx.isin;
-
-    if (tx.type === 'buy') {
-      h.totalCost += tx.quantity * (tx.price || 0);
-      h.quantity += tx.quantity;
-    } else if (tx.type === 'sell') {
-      const avg = h.quantity > 0 ? h.totalCost / h.quantity : 0;
-      h.totalCost = Math.max(0, h.totalCost - tx.quantity * avg);
-      h.quantity -= tx.quantity;
-      // Clamp to zero if we sold more than we have (pre-history sells)
-      if (h.quantity < 0) { h.quantity = 0; h.totalCost = 0; }
-    } else if ((tx.type === 'other' || tx.type === 'withdrawal') && tx.isin && tx.price === 0) {
-      // Split adjustments: Övrigt/Uttag with ISIN and zero price
-      // Övrigt (other) = add shares, Uttag (withdrawal) = remove shares
-      // Zero price means we don't adjust cost basis (split doesn't change total value)
-      if (tx.type === 'withdrawal') {
-        h.quantity -= tx.quantity;
-      } else {
-        h.quantity += tx.quantity;
-      }
-    }
-  }
-
-  const result = Object.values(holdings)
-    .filter(h => h.quantity > 0.001)
-    .map(h => ({
-      ticker: h.ticker,
-      isin: h.isin || null,
-      name: h.name || '',
-      quantity: Math.floor(Math.round(h.quantity * 1e6) / 1e6),
-      avgPrice: h.quantity > 0 ? parseFloat((h.totalCost / h.quantity).toFixed(4)) : 0,
-    }));
-
-  res.json(result);
-});
-
-// ── Market index quotes ──────────────────────────────────────────────────────
-
-
-// Probe for global_isin_cache table on startup — log a clear message if it hasn't been created yet
-db.from('global_isin_cache').select('isin').limit(1).then(({ error }) => {
-  if (error) log.warn('global_isin_cache table missing — cross-user ISIN caching disabled. Create it with:\n  CREATE TABLE global_isin_cache (isin TEXT PRIMARY KEY, ticker TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW());');
-  else log.info('global_isin_cache ready');
-}).catch(() => {});
-
-
-// ── Portfolio valuation ─────────────────────────────────────────────────────
-app.post('/api/portfolio', requireUser, heavyRateLimit(30000, 'portfolio'), async (req, res) => {
-  const { portfolio, baseCurrency, forceRefresh } = req.body;
-  if (!portfolio?.length) return res.json({ portfolio:[], totals:null });
-  const BC = baseCurrency || 'SEK';
-  let fxRates = {};
-  try {
-    const rates = await frankfurterFxRates();
-    Object.entries(rates).forEach(([sym, rate]) => {
-      fxRates[sym] = rate;
-      _fxRateCache[sym] = { rate, cachedAt: Date.now() };
-      setPriceCache(sym, { q: { symbol: sym, regularMarketPrice: rate }, cachedAt: Date.now() });
-    });
-  } catch(e) {
-    // Fall back to in-memory cache first, then Supabase-persisted _priceCache.
-    Object.entries(_fxRateCache).forEach(([sym, { rate }]) => { if (rate) fxRates[sym] = rate; });
-    FX_PAIRS.forEach(sym => {
-      if (!fxRates[sym]) {
-        const cached = _priceCache.get(sym);
-        if (cached?.q?.regularMarketPrice) fxRates[sym] = cached.q.regularMarketPrice;
-      }
-    });
-  }
-  const toSEK=(amount,currency)=>{ if(!currency||currency==='SEK') return amount; return fxRates[`${currency}SEK=X`]?amount*fxRates[`${currency}SEK=X`]:amount; };
-  const fromSEK=(amount)=>{ if(BC==='SEK') return amount; return fxRates[`${BC}SEK=X`]?amount/fxRates[`${BC}SEK=X`]:amount; };
-  const FLAGS={ST:'se',OL:'no',CO:'dk',HE:'fi',AS:'nl',PA:'fr',DE:'de',F:'de',L:'gb',IL:'gb',MI:'it',MC:'es',SW:'ch',VX:'ch',TO:'ca',V:'ca',CN:'ca',AX:'au',HK:'hk',T:'jp',SI:'sg'};
-  // ISIN country → flag emoji for when the ticker has no exchange suffix
-  // Only non-US/CA countries: CA and US companies commonly list on US exchanges without a suffix,
-  // so a no-dot ticker for them is still a US listing and should keep 🇺🇸.
-  const ISIN_FLAG={SE:'se',NO:'no',DK:'dk',FI:'fi',NL:'nl',FR:'fr',DE:'de',GB:'gb',IT:'it',ES:'es',CH:'ch',AU:'au',HK:'hk',JP:'jp',SG:'sg'};
-  const getFlag=(t,isin)=>{ const p=t.split('.'); if(p.length>1) return FLAGS[p[p.length-1]]||'us'; if(isin){const cc=isin.substring(0,2).toUpperCase(); if(ISIN_FLAG[cc]) return ISIN_FLAG[cc];} return 'us'; };
-  const getShareClass=(ticker)=>{ const m=ticker.match(/^[^-]+-([A-Ca-c])(?:\.|$)/); return m?m[1].toUpperCase():null; };
-  const cleanName=(name,ticker)=>{
-    if (!name) return name;
-    let cleaned = name
-      .replace(/\s*\(publ\.?\)/gi, '')
-      .replace(/\s*\(AB\)/gi, '')
-      .replace(/\bAB\b(?!\w)/gi, '')
-      .replace(/\bpubl\.?\b/gi, '')
-      .replace(/\b(ASA|AS|A\/S|SE|Inc\.?|Inc|Corp\.?|Ltd\.?|Limited|PLC|N\.V\.|S\.A\.|GmbH|AG)\b/gi, '')
-      .replace(/\s*[.,;]\s*$/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    const shareClass = ticker ? getShareClass(ticker) : null;
-    if (shareClass && !new RegExp(`\\b${shareClass}$`).test(cleaned)) cleaned += ` ${shareClass}`;
-    return cleaned;
-  };
-  // Resolve a ticker to a live quote, with fallback to ISIN-based suffix variants, then to price cache
-  const fetchQuote = async (ticker, isin, skipCache = false) => {
-    // Fast path: return very recent _priceCache entry (populated by bulk pre-fetch above).
-    // Entries < 60s old are from this request and should be treated as live, not stale.
-    if (!skipCache) {
-      const cached = _priceCache.get(ticker);
-      if (cached) {
-        const age = Date.now() - cached.cachedAt;
-        if (age < 60000) return { ...cached.q, _resolvedTicker: ticker };
-        // Not in a scheduled fetch window — serve stale cache
-        if (!shouldRefetch(ticker)) return { ...cached.q, _resolvedTicker: ticker, _fromCache: true, _cachedAt: cached.cachedAt };
-        if (age < PRICE_CACHE_TTL) return { ...cached.q, _fromCache: true, _resolvedTicker: ticker, _cachedAt: cached.cachedAt };
-      }
-    }
-    // Live Finnhub fetch — toFinnhubSymbol() converts .ST→:XSTO etc. internally
-    try {
-      const q = await finnhubQuote(ticker);
-      if (q?.regularMarketPrice != null) {
-        setPriceCache(ticker, { q, cachedAt: Date.now() });
-        return { ...q, _resolvedTicker: ticker };
-      }
-    } catch(e) {
-      log.warn('finnhub quote failed', { ticker, error: e?.message?.slice(0, 80) });
-    }
-    // Fall back to cache (24h warm TTL — stale price beats no price)
-    const cached2 = _priceCache.get(ticker);
-    if (cached2 && (Date.now() - cached2.cachedAt) < PRICE_CACHE_WARM_TTL) {
-      return { ...cached2.q, _fromCache: true, _resolvedTicker: ticker, _cachedAt: cached2.cachedAt };
-    }
-    return null;
-  };
-
-  // Fetch quotes with a concurrency limit to avoid tripping YF rate limits.
-  // Workers are staggered so they don't all fire simultaneously at t=0.
-  // After a failed fetch (null) the worker pauses longer — a null result usually
-  // means rate-limiting, so backing off reduces cascading failures.
-  const fetchWithLimit = async (items, limit, fn) => {
-    const results = new Array(items.length);
-    let idx = 0;
-    const workers = Array.from({ length: Math.min(limit, items.length) }, async (_, wi) => {
-      if (wi > 0) await new Promise(r => setTimeout(r, wi * 400)); // stagger starts
-      while (idx < items.length) {
-        const i = idx++;
-        results[i] = await fn(items[i]);
-        if (idx < items.length) {
-          const delay = results[i] == null ? 1500 : 250; // back off after a miss
-          await new Promise(r => setTimeout(r, delay));
-        }
-      }
-    });
-    await Promise.all(workers);
-    return results;
-  };
-
-  // Warm _priceCache from Supabase for any tickers not already in memory.
-  // This handles server restarts and race conditions where the startup load hasn't
-  // finished yet. A single batch query covers all cold tickers before any YF calls,
-  // so if the bulk pre-fetch below fails (rate-limit), individual fetchQuote calls
-  // still have cached data to fall back on instead of making 19 separate YF requests.
-  if (!forceRefresh && portfolio.length > 0) {
-    const coldTickers = portfolio.map(h => h.ticker).filter(t => t && !_priceCache.has(t));
-    if (coldTickers.length > 0) {
-      const cutoff = new Date(Date.now() - PRICE_CACHE_WARM_TTL).toISOString();
-      const { data: dbPrices } = await db.from('price_cache')
-        .select('ticker, quote, cached_at').in('ticker', coldTickers).gt('cached_at', cutoff);
-      (dbPrices || []).forEach(({ ticker, quote, cached_at }) => {
-        if (!_priceCache.has(ticker))
-          _priceCache.set(ticker, { q: quote, cachedAt: new Date(cached_at).getTime() });
-      });
-    }
-  }
-
-  // Bulk pre-fetch: one YF call for all tickers → fills _priceCache before the per-ticker loop.
-  // This collapses N individual YF calls into 1, dramatically reducing rate-limit exposure on
-  // initial loads when _priceCache is cold. Only on normal loads (not force-refresh).
-  if (!forceRefresh && portfolio.length > 0) {
-    const allTickers = portfolio.map(h => h.ticker).filter(Boolean);
-    // Skip tickers that are within their current scheduled fetch window
-    const tickersToFetch = allTickers.filter(t => shouldRefetch(t));
-    if (tickersToFetch.length > 0) {
-      await Promise.allSettled(tickersToFetch.map(async t => {
-        try {
-          const q = await finnhubQuote(t);
-          if (q?.regularMarketPrice != null) setPriceCache(t, { q, cachedAt: Date.now() });
-        } catch {}
-      }));
-    }
-  }
-
-  // Load last-good Supabase snapshot — used as per-ticker fallback when YF is temporarily down
-  const { data: snapForFallback } = await db.from('portfolio_cache')
-    .select('dashboard, built_at').eq('user_id', req.user.id).eq('currency', BC).single();
-  const snapshotBuiltAt = snapForFallback?.built_at || null;
-  const cachedRowMap = {};        // keyed by ticker
-  const cachedRowByIsin = {};     // keyed by ISIN — fallback when ticker has drifted
-  (snapForFallback?.dashboard?.portfolio || []).forEach(r => {
-    if (!r.nativePrice) return;
-    if (r.ticker) cachedRowMap[r.ticker] = r;
-    if (r.isin)   cachedRowByIsin[r.isin] = r;
-  });
-
-  let hasStalePrices = false;
-  const settled = await fetchWithLimit(portfolio, 3, async h => {
-    try {
-      const q = await fetchQuote(h.ticker, h.isin, !!forceRefresh);
-      if (!q) {
-        const cr = cachedRowMap[h.ticker] || (h.isin && cachedRowByIsin[h.isin]);
-        if (cr) {
-          hasStalePrices = true;
-          const qty = h.quantity;
-          const qtyRatio = cr.quantity > 0 ? qty / cr.quantity : 1;
-          // Prefer FX-rate-based calculation when rates are available; otherwise scale
-          // cached per-unit values directly to avoid the 1:1 USD=SEK silent fallback.
-          const hasFx = !cr.currency || cr.currency === 'SEK' || !!fxRates[`${cr.currency}SEK=X`];
-          let currentValueBase, costBase;
-          if (hasFx) {
-            currentValueBase = fromSEK(toSEK(cr.nativePrice * qty, cr.currency));
-            costBase = fromSEK(toSEK((h.avgPrice||0) * qty, cr.currency));
-          } else {
-            const valuePerUnit = cr.quantity > 0 ? cr.currentValue / cr.quantity : 0;
-            const cachedCostPerUnit = cr.quantity > 0 ? (cr.currentValue - (cr.profit || 0)) / cr.quantity : 0;
-            currentValueBase = valuePerUnit * qty;
-            costBase = cachedCostPerUnit * qty;
-          }
-          const profitBase = currentValueBase - costBase;
-          return { ...cr, quantity: qty, avgPrice: h.avgPrice||0, currentValue: currentValueBase, profit: profitBase, returnPct: costBase > 0 ? (profitBase / costBase) * 100 : 0, todayGainBase: cr.todayGainBase != null ? cr.todayGainBase * qtyRatio : 0, stale: true, priceDate: snapshotBuiltAt };
-        }
-        const fallbackName = h.name || h.ticker;
-        return { ticker:h.ticker, name:fallbackName, cleanName:cleanName(fallbackName,h.ticker), flag:getFlag(h.ticker,h.isin), currency:h.currency||'SEK', isin:h.isin||null, quantity:h.quantity, nativePrice:null, avgPrice:h.avgPrice||0, currentValue:null, profit:null, returnPct:null, todayChangePct:null, todayGainBase:null, sector:'Unknown', quoteType:null, noData:true };
-      }
-      const resolvedTicker = q._resolvedTicker || h.ticker;
-      if (resolvedTicker !== h.ticker) {
-        db.from('transactions').update({ ticker: resolvedTicker })
-          .eq('user_id', req.user.id).eq('raw_ticker', h.ticker).then(() => {});
-      }
-      const nativePrice=q.regularMarketPrice||0, prevClose=q.regularMarketPreviousClose||nativePrice;
-      const _isinCcy=h.isin?ISIN_CURRENCY_MAP[h.isin.substring(0,2).toUpperCase()]:null;
-      const currency=q.currency||_isinCcy||'SEK';
-      const currentValueBase=fromSEK(toSEK(nativePrice*h.quantity,currency)), costBase=fromSEK(toSEK((h.avgPrice||0)*h.quantity,currency)), profitBase=currentValueBase-costBase;
-      const mktTime = q.regularMarketTime;
-      const priceDate = mktTime
-        ? new Date(typeof mktTime === 'number' ? mktTime * 1000 : mktTime).toISOString()
-        : (q._fromCache && q._cachedAt ? new Date(q._cachedAt).toISOString() : null);
-      return { ticker:resolvedTicker, name:q.longName||q.shortName||h.ticker, cleanName:cleanName(q.longName||q.shortName||h.ticker,resolvedTicker), flag:getFlag(resolvedTicker,h.isin), currency, isin:h.isin||null, quantity:h.quantity, nativePrice, avgPrice:h.avgPrice||0, currentValue:currentValueBase, profit:profitBase, returnPct:costBase>0?(profitBase/costBase)*100:0, todayChangePct:prevClose>0?((nativePrice-prevClose)/prevClose)*100:0, todayGainBase:fromSEK(toSEK((nativePrice-prevClose)*h.quantity,currency)), sector:q.sector||'Unknown', quoteType:q.quoteType, stale:!!q._fromCache, priceDate };
-    } catch(e) { log.warn('portfolio quote failed', { ticker: h.ticker, error: e.message }); return null; }
-  });
-  const results = settled.filter(Boolean);
-  const totalValue=results.reduce((s,r)=>s+(r.currentValue??0),0), totalCost=results.reduce((s,r)=>s+fromSEK(toSEK((r.avgPrice||0)*r.quantity,r.currency)),0), totalProfit=totalValue-totalCost;
-  const totals = { value:totalValue, cost:totalCost, profit:totalProfit, returnPct:totalCost>0?(totalProfit/totalCost)*100:0 };
-  const builtAt = new Date().toISOString();
-  res.json({ portfolio:results, totals, hasStalePrices, builtAt });
-  // Persist to Supabase so the next login loads instantly with no YF calls
-  db.from('portfolio_cache').upsert({
-    user_id: req.user.id, currency: BC,
-    holdings: portfolio,
-    dashboard: { portfolio: results, totals, hasStalePrices },
-    built_at: builtAt,
-  }, { onConflict: 'user_id,currency' }).then(() => {}).catch(() => {});
-});
-
-app.get('/api/portfolio/cached', requireUser, async (req, res) => {
-  const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data } = await db.from('portfolio_cache')
-    .select('holdings, dashboard, built_at')
-    .eq('user_id', req.user.id).eq('currency', BC).single();
-  if (!data) return res.json(null);
-  res.json({ ...data.dashboard, holdings: data.holdings, builtAt: data.built_at });
-});
-
-app.delete('/api/portfolio/cached', requireUser, async (req, res) => {
-  await db.from('portfolio_cache').delete().eq('user_id', req.user.id);
-  res.json({ success: true });
-});
-
-// ── Dividend name resolution ────────────────────────────────────────────────
-// Resolves ticker-like dividend names (e.g. "Utdelning EVO 547 SEK/aktie" → stored as "Evolution")
-// and writes the resolved company name back to transactions.name so future queries are instant.
-async function resolveDividendNames(userId) {
-  const { data: divRows } = await selectAllRows(() => db.from('transactions')
-    .select('id, name, raw_ticker, isin, currency, broker, ticker')
-    .eq('user_id', userId)
-    .in('type', ['dividend', 'foreign-tax']));
-  if (!divRows?.length) return 0;
-
-  const stripDivName = (name) => {
-    if (!name) return '';
-    let n = name.replace(/^Utdelning\s+/i, '').replace(/^Källskatt\s+/i, '');
-    n = n.replace(/\s+[\d,.]+\s+[A-Z]{3}\/aktie.*$/i, '').replace(/\s+-\s+.*$/, '');
-    return n.trim();
-  };
-  const needsResolution = divRows.filter(r => {
-    const stripped = stripDivName(r.name || '');
-    return /^Utdelning\s+/i.test(r.name || '') || /^Källskatt\s+/i.test(r.name || '') || !/[a-z]/.test(stripped);
-  });
-  if (!needsResolution.length) return 0;
-
-  // nameMap is shared mutable state; resolveRow reads it at call-time so re-evaluates after each phase
-  const nameMap = {};
-
-  // Phase 1: portfolio_cache + buy/sell transactions (instant, no API calls)
-  const { data: snap } = await db.from('portfolio_cache')
-    .select('dashboard').eq('user_id', userId).limit(1).single();
-  (snap?.dashboard?.portfolio || []).forEach(h => {
-    if (!h.name || !h.ticker) return;
-    const n = cleanYFName(h.name);
-    if (!/[a-z]/.test(n)) return;
-    const base = h.ticker.split('.')[0].toUpperCase();
-    if (!nameMap[base]) nameMap[base] = n;
-    if (h.isin && !nameMap[h.isin]) nameMap[h.isin] = n;
-  });
-  const { data: buyTxs } = await selectAllRows(() => db.from('transactions')
-    .select('isin, raw_ticker, name, ticker')
-    .eq('user_id', userId).in('type', ['buy', 'sell']).not('name', 'is', null));
-  (buyTxs || []).forEach(t => {
-    if (!t.name || !/[a-z]/.test(t.name)) return;
-    const n = cleanYFName(t.name);
-    if (t.isin && !nameMap[t.isin]) nameMap[t.isin] = n;
-    if (t.ticker) { const base = t.ticker.split('.')[0].toUpperCase(); if (!nameMap[base]) nameMap[base] = n; }
-    if (t.raw_ticker && !nameMap[t.raw_ticker]) nameMap[t.raw_ticker] = n;
-  });
-
-  const resolveRow = (row) => {
-    const stripped = stripDivName(row.name);
-    const m = stripped.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+([A-Z])$/);
-    const base = m ? m[1] : stripped;
-    const shareClass = m ? m[2] : null;
-    const name = (row.isin && nameMap[row.isin]) || nameMap[base] || (row.raw_ticker && nameMap[row.raw_ticker]) || null;
-    return { base, shareClass, name };
-  };
-
-  // Phase 2: OpenFIGI batch by ISIN for rows still unresolved
-  const p2rows = needsResolution.filter(r => !resolveRow(r).name);
-  const missingIsins = [...new Set(p2rows.map(r => r.isin).filter(Boolean))];
-  if (missingIsins.length) Object.assign(nameMap, await openFigiNames(missingIsins));
-
-  // Phase 3: OpenFIGI by TICKER+exchange for rows with raw_ticker but no ISIN
-  // Tries Nordic/European exchanges (user is primarily SEK-denominated)
-  const p3rows = needsResolution.filter(r => !resolveRow(r).name);
-  const tickersForFigi = [...new Set(p3rows.map(r => {
-    const stripped = stripDivName(r.name);
-    const m = stripped.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+[A-Z]$/);
-    return (m ? m[1] : stripped) || null;
-  }).filter(Boolean))];
-  if (tickersForFigi.length) {
-    const exchanges = ['SS', 'OMX', 'DC', 'OS', 'FP', 'GR'];
-    const batch = tickersForFigi.flatMap(t => exchanges.map(e => ({ idType: 'TICKER', idValue: t, exchCode: e })));
-    try {
-      const r = await fetch('https://api.openfigi.com/v3/mapping', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(batch.slice(0, 100)), signal: AbortSignal.timeout(15000),
-      });
-      if (r.ok) {
-        const results = await r.json();
-        const seen = new Set();
-        results.forEach((result, i) => {
-          const raw = result?.data?.[0]?.name;
-          const ticker = batch[i]?.idValue;
-          if (!raw || !ticker || seen.has(ticker) || nameMap[ticker]) return;
-          const cased = raw.split(' ').map(w => w.length > 1 ? w[0] + w.slice(1).toLowerCase() : w).join(' ');
-          nameMap[ticker] = cleanYFName(cased);
-          seen.add(ticker);
-        });
-      }
-    } catch {}
-  }
-
-  // Phase 4: Finnhub search for anything still unresolved (parallel, fast single calls)
-  const p4rows = needsResolution.filter(r => !resolveRow(r).name);
-  if (p4rows.length) {
-    await Promise.all(p4rows.map(async (row) => {
-      const stripped = stripDivName(row.name);
-      const m = stripped.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+[A-Z]$/);
-      const searchTerm = row.isin || (m ? m[1] : stripped);
-      if (!searchTerm) return;
-      try {
-        const results = await finnhubSearch(searchTerm);
-        const best = results[0];
-        if (best?.description) nameMap[searchTerm] = cleanYFName(best.description);
-      } catch {}
-    }));
-  }
-
-  // Write back all resolved names
-  let resolved = 0;
-  await Promise.all(needsResolution.map(async (row) => {
-    const { base, shareClass, name } = resolveRow(row);
-    if (!name) return;
-    const finalName = shareClass && !name.includes(shareClass) ? `${name} ${shareClass}` : name;
-    if (finalName !== row.name) {
-      await db.from('transactions').update({ name: finalName }).eq('id', row.id);
-      resolved++;
-    }
-  }));
-  log.info('dividend names resolved', { userId, resolved, total: needsResolution.length });
-  return resolved;
-}
-
-app.post('/api/dividends/fix-names', requireUser, async (req, res) => {
-  // Respond immediately — resolution runs in background (avoids request timeout for large datasets)
-  res.json({ status: 'running' });
-  resolveDividendNames(req.user.id).catch(() => {});
-});
-
-// ── Dividends ───────────────────────────────────────────────────────────────
-app.get('/api/dividends', requireUser, async (req, res) => {
-  const BC = (req.query.currency || 'SEK').toUpperCase();
-  const { data: txs } = await selectAllRows(() => db.from('transactions').select('date, name, total_sek, isin, broker').eq('user_id', req.user.id).eq('type', 'dividend'));
-  const divs = (txs||[]).filter(t => t.total_sek);
-  let bcRate = 1;
-  if (BC !== 'SEK') {
-    try {
-      const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${BC}`);
-      const fxd = await fx.json();
-      if (fxd?.rates?.[BC]) bcRate = fxd.rates[BC];
-    } catch(e) {}
-  }
-  const conv = (sek) => parseFloat((Math.abs(sek) * bcRate).toFixed(2));
-  // Fallback: strip Montrose raw description to bare ticker symbol
-  const cleanDivName = (name) => {
-    if (!name) return 'Unknown';
-    let n = name.replace(/^Utdelning\s+/i, '').replace(/^Källskatt\s+/i, '');
-    n = n.replace(/\s+[\d,.]+\s+[A-Z]{3}\/aktie.*$/i, '').replace(/\s+-\s+.*$/, '');
-    return n.trim() || name;
-  };
-  // Build name lookup maps from buy/sell transactions (which carry proper company names).
-  // Three maps covering all broker combinations:
-  //   isinToName      — primary, works whenever dividend row has ISIN (all brokers)
-  //   rawTickerToName — Montrose buy/sell rows have raw_ticker; matches Montrose dividends without ISIN
-  //   baseTickerToName — keyed by ticker prefix before "." (e.g. "EVO" from "EVO.ST");
-  //                      covers Avanza/Nordnet buy rows (raw_ticker='') paired with Montrose dividends
-  // Prefer YF longName from price cache (hot for held stocks), then the stored CSV name.
-  const isinToName = {};
-  const rawTickerToName = {};
-  const baseTickerToName = {};
-  const isinToBase = {}; // ISIN → base ticker, used for targeted ISIN updates in second pass
-  // Seed name maps from last portfolio_cache snapshot — these names were already properly
-  // resolved from YF and stored, so they work even when YF is currently unavailable.
-  {
-    const { data: snap } = await db.from('portfolio_cache')
-      .select('dashboard').eq('user_id', req.user.id).limit(1).single();
-    (snap?.dashboard?.portfolio || []).forEach(h => {
-      if (!h.name || !h.ticker) return;
-      const name = cleanYFName(h.name);
-      const base = h.ticker.split('.')[0].toUpperCase();
-      if (h.isin && !isinToName[h.isin]) isinToName[h.isin] = name;
-      if (!rawTickerToName[base]) rawTickerToName[base] = name;
-      if (!baseTickerToName[base]) baseTickerToName[base] = name;
-      if (h.isin && !isinToBase[h.isin]) isinToBase[h.isin] = base;
-    });
-  }
-  const { data: buyTxs } = await selectAllRows(() => db.from('transactions')
-    .select('isin, raw_ticker, name, ticker')
-    .eq('user_id', req.user.id)
-    .in('type', ['buy', 'sell'])
-    .not('name', 'is', null));
-  // First pass: build maps using whatever is in _priceCache right now
-  const tickersNeedingLookup = new Map(); // base → full ticker (e.g. "EVO" → "EVO.ST")
-  (buyTxs || []).forEach(t => {
-    const cached = t.ticker ? _priceCache.get(t.ticker) : null;
-    // Skip shortName if it looks like a bare ticker (e.g. "EVO", "VIT") — real company names have lowercase
-    const shortName = cached?.q?.shortName;
-    const rawDisplayName = cached?.q?.longName ||
-      (shortName && /[a-z]/.test(shortName) ? shortName : null) ||
-      t.name;
-    const displayName = cached ? cleanYFName(rawDisplayName) : rawDisplayName;
-    if (t.isin && !isinToName[t.isin]) isinToName[t.isin] = displayName;
-    if (t.raw_ticker && !rawTickerToName[t.raw_ticker]) rawTickerToName[t.raw_ticker] = displayName;
-    if (t.ticker) {
-      const base = t.ticker.split('.')[0].toUpperCase();
-      if (!baseTickerToName[base]) baseTickerToName[base] = displayName;
-      if (t.isin && !isinToBase[t.isin]) isinToBase[t.isin] = base;
-      // Queue a YF lookup if name looks unresolved: no cache at all, or no lowercase letters
-      // (real company names always have lowercase; "VIT B", "EVO", "SAGA D" etc. are broker abbreviations)
-      if ((!cached || !/[a-z]/.test(displayName)) && !tickersNeedingLookup.has(base)) {
-        tickersNeedingLookup.set(base, t.ticker);
-      }
-    }
-  });
-  // Second pass: fetch real names via Finnhub profile2 for ticker-like names not yet resolved
-  if (tickersNeedingLookup.size > 0) {
-    await Promise.all([...tickersNeedingLookup.entries()].map(async ([base, ticker]) => {
-      try {
-        const name = await finnhubName(ticker);
-        if (name) {
-          rawTickerToName[base] = name;
-          baseTickerToName[base] = name;
-          for (const [isin, b] of Object.entries(isinToBase)) {
-            // Only overwrite if existing name is ticker-like (no lowercase) — never clobber
-            // a good name from portfolio_cache (e.g. "Vitec Software Group B") with an API result
-            if (b === base && !/[a-z]/.test(isinToName[isin] || '')) isinToName[isin] = name;
-          }
-        }
-      } catch {}
-    }));
-  }
-  // Third pass: dividend rows whose name is still ticker-like but have no matching buy transaction.
-  {
-    const seenKeys = new Set();
-    const divNeedingLookup = [];
-    for (const t of divs) {
-      const cleaned = cleanDivName(t.name);
-      const isinResolved = t.isin && isinToName[t.isin] && /[a-z]/.test(isinToName[t.isin]);
-      const rawResolved = /[a-z]/.test(rawTickerToName[cleaned] || '');
-      const baseResolved = /[a-z]/.test(baseTickerToName[cleaned.toUpperCase()] || '');
-      if (isinResolved || rawResolved || baseResolved) continue;
-      // Allow: plain tickers (EVO), dotted tickers (LVMH.PA, NOVOB.CO), share class suffixes (SAGA D, VIT B)
-      if (!/^[A-Z0-9][A-Z0-9.\-]{0,9}(?:\s[A-Z])?$/.test(cleaned)) continue;
-      const key = t.isin || cleaned;
-      if (seenKeys.has(key)) continue;
-      seenKeys.add(key);
-      divNeedingLookup.push(t);
-    }
-    if (divNeedingLookup.length > 0) {
-      // Batch-resolve ISINs via OpenFIGI first (free, no key, global, unambiguous)
-      const isinBatch = [...new Set(divNeedingLookup.map(t => t.isin).filter(Boolean))];
-      const figiMap = await openFigiNames(isinBatch);
-
-      await Promise.all(divNeedingLookup.map(async (t) => {
-        const cleaned = cleanDivName(t.name);
-        // Strip trailing share class (e.g. "SAGA D" → "SAGA", "VIT B" → "VIT") for symbol lookup
-        const shareClassMatch = cleaned.match(/^([A-Z0-9][A-Z0-9.\-]+)\s+[A-Z]$/);
-        const lookupSymbol = shareClassMatch ? shareClassMatch[1] : cleaned;
-        try {
-          // 1. OpenFIGI via ISIN — most reliable, no ambiguity
-          const figiName = t.isin ? figiMap[t.isin] : null;
-          if (figiName) {
-            if (t.isin) isinToName[t.isin] = figiName;
-            rawTickerToName[cleaned] = figiName;
-            baseTickerToName[cleaned.toUpperCase()] = figiName;
-            return;
-          }
-          // 2. Finnhub search by ISIN only — never search by bare ticker like "VIT" or "SAGA"
-          //    because text-based searches match wrong companies without exchange context
-          const fhResults = t.isin ? await finnhubSearch(t.isin) : [];
-          const best = fhResults[0];
-          const nameFromSearch = best?.description ? cleanYFName(best.description) : null;
-          // 3. Tiingo/Finnhub profile2 only when ticker has an exchange suffix (e.g. LVMH.PA)
-          const hasExchangeSuffix = /\.[A-Z]{1,3}$/.test(lookupSymbol);
-          const fhSym = best?.symbol || (hasExchangeSuffix ? toFinnhubSymbol(lookupSymbol) : null);
-          const name = nameFromSearch || (fhSym ? await finnhubName(toYFSymbol(fhSym)) : null);
-          if (name) {
-            if (t.isin) isinToName[t.isin] = name;
-            rawTickerToName[cleaned] = name;
-            baseTickerToName[cleaned.toUpperCase()] = name;
-          }
-        } catch {}
-      }));
-    }
-  }
-  const resolveName = (t) => {
-    const cleaned = cleanDivName(t.name);
-    // Extract share class if present (e.g., "Investor A" → base: "Investor", class: "A")
-    const shareClassMatch = cleaned.match(/\s+([A-Z])$/);
-    const shareClass = shareClassMatch ? shareClassMatch[1] : null;
-    const cleanedBase = shareClass ? cleaned.slice(0, -2).trim() : cleaned;
-
-    const byIsin = t.isin ? isinToName[t.isin] : null;
-    const byRaw = rawTickerToName[cleaned] || rawTickerToName[cleanedBase];
-    const byBase = baseTickerToName[cleanedBase.toUpperCase()] || baseTickerToName[cleaned.toUpperCase()];
-
-    // Prefer any source that looks like a real company name (has lowercase letters)
-    let resolvedName = [byIsin, byRaw, byBase].find(n => n && /[a-z]/.test(n)) || byIsin || byRaw || byBase || cleaned;
-
-    // Append share class back if it was present and not already in resolved name
-    if (shareClass && resolvedName && !resolvedName.includes(shareClass)) {
-      resolvedName = `${resolvedName} ${shareClass}`;
-    }
-    return resolvedName;
-  };
-  const thisYear = new Date().getFullYear().toString();
-  const totalAllTime = divs.reduce((s,t)=>s+conv(t.total_sek),0);
-  const totalThisYear = divs.filter(t=>t.date?.startsWith(thisYear)).reduce((s,t)=>s+conv(t.total_sek),0);
-  const brokers = [...new Set(divs.map(t => t.broker).filter(Boolean))];
-  const byYear = {};
-  divs.forEach(t => { const y=t.date?.substring(0,4); if(!y) return; if(!byYear[y]) byYear[y]={year:y,total:0,stocks:{}}; byYear[y].total+=conv(t.total_sek); const n=resolveName(t); byYear[y].stocks[n]=(byYear[y].stocks[n]||0)+conv(t.total_sek); });
-  const byYearArr = Object.values(byYear).sort((a,b)=>b.year.localeCompare(a.year)).map(y=>({...y,stocks:Object.entries(y.stocks).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total)}));
-  const byStock = {};
-  divs.forEach(t => { const n=resolveName(t); byStock[n]=(byStock[n]||0)+conv(t.total_sek); });
-  res.json({ totalAllTime, totalThisYear, byYear:byYearArr, byStock:Object.entries(byStock).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total), display_currency: BC, brokers, dividends: divs.map(t => ({ date: t.date, name: resolveName(t), total: conv(t.total_sek), broker: t.broker })) });
-});
-
-// Public dividends endpoint
-app.get('/api/users/:username/dividends', async (req, res) => {
-  const { data: profile } = await db.from('profiles').select('id, public_dividends, is_public').eq('username', req.params.username).single();
-  if (!profile) return res.status(404).json({ error: 'User not found' });
-  if (!(await viewerMayAccess(req, profile))) return res.status(403).json(PRIVATE_PROFILE_ERROR);
-  if (!profile.public_dividends) return res.status(403).json({ error: "This user's dividends are private." });
-  
-  const { data: txs } = await selectAllRows(() => db.from('transactions').select('date, name, total_sek').eq('user_id', profile.id).eq('type', 'dividend'));
-  const divs = (txs||[]).filter(t => t.total_sek);
-  const thisYear = new Date().getFullYear().toString();
-  const totalAllTime = divs.reduce((s,t)=>s+Math.abs(t.total_sek),0);
-  const totalThisYear = divs.filter(t=>t.date?.startsWith(thisYear)).reduce((s,t)=>s+Math.abs(t.total_sek),0);
-  const byYear = {};
-  divs.forEach(t => { const y=t.date?.substring(0,4); if(!y) return; if(!byYear[y]) byYear[y]={year:y,total:0,stocks:{}}; byYear[y].total+=Math.abs(t.total_sek); const n=t.name||'Unknown'; byYear[y].stocks[n]=(byYear[y].stocks[n]||0)+Math.abs(t.total_sek); });
-  const byYearArr = Object.values(byYear).sort((a,b)=>b.year.localeCompare(a.year)).map(y=>({...y,stocks:Object.entries(y.stocks).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total)}));
-  const byStock = {};
-  divs.forEach(t => { const n=t.name||'Unknown'; byStock[n]=(byStock[n]||0)+Math.abs(t.total_sek); });
-  res.json({ totalAllTime, totalThisYear, byYear:byYearArr, byStock:Object.entries(byStock).map(([name,total])=>({name,total})).sort((a,b)=>b.total-a.total) });
-});
-
 // Public single-trade endpoint — UUID acts as the access token (not guessable)
 app.get('/api/cs/trades/:id/public', async (req, res) => {
   const { data: item, error } = await db
     .from('cs_inventory')
-    .select('id, skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, sold, notes, screenshot_url, user_id, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
+    .select('id, skin_name, exterior, float_value, pattern, purchase_price, purchase_date, sold, notes, screenshot_url, user_id, cs_sales(sale_price, sale_date, screenshot_url)')
     .eq('share_token', req.params.id)
     .single();
   if (error || !item) return res.status(404).json({ error: 'Trade not found' });
@@ -2780,11 +833,9 @@ app.get('/api/cs/trades/:id/public', async (req, res) => {
     floatValue: item.float_value,
     pattern: item.pattern,
     purchasePrice: item.purchase_price,
-    purchaseCurrency: item.purchase_currency,
     purchaseDate: item.purchase_date,
     sold: item.sold,
     salePrice: sale?.sale_price ?? null,
-    saleCurrency: sale?.sale_currency ?? null,
     saleDate: sale?.sale_date ?? null,
     screenshotUrl: item.screenshot_url || sale?.screenshot_url || null,
     username: profile?.username ?? null,
@@ -2802,10 +853,11 @@ function buildTradePageHtml(opts) {
 <div style="background:#18181b;border:1px solid #27272a;border-radius:16px;padding:32px;text-align:center;"><p style="color:#a1a1aa;font-size:14px;">${opts.error}</p></div>
 </body></html>`;
   }
-  const { displayName, hasStar, isST, exterior, floatValue, pattern, purchaseDate, purchasePrice, purchaseCurrency, sold, salePrice, saleCurrency, saleDate, notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl, stickers, username, avatarBase64 } = opts;
+  const { displayName, hasStar, isST, exterior, floatValue, pattern, purchaseDate, purchasePrice, sold, salePrice, saleDate, notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl, stickers, username, avatarBase64 } = opts;
   const BASE = process.env.APP_URL || 'https://verumen.com';
   const e = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const fmt = (n, cur) => n != null ? `${Number(n).toLocaleString('sv-SE', {minimumFractionDigits:2,maximumFractionDigits:2})} ${cur||''}` : '—';
+  // All prices are USD
+  const fmt = n => n != null ? `$${Number(n).toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
   const nameColor = hasStar ? '#c4b5fd' : isST ? '#fb923c' : '#f4f4f5';
   const avatarEl = avatarBase64
     ? `<img src="${e(avatarBase64)}" alt="${e(username)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #3f3f46;flex-shrink:0;">`
@@ -2814,9 +866,9 @@ function buildTradePageHtml(opts) {
     floatValue ? ['Float', parseFloat(floatValue).toFixed(4)] : null,
     pattern ? ['Pattern', String(pattern)] : null,
     ['Buy date', purchaseDate || '—'],
-    ['Buy price', fmt(purchasePrice, purchaseCurrency)],
+    ['Buy price', fmt(purchasePrice)],
     ['Status', sold ? 'Sold' : 'Holding'],
-    ['Sale price', sold ? fmt(salePrice, saleCurrency) : '—'],
+    ['Sale price', sold ? fmt(salePrice) : '—'],
     sold && saleDate ? ['Sale date', saleDate] : null,
   ].filter(Boolean);
   const fullTitle = `${hasStar?'★ ':''}${displayName}${exterior?' | '+exterior:''}`;
@@ -2885,7 +937,7 @@ app.get('/trade/:token', async (req, res) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.token))
     return res.status(404).send(buildTradePageHtml({ error: 'Trade not found' }));
   const { data: item, error } = await db.from('cs_inventory')
-    .select('skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, sold, notes, screenshot_url, user_id, icon_url, stickers, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
+    .select('skin_name, exterior, float_value, pattern, purchase_price, purchase_date, sold, notes, screenshot_url, user_id, icon_url, stickers, cs_sales(sale_price, sale_date, screenshot_url)')
     .eq('share_token', req.params.token).single();
   if (error || !item) return res.status(404).send(buildTradePageHtml({ error: 'Trade not found' }));
   const { data: profile } = await db.from('profiles').select('username, avatar_base64').eq('id', item.user_id).single();
@@ -2903,7 +955,7 @@ app.get('/trade/:token', async (req, res) => {
   const displayName = hasStar ? cleaned.slice(1).trim() : cleaned;
   const ogImageUrl = item.icon_url || screenshotImgUrl || null;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(buildTradePageHtml({ skinName: item.skin_name, displayName, hasStar, isST, exterior: item.exterior, floatValue: item.float_value, pattern: item.pattern, purchaseDate: item.purchase_date, purchasePrice: item.purchase_price, purchaseCurrency: item.purchase_currency, sold: item.sold, salePrice: sale?.sale_price, saleCurrency: sale?.sale_currency, saleDate: sale?.sale_date, notes: item.notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl: item.icon_url, stickers: item.stickers || [], username: profile?.username, avatarBase64: profile?.avatar_base64 }));
+  res.send(buildTradePageHtml({ skinName: item.skin_name, displayName, hasStar, isST, exterior: item.exterior, floatValue: item.float_value, pattern: item.pattern, purchaseDate: item.purchase_date, purchasePrice: item.purchase_price, sold: item.sold, salePrice: sale?.sale_price, saleDate: sale?.sale_date, notes: item.notes, screenshotImgUrl, screenshotPageUrl, ogImageUrl, iconUrl: item.icon_url, stickers: item.stickers || [], username: profile?.username, avatarBase64: profile?.avatar_base64 }));
 });
 
 // A skin's market icon never changes, so found icons are shared across users and requests.
@@ -3076,7 +1128,7 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
   }
   if (!isOwner && !profile.public_cs_trades) return res.status(403).json({ error: "This user's CS trades are private." });
   let query = db.from('cs_inventory')
-    .select('id, skin_name, exterior, float_value, pattern, notes, icon_url, share_token, purchase_price, purchase_currency, purchase_date, sold, screenshot_url, hidden_from_profile, cs_sales(sale_price, sale_currency, sale_date, screenshot_url)')
+    .select('id, skin_name, exterior, float_value, pattern, notes, icon_url, share_token, purchase_price, purchase_date, sold, screenshot_url, hidden_from_profile, cs_sales(sale_price, sale_date, screenshot_url)')
     .eq('user_id', profile.id)
     .order('purchase_date', { ascending: false });
   if (!isOwner) query = query.eq('hidden_from_profile', false);
@@ -3093,11 +1145,9 @@ app.get('/api/users/:username/cs-trades', async (req, res) => {
     iconUrl: item.icon_url,
     shareToken: item.share_token,
     purchasePrice: item.purchase_price,
-    purchaseCurrency: item.purchase_currency,
     purchaseDate: item.purchase_date,
     sold: item.sold,
     salePrice: item.cs_sales?.[0]?.sale_price ?? null,
-    saleCurrency: item.cs_sales?.[0]?.sale_currency ?? null,
     saleDate: item.cs_sales?.[0]?.sale_date ?? null,
     screenshotUrl: item.screenshot_url || item.cs_sales?.[0]?.screenshot_url || null,
   })));
@@ -3121,84 +1171,10 @@ app.get('/api/users/:username/friends', publicRateLimit, async (req, res) => {
   res.json((friends || []).map(p => ({ username: p.username, avatarBase64: p.avatar_base64, role: p.role, ...(viewerLoggedIn ? { isOnline: isOnline(p.id) } : {}) })));
 });
 
-// ── Overrides ───────────────────────────────────────────────────────────────
-app.get('/api/overrides', requireUser, async (req, res) => {
-  const [{ data: global }, { data: user }] = await Promise.all([
-    db.from('global_ticker_overrides').select('isin, ticker').eq('active', true),
-    db.from('ticker_overrides').select('isin, ticker').eq('user_id', req.user.id),
-  ]);
-  res.json({ global: global || [], user: user || [] });
-});
-
-app.post('/api/overrides', requireUser, async (req, res) => {
-  const { isin, ticker } = req.body;
-  if (!isin || !ticker) return res.status(400).json({ error: 'isin and ticker required' });
-  await db.from('ticker_overrides').upsert({ user_id:req.user.id, isin:isin.toUpperCase(), ticker:ticker.toUpperCase() });
-  await db.from('ticker_cache').delete().eq('user_id', req.user.id).like('cache_key', `%${isin}%`);
-  res.json({ success: true });
-});
-
-app.delete('/api/overrides/:isin', requireUser, async (req, res) => {
-  await db.from('ticker_overrides').delete().eq('user_id', req.user.id).eq('isin', req.params.isin);
-  res.json({ success: true });
-});
-
-// ── Global overrides (admin/mod) ─────────────────────────────────────────────
-app.get('/api/admin/global-overrides', requireModerator, async (req, res) => {
-  const { data, error } = await db.from('global_ticker_overrides').select('isin, ticker, active, created_by, created_at').order('created_at', { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
-  const enriched = await Promise.all((data || []).map(async o => {
-    try {
-      const cached = _priceCache.get(o.ticker);
-      const q = cached ? cached.q : await finnhubQuote(o.ticker).catch(() => null);
-      return { ...o, name: q?.longName || q?.shortName || null };
-    } catch(e) {
-      return { ...o, name: null };
-    }
-  }));
-  res.json(enriched);
-});
-
-app.patch('/api/admin/global-overrides/:isin/toggle', requireModerator, async (req, res) => {
-  const { data: current, error } = await db.from('global_ticker_overrides').select('active').eq('isin', req.params.isin).single();
-  if (error || !current) return res.status(404).json({ error: 'Not found' });
-  await db.from('global_ticker_overrides').update({ active: !current.active }).eq('isin', req.params.isin);
-  res.json({ active: !current.active });
-});
-
-app.post('/api/admin/global-overrides', requireModerator, async (req, res) => {
-  const { isin, ticker } = req.body;
-  if (!isin || !ticker) return res.status(400).json({ error: 'isin and ticker required' });
-  const { error } = await db.from('global_ticker_overrides').upsert({ isin: isin.toUpperCase(), ticker: ticker.toUpperCase(), created_by: req.username, created_at: new Date().toISOString() });
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true });
-});
-
-app.delete('/api/admin/global-overrides/:isin', requireModerator, async (req, res) => {
-  const { password } = req.body || {};
-  if (!password) return res.status(400).json({ error: 'Password required' });
-  const email = `${req.username.toLowerCase()}@statera.local`;
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return res.status(401).json({ error: 'Incorrect password' });
-  await db.from('global_ticker_overrides').delete().eq('isin', req.params.isin);
-  res.json({ success: true });
-});
-
-app.delete('/api/admin/global-overrides', requireModerator, async (req, res) => {
-  const { password } = req.body;
-  if (!password) return res.status(400).json({ error: 'Password required' });
-  const email = `${req.username.toLowerCase()}@statera.local`;
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return res.status(401).json({ error: 'Incorrect password' });
-  await db.from('global_ticker_overrides').delete().neq('isin', '');
-  res.json({ success: true });
-});
-
 // ── Admin DB browser ────────────────────────────────────────────────────────
 const DB_TABLES = [
-  'profiles', 'transactions', 'cs_inventory', 'cs_price_cache', 'cs_price_overrides',
-  'price_cache', 'portfolio_cache', 'ticker_cache', 'ticker_overrides',
-  'global_isin_cache', 'global_ticker_overrides', 'app_settings', 'announcements',
+  'profiles', 'cs_inventory', 'cs_sales', 'cs_price_cache', 'activity', 'friendships',
+  'moderation_log', 'app_settings', 'announcements',
 ];
 
 app.get('/api/admin/db/size', requireAdmin, async (req, res) => {
@@ -3227,62 +1203,6 @@ app.get('/api/admin/db/table/:name', requireAdmin, async (req, res) => {
   const { data, error, count } = await query.range(page * limit, page * limit + limit - 1);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ rows: data, total: count, page, limit });
-});
-
-// ── Ownership ───────────────────────────────────────────────────────────────
-app.post('/api/ownership', requireUser, async (req, res) => {
-  const { tickers } = req.body;
-  if (!tickers?.length) return res.json([]);
-  const results = [];
-  for (const { ticker, name } of tickers) {
-    try {
-      results.push({ ticker, name, noData: true }); continue; // ownership data requires premium API
-      // eslint-disable-next-line no-unreachable
-    } catch(e) { results.push({ ticker, name, error:true }); }
-    await new Promise(r => setTimeout(r, 200));
-  }
-  res.json(results);
-});
-
-app.get('/api/ownership/search/:query', requireUser, async (req, res) => {
-  try {
-    const results = await finnhubSearch(req.params.query);
-    res.json(results.filter(r => r.symbol && (r.type === 'Common Stock' || r.type === 'ETP')).slice(0, 8)
-      .map(r => ({ ticker: toYFSymbol(r.symbol), name: r.description, exchange: r.symbol.includes(':') ? r.symbol.split(':')[1] : 'US' })));
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── Performance history ─────────────────────────────────────────────────────
-app.post('/api/history', requireUser, heavyRateLimit(60000, 'history'), async (req, res) => {
-  const { portfolio, baseCurrency, period } = req.body;
-  if (!portfolio?.length) return res.json([]);
-  const days = { '1W':7,'1M':30,'3M':90,'1Y':365,'3Y':1095 }[period]||90;
-  const startDate = new Date(); startDate.setDate(startDate.getDate()-days);
-  const priceHistory = {};
-  try {
-    for (const h of portfolio) {
-      try {
-        const fhSym = toFinnhubSymbol(h.ticker);
-        const from = Math.floor(startDate.getTime() / 1000);
-        const to = Math.floor(Date.now() / 1000);
-        const hist = await finnhubFetch(`/stock/candle?symbol=${encodeURIComponent(fhSym)}&resolution=D&from=${from}&to=${to}`);
-        priceHistory[h.ticker] = {};
-        if (hist?.s === 'ok' && hist.t) {
-          hist.t.forEach((ts, i) => { priceHistory[h.ticker][new Date(ts * 1000).toISOString().split('T')[0]] = hist.c[i]; });
-        }
-      } catch {}
-      await new Promise(r => setTimeout(r, 150));
-    }
-  } catch(e) {}
-  const allDates = new Set(Object.values(priceHistory).flatMap(d=>Object.keys(d)));
-  const sortedDates = [...allDates].sort();
-  if (sortedDates.length < 2) return res.json([]);
-  const nearest=(ticker,date)=>{ if(priceHistory[ticker]?.[date]) return priceHistory[ticker][date]; const n=Object.keys(priceHistory[ticker]||{}).filter(d=>d<=date).sort().pop(); return n?priceHistory[ticker][n]:null; };
-  const points=[];
-  for (const date of sortedDates) { let v=0; for (const item of portfolio) { const p=nearest(item.ticker,date); if(p) v+=p*item.quantity; } if(v>0) points.push({ date, value:v }); }
-  if (points.length < 2) return res.json([]);
-  const baseValue = points[0].value;
-  res.json(points.map(p=>({ date:p.date, returnPct:parseFloat(((p.value-baseValue)/baseValue*100).toFixed(2)) })));
 });
 
 // ── Activity helpers ────────────────────────────────────────────────────────
@@ -3352,15 +1272,17 @@ app.post('/api/friends/remove/:username', requireUser, async (req, res) => {
 
 // ── Activity feed ───────────────────────────────────────────────────────────
 // ── Feed visibility ─────────────────────────────────────────────────────────
-// Trade and holdings posts reveal the same data as the CS trades / holdings tabs, so other
-// viewers only see them when the owner has made that tab public — and never for a trade the
-// owner has hidden from their profile. Owners always see their own posts. Every feed (home
+// Trade posts reveal the same data as the CS trades tab, so other viewers only see them when
+// the owner has made that tab public — and never for a trade the owner has hidden from their
+// profile. Owners always see their own posts. Every feed (home
 // feed, initial load, profile activity tab) goes through this one rule. Share links
 // (/trade/...) are deliberately separate and keep working regardless.
 const TRADE_POST_TYPES = new Set(['cs_trade', 'cs_trade_screenshot']);
 const FEED_SIZE = 50;
 const FEED_FETCH = 100; // over-fetch so hidden posts don't leave the feed short
 async function visibleToViewer(activity, viewerId) {
+  // Posts from the removed stock portfolio are no longer shown to anyone
+  activity = activity.filter(a => a.type !== 'holdings_update');
   const foreign = activity.filter(a => a.user_id !== viewerId);
   if (!foreign.length) return activity;
   const ownerIds = [...new Set(foreign.map(a => a.user_id))];
@@ -3368,7 +1290,7 @@ async function visibleToViewer(activity, viewerId) {
     .filter(a => TRADE_POST_TYPES.has(a.type) && a.payload?.inventoryId != null)
     .map(a => a.payload.inventoryId))];
   const [{ data: owners }, { data: hiddenItems }] = await Promise.all([
-    db.from('profiles').select('id, public_cs_trades, public_holdings').in('id', ownerIds),
+    db.from('profiles').select('id, public_cs_trades').in('id', ownerIds),
     itemIds.length
       ? db.from('cs_inventory').select('id').in('id', itemIds).eq('hidden_from_profile', true)
       : Promise.resolve({ data: [] }),
@@ -3380,12 +1302,11 @@ async function visibleToViewer(activity, viewerId) {
     const owner = ownerMap[a.user_id];
     if (!owner) return false; // lookup failed — fail closed
     if (TRADE_POST_TYPES.has(a.type)) return !!owner.public_cs_trades && !hiddenIds.has(String(a.payload?.inventoryId));
-    if (a.type === 'holdings_update') return !!owner.public_holdings;
     return true;
   });
 }
-// Shapes a feed row for the client. Prices stored in a non-USD currency are dropped so they
-// aren't displayed as dollars.
+// Shapes a feed row for the client. All prices are USD; a stray non-USD price is dropped
+// rather than shown with a dollar sign.
 function formatFeedItem(a, profile = {}) {
   const payload = { ...(a.payload || {}) };
   if (payload.currency && payload.currency !== 'USD') {
@@ -3648,7 +1569,7 @@ async function runSkinCatalogSync() {
 setTimeout(runSkinCatalogSync, 2 * 60 * 1000);
 setInterval(runSkinCatalogSync, 24 * 60 * 60 * 1000).unref();
 
-app.get('/api/cs/prices/search/:query', requireUser, async (req, res) => {
+app.get('/api/cs/skins/search/:query', requireUser, async (req, res) => {
   // Normalize query: strip CS special chars, split into words for flexible matching
   const rawWords = req.params.query.replace(/[|★™®]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(w => w.length > 0);
   // "Vanilla" is a frontend-only label (no skin_name in the DB contains it) — treat it as a
@@ -3770,51 +1691,21 @@ app.get('/api/cs/steam/inventory/:steamId', requireUser, heavyRateLimit(60000, '
 });
 
 app.get('/api/cs/inventory', requireUser, async (req, res) => {
-  const BC = (req.query.currency || 'SEK').toUpperCase();
   const { data, error } = await db.from('cs_inventory').select('*, cs_sales(*)').eq('user_id', req.user.id).order('purchase_date', { ascending:false });
   if (error) { log.error('cs_inventory GET failed', { error: error.message, userId: req.user.id }); return res.status(500).json({ error: error.message }); }
-  const items = data || [];
-  // Build FX: sale currencies + BC if not SEK. fxFromSEK[cur] = how many `cur` per 1 SEK.
-  const saleCurrencies = [...new Set(items.map(i => i.cs_sales?.[0]?.sale_currency).filter(c => c && c !== 'SEK'))];
-  const needFX = [...new Set([...saleCurrencies, ...(BC !== 'SEK' ? [BC] : [])])];
-  const fxFromSEK = { SEK: 1 };
-  if (needFX.length > 0) {
-    try {
-      const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${needFX.map(encodeURIComponent).join(',')}`, { signal: AbortSignal.timeout(8000) });
-      const fxd = await fx.json();
-      Object.entries(fxd.rates || {}).forEach(([cur, rate]) => { fxFromSEK[cur] = rate; });
-    } catch(e) {}
-  }
-  const bcRate = fxFromSEK[BC] || 1;
-  const sekToBC = (sekAmt) => sekAmt != null ? parseFloat(((sekAmt || 0) * bcRate).toFixed(2)) : null;
-  const salePriceBC = (item) => {
-    const sale = item.cs_sales?.[0];
-    if (!sale?.sale_price) return null;
-    const saleCur = sale.sale_currency || 'SEK';
-    const toSEKRate = saleCur === 'SEK' ? 1 : (1 / (fxFromSEK[saleCur] || 1));
-    return parseFloat((sale.sale_price * toSEKRate * bcRate).toFixed(2));
-  };
-  res.json(items.map(item => ({
+  // Prices are stored exactly as entered, in USD — nothing to convert
+  res.json((data || []).map(({ cs_sales, purchase_currency, purchase_price_sek, ...item }) => ({
     ...item,
-    purchase_price_display: sekToBC(item.purchase_price_sek || item.purchase_price),
-    sale_price_display: salePriceBC(item),
-    sale_price: item.cs_sales?.[0]?.sale_price,
-    sale_currency: item.cs_sales?.[0]?.sale_currency || null,
-    sale_date: item.cs_sales?.[0]?.sale_date,
-    display_currency: BC,
+    sale_price: cs_sales?.[0]?.sale_price ?? null,
+    sale_date: cs_sales?.[0]?.sale_date ?? null,
   })));
 });
 
-
-async function toSEK(amount, currency) {
-  if (!amount) return 0;
-  if (!currency || currency === 'SEK') return parseFloat(amount);
-  try {
-    const r = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(currency)}&to=SEK`, { signal: AbortSignal.timeout(8000) });
-    const d = await r.json();
-    const rate = d?.rates?.SEK;
-    return rate ? parseFloat(amount) * rate : parseFloat(amount);
-  } catch(e) { return parseFloat(amount); }
+// Every price is a USD amount the user typed in: a finite, non-negative number, kept to cents.
+// Returns null for anything else.
+function parseUsd(v) {
+  const n = typeof v === 'string' ? parseFloat(v) : v;
+  return Number.isFinite(n) && n >= 0 && n < 1e9 ? Math.round(n * 100) / 100 : null;
 }
 
 const STEAM_SCREENSHOT_RE = /^https:\/\/steamcommunity\.com\/sharedfiles\/filedetails\/\?id=\d+$/;
@@ -3844,21 +1735,22 @@ function safeStickerList(raw) {
 }
 
 app.post('/api/cs/inventory', requireUser, async (req, res) => {
-  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id, icon_url, stickers } = req.body;
+  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_date, notes, screenshot_url, steam_asset_id, icon_url, stickers } = req.body;
   if (!skin_name||!purchase_date) return res.status(400).json({ error:'skin_name and purchase_date required' });
+  const price = parseUsd(purchase_price);
+  if (price == null) return res.status(400).json({ error: 'Enter a valid buy price in USD.' });
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
-  const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
   const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
-  const { data, error } = await db.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value:safeFloat, pattern:safePattern, purchase_price:purchase_price||0, purchase_currency:purchase_currency||'USD', purchase_price_sek, purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null, share_token:crypto.randomUUID(), stickers:safeStickerList(stickers) }).select().single();
+  const { data, error } = await db.from('cs_inventory').insert({ user_id:req.user.id, skin_name, exterior, float_value:safeFloat, pattern:safePattern, purchase_price:price, purchase_currency:'USD', purchase_date, notes, screenshot_url:safeScreenshotUrl, steam_asset_id:steam_asset_id||null, icon_url:safeIconUrl||null, share_token:crypto.randomUUID(), stickers:safeStickerList(stickers) }).select().single();
   if (error) return res.status(500).json({ error:error.message });
   const safeStickers = safeStickerList(stickers);
   // One post per new trade: the screenshot version when there's a screenshot, otherwise the plain one
   if (!safeScreenshotUrl) {
-    await appendActivity(req.user.id, 'cs_trade', { action:'buy', inventoryId: data.id, skinName:skin_name, price:purchase_price, currency:purchase_currency, exterior, floatValue: safeFloat, iconUrl: safeIconUrl || null, stickers: safeStickers });
+    await appendActivity(req.user.id, 'cs_trade', { action:'buy', inventoryId: data.id, skinName:skin_name, price, currency:'USD', exterior, floatValue: safeFloat, iconUrl: safeIconUrl || null, stickers: safeStickers });
   } else {
     const idMatch = safeScreenshotUrl.match(/id=(\d+)/);
     let screenshotImgUrl = null;
@@ -3871,7 +1763,7 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
       screenshotUrl: safeScreenshotUrl, screenshotImgUrl,
       iconUrl: safeIconUrl || null,
       action: 'buy',
-      price: purchase_price, currency: purchase_currency,
+      price, currency: 'USD',
       stickers: safeStickers,
     });
   }
@@ -3879,18 +1771,19 @@ app.post('/api/cs/inventory', requireUser, async (req, res) => {
 });
 
 app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
-  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_currency, purchase_date, notes, screenshot_url, steam_asset_id, icon_url, stickers } = req.body;
+  const { skin_name, exterior, float_value, pattern, purchase_price, purchase_date, notes, screenshot_url, steam_asset_id, icon_url, stickers } = req.body;
   if (!skin_name || !purchase_date) return res.status(400).json({ error: 'skin_name and purchase_date required' });
+  const price = parseUsd(purchase_price);
+  if (price == null) return res.status(400).json({ error: 'Enter a valid buy price in USD.' });
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
-  const { data: existing } = await db.from('cs_inventory').select('skin_name, screenshot_url, sold, purchase_price, purchase_currency, stickers, icon_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  const { data: existing } = await db.from('cs_inventory').select('skin_name, screenshot_url, sold, stickers, icon_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (!existing) return res.status(404).json({ error: 'Item not found.' });
-  const purchase_price_sek = await toSEK(purchase_price, purchase_currency);
   const safeIconUrl = icon_url && /^https:\/\/community\.cloudflare\.steamstatic\.com\//.test(icon_url) ? icon_url : null;
   const safeFloat = float_value !== '' && float_value != null ? parseFloat(float_value) : null;
   const safePattern = pattern !== '' && pattern != null ? parseInt(pattern) : null;
-  const updateFields = { skin_name, exterior, float_value: safeFloat, pattern: safePattern, purchase_price: purchase_price || 0, purchase_currency: purchase_currency || 'USD', purchase_price_sek, purchase_date, notes, screenshot_url: safeScreenshotUrl };
+  const updateFields = { skin_name, exterior, float_value: safeFloat, pattern: safePattern, purchase_price: price, purchase_currency: 'USD', purchase_date, notes, screenshot_url: safeScreenshotUrl };
   // Only touch fields the client actually sent — leaving one out must keep the stored value,
   // not wipe it (an omitted icon_url used to erase the item's icon)
   if (steam_asset_id !== undefined) updateFields.steam_asset_id = steam_asset_id || null;
@@ -3914,8 +1807,8 @@ app.put('/api/cs/inventory/:id', requireUser, async (req, res) => {
       screenshotUrl: safeScreenshotUrl, screenshotImgUrl,
       iconUrl: (icon_url !== undefined ? safeIconUrl : existing.icon_url) || null,
       action: isSold ? 'sell' : 'buy',
-      price: purchase_price ?? existing.purchase_price,
-      currency: purchase_currency || existing.purchase_currency,
+      price,
+      currency: 'USD',
       stickers: stickers !== undefined ? safeStickerList(stickers) : (existing.stickers || []),
       isUpdate: true,
     });
@@ -3938,8 +1831,9 @@ app.delete('/api/cs/inventory/:id', requireUser, async (req, res) => {
 });
 
 app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
-  const { sale_price, sale_currency, sale_date, notes, screenshot_url } = req.body;
-  if (!sale_price||!sale_date) return res.status(400).json({ error:'sale_price and sale_date required' });
+  const { sale_price, sale_date, notes, screenshot_url } = req.body;
+  const salePrice = parseUsd(sale_price);
+  if (salePrice == null || !sale_date) return res.status(400).json({ error: 'Enter a valid sale price in USD and a sale date.' });
   if (screenshot_url && validateScreenshotUrl(screenshot_url) === false) return res.status(400).json({ error: 'Invalid screenshot URL.' });
   const safeScreenshotUrl = validateScreenshotUrl(screenshot_url);
   if (notes && notes.length > 2000) return res.status(400).json({ error: 'Notes too long.' });
@@ -3954,13 +1848,13 @@ app.post('/api/cs/inventory/:id/sell', requireUser, async (req, res) => {
     .select('id');
   if (claimErr) return res.status(500).json({ error: claimErr.message });
   if (!claimed?.length) return res.status(409).json({ error: 'Item already marked as sold.' });
-  const { data, error: saleErr } = await db.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price, sale_currency:sale_currency||'USD', sale_date, notes, screenshot_url:safeScreenshotUrl }).select().single();
+  const { data, error: saleErr } = await db.from('cs_sales').insert({ inventory_id:req.params.id, user_id:req.user.id, sale_price:salePrice, sale_currency:'USD', sale_date, notes, screenshot_url:safeScreenshotUrl }).select().single();
   if (saleErr) {
     // Undo the claim so the item isn't left "sold" with no sale recorded
     await db.from('cs_inventory').update({ sold: false }).eq('id', req.params.id).eq('user_id', req.user.id);
     return res.status(500).json({ error: 'Could not save the sale. Please try again.' });
   }
-  await appendActivity(req.user.id, 'cs_trade', { action:'sell', inventoryId: req.params.id, skinName:item.skin_name, exterior: item.exterior, floatValue: item.float_value, buyPrice:item.purchase_price, sellPrice:sale_price, currency:sale_currency, iconUrl: item.icon_url || null, stickers: item.stickers || [] });
+  await appendActivity(req.user.id, 'cs_trade', { action:'sell', inventoryId: req.params.id, skinName:item.skin_name, exterior: item.exterior, floatValue: item.float_value, buyPrice:item.purchase_price, sellPrice:salePrice, currency:'USD', iconUrl: item.icon_url || null, stickers: item.stickers || [] });
   res.json({ id:data?.id, success:true });
 });
 
@@ -4021,39 +1915,17 @@ app.get('/api/cs/steam/screenshot/:id', requireUser, async (req, res) => {
 });
 
 app.get('/api/cs/pnl', requireUser, async (req, res) => {
-  const BC = (req.query.currency || 'SEK').toUpperCase();
   const [{ data: sold }, { data: holding }] = await Promise.all([
-    db.from('cs_inventory').select('purchase_price, purchase_price_sek, cs_sales(sale_price, sale_currency)').eq('user_id', req.user.id).eq('sold', true),
-    db.from('cs_inventory').select('id, skin_name, purchase_price, purchase_price_sek').eq('user_id', req.user.id).eq('sold', false),
+    db.from('cs_inventory').select('purchase_price, cs_sales(sale_price)').eq('user_id', req.user.id).eq('sold', true),
+    db.from('cs_inventory').select('purchase_price').eq('user_id', req.user.id).eq('sold', false),
   ]);
-  const holdingItems = holding || [];
-  const saleCurrencies = [...new Set((sold||[]).map(r => r.cs_sales?.[0]?.sale_currency).filter(Boolean).filter(c => c !== 'SEK'))];
-  const needFX = [...new Set([...saleCurrencies, ...(BC !== 'SEK' ? [BC] : [])])];
-  const fxFromSEK = { SEK: 1 };
-  if (needFX.length > 0) {
-    try {
-      const fx = await fetch(`https://api.frankfurter.app/latest?from=SEK&to=${needFX.map(encodeURIComponent).join(',')}`, { signal: AbortSignal.timeout(8000) });
-      const fxd = await fx.json();
-      Object.entries(fxd.rates || {}).forEach(([cur, rate]) => { fxFromSEK[cur] = rate; });
-    } catch(e) {}
-  }
-  const bcRate = fxFromSEK[BC] || 1;
-  const sekToBC = (sekAmt) => parseFloat(((sekAmt || 0) * bcRate).toFixed(2));
-  const saleToBC = (amount, currency) => {
-    const cur = currency || 'SEK';
-    const toSEKRate = cur === 'SEK' ? 1 : (1 / (fxFromSEK[cur] || 1));
-    return parseFloat(((amount || 0) * toSEKRate * bcRate).toFixed(2));
-  };
-  const costOf = r => r.purchase_price_sek || r.purchase_price;
-  const realised = (sold||[]).reduce((s,r) => {
-    const sale = r.cs_sales?.[0];
-    return s + (saleToBC(sale?.sale_price, sale?.sale_currency) - sekToBC(costOf(r)));
-  }, 0);
+  const usd = n => Number(n) || 0;
+  const realised = (sold || []).reduce((s, r) => s + usd(r.cs_sales?.[0]?.sale_price) - usd(r.purchase_price), 0);
+  const invested = (holding || []).reduce((s, r) => s + usd(r.purchase_price), 0);
   res.json({
     realised: parseFloat(realised.toFixed(2)),
-    totalInvested: sekToBC(holdingItems.reduce((s,r) => s + costOf(r), 0)),
-    soldCount: (sold||[]).length, holdingCount: holdingItems.length,
-    display_currency: BC,
+    totalInvested: parseFloat(invested.toFixed(2)),
+    soldCount: (sold || []).length, holdingCount: (holding || []).length,
   });
 });
 
@@ -4078,17 +1950,11 @@ app.get('/api/admin/preview-email', requireAdmin, (req, res) => {
 
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
   try {
-    // Fetch profiles and transaction counts in parallel — no N+1
-    const [{ data: profiles }, { data: txCounts }, { count: totalTx }, { data: pendingTokens }] = await Promise.all([
-      db.from('profiles').select('id, username, role, created_at, public_inventory, public_holdings, avatar_base64, email, email_verified'),
-      selectAllRows(() => db.from('transactions').select('user_id')),
-      db.from('transactions').select('*', { count:'exact', head:true }),
+    const [{ data: profiles }, { count: totalTrades }, { data: pendingTokens }] = await Promise.all([
+      db.from('profiles').select('id, username, role, created_at, public_inventory, avatar_base64, email, email_verified'),
+      db.from('cs_inventory').select('*', { count:'exact', head:true }),
       db.from('email_verification_tokens').select('username, email, expires_at').eq('used', false).gt('expires_at', new Date().toISOString()),
     ]);
-
-    // Group transaction counts by user_id client-side
-    const txCountMap = {};
-    (txCounts || []).forEach(t => { txCountMap[t.user_id] = (txCountMap[t.user_id] || 0) + 1; });
 
     // Latest active pending verification token per user
     const pendingEmailMap = {};
@@ -4097,8 +1963,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
     const usersStats = (profiles || []).map(p => ({
       username: p.username, role: p.role, createdAt: p.created_at,
       isRoot: isRootAdmin(p.id),
-      transactionCount: txCountMap[p.id] || 0,
-      publicInventory: p.public_inventory, publicHoldings: p.public_holdings,
+      publicInventory: p.public_inventory,
       avatarBase64: p.avatar_base64 || null,
       email: p.email || null,
       emailVerified: p.email_verified || false,
@@ -4111,8 +1976,7 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
       users: usersStats,
       // Lets the admin panel show only the actions the server will actually allow
       viewer: { isRoot: isRootAdmin(req.user.id), isRecovery: isRecoveryAdmin(req.user.id) },
-      totals: { userCount: (profiles||[]).length, totalTx: totalTx||0 },
-      tickerCache: { total: 0, resolved: 0, failed: 0 },
+      totals: { userCount: (profiles||[]).length, totalTrades: totalTrades||0 },
     });
   } catch(e) {
     log.error('admin/stats failed', { error: e.message });
@@ -4283,20 +2147,6 @@ app.post('/api/admin/users/:username/clear-bio', requireAdmin, async (req, res) 
   await db.from('profiles').update({ bio:'' }).eq('username', req.params.username);
   await appendModLog(req.username, 'clear-bio', req.params.username);
   res.json({ success:true });
-});
-
-app.post('/api/admin/cache/clear', requireAdmin, async (req, res) => {
-  const { username } = req.body;
-  if (username) { const { data: p } = await db.from('profiles').select('id').eq('username', username).single(); if (p) await db.from('ticker_cache').delete().eq('user_id', p.id); }
-  else await db.from('ticker_cache').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
-  res.json({ success:true });
-});
-
-app.get('/api/admin/ticker-failures', requireAdmin, async (req, res) => {
-  const { data } = await db.from('transactions').select('raw_ticker, isin, name, profiles(username)').in('type', ['buy','sell']).or('ticker.is.null,ticker.eq.').limit(200);
-  const grouped = {};
-  (data||[]).forEach(t => { const key=t.raw_ticker||t.isin||t.name||'unknown'; if(!grouped[key]) grouped[key]={ key, count:0, users:new Set(), isin:t.isin, name:t.name }; grouped[key].count++; if(t.profiles?.username) grouped[key].users.add(t.profiles.username); });
-  res.json(Object.values(grouped).map(g=>({ ...g, users:[...g.users] })).sort((a,b)=>b.count-a.count).slice(0,50));
 });
 
 app.post('/api/admin/announcements', requireAdmin, async (req, res) => {

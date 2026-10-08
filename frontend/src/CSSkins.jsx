@@ -6,12 +6,23 @@ import { flash } from './flash';
 import { card, input, label, btn, btnPrimary, btnSecondary, btnConfirm, contentColumn } from './ui';
 import { IconX, IconImage } from './icons';
 
-const EXTERIORS = ['Factory New', 'Minimal Wear', 'Field-Tested', 'Well-Worn', 'Battle-Scarred'];
 
 // Vanilla = special item (★) with no skin pattern (no |)
 const withVanilla = n => (n && n.includes('★') && !n.includes('|')) ? `${n} | Vanilla` : (n || '');
 
 const parseExteriorFromName = n => { const m = n?.match(/\((Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)/); return m?.[1] || null; };
+// Exterior is never picked by hand: it follows the float, or is N/A for items without a wear
+function ExteriorReadout({ hasExterior, floatValue, exterior }) {
+  const known = hasExterior && floatValue !== '' && floatValue != null;
+  return (
+    <div>
+      <label className={label}>Exterior</label>
+      <div className={`${input} flex items-center ${known ? 'text-white' : 'text-zinc-500'}`}>
+        {!hasExterior ? 'N/A' : (known ? exterior : '—')}
+      </div>
+    </div>
+  );
+}
 const floatToExterior = v => { const f = parseFloat(v); if (isNaN(f)) return null; if (f < 0.07) return 'Factory New'; if (f < 0.15) return 'Minimal Wear'; if (f < 0.38) return 'Field-Tested'; if (f < 0.45) return 'Well-Worn'; return 'Battle-Scarred'; };
 
 function NumInput({ value, onChange, step = 'any', min, max, placeholder, disabled, className, wrapperClass = '' }) {
@@ -52,14 +63,10 @@ function DateInput({ value, onChange, className }) {
   );
 }
 
-function fmt(n) { return (n || 0).toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-const CUR_SYM = { SEK: 'kr', USD: '$', EUR: '€', GBP: '£' };
-function fmtCur(n, bc = 'SEK') {
-  const v = n || 0;
-  if (bc === 'SEK') return `${v.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kr`;
-  const sym = CUR_SYM[bc];
-  const formatted = v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return sym ? `${sym}${formatted}` : `${formatted} ${bc}`;
+// Every price is entered and stored in USD — no conversion anywhere
+function fmtUSD(n) {
+  const v = Number(n) || 0;
+  return `${v < 0 ? '-' : ''}$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 const _screenshotCache = {};
@@ -255,7 +262,7 @@ function SkinCard({ item, onClick, inRegistry, registryId }) {
   );
 }
 
-export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
+export default function CSSkins({ authUsername }) {
   const location = useLocation();
   const navigate = useNavigate();
   const tab = location.pathname === '/skins/inventory' ? 'inventory'
@@ -270,8 +277,8 @@ export default function CSSkins({ authUsername, baseCurrency = 'SEK' }) {
   const [steamError, setSteamError] = useState('');
   const [invSort, setInvSort] = useState('default');
   const [invSearch, setInvSearch] = useState('');
-const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory?currency=${baseCurrency}`) || []);
-  const [pnl, setPnl] = useState(() => apiCache.get(`/api/cs/pnl?currency=${baseCurrency}`));
+const [inventory, setInventory] = useState(() => apiCache.get('/api/cs/inventory') || []);
+  const [pnl, setPnl] = useState(() => apiCache.get('/api/cs/pnl'));
   const [showAddForm, setShowAddForm] = useState(false);
   const [addModalTab, setAddModalTab] = useState('inventory');
   const [modalInventory, setModalInventory] = useState(null);
@@ -305,17 +312,16 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const [sortDir, setSortDir] = useState('desc');
   const [addForm, setAddForm] = useState({
     skin_name: '', statTrak: false, hasExterior: true, exterior: 'Factory New', float_value: '', pattern: '',
-    purchase_price: '', purchase_currency: 'USD',
+    purchase_price: '',
     purchase_date: new Date().toISOString().split('T')[0],
     notes: '', screenshot_url: '', icon_url: ''
   });
   const [sellForm, setSellForm] = useState({
-    sale_price: '', sale_currency: 'USD',
+    sale_price: '',
     sale_date: new Date().toISOString().split('T')[0],
     notes: '', screenshot_url: ''
   });
 
-  const fmtBC = n => fmtCur(n, baseCurrency);
 
   const _urlParams = new URLSearchParams(location.search);
   const expandParam = _urlParams.get('expand');
@@ -385,18 +391,18 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     try {
       const h = authHeaders();
       const [inv, p, s] = await Promise.all([
-        fetch(`/api/cs/inventory?currency=${baseCurrency}`, { headers: h }).then(r => r.json()),
-        fetch(`/api/cs/pnl?currency=${baseCurrency}`, { headers: h }).then(r => r.json()),
+        fetch('/api/cs/inventory', { headers: h }).then(r => r.json()),
+        fetch('/api/cs/pnl', { headers: h }).then(r => r.json()),
         fetch('/api/cs/settings', { headers: h }).then(r => r.json()),
       ]);
-      apiCache.set(`/api/cs/inventory?currency=${baseCurrency}`, Array.isArray(inv) ? inv : []);
-      apiCache.set(`/api/cs/pnl?currency=${baseCurrency}`, p);
+      apiCache.set('/api/cs/inventory', Array.isArray(inv) ? inv : []);
+      apiCache.set('/api/cs/pnl', p);
       apiCache.set('/api/cs/settings', s);
       setInventory(Array.isArray(inv) ? inv : []);
       setPnl(p);
       setSettings(s);
     } catch(e) { console.error(e); }
-  }, [baseCurrency]);
+  }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -437,7 +443,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     }
     setSteamLoading(true); setSteamError('');
     try {
-      const res = await fetch(`/api/cs/steam/inventory/${id}?currency=${baseCurrency}`, { headers: authHeaders() });
+      const res = await fetch(`/api/cs/steam/inventory/${id}`, { headers: authHeaders() });
       const data = await res.json();
       if (!res.ok) { setSteamError(data.error || 'Failed to fetch inventory'); }
       else {
@@ -462,7 +468,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     } catch(e) {}
     setModalInvLoading(true);
     try {
-      const res = await fetch(`/api/cs/steam/inventory/${id}?currency=${baseCurrency}`, { headers: authHeaders() });
+      const res = await fetch(`/api/cs/steam/inventory/${id}`, { headers: authHeaders() });
       const data = await res.json();
       if (res.ok) {
         setModalInventory((data.items || []).filter(i => i.tradable));
@@ -498,7 +504,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
   const searchSkins = async (q) => {
     if (q.length < 1) { setSkinSearchResults([]); return; }
     try {
-      const res = await fetch(`/api/cs/prices/search/${encodeURIComponent(q)}?currency=${baseCurrency}`, { headers: authHeaders() });
+      const res = await fetch(`/api/cs/skins/search/${encodeURIComponent(q)}`, { headers: authHeaders() });
       setSkinSearchResults(await res.json());
     } catch(e) {}
   };
@@ -530,7 +536,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     closeAddModal();
     setAddForm({
       skin_name: '', statTrak: false, hasExterior: true, exterior: 'Factory New', float_value: '', pattern: '',
-      purchase_price: '', purchase_currency: 'USD',
+      purchase_price: '',
       purchase_date: new Date().toISOString().split('T')[0],
       notes: '', screenshot_url: '', icon_url: '', _assetId: null,
     });
@@ -544,7 +550,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     if (err) { setSellError(err); return; }
     closeSellModal();
     setSellForm({
-      sale_price: '', sale_currency: 'USD',
+      sale_price: '',
       sale_date: new Date().toISOString().split('T')[0],
       notes: '', screenshot_url: ''
     });
@@ -564,13 +570,12 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     setSelectedEditItem(null);
     setEditForm({
       skin_name: item.skin_name || '',
-      exterior: item.exterior || 'Factory New',
-      float_value: item.float_value || '',
+      // Items without a wear (vanilla knives etc.) keep exterior null instead of becoming Factory New
+      hasExterior: !!item.exterior,
+      exterior: item.exterior || null,
+      float_value: item.float_value ?? '',
       pattern: item.pattern || '',
-      // The stored price in its own currency — not the display value, which is converted to the
-      // user's base currency and would be re-saved under the wrong currency label
       purchase_price: item.purchase_price ?? '',
-      purchase_currency: item.purchase_currency || 'USD',
       purchase_date: item.purchase_date || new Date().toISOString().split('T')[0],
       notes: item.notes || '',
       screenshot_url: item.screenshot_url || '',
@@ -590,7 +595,13 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
 
   const selectEditSkin = (item) => {
     setSelectedEditItem(item);
-    setEditForm(f => ({ ...f, skin_name: item.name, steam_asset_id: item.assetId, icon_url: item.iconUrl || '', stickers: item.stickers || [] }));
+    // The linked item decides whether there is a wear; the float (if typed) decides which one
+    const ext = parseExteriorFromName(item.name);
+    setEditForm(f => ({
+      ...f, skin_name: item.name, steam_asset_id: item.assetId, icon_url: item.iconUrl || '', stickers: item.stickers || [],
+      hasExterior: !!ext,
+      exterior: ext ? (floatToExterior(f.float_value) || ext) : null,
+    }));
   };
 
   const resetIcon = async () => {
@@ -655,8 +666,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
     .sort((a, b) => {
       let av = a[sortCol], bv = b[sortCol];
       if (sortCol === 'pnl') {
-        av = a.sold ? ((a.sale_price_display || 0) - (a.purchase_price_display || 0)) : null;
-        bv = b.sold ? ((b.sale_price_display || 0) - (b.purchase_price_display || 0)) : null;
+        av = a.sold ? ((a.sale_price || 0) - (a.purchase_price || 0)) : null;
+        bv = b.sold ? ((b.sale_price || 0) - (b.purchase_price || 0)) : null;
       }
       if (av == null) av = '';
       if (bv == null) bv = '';
@@ -700,8 +711,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
 
               {pnl && (
                 <div className="grid grid-cols-2 gap-4">
-                  <PnlCard label="Total Invested" value={fmtBC(pnl.totalInvested)} sub={`${pnl.holdingCount} skins held`} />
-                  <PnlCard label="Realised P&L" value={`${pnl.realised >= 0 ? '+' : ''}${fmtBC(pnl.realised)}`} positive={pnl.realised >= 0} sub={`${pnl.soldCount} skins sold`} />
+                  <PnlCard label="Total Invested" value={fmtUSD(pnl.totalInvested)} sub={`${pnl.holdingCount} skins held`} />
+                  <PnlCard label="Realised P&L" value={`${pnl.realised >= 0 ? '+' : ''}${fmtUSD(pnl.realised)}`} positive={pnl.realised >= 0} sub={`${pnl.soldCount} skins sold`} />
                 </div>
               )}
 
@@ -714,8 +725,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                   </div>
                   <div className="flex flex-col divide-y divide-zinc-700">
                     {inventory.slice(0, 5).map(item => {
-                      const costPrice = item.purchase_price_display || 0;
-                      const pnlVal = item.sold ? ((item.sale_price_display || 0) - costPrice) : null;
+                      const costPrice = item.purchase_price || 0;
+                      const pnlVal = item.sold ? ((item.sale_price || 0) - costPrice) : null;
                       const pnlPos = pnlVal !== null && pnlVal >= 0;
                       return (
                         <div key={item.id} className={`flex items-center gap-4 py-3 first:pt-0 last:pb-0`}>
@@ -730,9 +741,9 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                           {pnlVal !== null && (
                             <div className="text-right shrink-0">
                               <p className={`text-sm font-bold ${pnlPos ? 'text-green-400' : 'text-red-400'}`}>
-                                {pnlPos ? '+' : ''}{fmtBC(pnlVal)}
+                                {pnlPos ? '+' : ''}{fmtUSD(pnlVal)}
                               </p>
-                              <p className={`text-xs text-zinc-400`}>{fmtBC(costPrice)}</p>
+                              <p className={`text-xs text-zinc-400`}>{fmtUSD(costPrice)}</p>
                             </div>
                           )}
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${item.sold ? 'bg-zinc-700 text-zinc-400' : 'bg-green-900/40 text-green-400'}`}>
@@ -894,20 +905,20 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
               {inventory.length > 0 && (() => {
                 const holding = inventory.filter(i => !i.sold);
                 const sold = inventory.filter(i => i.sold);
-                const invested = holding.reduce((s, i) => s + (i.purchase_price_display || 0), 0);
-                const realized = sold.reduce((s, i) => s + ((i.sale_price_display || 0) - (i.purchase_price_display || 0)), 0);
+                const invested = holding.reduce((s, i) => s + (i.purchase_price || 0), 0);
+                const realized = sold.reduce((s, i) => s + ((i.sale_price || 0) - (i.purchase_price || 0)), 0);
                 return (
                   <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-zinc-400 px-1">
                     {holding.length > 0 && (
                       <span>
                         <span className="text-zinc-200 font-semibold">{holding.length}</span> holding
-                        <span className="ml-3 text-zinc-200 font-semibold">{fmtBC(invested)}</span>
+                        <span className="ml-3 text-zinc-200 font-semibold">{fmtUSD(invested)}</span>
                       </span>
                     )}
                     {sold.length > 0 && (
                       <span>
                         <span className="text-zinc-200 font-semibold">{sold.length}</span> sold
-                        {' · '}Realised <span className={realized >= 0 ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{realized >= 0 ? '+' : ''}{fmtBC(realized)}</span>
+                        {' · '}Realised <span className={realized >= 0 ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>{realized >= 0 ? '+' : ''}{fmtUSD(realized)}</span>
                       </span>
                     )}
                   </div>
@@ -1105,15 +1116,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                               {selectedModalItem && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                                   <div>
-                                    <label className={label}>Exterior</label>
-                                    <select value={addForm.exterior} onChange={e => setAddForm(f => ({ ...f, exterior: e.target.value }))} className={input}>
-                                      {EXTERIORS.map(e => <option key={e}>{e}</option>)}
-                                    </select>
-                                  </div>
-                                  <div>
                                     <label className={label}>Float {addForm.hasExterior && <span className="text-red-400">*</span>}</label>
-                                    <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => setAddForm(f => ({ ...f, float_value: e.target.value }))} placeholder="0.0000" className={input} />
+                                    {addForm.hasExterior ? (
+                                      <NumInput step="0.0001" min="0" max="1" value={addForm.float_value} onChange={e => { const ext = floatToExterior(e.target.value); setAddForm(f => ({ ...f, float_value: e.target.value, ...(ext ? { exterior: ext } : {}) })); }} placeholder="0.0000" className={input} />
+                                    ) : (
+                                      <div className={`${input} flex items-center text-zinc-500`}>0.0000</div>
+                                    )}
                                   </div>
+                                  <ExteriorReadout hasExterior={addForm.hasExterior} floatValue={addForm.float_value} exterior={addForm.exterior} />
                                   <div>
                                     <label className={label}>Buy price <span className="text-red-400">*</span></label>
                                     <div className="flex gap-2">
@@ -1169,12 +1179,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                               <div className={`${input} flex items-center text-zinc-500`}>0.0000</div>
                             )}
                           </div>
-                          <div>
-                            <label className={label}>Exterior</label>
-                            <div className={`${input} flex items-center ${!addForm.hasExterior || !addForm.float_value ? 'text-zinc-500' : 'text-white'}`}>
-                              {!addForm.hasExterior ? 'N/A' : (addForm.float_value ? addForm.exterior : '—')}
-                            </div>
-                          </div>
+                          <ExteriorReadout hasExterior={addForm.hasExterior} floatValue={addForm.float_value} exterior={addForm.exterior} />
                           <div>
                             <label className={label}>Buy price <span className="text-red-400">*</span></label>
                             <div className="flex gap-2">
@@ -1349,15 +1354,14 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                             <input value={editForm.skin_name} onChange={e => setEditForm(f => ({ ...f, skin_name: e.target.value }))} placeholder="e.g. AK-47 | Redline" className={input} />
                           </div>
                           <div>
-                            <label className={label}>Exterior</label>
-                            <select value={editForm.exterior} onChange={e => setEditForm(f => ({ ...f, exterior: e.target.value }))} className={input}>
-                              {EXTERIORS.map(e => <option key={e}>{e}</option>)}
-                            </select>
-                          </div>
-                          <div>
                             <label className={label}>Float</label>
-                            <NumInput step="0.0001" min="0" max="1" value={editForm.float_value} onChange={e => setEditForm(f => ({ ...f, float_value: e.target.value }))} placeholder="0.0000" className={input} />
+                            {editForm.hasExterior ? (
+                              <NumInput step="0.0001" min="0" max="1" value={editForm.float_value} onChange={e => { const ext = floatToExterior(e.target.value); setEditForm(f => ({ ...f, float_value: e.target.value, ...(ext ? { exterior: ext } : {}) })); }} placeholder="0.0000" className={input} />
+                            ) : (
+                              <div className={`${input} flex items-center text-zinc-500`}>0.0000</div>
+                            )}
                           </div>
+                          <ExteriorReadout hasExterior={editForm.hasExterior} floatValue={editForm.float_value} exterior={editForm.exterior} />
                           <div>
                             <label className={label}>Buy price <span className="text-red-400">*</span></label>
                             <div className="flex gap-2">
@@ -1543,8 +1547,8 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                       </thead>
                       <tbody>
                         {filteredInv.map(item => {
-                          const buyPrice = item.purchase_price_display || 0;
-                          const pnlVal = item.sold ? ((item.sale_price_display || 0) - buyPrice) : null;
+                          const buyPrice = item.purchase_price || 0;
+                          const pnlVal = item.sold ? ((item.sale_price || 0) - buyPrice) : null;
                           const pnlPos = pnlVal !== null && pnlVal >= 0;
                           const isExpanded = expandedRows.has(item.id);
                           const screenshotUrl = item.screenshot_url || item.cs_sales?.[0]?.screenshot_url;
@@ -1612,7 +1616,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                 <td className={`px-4 py-2.5 text-xs text-zinc-400 ${item.float_value ? 'font-mono' : ''}`}>{item.float_value ? parseFloat(item.float_value).toFixed(4) : '—'}</td>
                                 <td className={`px-4 py-2.5 text-xs text-zinc-400`}>{item.purchase_date}</td>
                                 <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs">
-                                  {fmtBC(item.purchase_price_display)}
+                                  {fmtUSD(item.purchase_price)}
                                 </td>
                                 <td className="px-4 py-2.5">
                                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${item.sold ? `bg-zinc-700 text-zinc-400` : 'bg-green-900/40 text-green-400'}`}>
@@ -1622,7 +1626,7 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                 <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs font-bold">
                                   {pnlVal !== null ? (
                                     <span className={pnlPos ? 'text-green-400' : 'text-red-400'}>
-                                      {pnlPos ? '+' : ''}{fmtBC(pnlVal)}
+                                      {pnlPos ? '+' : ''}{fmtUSD(pnlVal)}
                                     </span>
                                   ) : (
                                     <span className="text-zinc-600">—</span>
@@ -1660,12 +1664,12 @@ const [inventory, setInventory] = useState(() => apiCache.get(`/api/cs/inventory
                                         <div className="grid grid-cols-2 gap-2">
                                           <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                             <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Buy Price</p>
-                                            <p className="text-sm font-mono text-zinc-200">{fmtBC(buyPrice)}</p>
+                                            <p className="text-sm font-mono text-zinc-200">{fmtUSD(buyPrice)}</p>
                                           </div>
                                           <div className="bg-zinc-700/30 rounded-lg px-3 py-2">
                                             <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">Sale Price</p>
-                                            <p className={`text-sm font-mono ${item.sold && item.sale_price_display != null ? 'text-zinc-200' : 'text-zinc-600'}`}>
-                                              {item.sold && item.sale_price_display != null ? fmtBC(item.sale_price_display) : '—'}
+                                            <p className={`text-sm font-mono ${item.sold && item.sale_price != null ? 'text-zinc-200' : 'text-zinc-600'}`}>
+                                              {item.sold && item.sale_price != null ? fmtUSD(item.sale_price) : '—'}
                                             </p>
                                           </div>
                                           <div className="bg-zinc-700/30 rounded-lg px-3 py-2">

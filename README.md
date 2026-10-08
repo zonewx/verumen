@@ -7,21 +7,16 @@
 - **Friends** — Send and accept follow requests; pending requests show as a badge in the top bar.
 - **Profiles** — Public profile pages with avatar, bio, country flag, and Steam level badge. Visibility can be toggled private.
 
-### Stock Portfolio
-- **Import** — Upload CSVs from Avanza, Nordnet, or Montrose to populate holdings and transactions.
-- **Holdings** — Live prices via Finnhub with P&L per position. Manual ticker overrides supported.
-- **Dividends** — Separate dividend tracker with CSV import.
-- **Multi-currency** — All values stored in SEK; any display endpoint accepts `?currency=` (SEK, USD, EUR, GBP) using live FX from Frankfurter.
-
 ### CS2 Skins
 - **Steam Inventory** — Fetches your live CS2 inventory via the Steam Web API. Cards show rarity gradient, wear, and StatTrak status. Sort by inventory order or rarity. Cached locally for 24 hours; manual refresh available.
 - **Trade Registry** — Log every skin you buy and sell. Tracks skin name, exterior, float, pattern, buy price, sell price, date, notes, and a Steam screenshot link.
 - **Register Trade** — Two modes:
   - *From Steam Inventory* — pick a skin from your live inventory; skin name, exterior, and icon are pre-filled.
-  - *Enter Manually* — type any skin name with autocomplete from the price database; used for past trades no longer in your inventory.
-- **P&L** — Overview shows total invested, realised gains/losses, and per-trade breakdown.
+  - *Enter Manually* — type any skin name with autocomplete from the skin catalog; used for past trades no longer in your inventory.
+- **Prices** — Users enter what they paid and what they sold for, always in USD. No third-party prices or currency conversion.
+- **P&L** — Overview shows total invested, realised gains/losses, and per-trade breakdown, computed from the entered prices.
 - **Inventory ↔ Registry link** — Inventory cards show an "In trade registry" badge and a "View in registry" swoop button. Unregistered items show an "Add to registry" button that opens the add form pre-filled with skin details.
-- **Skin prices** — Market prices sourced from Skinport and Steam Community Market, refreshed automatically. Manual price overrides per skin supported.
+- **Skin catalog** — Skin names for search come from Skinport's item list, refreshed weekly (names only).
 
 ### Admin & Moderation
 - **Admin panel** — User management, role assignment (admin/moderator), registration on/off toggle, announcement publishing, email preview.
@@ -40,8 +35,7 @@
 | Backend | Node.js + Express, deployed on Railway |
 | Frontend | React 19 + Vite + Tailwind CSS v4, deployed on Vercel |
 | Database & Auth | Supabase (PostgreSQL + Auth) |
-| Stock data | [Finnhub](https://finnhub.io) (free tier) + [Frankfurter](https://frankfurter.app) (FX rates) |
-| CS2 skin prices | Skinport API + Steam Community Market |
+| CS2 skin names | Skinport item list (names only) |
 | Steam inventory | Steam Web API |
 | Email | [Resend](https://resend.com) — verification & password reset (optional) |
 
@@ -56,9 +50,6 @@ Create a `.env` file in the project root:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
 SUPABASE_ANON_KEY=your-anon-public-key   # used for JWT signature verification
-
-# Finnhub (stock prices — free tier, sign up at finnhub.io)
-FINNHUB_API_KEY=your-finnhub-api-key
 
 # Steam Web API (required for Steam inventory and level lookup)
 STEAM_API_KEY=your-steam-api-key
@@ -104,7 +95,7 @@ The backend runs on `http://localhost:3000` and the Vite dev server on `http://l
 
 The `railway.json` is already configured. Push to your Railway service — it builds with Nixpacks and starts with `node server.js`.
 
-Required env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `FINNHUB_API_KEY`, `APP_URL`, `BASE_URL`, `ROOT_ADMIN_ID`.
+Required env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `APP_URL`, `BASE_URL`, `ROOT_ADMIN_ID`.
 Optional: `STEAM_API_KEY`, `RESEND_API_KEY`, `RECOVERY_ADMIN_ID`.
 Set `NODE_ENV=production` so the refresh token cookie is issued with the `Secure` flag.
 
@@ -145,19 +136,12 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT TRUE;
 
 | Route | Page |
 |---|---|
-| `/home` | Social feed |
+| `/feed` | Social feed |
 | `/friends` | Friends list and requests |
-| `/portfolio/overview` | Stock portfolio summary |
-| `/portfolio/holdings` | Holdings list |
-| `/portfolio/transactions` | Transaction history |
-| `/portfolio/dividends` | Dividend tracker |
-| `/portfolio/import` | Upload broker CSV |
-| `/portfolio/import-dividends` | Upload dividend CSV |
-| `/portfolio/settings` | Ticker price overrides |
 | `/skins/overview` | CS2 skin portfolio summary |
 | `/skins/inventory` | Live Steam inventory |
 | `/skins/traderegistry` | Trade registry |
-| `/settings` | Global settings (currency, price sync) |
+| `/settings` | Account settings (username, email, password) |
 | `/user/:username` | Public profile page |
 | `/user/:username/edit` | Edit your profile |
 | `/adminpanel` | Admin panel |
@@ -176,8 +160,7 @@ verumen/
   package.json
   frontend/
     src/
-      App.jsx            # Root component, routing, auth, portfolio state
-      Sidebar.jsx        # Navigation sidebar
+      App.jsx            # Root component, routing, auth
       GlobalBar.jsx      # Top bar — search, avatar, notifications
       AdminPanel.jsx
       ModeratorPanel.jsx

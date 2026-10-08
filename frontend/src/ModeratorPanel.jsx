@@ -116,7 +116,6 @@ export default function ModeratorPanel({ authUsername, userRole }) {
                           <span className="font-bold">{u.username}</span>
                           {u.role && u.role !== 'user' && <span className={`text-xs px-2 py-0.5 rounded-full ${roleBadge[u.role]}`}>{u.role.charAt(0).toUpperCase() + u.role.slice(1)}</span>}
                           {u.publicInventory && <span className="text-xs text-green-400 bg-green-900/30 px-1.5 py-0.5 rounded-full">Pub. CS</span>}
-                          {u.publicHoldings && <span className="text-xs text-blue-400 bg-blue-900/30 px-1.5 py-0.5 rounded-full">Pub. Portfolio</span>}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {u.role !== 'admin' && u.role !== 'moderator' && <button onClick={() => setResetModal({ username: u.username })} className={btnPrimarySm}>Reset Password</button>}

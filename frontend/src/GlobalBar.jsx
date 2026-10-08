@@ -38,7 +38,6 @@ const ADMIN_MENU = [
   { label: 'User Management', path: '/adminpanel/users', icon: Icons.users },
   { label: 'Announcements', path: '/adminpanel/announcements', icon: Icons.bell },
   { label: 'Log', path: '/adminpanel/log', icon: Icons.list },
-  { label: 'Diagnostics', path: '/adminpanel/diagnostics', icon: Icons.pulse },
 ];
 
 // Top-level nav entries. A `menu` makes it a dropdown; `match` decides when it's the active section.

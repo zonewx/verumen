@@ -9,18 +9,15 @@ import ModLog from './ModLog';
 
 const TAB_MAP = {
   '': 'overview', 'overview': 'overview', 'database': 'database',
-  'users': 'users', 'ticker-management': 'ticker-mgmt',
-  'ticker-failures': 'ticker-mgmt', 'global-overrides': 'ticker-mgmt',
+  'users': 'users',
   'announcements': 'announcements',
   'log': 'log',
-  'diagnostics': 'diagnostics',
 };
 
 export default function AdminPanel({ authUsername }) {
   const { pathname } = useLocation();
   const tab = TAB_MAP[pathname.replace(/^\/adminpanel\/?/, '')] ?? 'overview';
   const [stats, setStats] = useState(() => apiCache.get('/api/admin/stats'));
-  const [failures, setFailures] = useState([]);
   const [announcements, setAnnouncements] = useState(() => apiCache.get('/api/announcements') || []);
   const [loading, setLoading] = useState(!apiCache.has('/api/admin/stats'));
   const [emailTemplates, setEmailTemplates] = useState([]);
@@ -54,24 +51,7 @@ export default function AdminPanel({ authUsername }) {
   const [settings, setSettings] = useState({ allowRegistration: true, userLimit: 0 });
   const [userLimitInput, setUserLimitInput] = useState('0');
 
-  // Global overrides
-  const [globalOverrides, setGlobalOverrides] = useState(() => apiCache.get('/api/admin/global-overrides') || []);
-  const [goIsin, setGoIsin] = useState('');
-  const [goTicker, setGoTicker] = useState('');
-  const [goMsg, setGoMsg] = useState('');
-  const [clearAllModal, setClearAllModal] = useState(false);
-  const [clearAllPw, setClearAllPw] = useState('');
-  const [clearAllError, setClearAllError] = useState('');
-  const [removeModal, setRemoveModal] = useState(null); // isin being removed
-  const [removePw, setRemovePw] = useState('');
-  const [removeError, setRemoveError] = useState('');
-  const [goSearch, setGoSearch] = useState('');
-  const [goLoading, setGoLoading] = useState(false);
   const [userSearch, setUserSearch] = useState('');
-
-  // Diagnostics
-  const [diagData, setDiagData] = useState(null);
-  const [diagLoading, setDiagLoading] = useState(false);
 
   // Database storage
   const [dbSize, setDbSize] = useState(null);
@@ -113,72 +93,7 @@ export default function AdminPanel({ authUsername }) {
     setLoading(false);
   }, []);
 
-  const fetchFailures = useCallback(async () => {
-    try {
-      const data = await fetch('/api/admin/ticker-failures', { headers: h }).then(r => r.json());
-      setFailures(data);
-    } catch(e) {}
-  }, []);
-
-  const fetchGlobalOverrides = useCallback(async (force = false) => {
-    if (!force && apiCache.has('/api/admin/global-overrides')) return;
-    setGoLoading(true);
-    const res = await fetch('/api/admin/global-overrides', { headers: h });
-    const data = await res.json();
-    setGoLoading(false);
-    if (!res.ok) { setGoMsg(`Error: ${data.error}`); return; }
-    if (Array.isArray(data)) { setGlobalOverrides(data); apiCache.set('/api/admin/global-overrides', data); }
-  }, []);
-
-  const saveGlobalOverride = async () => {
-    const isin = goIsin.trim().toUpperCase(), ticker = goTicker.trim().toUpperCase();
-    if (!isin || !ticker) return;
-    const res = await fetch('/api/admin/global-overrides', { method: 'POST', headers: h, body: JSON.stringify({ isin, ticker }) });
-    const data = await res.json();
-    if (!res.ok) { setGoMsg(`Error: ${data.error}`); return; }
-    setGoIsin(''); setGoTicker('');
-    setGoMsg(`Saved: ${isin} → ${ticker}`);
-    setTimeout(() => setGoMsg(''), 3000);
-    apiCache.del('/api/admin/global-overrides');
-    fetchGlobalOverrides(true);
-  };
-
-  const deleteGlobalOverride = (isin) => {
-    setRemoveModal(isin);
-    setRemovePw('');
-    setRemoveError('');
-  };
-
-  const confirmDeleteGlobalOverride = async () => {
-    setRemoveError('');
-    const res = await fetch(`/api/admin/global-overrides/${removeModal}`, { method: 'DELETE', headers: h, body: JSON.stringify({ password: removePw }) });
-    const data = await res.json();
-    if (!res.ok) { setRemoveError(data.error || 'Incorrect password'); return; }
-    setRemoveModal(null); setRemovePw('');
-    apiCache.del('/api/admin/global-overrides');
-    fetchGlobalOverrides(true);
-  };
-
-  const toggleGlobalOverride = async (isin) => {
-    await fetch(`/api/admin/global-overrides/${isin}/toggle`, { method: 'PATCH', headers: h });
-    apiCache.del('/api/admin/global-overrides');
-    fetchGlobalOverrides(true);
-  };
-
-  const clearAllGlobalOverrides = async () => {
-    setClearAllError('');
-    const res = await fetch('/api/admin/global-overrides', { method: 'DELETE', headers: h, body: JSON.stringify({ password: clearAllPw }) });
-    const data = await res.json();
-    if (!res.ok) { setClearAllError(data.error || 'Incorrect password'); return; }
-    setClearAllModal(false); setClearAllPw('');
-    apiCache.del('/api/admin/global-overrides');
-    fetchGlobalOverrides(true);
-  };
-
-  useEffect(() => { fetchStats(); fetchDbSize(); }, []);
-  useEffect(() => { if (tab === 'ticker-mgmt') { fetchFailures(); fetchGlobalOverrides(); } }, [tab]);
   useEffect(() => { if (tab === 'database') { fetchDbTables(); fetchDbSize(); } }, [tab]);
-  useEffect(() => { if (tab === 'diagnostics') fetchDiag(); }, [tab]);
 
   useEffect(() => {
     const el = tableScrollRef.current;
@@ -249,12 +164,6 @@ export default function AdminPanel({ authUsername }) {
     fetchStats();
   };
 
-  const clearCache = async () => {
-    await fetch('/api/admin/cache/clear', { method: 'POST', headers: h, body: '{}' });
-    flash('✓ Ticker cache cleared');
-    fetchStats();
-  };
-
   const postAnnouncement = async () => {
     if (!annForm.title || !annForm.message) { flash('Title and message required'); return; }
     const res = await fetch('/api/admin/announcements', { method: 'POST', headers: h, body: JSON.stringify(annForm) });
@@ -313,16 +222,6 @@ export default function AdminPanel({ authUsername }) {
     return [d && `${d}d`, h && `${h}h`, `${m}m`].filter(Boolean).join(' ');
   };
 
-
-  const fetchDiag = useCallback(async () => {
-    setDiagLoading(true);
-    try {
-      const res = await fetch('/api/diag/yf', { headers: h });
-      const data = await res.json();
-      setDiagData(data);
-    } catch(e) { setDiagData({ error: e.message }); }
-    setDiagLoading(false);
-  }, []);
 
   const fetchDbSize = useCallback(async () => {
     setDbSizeLoading(true);
@@ -487,35 +386,14 @@ export default function AdminPanel({ authUsername }) {
                 {/* User totals */}
                 <div className={`${card} p-5`}>
                   <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Totals</h2>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     {[
                       { label: 'Users', value: stats.totals.userCount },
-                      { label: 'Total Transactions', value: stats.totals.totalTx.toLocaleString() },
-                      { label: 'Total Trades', value: (stats.totals.totalTrades ?? stats.totals.totalTx ?? 0).toLocaleString() },
+                      { label: 'Registered Trades', value: (stats.totals.totalTrades ?? 0).toLocaleString() },
                     ].map(({ label, value }) => (
                       <div key={label} className={`bg-zinc-700 rounded-lg p-3`}>
                         <p className={`text-xs text-zinc-400 mb-1`}>{label}</p>
                         <p className="font-bold text-2xl">{value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Ticker cache stats */}
-                <div className={`${card} p-5`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className={`text-xs font-bold uppercase tracking-wider text-zinc-400`}>Ticker Cache</h2>
-                    <button onClick={() => clearCache()} className={btnSecondarySm}>Clear All Caches</button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    {[
-                      { label: 'Total Cached', value: stats.tickerCache.total },
-                      { label: 'Resolved', value: stats.tickerCache.resolved, color: 'text-green-400' },
-                      { label: 'Failed', value: stats.tickerCache.failed, color: 'text-red-400' },
-                    ].map(({ label, value, color }) => (
-                      <div key={label} className={`bg-zinc-700 rounded-lg p-3`}>
-                        <p className={`text-xs text-zinc-400 mb-1`}>{label}</p>
-                        <p className={`font-bold text-2xl ${color || ''}`}>{value}</p>
                       </div>
                     ))}
                   </div>
@@ -719,162 +597,6 @@ export default function AdminPanel({ authUsername }) {
                   </div>
                   );
                 })}
-              </div>
-            )}
-
-            {/* TICKER MANAGEMENT */}
-            {tab === 'ticker-mgmt' && (
-              <div className="flex flex-col gap-4">
-
-                {/* Ticker Failures */}
-                <div className={`${card} overflow-hidden`}>
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-700/60">
-                    <h3 className="font-semibold text-sm">Unresolved Tickers</h3>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-sm text-zinc-400`}>{failures.length} unique</span>
-                      <button onClick={fetchFailures} className={`${btnSecondarySm} inline-flex items-center gap-1.5`}><IconRefresh size={12} />Refresh</button>
-                    </div>
-                  </div>
-                  {failures.length === 0 ? (
-                    <div className="p-10 text-center">
-                      <p className="font-semibold">No ticker failures</p>
-                      <p className={`text-sm mt-1 text-zinc-400`}>All tickers resolved successfully.</p>
-                    </div>
-                  ) : (
-                    <table className="w-full text-sm">
-                      <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
-                        <tr>
-                          {['Raw Ticker', 'ISIN', 'Name', 'Count', 'Users'].map(col => (
-                            <th key={col} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-zinc-400`}>{col}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {failures.map((f, i) => (
-                          <tr key={i} className={`border-t border-zinc-700 hover:bg-zinc-700/20`}>
-                            <td className="px-4 py-3 font-mono text-xs font-bold text-red-400">{f.key || '—'}</td>
-                            <td className={`px-4 py-3 text-xs font-mono text-zinc-400`}>{f.isin || '—'}</td>
-                            <td className={`px-4 py-3 text-xs text-zinc-300 max-w-xs truncate`}>{f.name || '—'}</td>
-                            <td className="px-4 py-3 text-xs font-bold">{f.count}</td>
-                            <td className={`px-4 py-3 text-xs text-zinc-400`}>{f.users.join(', ')}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-
-                {/* Override Management */}
-                <div className={`${card} p-5`}>
-                  <h3 className="font-semibold text-sm mb-3">Override Management</h3>
-                  <p className={`text-sm mb-4 text-zinc-300`}>
-                    Global overrides apply to <strong>all users</strong> and take priority over per-user overrides. Use this to pin commonly misresolved ISINs to the correct Yahoo Finance ticker.
-                  </p>
-                  <div className="flex gap-2 mb-3">
-                    <input value={goIsin} onChange={e => setGoIsin(e.target.value)} placeholder="ISIN (e.g. SE0025138357)" className={`${input} flex-1`} />
-                    <input value={goTicker} onChange={e => setGoTicker(e.target.value)} placeholder="YF ticker (e.g. HACK.ST)" className={`${input} flex-1`} />
-                    <button onClick={saveGlobalOverride} className={btnConfirmSm}>Save</button>
-                  </div>
-                  {goMsg && <p className={`text-xs mb-3 ${goMsg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>{goMsg}</p>}
-                  {goLoading ? (
-                    <div className="flex items-center gap-3 py-6 justify-center">
-                      <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                      <span className={`text-sm text-zinc-400`}>Loading overrides…</span>
-                    </div>
-                  ) : globalOverrides.length > 0 ? (
-                    <div className="flex flex-col gap-3">
-                      <input
-                        value={goSearch}
-                        onChange={e => setGoSearch(e.target.value)}
-                        placeholder="Search ISIN, ticker or added by…"
-                        className={input}
-                      />
-                      <div className={`rounded-xl overflow-hidden border border-zinc-700`}>
-                        <table className="w-full text-sm">
-                          <thead className={`bg-zinc-900 border-zinc-700 border-b`}>
-                            <tr>
-                              {['ISIN', 'Ticker', 'Name', 'Added by', 'Status', ''].map(col => (
-                                <th key={col} className={`px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-zinc-400`}>{col}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {globalOverrides.filter(o => {
-                              const q = goSearch.toLowerCase();
-                              return o.isin.toLowerCase().includes(q) ||
-                                o.ticker.toLowerCase().includes(q) ||
-                                (o.name||'').toLowerCase().includes(q) ||
-                                (o.created_by||'').toLowerCase().includes(q);
-                            }).map(o => (
-                              <tr key={o.isin} className={`border-t border-zinc-700 hover:bg-zinc-700/20`}>
-                                <td className={`px-4 py-2.5 font-mono text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.isin}</td>
-                                <td className={`px-4 py-2.5 font-mono text-xs font-bold text-white ${!o.active ? 'opacity-50' : ''}`}>{o.ticker}</td>
-                                <td className={`px-4 py-2.5 text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.name || <span className="text-zinc-400">—</span>}</td>
-                                <td className={`px-4 py-2.5 text-xs text-white ${!o.active ? 'opacity-50' : ''}`}>{o.created_by}</td>
-                                <td className="px-4 py-2.5">
-                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${o.active ? 'bg-green-900/40 text-green-400' : 'bg-zinc-700/40 text-zinc-400'}`}>
-                                    {o.active ? 'Active' : 'Disabled'}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
-                                  <div className="flex items-center justify-end gap-3">
-                                    <button onClick={() => toggleGlobalOverride(o.isin)} className={`text-xs font-medium transition ${o.active ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`}>
-                                      {o.active ? 'Disable' : 'Enable'}
-                                    </button>
-                                    <button onClick={() => deleteGlobalOverride(o.isin)} className="text-red-400 hover:text-red-300 text-xs font-medium transition">Remove</button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className={`text-sm text-zinc-400`}>No global overrides saved yet.</p>
-                  )}
-                  {globalOverrides.length > 0 && (
-                    <button onClick={() => { setClearAllModal(true); setClearAllPw(''); setClearAllError(''); }} className={`mt-4 ${btnDangerSm}`}>
-                      Clear all global overrides
-                    </button>
-                  )}
-                </div>
-
-                {/* Password confirmation modal */}
-                {clearAllModal && (
-                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                    <div className={`${card} p-6 w-full max-w-sm mx-4`}>
-                      <h3 className="font-bold text-lg mb-2">Confirm deletion</h3>
-                      <p className={`text-sm mb-4 text-zinc-300`}>
-                        This will delete all global ticker overrides for every user. Enter your password to confirm.
-                      </p>
-                      <input type="password" value={clearAllPw} onChange={e => setClearAllPw(e.target.value)} onKeyDown={e => e.key === 'Enter' && clearAllGlobalOverrides()} placeholder="Your password" className={`${input} mb-3`} autoFocus />
-                      {clearAllError && <p className="text-xs text-red-400 mb-3">{clearAllError}</p>}
-                      <div className="flex gap-2">
-                        <button onClick={clearAllGlobalOverrides} className={`flex-1 ${btnDangerSm}`}>Delete all</button>
-                        <button onClick={() => setClearAllModal(false)} className={`flex-1 ${btnSecondarySm}`}>Cancel</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {removeModal && (
-                  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                    <div className={`${card} p-6 w-full max-w-sm mx-4`}>
-                      <h3 className="font-bold text-lg mb-2">Confirm removal</h3>
-                      <p className={`text-sm mb-1 text-zinc-400`}>
-                        Remove global override for <span className="font-mono font-bold">{removeModal}</span>?
-                      </p>
-                      <p className={`text-sm mb-4 text-zinc-300`}>Enter your password to confirm.</p>
-                      <input type="password" value={removePw} onChange={e => setRemovePw(e.target.value)} onKeyDown={e => e.key === 'Enter' && confirmDeleteGlobalOverride()} placeholder="Your password" className={`${input} mb-3`} autoFocus />
-                      {removeError && <p className="text-xs text-red-400 mb-3">{removeError}</p>}
-                      <div className="flex gap-2">
-                        <button onClick={confirmDeleteGlobalOverride} className={`flex-1 ${btnDangerSm}`}>Remove</button>
-                        <button onClick={() => setRemoveModal(null)} className={`flex-1 ${btnSecondarySm}`}>Cancel</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1091,109 +813,13 @@ export default function AdminPanel({ authUsername }) {
               </div>
             )}
 
-            {/* DIAGNOSTICS */}
+            {/* LOG */}
             {tab === 'log' && (
               <div className="flex flex-col gap-5">
                 <p className="text-sm text-zinc-400">Every action taken by admins and moderators — who did it, to whom, and when.</p>
                 <ModLog />
               </div>
             )}
-
-            {tab === 'diagnostics' && (
-              <div className="flex flex-col gap-5">
-
-                <div className="flex items-center justify-between">
-                  <p className={`text-sm text-zinc-400`}>Live connectivity test against market data APIs.</p>
-                  <button onClick={fetchDiag} disabled={diagLoading} className={`${btnSecondarySm} disabled:opacity-50`}>
-                    {diagLoading ? 'Running...' : 'Run Test'}
-                  </button>
-                </div>
-
-                {diagLoading && !diagData ? (
-                  <div className="flex items-center gap-3 py-12 justify-center">
-                    <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>
-                    <span className={`text-sm text-zinc-400`}>Running diagnostics…</span>
-                  </div>
-                ) : diagData?.error ? (
-                  <div className={`${card} p-5 text-sm text-red-400`}>{diagData.error}</div>
-                ) : diagData ? (
-                  <>
-                    <div className={`${card} p-5`}>
-                      <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>API Keys</h2>
-                      <div className="grid grid-cols-3 gap-4">
-                        {[
-                          { label: 'Finnhub', ok: diagData.finnhubKeySet, statusText: diagData.finnhubKeySet ? 'Configured' : 'Missing' },
-                          { label: 'Tiingo', ok: diagData.tiingoKeySet, statusText: diagData.tiingoKeySet ? 'Configured' : 'Missing' },
-                          { label: 'Yahoo Finance', ok: diagData.yahooProbe?.status === 200, statusText: diagData.yahooProbe?.status === 200 ? 'Reachable' : diagData.yahooProbe ? 'Unreachable' : '—' },
-                        ].map(({ label, ok, statusText }) => (
-                          <div key={label} className="bg-zinc-700 rounded-lg p-3 flex items-center gap-3">
-                            <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ok ? 'bg-green-400' : 'bg-red-400'}`}/>
-                            <span className="text-sm font-semibold">{label}</span>
-                            <span className={`text-xs ml-auto ${ok ? 'text-green-400' : 'text-red-400'}`}>{statusText}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className={`${card} p-5`}>
-                      <h2 className={`text-xs font-bold uppercase tracking-wider mb-4 text-zinc-400`}>Connectivity</h2>
-                      <div className="flex flex-col gap-3">
-                        {[
-                          { label: 'US Market', subtitle: 'Finnhub', results: diagData.us, fmtPrice: p => `$${p.toFixed(2)}` },
-                          { label: 'Nordic Market', subtitle: 'Yahoo Finance', results: diagData.nordic, fmtPrice: p => `${p.toFixed(2)} kr` },
-                        ].map(({ label, subtitle, results, fmtPrice }) => {
-                          const okCount = results.filter(r => r.ok).length;
-                          const allOk = okCount === results.length;
-                          const anyOk = okCount > 0;
-                          return (
-                            <div key={label} className="bg-zinc-700/50 rounded-xl p-4">
-                              <div className="flex items-center gap-3 mb-3">
-                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${allOk ? 'bg-green-400' : anyOk ? 'bg-yellow-400' : 'bg-red-400'}`}/>
-                                <p className="text-sm font-semibold">{label}</p>
-                                <span className={`text-xs text-zinc-400`}>{subtitle}</span>
-                                <span className={`text-xs ml-auto font-semibold ${allOk ? 'text-green-400' : anyOk ? 'text-yellow-400' : 'text-red-400'}`}>
-                                  {okCount}/{results.length} OK
-                                </span>
-                              </div>
-                              <div className="flex flex-col gap-1.5">
-                                {results.map(r => (
-                                  <div key={r.symbol} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-zinc-800/60">
-                                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${r.ok ? 'bg-green-400' : 'bg-red-400'}`}/>
-                                    <span className="font-mono text-xs text-zinc-300">{r.symbol}</span>
-                                    {r.ok
-                                      ? <span className="text-xs text-green-400 ml-auto">{fmtPrice(r.price)}</span>
-                                      : <span className="text-xs text-red-400 ml-auto">{r.error || 'Failed'}</span>}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {[
-                      { label: 'Finnhub Raw Probe', hint: 'AAPL', probe: diagData.finnhubProbe },
-                      { label: 'Yahoo Finance Raw Probe', hint: 'VOLV-B.ST', probe: diagData.yahooProbe },
-                    ].filter(p => p.probe).map(({ label, hint, probe }) => (
-                      <div key={label} className={`${card} p-5`}>
-                        <h2 className="text-xs font-bold uppercase tracking-wider mb-3 text-zinc-400">{label} <span className="text-zinc-600 normal-case font-normal">({hint})</span></h2>
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className={`text-xs font-mono font-bold ${probe.status === 200 ? 'text-green-400' : 'text-red-400'}`}>
-                            HTTP {probe.status ?? 'error'}
-                          </span>
-                          {probe.error && <span className="text-xs text-red-400">{probe.error}</span>}
-                        </div>
-                        {probe.body && (
-                          <pre className="text-xs font-mono text-zinc-400 bg-zinc-900 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">{probe.body}</pre>
-                        )}
-                      </div>
-                    ))}
-                  </>
-                ) : null}
-              </div>
-            )}
-
             {/* ANNOUNCEMENTS */}
             {tab === 'announcements' && (
               <div className="flex flex-col gap-5">
