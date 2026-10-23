@@ -758,7 +758,7 @@ export default function App() {
                 {authStatus==='logged-out' && allowRegistration === true && !isSignup && (
                   <button onClick={()=>{setAuthMode('signup');setAuthError('');setAuthForm({username:'',email:'',password:'',confirmPassword:'',newPassword:''});}} className="text-sm font-semibold text-center text-zinc-400 hover:text-zinc-200 transition">Create an account</button>
                 )}
-                {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className="text-xs text-center text-zinc-400">Registration is currently disabled.</p>}
+                {authStatus==='logged-out' && allowRegistration === false && authMode==='login' && <p className="text-xs text-center text-zinc-400">Registration is currently closed.</p>}
                 {!isSignup && <button onClick={()=>{setAuthMode('forgot-password');setAuthError('');setAuthForm(f=>({...f,email:''}));}} className="text-xs font-semibold text-center text-zinc-400 hover:text-zinc-200 transition">Forgot password?</button>}
               </div>
             </div>
