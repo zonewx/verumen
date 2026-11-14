@@ -49,7 +49,14 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
   const targetUser = viewUsername || authUsername;
 
   // Your friendship with the profile being viewed: 'none' | 'outgoing' | 'incoming' | 'friends'
-  const [relation, setRelation] = useState(null);
+  // Seeded from the cached /api/friends (warmed at login) so the buttons render on the first paint
+  const relationFrom = d => {
+    if (!d || typeof d !== 'object') return null;
+    const me = targetUser.toLowerCase();
+    const has = list => (list || []).some(x => (typeof x === 'string' ? x : x.username)?.toLowerCase() === me);
+    return has(d.friends) ? 'friends' : has(d.incoming) ? 'incoming' : has(d.outgoing) ? 'outgoing' : 'none';
+  };
+  const [relation, setRelation] = useState(() => (isOwnProfile ? null : relationFrom(apiCache.get('/api/friends'))));
   const [relationBusy, setRelationBusy] = useState(false);
   const [friendMenuOpen, setFriendMenuOpen] = useState(false);
   const friendMenuRef = useRef(null);
@@ -61,19 +68,22 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [friendMenuOpen]);
-  useEffect(() => {
-    setRelation(null);
+  function refreshRelation() {
     const token = getToken();
     if (!authUsername || isOwnProfile || !token) return;
     fetch('/api/friends', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!d) return;
-        const me = targetUser.toLowerCase();
-        const has = list => (list || []).some(x => (typeof x === 'string' ? x : x.username).toLowerCase() === me);
-        setRelation(has(d.friends) ? 'friends' : has(d.incoming) ? 'incoming' : has(d.outgoing) ? 'outgoing' : 'none');
+        apiCache.set('/api/friends', d);
+        setRelation(relationFrom(d));
       })
       .catch(() => {});
+  }
+  useEffect(() => {
+    // Show the cached relation immediately, then revalidate in the background
+    setRelation(isOwnProfile ? null : relationFrom(apiCache.get('/api/friends')));
+    refreshRelation();
   }, [targetUser, authUsername]);
 
   async function friendAction(action) {
@@ -93,6 +103,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
       else if (action === 'decline') { setRelation('none'); flash('Friend request declined'); }
       else { setRelation('none'); flash(relation === 'outgoing' ? 'Friend request cancelled' : `Unfriended ${targetUser}`); }
       loadFriends();
+      refreshRelation(); // keeps the cached /api/friends in sync with the action just taken
       window.dispatchEvent(new Event('friends-updated'));
     } finally { setRelationBusy(false); }
   }
@@ -412,7 +423,7 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
             {activeTab === 'cs-trades' && (
               <div className={`${card} overflow-hidden`}>
                 {!profile.publicCsTrades && !isOwnProfile ? (
-                  <p className="text-center py-10 text-sm text-zinc-400">CS holdings are private</p>
+                  <p className="text-center py-10 text-sm text-zinc-400">Holdings are private</p>
                 ) : loadingCsTrades ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="w-6 h-6 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin"/>

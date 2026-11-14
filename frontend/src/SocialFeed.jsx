@@ -4,6 +4,7 @@ import apiCache from './apiCache';
 import { IconX } from './icons';
 import { useIsOnline, isRealtimeLive } from './presence';
 import { getToken } from './tokenStore';
+import { contentColumn } from './ui';
 import { flash } from './flash';
 
 const skinIconCache = {};
@@ -549,7 +550,8 @@ export default function SocialFeed({ authUsername, onViewProfile }) {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="px-6 py-6 flex gap-6">
+      {/* Same max width as the top bar, so the friends panel lines up with its right edge */}
+      <div className={`${contentColumn} px-6 py-6 flex gap-6`}>
 
         {/* Left spacer mirrors friends panel width so feed centers in content area */}
         <div className="w-64 shrink-0 hidden xl:block" />
