@@ -4,7 +4,7 @@ import GlobalBar from './GlobalBar';
 import { TOPBAR_H, contentColumn } from './ui';
 import apiCache from './apiCache';
 import { getToken, setToken, clearToken } from './tokenStore';
-import { IconAlert, IconSpinner, IconRefresh, IconSearch } from './icons';
+import { IconAlert } from './icons';
 import { flash } from './flash';
 import { startPresence, stopPresence } from './presence';
 
@@ -17,22 +17,6 @@ const SocialFeed = lazy(() => import('./SocialFeed'));
 const FriendsPage = lazy(() => import('./FriendsPage'));
 const SettingsPage = lazy(() => import('./SettingsPage'));
 const TradeSharePage = lazy(() => import('./TradeSharePage'));
-
-function RetryCountdown({ onRetry }) {
-  const [secs, setSecs] = useState(25);
-  const onRetryRef = useRef(onRetry);
-  onRetryRef.current = onRetry;
-  useEffect(() => {
-    let remaining = 25;
-    const tick = setInterval(() => {
-      remaining--;
-      if (remaining <= 0) { clearInterval(tick); setSecs(0); onRetryRef.current(); }
-      else setSecs(remaining);
-    }, 1000);
-    return () => clearInterval(tick);
-  }, []);
-  return <span className="shrink-0 font-semibold opacity-70">Retrying in {secs}s…</span>;
-}
 
 function ProfileRoute({ authUsername, authToken, shellProps }) {
   const { username } = useParams();
@@ -538,6 +522,10 @@ export default function App() {
           <rect width="100%" height="100%" filter="url(#grain)"/>
         </svg>
         <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.75) 100%)'}} />
+        {/* Raised below lg so it doesn't run into the contact line on narrower screens */}
+        <p className="fixed inset-x-0 bottom-10 lg:bottom-4 mx-auto max-w-xl px-4 text-center text-[11px] leading-relaxed text-zinc-600 pointer-events-none select-none z-40">
+          Verumen is independently operated and not affiliated with any other entity.
+        </p>
         <p className="fixed bottom-4 right-5 text-xs text-zinc-500 pointer-events-none select-none z-50">Issues? contact: <a href="mailto:w@verumen.com" className="text-zinc-400 hover:text-zinc-300 transition pointer-events-auto">w@verumen.com</a></p>
       </div>
     );
