@@ -332,6 +332,16 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
               })()}
               {(profile.steamVerified || isOwnProfile || relation) && (
                 <div className="flex items-center gap-2 mt-auto">
+                  {profile.steamVerified && (
+                    <a
+                      href={`https://steamcommunity.com/profiles/${profile.steamId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-zinc-300 hover:text-white"
+                    >
+                      Steam profile
+                    </a>
+                  )}
                   {relation && (() => {
                     const base = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition border disabled:opacity-50';
                     const grey = 'bg-zinc-700 hover:bg-zinc-600 border-zinc-600 text-zinc-200';
@@ -360,16 +370,6 @@ export default function ProfilePageView({ authUsername, viewUsername = null, aut
                       </div>
                     );
                   })()}
-                  {profile.steamVerified && (
-                    <a
-                      href={`https://steamcommunity.com/profiles/${profile.steamId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold transition bg-zinc-700 hover:bg-zinc-600 border border-zinc-600 text-zinc-300 hover:text-white"
-                    >
-                      Steam profile
-                    </a>
-                  )}
                   {isOwnProfile && (
                     <a
                       href={`/user/${targetUser}/edit`}

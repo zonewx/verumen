@@ -1739,12 +1739,17 @@ const [inventory, setInventory] = useState(() => apiCache.get('/api/cs/inventory
                                           }
                                         </div>
                                       </div>
-                                      {/* Center: screenshot */}
-                                      {screenshotUrl && (
-                                        <div className="shrink-0 max-w-lg w-full self-start">
+                                      {/* Right: screenshot, or a same-sized placeholder so every row has the same layout */}
+                                      <div className="shrink-0 max-w-lg w-full self-start">
+                                        {screenshotUrl ? (
                                           <SteamScreenshotEmbed url={screenshotUrl} />
-                                        </div>
-                                      )}
+                                        ) : (
+                                          <div className="mt-2 aspect-video rounded-xl border border-dashed border-zinc-700 bg-zinc-700/10 flex flex-col items-center justify-center gap-2 text-zinc-600 select-none">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                                            <span className="text-sm italic">No screenshot</span>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </td>
                                 </tr>
