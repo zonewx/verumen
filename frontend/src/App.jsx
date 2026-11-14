@@ -523,7 +523,7 @@ export default function App() {
         </svg>
         <div className="absolute inset-0 pointer-events-none" style={{background:'radial-gradient(ellipse at 50% 50%, transparent 35%, rgba(0,0,0,0.75) 100%)'}} />
         {/* Raised below lg so it doesn't run into the contact line on narrower screens */}
-        <p className="fixed inset-x-0 bottom-10 lg:bottom-4 mx-auto max-w-xl px-4 text-center text-[11px] leading-relaxed text-zinc-600 pointer-events-none select-none z-40">
+        <p className="fixed inset-x-0 bottom-10 lg:bottom-4 mx-auto max-w-xl px-4 text-center text-[11px] italic tracking-wide leading-relaxed text-zinc-600 pointer-events-none select-none z-40">
           Verumen is independently operated and not affiliated with any other entity.
         </p>
         <p className="fixed bottom-4 right-5 text-xs text-zinc-500 pointer-events-none select-none z-50">Issues? contact: <a href="mailto:w@verumen.com" className="text-zinc-400 hover:text-zinc-300 transition pointer-events-auto">w@verumen.com</a></p>
